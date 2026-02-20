@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*
+.DS_Store
+*.log
+.codex/
+.openai/
+output/playwright/
+test-results/
+playwright-report/
