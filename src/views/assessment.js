@@ -51,7 +51,7 @@ export function renderAssessment(container) {
         localScores[m.id] = 3;
       }
     });
-    
+
     SA_QUESTIONS.forEach(q => {
       if (localSAResponses[q.id] === undefined) {
         localSAResponses[q.id] = q.options ? 0 : false;
@@ -217,7 +217,10 @@ function renderStep(container) {
               <span class="metric-id">${m.id}</span>
               <span class="metric-name">${m.name}</span>
             </div>
-            <div class="metric-score-display" id="score-${m.id}" style="color:${scoreColor}">${val}</div>
+            <div class="flex items-center gap-sm">
+              ${m.guidedQuestions ? `<button class="btn btn-sm btn-outline wizard-btn" data-metric="${m.id}" style="font-size: 11px; padding: 2px 8px;">Help me choose</button>` : ''}
+              <div class="metric-score-display" id="score-${m.id}" style="color:${scoreColor}">${val}</div>
+            </div>
           </div>
           <input type="range" class="range-slider" id="slider-${m.id}" min="1" max="5" step="1" value="${val}">
           <div class="metric-anchors">
@@ -225,6 +228,7 @@ function renderStep(container) {
             <span>${m.anchors[5]}</span>
           </div>
           <div class="metric-description" id="desc-${m.id}">${m.anchors[val] || ''}</div>
+          <div class="metric-wizard hidden" id="wizard-${m.id}" style="display: none; margin-top: 12px; padding: 16px; background: rgba(99,102,241,0.05); border-radius: 8px; border: 1px solid var(--accent-primary-light);"></div>
         </div>`;
   }).join('')}
     </div>
@@ -234,24 +238,93 @@ function renderStep(container) {
   dimMetrics.forEach(m => {
     const slider = content.querySelector(`#slider-${m.id}`);
     slider.addEventListener('input', (e) => {
-      const v = parseInt(e.target.value);
-      localScores[m.id] = v;
-      const display = content.querySelector(`#score-${m.id}`);
-      display.textContent = v;
-      display.style.color = v >= 4 ? 'var(--level-comprehensive)' : v >= 2.5 ? 'var(--level-standard)' : 'var(--level-basic)';
-      content.querySelector(`#desc-${m.id}`).textContent = m.anchors[v] || '';
-      // Update dim avg
-      const avg = (dimMetrics.reduce((s, x) => s + (localScores[x.id] || 3), 0) / dimMetrics.length).toFixed(1);
-      container.querySelector('.dim-avg strong').textContent = avg;
+      setMetricScore(m.id, parseInt(e.target.value), content);
     });
+
+    const wizardBtn = content.querySelector(`.wizard-btn[data-metric="${m.id}"]`);
+    if (wizardBtn) {
+      wizardBtn.addEventListener('click', () => startWizard(m.id, content));
+    }
   });
+}
+
+function setMetricScore(metricId, value, contentContainer) {
+  const m = METRICS.find(x => x.id === metricId);
+  localScores[metricId] = value;
+  const slider = contentContainer.querySelector(`#slider-${metricId}`);
+  if (slider && slider.value != value) slider.value = value;
+
+  const display = contentContainer.querySelector(`#score-${metricId}`);
+  if (display) {
+    display.textContent = value;
+    display.style.color = value >= 4 ? 'var(--level-comprehensive)' : value >= 2.5 ? 'var(--level-standard)' : 'var(--level-basic)';
+  }
+
+  const desc = contentContainer.querySelector(`#desc-${metricId}`);
+  if (desc) desc.textContent = m.anchors[value] || '';
+
+  // Update dim avg
+  const dimMetrics = METRICS.filter(x => x.dimension === m.dimension);
+  const avg = (dimMetrics.reduce((s, x) => s + (localScores[x.id] || 3), 0) / dimMetrics.length).toFixed(1);
+  const avgDisplay = document.querySelector('.dim-avg strong');
+  if (avgDisplay) avgDisplay.textContent = avg;
+}
+
+function startWizard(metricId, contentContainer) {
+  const metric = METRICS.find(m => m.id === metricId);
+  const wizardDiv = contentContainer.querySelector(`#wizard-${metricId}`);
+  if (!wizardDiv) return;
+
+  if (wizardDiv.style.display === 'block') {
+    wizardDiv.style.display = 'none'; // toggle off
+    return;
+  }
+
+  wizardDiv.style.display = 'block';
+  let currentQ = 0;
+
+  const renderQ = () => {
+    if (currentQ >= metric.guidedQuestions.length) {
+      setMetricScore(metricId, 1, contentContainer);
+      wizardDiv.innerHTML = `<div class="text-sm font-semibold mb-sm">Recommended Score: 1</div>
+                             <div class="text-xs text-secondary mb-md">You answered 'No' to all key indicators.</div>
+                             <button class="btn btn-sm btn-outline close-wizard">Done</button>`;
+      wizardDiv.querySelector('.close-wizard').addEventListener('click', () => wizardDiv.style.display = 'none');
+      return;
+    }
+
+    const q = metric.guidedQuestions[currentQ];
+    wizardDiv.innerHTML = `
+      <div class="text-xs text-secondary mb-sm">Question ${currentQ + 1} of ${metric.guidedQuestions.length}</div>
+      <div class="text-sm font-semibold mb-md">${q.text}</div>
+      <div class="flex gap-sm">
+        <button class="btn btn-sm btn-primary yes-btn" style="min-width: 60px;">Yes</button>
+        <button class="btn btn-sm btn-outline no-btn" style="min-width: 60px;">No</button>
+      </div>
+    `;
+
+    wizardDiv.querySelector('.yes-btn').addEventListener('click', () => {
+      setMetricScore(metricId, q.yesScore, contentContainer);
+      wizardDiv.innerHTML = `<div class="text-sm font-semibold text-success mb-sm">Recommended Score: ${q.yesScore}</div>
+                             <div class="text-xs text-secondary mb-md">Score automatically applied.</div>
+                             <button class="btn btn-sm btn-outline close-wizard">Done</button>`;
+      wizardDiv.querySelector('.close-wizard').addEventListener('click', () => wizardDiv.style.display = 'none');
+    });
+
+    wizardDiv.querySelector('.no-btn').addEventListener('click', () => {
+      currentQ++;
+      renderQ();
+    });
+  };
+
+  renderQ();
 }
 
 function renderAssuranceStep(content) {
   const saTier = calculateSATier(localSAResponses);
   const tierColors = {
     'I': '#3b82f6',
-    'II': '#f59e0b', 
+    'II': '#f59e0b',
     'III': '#ef4444',
     'IV': '#7c3aed'
   };
@@ -269,9 +342,9 @@ function renderAssuranceStep(content) {
     
     <div class="sa-questions">
       ${SA_QUESTIONS.map(q => {
-        const val = localSAResponses[q.id];
-        if (q.options) {
-          return `
+    const val = localSAResponses[q.id];
+    if (q.options) {
+      return `
             <div class="metric-item">
               <div class="metric-header">
                 <div class="flex items-center gap-sm">
@@ -288,8 +361,8 @@ function renderAssuranceStep(content) {
                 `).join('')}
               </div>
             </div>`;
-        }
-        return `
+    }
+    return `
             <div class="metric-item">
               <div class="metric-header">
                 <div class="flex items-center gap-sm">
@@ -303,7 +376,7 @@ function renderAssuranceStep(content) {
               </div>
               <div class="text-xs text-secondary mt-sm">Weight: ${q.weight} point${q.weight > 1 ? 's' : ''}</div>
             </div>`;
-      }).join('')}
+  }).join('')}
     </div>
   `;
 
@@ -348,14 +421,14 @@ function renderResults(content) {
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const result = runFullAssessment(localScores, matrixMap, localSAResponses);
   const saTier = result.saTier || calculateSATier(localSAResponses);
-  
+
   const tierColors = {
     'I': '#3b82f6',
-    'II': '#f59e0b', 
+    'II': '#f59e0b',
     'III': '#ef4444',
     'IV': '#7c3aed'
   };
-  
+
   const groupByGroup = {};
   CORE_PROCESSES.forEach(p => {
     if (!groupByGroup[p.group]) groupByGroup[p.group] = [];

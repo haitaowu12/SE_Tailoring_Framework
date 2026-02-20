@@ -133,25 +133,36 @@ function renderProcessDetail(processId, state) {
 
       <div class="detail-section">
         <h4>Activities (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(⭐ = Essential core activity)</span></h4>
-        ${activities.map(a => `<div class="activity-item ${a.startsWith('(*)') ? 'essential' : ''}">${a.startsWith('(*)') ? '⭐ ' + a.slice(4) : '• ' + a}</div>`).join('')}
+        ${activities.map(a => {
+    let isEssential = a.startsWith('(*)');
+    let text = isEssential ? a.slice(4) : a;
+    let disabled = false; let reason = '';
+    const m5Score = state.scores?.M5 || 3;
+    const m6Score = state.scores?.M6 || 3;
+    if (text.includes('[Safety]') && m5Score < 3) { disabled = true; reason = '(M5 < 3)'; }
+    if (text.includes('[RAM]') && m6Score < 3) { disabled = true; reason = '(M6 < 3)'; }
+    return `<div class="activity-item ${isEssential ? 'essential' : ''}" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
+            ${isEssential ? '⭐ ' : '• '} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${text}</span>
+            ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
+          </div>`;
+  }).join('')}
       </div>
 
       <div class="detail-section">
         <h4>Deliverables (${deliverables.length})</h4>
-        ${deliverables.map(d => `<div class="deliverable-item">📄 ${d}</div>`).join('')}
+        ${deliverables.map(d => {
+    let text = d;
+    let disabled = false; let reason = '';
+    const m5Score = state.scores?.M5 || 3;
+    const m6Score = state.scores?.M6 || 3;
+    if (text.includes('[Safety]') && m5Score < 3) { disabled = true; reason = '(M5 < 3)'; }
+    if (text.includes('[RAM]') && m6Score < 3) { disabled = true; reason = '(M6 < 3)'; }
+    return `<div class="deliverable-item" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
+            📄 <span style="${disabled ? 'text-decoration: line-through;' : ''}">${text}</span>
+            ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
+          </div>`;
+  }).join('')}
       </div>
-
-      ${details?.saActivities?.length ? `
-      <div class="detail-section" style="background: rgba(239,68,68,0.06); border-radius: 10px; padding: 16px; border-left: 3px solid #ef4444;">
-        <h4>🔒 System Assurance Activities</h4>
-        ${details.saActivities.map(a => `<div class="activity-item">🛡️ ${a}</div>`).join('')}
-      </div>` : ''}
-
-      ${details?.saDeliverables?.length ? `
-      <div class="detail-section" style="background: rgba(239,68,68,0.06); border-radius: 10px; padding: 16px; border-left: 3px solid #ef4444;">
-        <h4>🔒 System Assurance Deliverables</h4>
-        ${details.saDeliverables.map(d => `<div class="deliverable-item">📋 ${d}</div>`).join('')}
-      </div>` : ''}
 
       <div class="detail-section">
         <h4>Outputs & Feeds Into</h4>

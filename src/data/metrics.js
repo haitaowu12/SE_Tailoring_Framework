@@ -14,68 +14,164 @@ export const DIMENSIONS = [
 export const METRICS = [
     {
         id: 'M1', name: 'Architectural Complexity', dimension: 'complexity',
-        anchors: { 1: 'Few elements, simple interactions', 3: 'Multiple elements, known patterns', 5: 'Many elements, non-linear interactions' }
+        anchors: { 1: 'Few elements, simple interactions', 3: 'Multiple elements, known patterns', 5: 'Many elements, non-linear interactions' },
+        guidedQuestions: [
+            { text: "Does the system involve multiple interacting systems-of-systems with emergent, unpredictable behaviors?", yesScore: 5 },
+            { text: "Are there numerous customized elements with significant, non-linear interactions?", yesScore: 4 },
+            { text: "Is the architecture composed of multiple elements but follows known, proven industry patterns?", yesScore: 3 },
+            { text: "Does the system require custom integration of just a few standard components?", yesScore: 2 }
+        ]
     },
     {
         id: 'M2', name: 'Interface Complexity', dimension: 'complexity',
-        anchors: { 1: 'Simple, well-defined', 3: 'Multiple, need coordination', 5: 'Complex with emergent behaviors' }
+        anchors: { 1: 'Simple, well-defined', 3: 'Multiple, need coordination', 5: 'Complex with emergent behaviors' },
+        guidedQuestions: [
+            { text: "Does the system rely on multiple complex, undefined, or evolving external interfaces across different organizations?", yesScore: 5 },
+            { text: "Are there numerous internal and external interfaces that require formal ICDs (Interface Control Documents) and tight coordination?", yesScore: 4 },
+            { text: "Does the system have several well-defined interfaces but few external dependencies?", yesScore: 3 },
+            { text: "Are there only a few simple interfaces using standard communication protocols?", yesScore: 2 }
+        ]
     },
     {
         id: 'M3', name: 'Technology Maturity', dimension: 'complexity',
-        anchors: { 1: 'Proven technologies', 3: 'Mix of mature and emerging', 5: 'Novel or unproven' }
+        anchors: { 1: 'Proven technologies', 3: 'Mix of mature and emerging', 5: 'Novel or unproven' },
+        guidedQuestions: [
+            { text: "Does the system rely on novel, unproven, or bleeding-edge technologies (TRL 1-4)?", yesScore: 5 },
+            { text: "Does the system use emerging technologies that have not been widely adopted in your specific industry (TRL 5-6)?", yesScore: 4 },
+            { text: "Is the system a mix of mostly mature technologies and some recent, but proven, innovations (TRL 7-8)?", yesScore: 3 },
+            { text: "Are all core technologies fully mature, but being applied in a slightly new configuration?", yesScore: 2 }
+        ]
     },
     {
         id: 'M4', name: 'Integration Complexity', dimension: 'complexity',
-        anchors: { 1: 'Straightforward', 3: 'Requires systematic planning', 5: 'Cross-domain dependencies' }
+        anchors: { 1: 'Straightforward', 3: 'Requires systematic planning', 5: 'Cross-domain dependencies' },
+        guidedQuestions: [
+            { text: "Does the system require complex integration across multiple engineering disciplines, diverse contractors, and legacy systems?", yesScore: 5 },
+            { text: "Are there significant integration challenges requiring custom middleware, bridging adapters, or hardware modifications?", yesScore: 4 },
+            { text: "Does the integration require systematic planning but utilizes standard APIs and well-documented physical interfaces?", yesScore: 3 },
+            { text: "Is the integration straightforward, involving primarily plug-and-play or minor software configurations?", yesScore: 2 }
+        ]
     },
     {
         id: 'M5', name: 'Safety Impact', dimension: 'safety',
-        anchors: { 1: 'No safety implications', 3: 'Moderate safety concerns', 5: 'Safety-critical, potential harm' }
+        anchors: { 1: 'No safety implications', 3: 'Moderate safety concerns', 5: 'Safety-critical, potential harm' },
+        guidedQuestions: [
+            { text: "Could a system failure directly lead to fatalities, severe injuries, or catastrophic damage (Life Safety / Tier 3)?", yesScore: 5 },
+            { text: "Could a failure result in minor injuries, regulatory non-compliance, or significant property damage (Safety Relevant / Tier 2+)?", yesScore: 4 },
+            { text: "Does the system manage processes where failure causes standard occupational safety concerns that are easily mitigated?", yesScore: 3 },
+            { text: "Are there only indirect or very minor safety implications requiring basic situational awareness?", yesScore: 2 }
+        ]
     },
     {
         id: 'M6', name: 'Mission Criticality', dimension: 'safety',
-        anchors: { 1: 'Low mission impact', 3: 'Moderate mission impact', 5: 'Mission-critical' }
+        anchors: { 1: 'Low mission impact', 3: 'Moderate mission impact', 5: 'Mission-critical' },
+        guidedQuestions: [
+            { text: "Would a system failure result in a complete inability to perform the primary organizational mission (e.g., total system stoppage, massive revenue loss)?", yesScore: 5 },
+            { text: "Would a failure severely degrade mission performance, requiring immediate emergency workarounds and significant downtime?", yesScore: 4 },
+            { text: "Would a failure cause moderate disruption that can be managed with standard operational backups or redundancies?", yesScore: 3 },
+            { text: "Would a failure cause a minor inconvenience with minimal impact on core business or transit functions?", yesScore: 2 }
+        ]
     },
     {
         id: 'M7', name: 'Environmental Impact', dimension: 'safety',
-        anchors: { 1: 'Minimal concerns', 3: 'Moderate considerations', 5: 'Significant environmental risks' }
+        anchors: { 1: 'Minimal concerns', 3: 'Moderate considerations', 5: 'Significant environmental risks' },
+        guidedQuestions: [
+            { text: "Could the system cause catastrophic, irreversible environmental damage or major public health crises?", yesScore: 5 },
+            { text: "Is there potential for significant environmental pollution requiring extensive mitigation, permits, and reporting?", yesScore: 4 },
+            { text: "Are there moderate environmental considerations that require standard mitigation limits and routine monitoring?", yesScore: 3 },
+            { text: "Does the system have a minor environmental footprint (e.g., standard waste disposal, moderate energy use)?", yesScore: 2 }
+        ]
     },
     {
         id: 'M8', name: 'Regulatory Compliance', dimension: 'safety',
-        anchors: { 1: 'Minimal requirements', 3: 'Standard compliance', 5: 'Extensive regulatory framework' }
+        anchors: { 1: 'Minimal requirements', 3: 'Standard compliance', 5: 'Extensive regulatory framework' },
+        guidedQuestions: [
+            { text: "Is the system subject to an extensive, complex web of strict federal/international regulations requiring rigorous independent certification?", yesScore: 5 },
+            { text: "Are there significant, specific regulatory standards that mandate formal auditing, traceability, and compliance reporting?", yesScore: 4 },
+            { text: "Does the system need to comply with standard industry codes and municipal regulations?", yesScore: 3 },
+            { text: "Are there only basic internal policies or minor local guidelines to follow?", yesScore: 2 }
+        ]
     },
     {
         id: 'M9', name: 'Schedule Pressure', dimension: 'constraints',
-        anchors: { 1: 'Flexible timeline', 3: 'Moderate constraints', 5: 'Aggressive, immovable deadlines' }
+        anchors: { 1: 'Flexible timeline', 3: 'Moderate constraints', 5: 'Aggressive, immovable deadlines' },
+        guidedQuestions: [
+            { text: "Are there aggressive, immovable deadlines where a delay causes catastrophic project failure or massive financial penalties?", yesScore: 5 },
+            { text: "Is the schedule very tight, requiring frequent concurrent engineering and significant planned overtime?", yesScore: 4 },
+            { text: "Are there moderate schedule constraints requiring careful management and critical path tracking?", yesScore: 3 },
+            { text: "Is the timeline slightly accelerated but generally comfortable?", yesScore: 2 }
+        ]
     },
     {
         id: 'M10', name: 'Budget Constraints', dimension: 'constraints',
-        anchors: { 1: 'Adequate budget', 3: 'Careful management needed', 5: 'Tight, limited flexibility' }
+        anchors: { 1: 'Adequate budget', 3: 'Careful management needed', 5: 'Tight, limited flexibility' },
+        guidedQuestions: [
+            { text: "Is the budget extremely tight with absolutely no contingency, where any overrun kills the project?", yesScore: 5 },
+            { text: "Are funds highly restricted, requiring constant rigorous cost control and major scope trade-offs?", yesScore: 4 },
+            { text: "Is the budget carefully managed with standard management reserves and contingencies in place?", yesScore: 3 },
+            { text: "Are funds adequately provisioned with comfortable margins for error?", yesScore: 2 }
+        ]
     },
     {
         id: 'M11', name: 'Team Experience', dimension: 'constraints',
-        anchors: { 1: 'Highly experienced', 3: 'Mixed experience', 5: 'Limited relevant experience' }
+        anchors: { 1: 'Highly experienced', 3: 'Mixed experience', 5: 'Limited relevant experience' },
+        guidedQuestions: [
+            { text: "Is the team completely new to this type of system, domain, and technology, lacking relevant prior experience?", yesScore: 5 },
+            { text: "Does the team have significant skill gaps requiring external consultants or extensive ramp-up training?", yesScore: 4 },
+            { text: "Is there a mix of experienced seniors and junior members needing standard supervision?", yesScore: 3 },
+            { text: "Is the team mostly experienced with this technology, with only one or two minor unfamiliar areas?", yesScore: 2 }
+        ]
     },
     {
         id: 'M12', name: 'Geographic Distribution', dimension: 'constraints',
-        anchors: { 1: 'Co-located', 3: 'Partially distributed', 5: 'Globally distributed' }
+        anchors: { 1: 'Co-located', 3: 'Partially distributed', 5: 'Globally distributed' },
+        guidedQuestions: [
+            { text: "Is the team globally distributed across multiple incompatible time zones with significant language/cultural barriers?", yesScore: 5 },
+            { text: "Are key development, testing, and management teams located in distinctly different geographical regions making coordination difficult?", yesScore: 4 },
+            { text: "Is the team partially distributed, perhaps across a few regional offices or a hybrid remote model?", yesScore: 3 },
+            { text: "Is the team mostly co-located with only occasional remote contributors?", yesScore: 2 }
+        ]
     },
     {
         id: 'M13', name: 'Stakeholder Count', dimension: 'stakeholder',
-        anchors: { 1: 'Few, aligned', 3: 'Multiple groups', 5: 'Numerous, diverse communities' }
+        anchors: { 1: 'Few, aligned', 3: 'Multiple groups', 5: 'Numerous, diverse communities' },
+        guidedQuestions: [
+            { text: "Are there numerous, diverse, and heavily conflicting stakeholder communities (e.g., public, government, multiple sub-contractors)?", yesScore: 5 },
+            { text: "Are there multiple distinct stakeholder groups with competing interests requiring formal negotiation and arbitration?", yesScore: 4 },
+            { text: "Are there several stakeholder groups, but their needs are generally aligned and well-understood?", yesScore: 3 },
+            { text: "Is there a small, easily identified group of stakeholders with clear, non-conflicting needs?", yesScore: 2 }
+        ]
     },
     {
         id: 'M14', name: 'Requirements Volatility', dimension: 'stakeholder',
-        anchors: { 1: 'Stable, understood', 3: 'Moderate change expected', 5: 'High volatility, evolving needs' }
+        anchors: { 1: 'Stable, understood', 3: 'Moderate change expected', 5: 'High volatility, evolving needs' },
+        guidedQuestions: [
+            { text: "Are requirements expected to change constantly due to extreme uncertainty, shifting market forces, or political whims?", yesScore: 5 },
+            { text: "Is there high volatility with major requirements likely to be discovered or fundamentally altered late in the development cycle?", yesScore: 4 },
+            { text: "Are there moderate expected changes requiring a formal change control board?", yesScore: 3 },
+            { text: "Are requirements mostly stable with only minor, well-understood refinements anticipated?", yesScore: 2 }
+        ]
     },
     {
         id: 'M15', name: 'Political Sensitivity', dimension: 'stakeholder',
-        anchors: { 1: 'Low public interest', 3: 'Moderate political factors', 5: 'High-profile, politically sensitive' }
+        anchors: { 1: 'Low public interest', 3: 'Moderate political factors', 5: 'High-profile, politically sensitive' },
+        guidedQuestions: [
+            { text: "Is the project highly visible to the general public and media, where failure would cause a massive political scandal?", yesScore: 5 },
+            { text: "Does the project attract significant scrutiny from top executives, board members, or industry regulators?", yesScore: 4 },
+            { text: "Are there moderate organizational politics and cross-departmental turf issues to navigate?", yesScore: 3 },
+            { text: "Is there some minor internal visibility, but generally treated as a standard operational project?", yesScore: 2 }
+        ]
     },
     {
         id: 'M16', name: 'Organizational Culture', dimension: 'stakeholder',
         anchors: { 1: 'Resistant (SE = overhead)', 3: 'Tolerant (show value)', 5: 'Supportive (actively invests)' },
-        note: 'Primarily shapes adoption strategy; contributes weakly to derived levels.'
+        note: 'Primarily shapes adoption strategy; contributes weakly to derived levels.',
+        guidedQuestions: [
+            { text: "Does the executive team mandate and actively invest heavily in rigorous SE practices across the organization?", yesScore: 5 },
+            { text: "Is there formal, documented support for SE, though implementation might sometimes be inconsistent?", yesScore: 4 },
+            { text: "Is the organization tolerant of SE, but requires practitioners to constantly prove its value on each project?", yesScore: 3 },
+            { text: "Is there active skepticism toward Systems Engineering, generally viewing it mostly as documentation overhead?", yesScore: 2 }
+        ]
     }
 ];
 
