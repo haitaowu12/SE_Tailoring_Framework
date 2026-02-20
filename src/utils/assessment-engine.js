@@ -7,6 +7,30 @@ const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
 const levelFromIndex = i => LEVELS[Math.max(0, Math.min(2, i))];
 
+const SA_TIERS = [
+  { tier: 'I', name: 'Basic', minScore: 0, maxScore: 3, floor: null },
+  { tier: 'II', name: 'Enhanced', minScore: 4, maxScore: 6, floor: 'standard' },
+  { tier: 'III', name: 'Critical', minScore: 7, maxScore: 9, floor: 'standard' },
+  { tier: 'IV', name: 'Safety-Critical', minScore: 10, maxScore: 20, floor: 'comprehensive' }
+];
+
+const SA_PROCESSES = [12, 16, 19, 25, 27, 28, 29];
+
+export function calculateSATier(saResponses) {
+  let score = 0;
+  
+  if (saResponses.SA1) score += 2;
+  if (saResponses.SA2) score += 1;
+  if (saResponses.SA3) score += 3;
+  if (saResponses.SA4) score += 1;
+  if (saResponses.SA5) score += 1;
+  if (saResponses.SA6 >= 2) score += 1;
+  if (saResponses.SA7) score += 1;
+  
+  const tier = SA_TIERS.find(t => score >= t.minScore && score <= t.maxScore) || SA_TIERS[0];
+  return { ...tier, score };
+}
+
 /** Calculate individual process level from metric scores */
 export function calculateProcessLevel(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     const map = matrixMap[processId];
@@ -177,13 +201,32 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
 }
 
 /** Full assessment pipeline */
-export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
+export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, saResponses = {}) {
     const derived = calculateAllProcessLevels(scores, matrixMap);
     const { levels: withOverrides, overrides } = applyOverrides(derived, scores);
-    const violations = checkConsistency(withOverrides);
+    
+    let final = { ...withOverrides };
+    const saOverrides = [];
+    
+    const saTier = calculateSATier(saResponses);
+    if (saTier.floor) {
+        for (const pid of SA_PROCESSES) {
+            const currentLevel = final[pid] || 'basic';
+            if (levelIndex(currentLevel) < levelIndex(saTier.floor)) {
+                const prev = currentLevel;
+                final[pid] = saTier.floor;
+                saOverrides.push({ 
+                    processId: pid, 
+                    from: prev, 
+                    to: saTier.floor, 
+                    reason: `SA Tier ${saTier.tier} Floor` 
+                });
+            }
+        }
+    }
+    
+    const violations = checkConsistency(final);
 
-    // Auto-fix HC violations
-    const final = { ...withOverrides };
     const fixes = [];
     for (const v of violations.filter(v => v.type === 'HC')) {
         if (v.requiredOp === '>=' && levelIndex(final[v.affectedProcess] || 'basic') < levelIndex(v.requiredLevel)) {
@@ -193,15 +236,15 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
         }
     }
 
-    // Re-check after fixes
     const remainingViolations = checkConsistency(final);
 
     return {
         derived,
-        overrides,
+        overrides: [...overrides, ...saOverrides],
         fixes,
         levels: final,
         violations: remainingViolations,
-        scores
+        scores,
+        saTier
     };
 }

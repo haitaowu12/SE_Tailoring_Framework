@@ -4,6 +4,8 @@
 const state = {
     projectInfo: { name: '', date: '', team: '', phase: '' },
     scores: {},
+    saResponses: {},
+    saTier: null,
     derived: {},
     levels: {},
     overrides: [],

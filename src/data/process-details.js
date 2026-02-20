@@ -1,10 +1,11 @@
 /**
  * SE Tailoring Model — Process Activities & Deliverables
- * _VERSION: 3.1 | _LAST_UPDATED: 2025-02
+ * _VERSION: 3.2 | _LAST_UPDATED: 2026-02
  * _SOURCE: 02-PRACTICAL/Process-Tailoring-Tables.md
  * 
- * Structure: { processId: { activities: {basic:[], standard:[], comprehensive:[]}, deliverables: {...}, outputs: [...] } }
+ * Structure: { processId: { activities: {basic:[], standard:[], comprehensive:[]}, deliverables: {...}, outputs: [...], saActivities: [...], saDeliverables: [...] } }
  * Activities prefixed with (*) are essential/core even at Basic level.
+ * SA = System Assurance (RAMS - Reliability, Availability, Maintainability, Safety)
  */
 
 export const PROCESS_DETAILS = {
@@ -24,7 +25,9 @@ export const PROCESS_DETAILS = {
             { name: 'Schedule', feedsInto: 'All Technical Processes (for planning), Measurement (Basic)' },
             { name: 'Resource plan', feedsInto: 'HR Management (Basic), Infrastructure Management (Standard)' },
             { name: 'Risk register', feedsInto: 'Risk Management (Standard), Decision Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Include SA resource requirements in plan', 'Schedule SA milestones and reviews', 'Budget for SA activities and tools', 'Identify SA roles and responsibilities'],
+        saDeliverables: ['SA Resource Allocation', 'SA Milestone Schedule', 'SA Budget Estimate', 'SA Roles Matrix']
     },
     10: {
         activities: {
@@ -41,7 +44,9 @@ export const PROCESS_DETAILS = {
             { name: 'Status reports', feedsInto: 'Information Management (Basic), Portfolio Management (Standard)' },
             { name: 'Issue log', feedsInto: 'Quality Assurance (Basic), Knowledge Management (Basic)' },
             { name: 'Change records', feedsInto: 'Configuration Management (Standard), Decision Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Track SA metrics and KPIs', 'Monitor SA action items', 'Report SA status to stakeholders', 'Control SA-related changes'],
+        saDeliverables: ['SA Status Reports', 'SA Metrics Dashboard', 'SA Change Records', 'SA Action Tracking']
     },
     11: {
         activities: {
@@ -57,7 +62,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Decision records', feedsInto: 'Configuration Management (Standard), System Analysis (Standard)' },
             { name: 'Alternatives analysis', feedsInto: 'Architecture Definition (Standard), Design Definition (Standard)' }
-        ]
+        ],
+        saActivities: ['Document SA-related decisions', 'Analyze SA alternatives and trade-offs', 'Record rationale for SA choices', 'Track SA decision effectiveness'],
+        saDeliverables: ['SA Decision Records', 'SA Trade-off Analysis', 'SA Decision Rationale', 'SA Decision Effectiveness Metrics']
     },
     12: {
         activities: {
@@ -74,7 +81,9 @@ export const PROCESS_DETAILS = {
             { name: 'Risk register', feedsInto: 'Project Planning (Standard), Decision Management (Standard)' },
             { name: 'Risk assessment', feedsInto: 'System Analysis (Standard), Quality Assurance (Standard)' },
             { name: 'Risk response plans', feedsInto: 'Configuration Management (Comprehensive), Integration (Comprehensive)' }
-        ]
+        ],
+        saActivities: ['Identify and assess safety risks', 'Integrate SA risks into project risk register', 'Develop SA risk responses', 'Monitor safety-critical risks', 'Track SA risk indicators'],
+        saDeliverables: ['Safety Risk Register', 'SA Risk Assessment', 'SA Risk Response Plans', 'Safety Risk Dashboard', 'SA Risk Monitoring Reports']
     },
     13: {
         activities: {
@@ -91,7 +100,9 @@ export const PROCESS_DETAILS = {
             { name: 'CI list', feedsInto: 'Integration (Basic), Implementation (Standard)' },
             { name: 'Baselines', feedsInto: 'Verification (Standard), Validation (Standard)' },
             { name: 'Change records', feedsInto: 'Project Assessment (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        saActivities: ['Manage safety-related configuration items', 'Control safety baseline changes', 'Maintain SA documentation under CM', 'Track safety-critical item versions'],
+        saDeliverables: ['Safety CI List', 'Safety Baseline Records', 'SA Change Control Records', 'Safety Documentation Version Control']
     },
     14: {
         activities: {
@@ -107,7 +118,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Repository structure', feedsInto: 'Knowledge Management (Basic), all processes (storage)' },
             { name: 'Access controls', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Manage SA documentation repository', 'Control access to safety information', 'Backup safety-critical data', 'Maintain SA information inventory'],
+        saDeliverables: ['SA Document Repository', 'SA Access Control List', 'SA Data Backup Records', 'SA Information Inventory']
     },
     15: {
         activities: {
@@ -123,7 +136,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Metrics definitions', feedsInto: 'Project Assessment (Standard), Portfolio Management (Standard)' },
             { name: 'Trend analysis', feedsInto: 'Decision Management (Standard), Risk Management (Comprehensive)' }
-        ]
+        ],
+        saActivities: ['Define SA metrics (RAMS indicators)', 'Collect SA performance data', 'Analyze SA trends', 'Report SA measurement results'],
+        saDeliverables: ['SA Metrics Definitions', 'SA Data Collection Records', 'SA Trend Analysis Reports', 'SA Measurement Dashboard']
     },
     16: {
         activities: {
@@ -139,7 +154,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Audit reports', feedsInto: 'Stakeholder Needs (Standard), Validation (Standard)' },
             { name: 'Non-conformance records', feedsInto: 'Project Assessment (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Conduct SA audits', 'Verify SA process compliance', 'Track SA non-conformances', 'Review safety documentation quality'],
+        saDeliverables: ['SA Audit Reports', 'SA Compliance Records', 'SA Non-conformance Log', 'SA Quality Review Records']
     },
     17: {
         activities: {
@@ -155,7 +172,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Problem statement', feedsInto: 'Stakeholder Needs (Basic), Portfolio Management (Standard)' },
             { name: 'Solution alternatives', feedsInto: 'System Requirements (Basic), Architecture Definition (Basic)' }
-        ]
+        ],
+        saActivities: ['SA scoping and boundary definition', 'Preliminary hazard identification', 'Initial SA Criticality assessment', 'Identify safety-related stakeholders'],
+        saDeliverables: ['SA Scoping Statement', 'Preliminary Hazard List (PHL)', 'SA Criticality Tier determination', 'Safety stakeholder register']
     },
     18: {
         activities: {
@@ -171,23 +190,27 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Stakeholder list', feedsInto: 'Project Planning (Standard), System Requirements (Basic)' },
             { name: 'Needs statements', feedsInto: 'System Requirements (Basic), Validation (Basic)' }
-        ]
+        ],
+        saActivities: ['Capture safety needs from stakeholders', 'Define mission profile and operational scenarios', 'Establish preliminary RAM targets', 'Identify safety constraints'],
+        saDeliverables: ['Safety needs register', 'Mission profile documentation', 'Preliminary RAM targets', 'Safety constraints list']
     },
     19: {
         activities: {
-            basic: ['(*) Document requirements (simple list)', 'Trace simply with matrix', 'Review requirements (informal)'],
-            standard: ['Plan requirements development', 'Specify requirements with attributes', 'Attribute in database', 'Trace with matrix', 'Validate records', 'Plan verification'],
-            comprehensive: ['Model behaviors with formal notation', 'Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively']
+            basic: ['(*) Document requirements (simple list)', 'Trace simply with matrix', 'Review requirements (informal)', 'Identify basic Safety & RAM targets'],
+            standard: ['Plan requirements development', 'Specify requirements with attributes', 'Attribute in database', 'Trace with matrix', 'Validate records', 'Plan verification', 'Identify Safety & RAM Requirements'],
+            comprehensive: ['Model behaviors with formal notation', 'Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Formal Safety & RAM Requirements (EN 50126 Phase 3/4)']
         },
         deliverables: {
-            basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records'],
-            standard: ['Requirements development plan', 'System Specification (SS)', 'Requirements database with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Change management records'],
-            comprehensive: ['Requirements models (behavior, functional)', 'Formal requirements specification', 'Comprehensive requirements database', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics']
+            basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records', 'Preliminary Hazard List (PHL)', 'Basic RAM Targets'],
+            standard: ['Requirements development plan', 'System Specification (SS)', 'Requirements database with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Change management records', 'Safety Requirement Specification (SRS) - Preliminary'],
+            comprehensive: ['Requirements models (behavior, functional)', 'Formal requirements specification', 'Comprehensive requirements database', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Case (per EN 50126)']
         },
         outputs: [
             { name: 'Requirements document', feedsInto: 'Architecture Definition (Basic), Verification (Basic)' },
             { name: 'Traceability matrix', feedsInto: 'Verification (Standard), Validation (Standard)' }
-        ]
+        ],
+        saActivities: ['Perform risk analysis (PHA)', 'Define RAMS requirements', 'Establish and maintain Hazard Log', 'Allocate safety integrity levels', 'Define safety functional requirements'],
+        saDeliverables: ['Preliminary Hazard Analysis (PHA)', 'RAMS Requirements Specification', 'Hazard Log', 'SIL Allocation Matrix', 'Safety Requirements Specification']
     },
     20: {
         activities: {
@@ -203,7 +226,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Architecture description', feedsInto: 'Design Definition (Basic), System Requirements (Standard)' },
             { name: 'Interface specifications', feedsInto: 'Integration (Standard), Verification (Standard)' }
-        ]
+        ],
+        saActivities: ['Perform RAMS apportionment', 'Allocate SIL to subsystems', 'Define redundancy and fault tolerance strategies', 'Conduct architecture safety reviews', 'Define safety partitioning and isolation'],
+        saDeliverables: ['RAMS Apportionment Document', 'SIL Allocation to Architecture Elements', 'Fault Tolerance Strategy Document', 'Architecture Safety Review Records', 'Safety Partitioning Specification']
     },
     21: {
         activities: {
@@ -219,23 +244,27 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Design documentation', feedsInto: 'Implementation (Basic), Integration (Standard)' },
             { name: 'Technology assessment', feedsInto: 'Risk Management (Standard), Decision Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Perform FMEA/FMECA', 'Conduct maintainability analysis', 'Execute safety design reviews', 'Define diagnostic and test provisions', 'Analyze failure modes and effects'],
+        saDeliverables: ['FMEA/FMECA Report', 'Maintainability Analysis Report', 'Safety Design Review Records', 'Diagnostic Strategy Document', 'Failure Modes Analysis']
     },
     22: {
         activities: {
-            basic: ['(*) Perform basic analyses', 'Document analysis data', 'Document methodology'],
-            standard: ['Plan analysis activities', 'Define analysis methodologies', 'Conduct analyses with recommendations', 'Define tool usage', 'Support decisions'],
-            comprehensive: ['Develop analysis strategy', 'Create comprehensive framework', 'Perform advanced modeling/simulation', 'Validate methodologies', 'Document tool environments', 'Quantify uncertainties', 'Measure analysis effectiveness']
+            basic: ['(*) Perform basic analyses', 'Document analysis data', 'Document methodology', 'Identify preliminary hazards'],
+            standard: ['Plan analysis activities', 'Define analysis methodologies', 'Conduct analyses with recommendations', 'Define tool usage', 'Support decisions', 'Perform RAM Analysis (FMEA)'],
+            comprehensive: ['Develop analysis strategy', 'Create comprehensive framework', 'Perform advanced modeling/simulation', 'Validate methodologies', 'Document tool environments', 'Quantify uncertainties', 'Measure analysis effectiveness', 'Functional Safety Analysis & RAM Modeling (EN 50126 Phase 5)']
         },
         deliverables: {
             basic: ['Simple analysis reports', 'Analysis data', 'Basic methodology documentation'],
-            standard: ['Analysis plan', 'Analysis methodologies documentation', 'Analysis reports with recommendations', 'Tool usage guidelines', 'Decision support documentation'],
-            comprehensive: ['Analysis strategy', 'Comprehensive analysis framework', 'Advanced modeling/simulation documentation', 'Detailed methodology with validation', 'Tool environment documentation', 'Uncertainty quantification', 'Analysis effectiveness metrics', 'Decision support with sensitivity analysis']
+            standard: ['Analysis plan', 'Analysis methodologies documentation', 'Analysis reports with recommendations', 'Tool usage guidelines', 'Decision support documentation', 'Hazard Log (Standardized)', 'RAM Analysis (FMEA/FMECA)'],
+            comprehensive: ['Analysis strategy', 'Comprehensive analysis framework', 'Advanced modeling/simulation documentation', 'Detailed methodology with validation', 'Tool environment documentation', 'Uncertainty quantification', 'Analysis effectiveness metrics', 'Decision support with sensitivity analysis', 'Full Hazard Log & Analysis (HAZOP/FTA)', 'RAM Modeling & Prediction']
         },
         outputs: [
             { name: 'Analysis reports', feedsInto: 'Decision Management (Basic), Architecture Definition (Standard)' },
             { name: 'Trade study results', feedsInto: 'Design Definition (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Conduct RAMS trade studies', 'Perform availability modeling', 'Execute reliability predictions', 'Analyze safety risks', 'Support safety case development'],
+        saDeliverables: ['RAMS Trade Study Reports', 'Availability Model and Analysis', 'Reliability Prediction Reports', 'Safety Risk Analysis', 'Safety Case Evidence']
     },
     23: {
         activities: {
@@ -251,7 +280,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Implemented product', feedsInto: 'Integration (Basic), Verification (Basic)' },
             { name: 'Implementation records', feedsInto: 'Configuration Management (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        saActivities: ['Implement RAMS QA procedures', 'Conduct manufacturing FMEA', 'Perform safety-related inspections', 'Execute component safety testing', 'Maintain safety traceability'],
+        saDeliverables: ['RAMS QA Records', 'Manufacturing FMEA Report', 'Safety Inspection Records', 'Component Safety Test Reports', 'Safety Traceability Records']
     },
     24: {
         activities: {
@@ -267,7 +298,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Integrated system', feedsInto: 'Verification (Basic), Transition (Standard)' },
             { name: 'Issue log', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Conduct interface safety analysis', 'Perform RAM testing', 'Execute safety integration tests', 'Verify safety functions', 'Update Hazard Log with integration findings'],
+        saDeliverables: ['Interface Safety Analysis Report', 'RAM Test Reports', 'Safety Integration Test Reports', 'Safety Function Verification Records', 'Updated Hazard Log']
     },
     25: {
         activities: {
@@ -283,7 +316,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Verification reports', feedsInto: 'Transition (Standard), Validation (Basic)' },
             { name: 'Defect records', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Verify RAMS requirements', 'Execute safety validation tests', 'Conduct safety function testing', 'Verify SIL compliance', 'Prepare safety verification evidence'],
+        saDeliverables: ['RAMS Verification Reports', 'Safety Validation Test Reports', 'Safety Function Test Records', 'SIL Verification Evidence', 'Safety Verification Evidence Package']
     },
     26: {
         activities: {
@@ -299,7 +334,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Deployed system', feedsInto: 'Operation (Basic), Maintenance (Basic)' },
             { name: 'Training materials', feedsInto: 'Operation (Standard), Knowledge Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Conduct safety acceptance activities', 'Obtain Safety Case approval', 'Execute operational safety validation', 'Transfer safety documentation', 'Conduct safety training for operators'],
+        saDeliverables: ['Safety Acceptance Records', 'Approved Safety Case', 'Operational Safety Validation Report', 'Safety Documentation Package', 'Safety Training Records']
     },
     27: {
         activities: {
@@ -315,29 +352,33 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Validation reports', feedsInto: 'Stakeholder Needs (Standard), System Requirements (Standard)' },
             { name: 'Stakeholder acceptance', feedsInto: 'Transition (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        saActivities: ['Validate RAMS requirements', 'Develop RAMS validation plan', 'Integrate ISA activities', 'Validate safety functions in operational context', 'Obtain safety sign-off'],
+        saDeliverables: ['RAMS Validation Reports', 'RAMS Validation Plan', 'ISA Integration Records', 'Operational Safety Validation Report', 'Safety Acceptance Certificate']
     },
     28: {
         activities: {
-            basic: ['(*) Execute operational procedures', '(*) Monitor performance', '(*) Track problems', 'Provide user support'],
-            standard: ['Plan operations', 'Execute comprehensive procedures', 'Monitor with KPIs', 'Analyze performance', 'Manage problems', 'Provide user support procedures', 'Conduct reviews', 'Train operators'],
-            comprehensive: ['Develop operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced analytics', 'Problem management with root cause', 'Comprehensive user support', 'Formal reviews', 'Advanced training', 'Measure operational effectiveness']
+            basic: ['(*) Execute operational procedures', '(*) Monitor performance', '(*) Track problems', 'Provide user support', 'Monitor basic RAM performance'],
+            standard: ['Plan operations', 'Execute comprehensive procedures', 'Monitor with KPIs', 'Analyze performance', 'Manage problems', 'Provide user support procedures', 'Conduct reviews', 'Train operators', 'Track RAM & maintain Hazard Log'],
+            comprehensive: ['Develop operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced analytics', 'Problem management with root cause', 'Comprehensive user support', 'Formal reviews', 'Advanced training', 'Measure operational effectiveness', 'Continuous RAMS monitoring & FRACAS']
         },
         deliverables: {
             basic: ['Operational procedures', 'Performance reports', 'Problem records', 'User support documentation'],
             standard: ['Operational plan', 'Comprehensive procedures', 'Performance monitoring plan', 'Performance analysis reports', 'Problem management process', 'User support procedures', 'Operational review records', 'Training program'],
-            comprehensive: ['Operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced performance analytics', 'Problem management with root cause', 'Comprehensive user support infrastructure', 'Formal review documentation', 'Advanced training with evaluation', 'Operational effectiveness metrics']
+            comprehensive: ['Operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced performance analytics', 'Problem management with root cause', 'Comprehensive user support infrastructure', 'Formal review documentation', 'Advanced training with evaluation', 'Operational effectiveness metrics', 'RAMS Validation Report']
         },
         outputs: [
             { name: 'Operational data', feedsInto: 'Maintenance (Basic), Measurement (Standard)' },
             { name: 'Problem records', feedsInto: 'Quality Assurance (Standard), Knowledge Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Implement FRACAS system', 'Monitor safety performance', 'Track and analyze failures', 'Maintain operational Hazard Log', 'Conduct periodic safety reviews'],
+        saDeliverables: ['FRACAS Reports and Database', 'Safety Performance Monitoring Reports', 'Failure Analysis Reports', 'Operational Hazard Log', 'Periodic Safety Review Reports']
     },
     29: {
         activities: {
-            basic: ['(*) Plan maintenance', '(*) Execute maintenance procedures', '(*) Track problems', 'Report maintenance'],
-            standard: ['Plan detailed maintenance', 'Execute comprehensive procedures', 'Manage maintenance environment', 'Track problems in database', 'Conduct reviews', 'Prepare documentation package'],
-            comprehensive: ['Develop maintenance strategy', 'Detailed procedures with optimization', 'Predictive maintenance methodology', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness']
+            basic: ['(*) Plan maintenance', '(*) Execute maintenance procedures', '(*) Track problems', 'Report maintenance', 'Address basic hazard controls'],
+            standard: ['Plan detailed maintenance', 'Execute comprehensive procedures', 'Manage maintenance environment', 'Track problems in database', 'Conduct reviews', 'Prepare documentation package', 'Update Hazard Log post-maintenance'],
+            comprehensive: ['Develop maintenance strategy', 'Detailed procedures with optimization', 'Predictive maintenance methodology', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness', 'RAMS performance review & optimization']
         },
         deliverables: {
             basic: ['Maintenance plan', 'Maintenance procedures', 'Problem records', 'Maintenance reports'],
@@ -347,7 +388,9 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Maintenance records', feedsInto: 'Operation (Basic), Configuration Management (Standard)' },
             { name: 'Problem trends', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        saActivities: ['Track reliability growth', 'Conduct change impact analysis for safety', 'Perform post-maintenance safety verification', 'Update safety documentation', 'Analyze maintenance-related safety events'],
+        saDeliverables: ['Reliability Growth Analysis', 'Safety Change Impact Analysis', 'Post-Maintenance Safety Verification Records', 'Updated Safety Documentation', 'Maintenance Safety Event Analysis']
     },
     30: {
         activities: {
@@ -363,6 +406,8 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Disposal records', feedsInto: 'Information Management (Standard), Knowledge Management (Standard)' },
             { name: 'Archive', feedsInto: 'Knowledge Management (Basic)' }
-        ]
+        ],
+        saActivities: ['Develop disposal safety case', 'Identify and manage hazardous materials', 'Conduct disposal safety assessment', 'Archive safety records', 'Close out Hazard Log'],
+        saDeliverables: ['Disposal Safety Case', 'Hazardous Materials Inventory and Plan', 'Disposal Safety Assessment Report', 'Archived Safety Records', 'Hazard Log Closure Report']
     }
 };

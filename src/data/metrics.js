@@ -197,3 +197,61 @@ export const DEPENDENCY_CHAINS = [
     { id: 'mgmt_support', name: 'Management Support', processes: [9, 12, 11, 16], description: 'If any technical process ≥ Standard, these should be ≥ Standard.' },
     { id: 'config_backbone', name: 'Configuration Backbone', processes: [13, 14, 8], description: 'CM supports all processes. Its level should match the highest technical process level.' }
 ];
+
+// System Assurance Criticality Tier Data
+export const SA_CRITICALITY_TIERS = [
+    {
+        id: 'tier1',
+        name: 'Tier 1 – Negligible',
+        level: 'basic',
+        criteria: 'No hazardous consequences; failures are recoverable with no harm',
+        minRigor: 'Basic',
+        independence: 'No specific independence requirement',
+        description: 'System failures have minimal impact and are easily recoverable'
+    },
+    {
+        id: 'tier2',
+        name: 'Tier 2 – Safety Relevant',
+        level: 'standard',
+        criteria: 'Potential minor harm; regulated environment; availability impacts',
+        minRigor: 'Standard',
+        independence: 'Safety Engineer separate from design; peer review of safety analyses',
+        description: 'System has safety implications requiring formal SA activities'
+    },
+    {
+        id: 'tier3',
+        name: 'Tier 3 – Safety Critical',
+        level: 'comprehensive',
+        criteria: 'Potential for major harm, fatality, or regulatory non-compliance',
+        minRigor: 'Comprehensive',
+        independence: 'Independent Safety Engineer; ISA required for Safety Case and acceptance',
+        description: 'Safety-critical system requiring comprehensive SA program'
+    }
+];
+
+export const SA_TIER_QUESTIONS = [
+    { id: 1, question: 'Could a system failure lead to harm to people, property, or environment?', yesImpact: 'Tier 2+' },
+    { id: 2, question: 'Are there regulatory or contractual safety requirements (e.g., EN 50126, NFPA 130, CSA R114)?', yesImpact: 'Tier 2+' },
+    { id: 3, question: 'Is there potential for fatality or major harm?', yesImpact: 'Tier 3' },
+    { id: 4, question: 'Is the system in a regulated safety domain (rail, aerospace, medical device, nuclear)?', yesImpact: 'Tier 2+' },
+    { id: 5, question: 'Does the system use novel/unproven technology in safety-relevant functions?', yesImpact: 'Increase tier by 1' },
+    { id: 6, question: 'What are the availability requirements? (MTBF target, operational availability)', yesImpact: 'Document for RAM analysis' },
+    { id: 7, question: 'Does the operational context involve hazardous environments or high public exposure?', yesImpact: 'Tier 2+' }
+];
+
+export const SA_FLOOR_RULE = {
+    description: 'The SA Criticality Tier acts as a minimum rigor floor for all processes',
+    rules: [
+        { tier: 'tier1', minLevel: null, action: 'None' },
+        { tier: 'tier2', minLevel: 'standard', action: 'Upgrade Basic → Standard' },
+        { tier: 'tier3', minLevel: 'comprehensive', action: 'Upgrade all to Comprehensive' }
+    ]
+};
+
+export const SA_STANDARDS_REFERENCE = [
+    { id: 'en50126', name: 'EN 50126-1/-2', application: 'Railway RAMS' },
+    { id: 'en50129', name: 'EN 50129', application: 'Safety-related electronic systems' },
+    { id: 'csar114', name: 'CSA R114:22', application: 'Canadian risk evaluation' },
+    { id: 'nfpa130', name: 'NFPA 130', application: 'Fixed guideway transit' },
+    { id: 'iec61508', name: 'IEC 61508', application: 'Functional safety (all industries)' }
+];
