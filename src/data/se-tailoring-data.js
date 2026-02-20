@@ -10,22 +10,24 @@
  *   metrics.js         → 02-PRACTICAL/Assessment-Worksheet.md, Process-Metric-Applicability-Matrix.md
  *   process-details.js → 02-PRACTICAL/Process-Tailoring-Tables.md
  *   vee-model-layout.js → Derived from process lifecycle positions
+ *   sa-methods.js      → 02-PRACTICAL/SA-Integration-Guide.md
  *
- * _FRAMEWORK_VERSION: 3.1
- * _LAST_SYNC: 2025-02
+ * _FRAMEWORK_VERSION: 3.2
+ * _LAST_SYNC: 2026-02
  */
 
 export * from './processes.js';
 export * from './metrics.js';
 export * from './process-details.js';
 export * from './vee-model-layout.js';
+export * from './sa-methods.js';
 
 // Framework metadata
 export const FRAMEWORK_META = {
-    version: '3.1',
+    version: '3.2',
     name: 'SE Process Tailoring Framework',
     standard: 'ISO/IEC/IEEE 15288:2023',
-    lastUpdated: '2025-02',
+    lastUpdated: '2026-02',
     coreProcessCount: 22,
     extendedProcessCount: 8,
     metricCount: 16,
@@ -37,5 +39,7 @@ export const FRAMEWORK_META = {
         basic: 'Essential activities only; informal documentation; reactive approach',
         standard: 'Structured activities with formal documentation; proactive planning',
         comprehensive: 'Full rigor with model-based approaches; predictive analytics'
-    }
+    },
+    saTierCount: 3,
+    saMethodCount: 13
 };

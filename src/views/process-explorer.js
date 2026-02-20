@@ -141,6 +141,18 @@ function renderProcessDetail(processId, state) {
         ${deliverables.map(d => `<div class="deliverable-item">📄 ${d}</div>`).join('')}
       </div>
 
+      ${details?.saActivities?.length ? `
+      <div class="detail-section" style="background: rgba(239,68,68,0.06); border-radius: 10px; padding: 16px; border-left: 3px solid #ef4444;">
+        <h4>🔒 System Assurance Activities</h4>
+        ${details.saActivities.map(a => `<div class="activity-item">🛡️ ${a}</div>`).join('')}
+      </div>` : ''}
+
+      ${details?.saDeliverables?.length ? `
+      <div class="detail-section" style="background: rgba(239,68,68,0.06); border-radius: 10px; padding: 16px; border-left: 3px solid #ef4444;">
+        <h4>🔒 System Assurance Deliverables</h4>
+        ${details.saDeliverables.map(d => `<div class="deliverable-item">📋 ${d}</div>`).join('')}
+      </div>` : ''}
+
       <div class="detail-section">
         <h4>Outputs & Feeds Into</h4>
         ${outputs.map(o => `<div class="output-item"><strong>${o.name}</strong> → ${o.feedsInto}</div>`).join('')}

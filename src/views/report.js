@@ -70,6 +70,21 @@ export function renderReport(container) {
       </div>
     </div>
 
+    ${state.saTier ? `
+    <div class="card mb-xl" style="border-left: 3px solid #ef4444; background: rgba(239,68,68,0.04);">
+      <h4 class="mb-md">🔒 System Assurance Criticality</h4>
+      <div class="flex items-center gap-lg">
+        <div class="sa-tier-badge tier-${state.saTier.tier}" style="font-size: 24px; font-weight: 700; padding: 12px 24px; border-radius: 8px;">
+          ${state.saTier.tier}
+        </div>
+        <div>
+          <div class="font-bold">${state.saTier.name}</div>
+          <div class="text-sm text-secondary">${state.saTier.description}</div>
+          <div class="text-sm mt-sm"><strong>Minimum Rigor Floor:</strong> ${state.saTier.floor}</div>
+        </div>
+      </div>
+    </div>` : ''}
+
     <div class="card mb-xl">
       <h4 class="mb-md">Dimension Scores</h4>
       <div class="grid-4">
