@@ -8,27 +8,23 @@ const levelIndex = l => LEVELS.indexOf(l);
 const levelFromIndex = i => LEVELS[Math.max(0, Math.min(2, i))];
 
 const SA_TIERS = [
-  { tier: 'I', name: 'Basic', minScore: 0, maxScore: 3, floor: null },
-  { tier: 'II', name: 'Enhanced', minScore: 4, maxScore: 6, floor: 'standard' },
-  { tier: 'III', name: 'Critical', minScore: 7, maxScore: 9, floor: 'standard' },
-  { tier: 'IV', name: 'Safety-Critical', minScore: 10, maxScore: 20, floor: 'comprehensive' }
+    { tier: 'I', name: 'Negligible', description: 'Standard SE processes sufficient', floor: null },
+    { tier: 'II', name: 'Safety Relevant', description: 'Additional assurance activities needed', floor: 'standard' },
+    { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'comprehensive' }
 ];
 
 const SA_PROCESSES = [12, 16, 19, 25, 27, 28, 29];
 
-export function calculateSATier(saResponses) {
-  let score = 0;
-  
-  if (saResponses.SA1) score += 2;
-  if (saResponses.SA2) score += 1;
-  if (saResponses.SA3) score += 3;
-  if (saResponses.SA4) score += 1;
-  if (saResponses.SA5) score += 1;
-  if (saResponses.SA6 >= 2) score += 1;
-  if (saResponses.SA7) score += 1;
-  
-  const tier = SA_TIERS.find(t => score >= t.minScore && score <= t.maxScore) || SA_TIERS[0];
-  return { ...tier, score };
+/**
+ * Derive SA Criticality Tier from M5 (Safety Impact) score.
+ * M5=1-2 → Tier I (Negligible), M5=3 → Tier II (Safety Relevant), M5=4-5 → Tier III (Safety Critical)
+ */
+export function calculateSATier(scores) {
+    const m5 = scores?.M5 || 3;
+
+    if (m5 >= 4) return { ...SA_TIERS[2], score: m5 };
+    if (m5 >= 3) return { ...SA_TIERS[1], score: m5 };
+    return { ...SA_TIERS[0], score: m5 };
 }
 
 /** Calculate individual process level from metric scores */
@@ -201,30 +197,30 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
 }
 
 /** Full assessment pipeline */
-export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, saResponses = {}) {
+export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
     const derived = calculateAllProcessLevels(scores, matrixMap);
     const { levels: withOverrides, overrides } = applyOverrides(derived, scores);
-    
+
     let final = { ...withOverrides };
     const saOverrides = [];
-    
-    const saTier = calculateSATier(saResponses);
+
+    const saTier = calculateSATier(scores);
     if (saTier.floor) {
         for (const pid of SA_PROCESSES) {
             const currentLevel = final[pid] || 'basic';
             if (levelIndex(currentLevel) < levelIndex(saTier.floor)) {
                 const prev = currentLevel;
                 final[pid] = saTier.floor;
-                saOverrides.push({ 
-                    processId: pid, 
-                    from: prev, 
-                    to: saTier.floor, 
-                    reason: `SA Tier ${saTier.tier} Floor` 
+                saOverrides.push({
+                    processId: pid,
+                    from: prev,
+                    to: saTier.floor,
+                    reason: `SA Tier ${saTier.tier} Floor`
                 });
             }
         }
     }
-    
+
     const violations = checkConsistency(final);
 
     const fixes = [];

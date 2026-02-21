@@ -2,7 +2,7 @@
  * Assessment View — Step-by-step metric scoring wizard
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP } from '../data/se-tailoring-data.js';
-import { runFullAssessment, getDriverAttribution, calculateSATier } from '../utils/assessment-engine.js';
+import { runFullAssessment, getDriverAttribution } from '../utils/assessment-engine.js';
 import { getState, setState, showToast } from '../state.js';
 import { navigateTo } from '../router.js';
 
@@ -12,31 +12,12 @@ const STEPS = [
   { id: 'safety', title: 'Safety & Criticality', icon: '🛡️' },
   { id: 'constraints', title: 'Project Constraints', icon: '📏' },
   { id: 'stakeholder', title: 'Stakeholder Context', icon: '👥' },
-  { id: 'assurance', title: 'System Assurance', icon: '🔒' },
   { id: 'results', title: 'Results', icon: '📊' }
-];
-
-const SA_QUESTIONS = [
-  { id: 'SA1', text: 'Could a system failure lead to harm to people, property, or environment?', weight: 2 },
-  { id: 'SA2', text: 'Are there regulatory or contractual safety requirements?', weight: 1 },
-  { id: 'SA3', text: 'Is there potential for fatality or major harm?', weight: 3 },
-  { id: 'SA4', text: 'Is the system in a regulated safety domain?', weight: 1 },
-  { id: 'SA5', text: 'Does the system use novel technology in safety-relevant functions?', weight: 1 },
-  { id: 'SA6', text: 'What are the availability requirements?', weight: 1, options: ['Low (best effort)', 'Moderate (99%)', 'High (99.9%)', 'Critical (99.99%+)'] },
-  { id: 'SA7', text: 'Does the operational context involve hazardous environments?', weight: 1 }
-];
-
-const SA_TIERS = [
-  { tier: 'I', name: 'Basic', minScore: 0, maxScore: 3, description: 'Standard SE processes sufficient', floor: null },
-  { tier: 'II', name: 'Enhanced', minScore: 4, maxScore: 6, description: 'Additional assurance activities needed', floor: 'standard' },
-  { tier: 'III', name: 'Critical', minScore: 7, maxScore: 9, description: 'Safety-critical processes required', floor: 'standard' },
-  { tier: 'IV', name: 'Safety-Critical', minScore: 10, maxScore: 20, description: 'Full safety assurance program', floor: 'comprehensive' }
 ];
 
 let currentStep = 0;
 let localScores = {};
 let localProject = {};
-let localSAResponses = {};
 
 export function renderAssessment(container) {
   const isFreshLoad = !container.querySelector('.assessment-container');
@@ -44,17 +25,10 @@ export function renderAssessment(container) {
     const state = getState();
     localScores = { ...state.scores };
     localProject = { ...state.projectInfo };
-    localSAResponses = { ...state.saResponses } || {};
 
     METRICS.forEach(m => {
       if (localScores[m.id] === undefined) {
         localScores[m.id] = 3;
-      }
-    });
-
-    SA_QUESTIONS.forEach(q => {
-      if (localSAResponses[q.id] === undefined) {
-        localSAResponses[q.id] = q.options ? 0 : false;
       }
     });
   }
@@ -184,10 +158,7 @@ function renderStep(container) {
     return;
   }
 
-  if (step.id === 'assurance') {
-    renderAssuranceStep(content);
-    return;
-  }
+
 
   if (step.id === 'results') {
     renderResults(content);
@@ -320,107 +291,13 @@ function startWizard(metricId, contentContainer) {
   renderQ();
 }
 
-function renderAssuranceStep(content) {
-  const saTier = calculateSATier(localSAResponses);
-  const tierColors = {
-    'I': '#3b82f6',
-    'II': '#f59e0b',
-    'III': '#ef4444',
-    'IV': '#7c3aed'
-  };
 
-  content.innerHTML = `
-    <h3 class="mb-lg">🔒 System Assurance Assessment</h3>
-    <p class="text-secondary mb-lg">Determine the System Assurance Criticality Tier based on safety and assurance factors.</p>
-    
-    <div class="sa-tier-display mb-xl" style="background: ${tierColors[saTier.tier]}15; border: 2px solid ${tierColors[saTier.tier]}; border-radius: 12px; padding: 16px; text-align: center;">
-      <div class="text-sm text-secondary">Current Criticality Tier</div>
-      <div class="sa-tier-title" style="font-size: 28px; font-weight: 800; color: ${tierColors[saTier.tier]}">Tier ${saTier.tier}: ${saTier.name}</div>
-      <div class="text-sm">${saTier.description}</div>
-      <div class="text-xs text-secondary mt-sm">Score: ${saTier.score} points</div>
-    </div>
-    
-    <div class="sa-questions">
-      ${SA_QUESTIONS.map(q => {
-    const val = localSAResponses[q.id];
-    if (q.options) {
-      return `
-            <div class="metric-item">
-              <div class="metric-header">
-                <div class="flex items-center gap-sm">
-                  <span class="metric-id">${q.id}</span>
-                  <span class="metric-name">${q.text}</span>
-                </div>
-              </div>
-              <div class="sa-options mt-sm">
-                ${q.options.map((opt, i) => `
-                  <label class="sa-option ${val === i ? 'selected' : ''}" style="display: block; padding: 10px 14px; margin: 4px 0; border-radius: 8px; cursor: pointer; border: 1px solid ${val === i ? 'var(--accent-primary)' : 'var(--border-subtle)'}; background: ${val === i ? 'rgba(99,102,241,0.1)' : 'var(--bg-tertiary)'}">
-                    <input type="radio" name="${q.id}" value="${i}" ${val === i ? 'checked' : ''} style="margin-right: 8px;">
-                    ${opt}
-                  </label>
-                `).join('')}
-              </div>
-            </div>`;
-    }
-    return `
-            <div class="metric-item">
-              <div class="metric-header">
-                <div class="flex items-center gap-sm">
-                  <span class="metric-id">${q.id}</span>
-                  <span class="metric-name">${q.text}</span>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="sa-${q.id}" ${val ? 'checked' : ''}>
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-              <div class="text-xs text-secondary mt-sm">Weight: ${q.weight} point${q.weight > 1 ? 's' : ''}</div>
-            </div>`;
-  }).join('')}
-    </div>
-  `;
-
-  const style = document.createElement('style');
-  style.textContent = `
-    .toggle-switch { position: relative; display: inline-block; width: 48px; height: 24px; }
-    .toggle-switch input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--bg-tertiary); transition: .3s; border-radius: 24px; }
-    .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
-    input:checked + .toggle-slider { background-color: var(--accent-primary); }
-    input:checked + .toggle-slider:before { transform: translateX(24px); }
-    .sa-option:hover { border-color: var(--accent-primary-light); }
-    .sa-tier-display { transition: all 0.3s ease; }
-  `;
-  if (!content.querySelector('style[data-sa-styles]')) {
-    style.setAttribute('data-sa-styles', 'true');
-    content.appendChild(style);
-  }
-
-  SA_QUESTIONS.forEach(q => {
-    if (q.options) {
-      content.querySelectorAll(`input[name="${q.id}"]`).forEach(radio => {
-        radio.addEventListener('change', (e) => {
-          localSAResponses[q.id] = parseInt(e.target.value);
-          renderAssuranceStep(content);
-        });
-      });
-    } else {
-      const checkbox = content.querySelector(`#sa-${q.id}`);
-      if (checkbox) {
-        checkbox.addEventListener('change', (e) => {
-          localSAResponses[q.id] = e.target.checked;
-          renderAssuranceStep(content);
-        });
-      }
-    }
-  });
-}
 
 function renderResults(content) {
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const result = runFullAssessment(localScores, matrixMap, localSAResponses);
-  const saTier = result.saTier || calculateSATier(localSAResponses);
+  const result = runFullAssessment(localScores, matrixMap);
+  const saTier = result.saTier;
 
   const tierColors = {
     'I': '#3b82f6',
@@ -437,19 +314,19 @@ function renderResults(content) {
 
   const processName = (id) => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
 
+  const m5Val = localScores.M5 || 3;
+
   content.innerHTML = `
     <h3 class="mb-lg">📊 Assessment Results</h3>
     
     <div class="sa-tier-result mb-lg" style="background: ${tierColors[saTier.tier]}15; border: 2px solid ${tierColors[saTier.tier]}; border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <div class="text-sm text-secondary">System Assurance Criticality Tier</div>
+        <div class="text-sm text-secondary">System Assurance Criticality Tier (derived from M5: Safety Impact = ${m5Val})</div>
         <div style="font-size: 24px; font-weight: 800; color: ${tierColors[saTier.tier]}">Tier ${saTier.tier}: ${saTier.name}</div>
         <div class="text-sm">${saTier.description}</div>
       </div>
       <div style="text-align: right;">
-        <div class="text-xs text-secondary">Score</div>
-        <div style="font-size: 20px; font-weight: 700;">${saTier.score}</div>
-        ${saTier.floor ? `<div class="text-xs" style="color: ${tierColors[saTier.tier]}">Floor: ${saTier.floor}</div>` : ''}
+        ${saTier.floor ? `<div class="text-xs" style="color: ${tierColors[saTier.tier]}">Min Floor: ${saTier.floor}</div>` : '<div class="text-xs text-secondary">No floor applied</div>'}
       </div>
     </div>
     
@@ -506,11 +383,10 @@ function renderResults(content) {
 function finalizeAssessment() {
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const result = runFullAssessment(localScores, matrixMap, localSAResponses);
+  const result = runFullAssessment(localScores, matrixMap);
   setState({
     projectInfo: localProject,
     scores: localScores,
-    saResponses: localSAResponses,
     saTier: result.saTier,
     derived: result.derived,
     levels: result.levels,
