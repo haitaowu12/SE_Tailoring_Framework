@@ -72,7 +72,7 @@ export function renderReport(container) {
 
     ${state.saTier ? `
     <div class="card mb-xl" style="border-left: 3px solid #ef4444; background: rgba(239,68,68,0.04);">
-      <h4 class="mb-md">🔒 System Assurance Criticality</h4>
+      <h4 class="mb-md">🔒 Safety Assurance Criticality</h4>
       <div class="flex items-center gap-lg">
         <div class="sa-tier-badge tier-${state.saTier.tier}" style="font-size: 24px; font-weight: 700; padding: 12px 24px; border-radius: 8px;">
           ${state.saTier.tier}

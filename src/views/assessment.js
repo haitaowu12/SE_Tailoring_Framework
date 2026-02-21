@@ -126,7 +126,7 @@ function renderStep(container) {
       <div class="info-form">
         <div class="form-group">
           <label class="form-label">Project Name</label>
-          <input class="input" id="proj-name" placeholder="e.g., Medical Device Control System" value="${localProject.name || ''}">
+          <input class="input" id="proj-name" placeholder="e.g., State of Good Repair Program" value="${localProject.name || ''}">
         </div>
         <div class="form-group">
           <label class="form-label">Date</label>
@@ -321,7 +321,7 @@ function renderResults(content) {
     
     <div class="sa-tier-result mb-lg" style="background: ${tierColors[saTier.tier]}15; border: 2px solid ${tierColors[saTier.tier]}; border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <div class="text-sm text-secondary">System Assurance Criticality Tier (derived from M5: Safety Impact = ${m5Val})</div>
+        <div class="text-sm text-secondary">Safety Assurance Criticality Tier (derived from M5: Safety Impact = ${m5Val})</div>
         <div style="font-size: 24px; font-weight: 800; color: ${tierColors[saTier.tier]}">Tier ${saTier.tier}: ${saTier.name}</div>
         <div class="text-sm">${saTier.description}</div>
       </div>

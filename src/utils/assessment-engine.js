@@ -9,7 +9,7 @@ const levelFromIndex = i => LEVELS[Math.max(0, Math.min(2, i))];
 
 const SA_TIERS = [
     { tier: 'I', name: 'Negligible', description: 'Standard SE processes sufficient', floor: null },
-    { tier: 'II', name: 'Safety Relevant', description: 'Additional assurance activities needed', floor: 'standard' },
+    { tier: 'II', name: 'Safety Relevant', description: 'Additional safety assurance activities needed', floor: 'standard' },
     { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'comprehensive' }
 ];
 
