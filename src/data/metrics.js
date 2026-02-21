@@ -180,10 +180,10 @@ export const METRICS = [
 export const METRIC_PROCESS_MAP = {
     9: { M1: 'S', M9: 'P', M10: 'P', M12: 'P', M13: 'S' },
     10: { M9: 'P', M10: 'P', M11: 'S', M15: 'S' },
-    11: { M1: 'P', M3: 'P', M6: 'P', M12: 'S', M15: 'S' },
-    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M8: 'P', M9: 'S' },
+    11: { M1: 'P', M3: 'P', M5: 'S', M6: 'P', M12: 'S', M15: 'S' },
+    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M7: 'S', M8: 'P', M9: 'S' },
     13: { M1: 'S', M2: 'P', M4: 'P', M8: 'P', M14: 'S' },
-    14: { M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
+    14: { M1: 'S', M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
     15: { M6: 'S', M9: 'P', M10: 'P', M15: 'S' },
     16: { M3: 'S', M5: 'P', M6: 'P', M8: 'P', M11: 'S' },
     17: { M3: 'S', M6: 'P', M8: 'S', M13: 'P', M15: 'P' },
@@ -192,14 +192,14 @@ export const METRIC_PROCESS_MAP = {
     20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M5: 'S', M6: 'S', M11: 'S' },
     21: { M1: 'P', M2: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
     22: { M1: 'P', M2: 'S', M3: 'P', M4: 'S', M5: 'S', M6: 'P' },
-    23: { M1: 'P', M2: 'S', M4: 'P', M5: 'S', M9: 'S', M10: 'S', M11: 'P' },  // Fixed: M5 is S not missing
+    23: { M1: 'P', M2: 'S', M4: 'P', M5: 'S', M8: 'S', M9: 'S', M10: 'S', M11: 'P' },
     24: { M1: 'S', M2: 'P', M4: 'P', M5: 'S', M11: 'S', M12: 'P' },
     25: { M1: 'S', M2: 'P', M4: 'P', M5: 'P', M8: 'S' },
-    26: { M6: 'P', M9: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
+    26: { M5: 'S', M6: 'P', M9: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
     27: { M5: 'P', M6: 'P', M8: 'S', M13: 'P', M14: 'S', M15: 'S' },
     28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
-    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'P', M10: 'S', M11: 'S' },
-    30: { M5: 'S', M7: 'P', M8: 'P', M15: 'S', M16: 'S' }  // Fixed: M6 is S
+    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'S', M10: 'S', M11: 'S' },
+    30: { M5: 'S', M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
 };
 
 // Level thresholds per process (from Process Tailoring Tables header rows)
@@ -294,12 +294,13 @@ export const DEPENDENCY_CHAINS = [
     { id: 'config_backbone', name: 'Configuration Backbone', processes: [13, 14, 8], description: 'CM supports all processes. Its level should match the highest technical process level.' }
 ];
 
-// System Assurance Criticality Tier Data
+// System Assurance Criticality Tier Data (derived from M5)
 export const SA_CRITICALITY_TIERS = [
     {
         id: 'tier1',
-        name: 'Tier 1 – Negligible',
+        name: 'Tier I – Negligible',
         level: 'basic',
+        m5Range: '1-2',
         criteria: 'No hazardous consequences; failures are recoverable with no harm',
         minRigor: 'Basic',
         independence: 'No specific independence requirement',
@@ -307,8 +308,9 @@ export const SA_CRITICALITY_TIERS = [
     },
     {
         id: 'tier2',
-        name: 'Tier 2 – Safety Relevant',
+        name: 'Tier II – Safety Relevant',
         level: 'standard',
+        m5Range: '3',
         criteria: 'Potential minor harm; regulated environment; availability impacts',
         minRigor: 'Standard',
         independence: 'Safety Engineer separate from design; peer review of safety analyses',
@@ -316,8 +318,9 @@ export const SA_CRITICALITY_TIERS = [
     },
     {
         id: 'tier3',
-        name: 'Tier 3 – Safety Critical',
+        name: 'Tier III – Safety Critical',
         level: 'comprehensive',
+        m5Range: '4-5',
         criteria: 'Potential for major harm, fatality, or regulatory non-compliance',
         minRigor: 'Comprehensive',
         independence: 'Independent Safety Engineer; ISA required for Safety Case and acceptance',
@@ -325,18 +328,8 @@ export const SA_CRITICALITY_TIERS = [
     }
 ];
 
-export const SA_TIER_QUESTIONS = [
-    { id: 1, question: 'Could a system failure lead to harm to people, property, or environment?', yesImpact: 'Tier 2+' },
-    { id: 2, question: 'Are there regulatory or contractual safety requirements (e.g., EN 50126, NFPA 130, CSA R114)?', yesImpact: 'Tier 2+' },
-    { id: 3, question: 'Is there potential for fatality or major harm?', yesImpact: 'Tier 3' },
-    { id: 4, question: 'Is the system in a regulated safety domain (rail, aerospace, medical device, nuclear)?', yesImpact: 'Tier 2+' },
-    { id: 5, question: 'Does the system use novel/unproven technology in safety-relevant functions?', yesImpact: 'Increase tier by 1' },
-    { id: 6, question: 'What are the availability requirements? (MTBF target, operational availability)', yesImpact: 'Document for RAM analysis' },
-    { id: 7, question: 'Does the operational context involve hazardous environments or high public exposure?', yesImpact: 'Tier 2+' }
-];
-
 export const SA_FLOOR_RULE = {
-    description: 'The SA Criticality Tier acts as a minimum rigor floor for all processes',
+    description: 'The SA Criticality Tier (derived from M5 Safety Impact) acts as a minimum rigor floor for safety-relevant processes',
     rules: [
         { tier: 'tier1', minLevel: null, action: 'None' },
         { tier: 'tier2', minLevel: 'standard', action: 'Upgrade Basic → Standard' },
