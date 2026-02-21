@@ -1,9 +1,9 @@
 /**
- * SE Tailoring Model — System Assurance Methods Reference
+ * SE Tailoring Model — Safety Assurance Methods Reference
  * _VERSION: 1.0 | _LAST_UPDATED: 2026-02
  * _SOURCE: 02-PRACTICAL/SA-Integration-Guide.md
  * 
- * Reference data for System Assurance (RAMS) analysis methods
+ * Reference data for Safety Assurance (RAMS) analysis methods
  */
 
 export const SA_METHODS = [
