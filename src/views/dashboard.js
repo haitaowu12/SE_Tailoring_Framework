@@ -14,7 +14,7 @@ export function renderDashboard(container) {
     <section class="hero animate-fade-in-up">
       <div class="hero-badge">v${FRAMEWORK_META.version} · ${FRAMEWORK_META.standard}</div>
       <h1 class="hero-title">SE Process<br><span class="gradient-text">Tailoring Framework</span></h1>
-      <p class="hero-subtitle">Metrics-driven process tailoring for systems engineering projects. Score 16 metrics once, get tailored recommendations for 22 processes across 3 rigor levels.</p>
+      <p class="hero-subtitle">Metrics-driven process tailoring for systems engineering projects. Score 16 metrics once, get tailored recommendations for 22 core processes now, with a 30-process roadmap.</p>
       <div class="hero-actions">
         <button class="btn btn-primary btn-lg" id="btn-start-assessment">🎯 Start Assessment</button>
         <button class="btn btn-secondary btn-lg" id="btn-explore">🔍 Explore Processes</button>
@@ -74,7 +74,7 @@ export function renderDashboard(container) {
           </div>
           <p class="text-sm text-secondary mt-md">${FRAMEWORK_META.levelDescriptions[l]}</p>
           <div class="level-range mt-md text-xs text-secondary">
-            ${l === 'basic' ? 'Score range: 1.0 – 2.4' : l === 'standard' ? 'Score range: 2.5 – 3.9' : 'Score range: 4.0 – 5.0'}
+            ${l === 'basic' ? 'Trigger tier: scores 1-2' : l === 'standard' ? 'Trigger tier: score 3' : 'Trigger tier: scores 4-5'}
           </div>
         </div>`).join('')}
       </div>

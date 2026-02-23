@@ -180,7 +180,7 @@ function renderStep(container) {
     <div class="metric-group">
       ${dimMetrics.map(m => {
     const val = localScores[m.id] || 3;
-    const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 2.5 ? 'var(--level-standard)' : 'var(--level-basic)';
+    const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
     return `
         <div class="metric-item">
           <div class="metric-header">
@@ -228,7 +228,7 @@ function setMetricScore(metricId, value, contentContainer) {
   const display = contentContainer.querySelector(`#score-${metricId}`);
   if (display) {
     display.textContent = value;
-    display.style.color = value >= 4 ? 'var(--level-comprehensive)' : value >= 2.5 ? 'var(--level-standard)' : 'var(--level-basic)';
+    display.style.color = value >= 4 ? 'var(--level-comprehensive)' : value >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
   }
 
   const desc = contentContainer.querySelector(`#desc-${metricId}`);
@@ -297,6 +297,7 @@ function renderResults(content) {
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const result = runFullAssessment(localScores, matrixMap);
+  const derivationDetails = result.derivationDetails || {};
   const saTier = result.saTier;
 
   const tierColors = {
@@ -355,9 +356,16 @@ function renderResults(content) {
       <div class="results-grid">
         ${procs.map(p => {
     const level = result.levels[p.id] || 'basic';
+    const detail = derivationDetails[p.id] || {};
     const drivers = getDriverAttribution(p.id, localScores, matrixMap);
     const wasOverridden = result.overrides.some(o => o.processId === p.id);
     const wasFixed = result.fixes.some(f => f.processId === p.id);
+    const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
+      ? detail.triggerMetrics.join(', ')
+      : '—';
+    const weightedRef = typeof detail.weightedReferenceScore === 'number'
+      ? `${detail.weightedReferenceScore} (${detail.weightedReferenceLevel || '—'})`
+      : '—';
     return `
           <div class="result-card" style="border-left: 3px solid var(--level-${level})">
             <div class="result-card-header">
@@ -366,6 +374,8 @@ function renderResults(content) {
             </div>
             ${wasOverridden ? '<div class="text-xs" style="color:var(--accent-warning)">⚠ Override applied</div>' : ''}
             ${wasFixed ? '<div class="text-xs" style="color:var(--accent-success)">✓ Consistency fix</div>' : ''}
+            <div class="text-xs text-secondary mt-sm">Trigger metric(s): <strong>${triggerMetrics}</strong>${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</div>
+            <div class="text-xs text-secondary">Weighted reference (advisory): <strong>${weightedRef}</strong></div>
             <div class="drivers-list mt-sm">
               ${drivers.slice(0, 3).map(d => `
                 <div class="driver-item">
@@ -389,6 +399,7 @@ function finalizeAssessment() {
     scores: localScores,
     saTier: result.saTier,
     derived: result.derived,
+    derivationDetails: result.derivationDetails || {},
     levels: result.levels,
     overrides: result.overrides,
     violations: result.violations,

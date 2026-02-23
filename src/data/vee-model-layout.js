@@ -1,7 +1,7 @@
 /**
  * SE Tailoring Model — Vee Model Layout
  * Maps processes to positions on the Vee lifecycle diagram.
- * _VERSION: 3.1 | _LAST_UPDATED: 2025-02
+ * _VERSION: 3.2 | _LAST_UPDATED: 2026-02
  */
 
 // Vee model phases and process mappings

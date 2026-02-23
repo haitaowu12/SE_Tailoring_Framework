@@ -5,7 +5,8 @@ import { METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, CONSISTENCY_RULES, PROPAGATION
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
-const levelFromIndex = i => LEVELS[Math.max(0, Math.min(2, i))];
+const SCORE_WEIGHTS = { P: 2, S: 1 };
+const metricSort = (a, b) => Number(a.replace('M', '')) - Number(b.replace('M', ''));
 
 const SA_TIERS = [
     { tier: 'I', name: 'Negligible', description: 'Standard SE processes sufficient', floor: null },
@@ -27,54 +28,79 @@ export function calculateSATier(scores) {
     return { ...SA_TIERS[0], score: m5 };
 }
 
+function levelFromScore(score) {
+    if (score >= 4) return 'comprehensive';
+    if (score >= 3) return 'standard';
+    return 'basic';
+}
+
+function scoreOrDefault(scores, metricId) {
+    const score = scores?.[metricId];
+    return typeof score === 'number' ? score : 3;
+}
+
+/** Calculate process derivation details from metric scores */
+export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
+    const map = matrixMap[processId];
+    if (!map || Object.keys(map).length === 0) {
+        return {
+            level: 'basic',
+            triggerMetrics: [],
+            triggerScore: null,
+            triggerLevel: 'basic',
+            weightedReferenceScore: 3,
+            weightedReferenceLevel: levelFromScore(3)
+        };
+    }
+
+    const drivers = Object.entries(map)
+        .filter(([, role]) => role === 'P' || role === 'S')
+        .map(([metric, role]) => {
+            const value = scoreOrDefault(scores, metric);
+            return { metric, role, value, level: levelFromScore(value) };
+        });
+
+    if (drivers.length === 0) {
+        return {
+            level: 'basic',
+            triggerMetrics: [],
+            triggerScore: null,
+            triggerLevel: 'basic',
+            weightedReferenceScore: 3,
+            weightedReferenceLevel: levelFromScore(3)
+        };
+    }
+
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (const d of drivers) {
+        const weight = SCORE_WEIGHTS[d.role] || 1;
+        weightedSum += d.value * weight;
+        totalWeight += weight;
+    }
+    const weightedReferenceScore = totalWeight > 0 ? weightedSum / totalWeight : 3;
+    const weightedReferenceLevel = levelFromScore(weightedReferenceScore);
+
+    const maxScore = Math.max(...drivers.map(d => d.value));
+    const triggerMetrics = drivers
+        .filter(d => d.value === maxScore)
+        .map(d => d.metric)
+        .sort(metricSort);
+    const triggerLevel = levelFromScore(maxScore);
+
+    return {
+        level: triggerLevel,
+        triggerMetrics,
+        triggerScore: maxScore,
+        triggerLevel,
+        weightedReferenceScore: Number(weightedReferenceScore.toFixed(2)),
+        weightedReferenceLevel
+    };
+}
+
 /** Calculate individual process level from metric scores */
 export function calculateProcessLevel(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
-    const map = matrixMap[processId];
-    if (!map) return 'basic';
-
-    let primarySum = 0, primaryCount = 0, primaryMax = 0;
-    let secondarySum = 0, secondaryCount = 0;
-
-    for (const [metric, role] of Object.entries(map)) {
-        const val = scores[metric] || 3;
-        if (role === 'P') {
-            primarySum += val;
-            primaryCount++;
-            if (val > primaryMax) primaryMax = val;
-        }
-        else if (role === 'S') {
-            secondarySum += val;
-            secondaryCount++;
-        }
-    }
-
-    // Baseline primary average
-    let primaryAvg = primaryCount > 0 ? primarySum / primaryCount : 3;
-
-    // Non-linear dynamics: extreme primary drivers pull the average up 
-    // to account for "highest water mark" complexity constraints.
-    if (primaryCount > 0 && primaryMax > primaryAvg) {
-        primaryAvg = primaryAvg + 0.5 * (primaryMax - primaryAvg);
-    }
-
-    const secondaryAvg = secondaryCount > 0 ? secondarySum / secondaryCount : 3;
-
-    let weighted;
-    if (primaryCount > 0 && secondaryCount > 0) {
-        // Primary drivers weighted 2x, secondary 1x
-        weighted = (primaryAvg * 2 + secondaryAvg) / 3;
-    } else if (primaryCount > 0) {
-        weighted = primaryAvg;
-    } else if (secondaryCount > 0) {
-        weighted = secondaryAvg;
-    } else {
-        weighted = 3;
-    }
-
-    // Adjusted thresholds to be responsive to non-linear shifts
-    if (weighted >= 3.8) return 'comprehensive';
-    if (weighted >= 2.4) return 'standard';
-    return 'basic';
+    return calculateProcessDerivation(processId, scores, matrixMap).level;
 }
 
 /** Calculate levels for all core processes */
@@ -84,6 +110,15 @@ export function calculateAllProcessLevels(scores, matrixMap = METRIC_PROCESS_MAP
         levels[p.id] = calculateProcessLevel(p.id, scores, matrixMap);
     }
     return levels;
+}
+
+/** Calculate derivation details for all core processes */
+export function calculateAllProcessDerivations(scores, matrixMap = METRIC_PROCESS_MAP) {
+    const derivations = {};
+    for (const p of CORE_PROCESSES) {
+        derivations[p.id] = calculateProcessDerivation(p.id, scores, matrixMap);
+    }
+    return derivations;
 }
 
 /** Apply override conditions (safety, regulatory, etc.) */
@@ -120,7 +155,7 @@ export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCE
 
     const drivers = [];
     for (const [metric, role] of Object.entries(map)) {
-        const val = scores[metric] || 3;
+        const val = scoreOrDefault(scores, metric);
         drivers.push({ metric, role, value: val, label: role === 'P' ? 'Primary' : 'Secondary' });
     }
     return drivers.sort((a, b) => (a.role === 'P' ? 0 : 1) - (b.role === 'P' ? 0 : 1) || b.value - a.value);
@@ -198,7 +233,11 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
 
 /** Full assessment pipeline */
 export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
-    const derived = calculateAllProcessLevels(scores, matrixMap);
+    const derivationDetails = calculateAllProcessDerivations(scores, matrixMap);
+    const derived = {};
+    for (const [pid, detail] of Object.entries(derivationDetails)) {
+        derived[pid] = detail.level;
+    }
     const { levels: withOverrides, overrides } = applyOverrides(derived, scores);
 
     let final = { ...withOverrides };
@@ -236,6 +275,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
 
     return {
         derived,
+        derivationDetails,
         overrides: [...overrides, ...saOverrides],
         fixes,
         levels: final,

@@ -126,6 +126,7 @@ export function renderMatrixView(container) {
         setState({
           matrixMap: currentMatrixMap,
           derived: result.derived,
+          derivationDetails: result.derivationDetails || {},
           levels: finalLevels,
           overrides: result.overrides,
           fixes: result.fixes,

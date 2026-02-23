@@ -4,9 +4,11 @@
  * AI SYNC: This file maps directly to the SE Tailoring Model Master Index.
  * When processes change, update this file to keep the web app in sync.
  *
- * _VERSION: 3.1
- * _LAST_UPDATED: 2025-02
+ * _VERSION: 3.2
+ * _LAST_UPDATED: 2026-02
  * _SOURCE: 00-MASTER/SE-Tailoring-Model-Master-Index.md
+ * _SYNC_CONTRACT:
+ *   - Canonical core/extended process scope: 00-MASTER/SE-Tailoring-Model-Master-Index.md
  */
 
 export const PROCESS_GROUPS = {
