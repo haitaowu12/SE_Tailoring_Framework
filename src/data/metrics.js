@@ -1,7 +1,11 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _VERSION: 3.1 | _LAST_UPDATED: 2025-02
+ * _VERSION: 3.2 | _LAST_UPDATED: 2026-02
  * _SOURCE: 02-PRACTICAL/Assessment-Worksheet.md, Process-Metric-Applicability-Matrix.md
+ * _SYNC_CONTRACT:
+ *   - Canonical process/metric map: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
+ *   - Canonical consistency/overrides: 02-PRACTICAL/Interdependency-Quick-Reference.md
+ *   - Canonical methodology narrative: 01-PAPER/03-Methodology.md
  */
 
 export const DIMENSIONS = [
@@ -180,10 +184,10 @@ export const METRICS = [
 export const METRIC_PROCESS_MAP = {
     9: { M1: 'S', M9: 'P', M10: 'P', M12: 'P', M13: 'S' },
     10: { M9: 'P', M10: 'P', M11: 'S', M15: 'S' },
-    11: { M1: 'P', M3: 'P', M5: 'S', M6: 'P', M12: 'S', M15: 'S' },
-    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M7: 'S', M8: 'P', M9: 'S' },
+    11: { M1: 'P', M3: 'P', M6: 'P', M12: 'S', M15: 'S' },
+    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M8: 'P', M9: 'S' },
     13: { M1: 'S', M2: 'P', M4: 'P', M8: 'P', M14: 'S' },
-    14: { M1: 'S', M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
+    14: { M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
     15: { M6: 'S', M9: 'P', M10: 'P', M15: 'S' },
     16: { M3: 'S', M5: 'P', M6: 'P', M8: 'P', M11: 'S' },
     17: { M3: 'S', M6: 'P', M8: 'S', M13: 'P', M15: 'P' },
@@ -192,14 +196,14 @@ export const METRIC_PROCESS_MAP = {
     20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M5: 'S', M6: 'S', M11: 'S' },
     21: { M1: 'P', M2: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
     22: { M1: 'P', M2: 'S', M3: 'P', M4: 'S', M5: 'S', M6: 'P' },
-    23: { M1: 'P', M2: 'S', M4: 'P', M5: 'S', M8: 'S', M9: 'S', M10: 'S', M11: 'P' },
+    23: { M1: 'P', M2: 'S', M4: 'P', M9: 'S', M10: 'S', M11: 'P' },
     24: { M1: 'S', M2: 'P', M4: 'P', M5: 'S', M11: 'S', M12: 'P' },
     25: { M1: 'S', M2: 'P', M4: 'P', M5: 'P', M8: 'S' },
-    26: { M5: 'S', M6: 'P', M9: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
+    26: { M6: 'P', M9: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
     27: { M5: 'P', M6: 'P', M8: 'S', M13: 'P', M14: 'S', M15: 'S' },
     28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
-    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'S', M10: 'S', M11: 'S' },
-    30: { M5: 'S', M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
+    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'P', M10: 'S', M11: 'S' },
+    30: { M6: 'S', M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
 };
 
 // Level thresholds per process (from Process Tailoring Tables header rows)

@@ -7,6 +7,7 @@ const state = {
     saResponses: {},
     saTier: null,
     derived: {},
+    derivationDetails: {},
     levels: {},
     overrides: [],
     violations: [],

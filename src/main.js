@@ -72,6 +72,7 @@ function buildNavbar() {
                     scores: config.metricScores,
                     levels: config.processLevels,
                     derived: config.derivedLevels,
+                    derivationDetails: config.derivationDetails || {},
                     overrides: config.overrides,
                     manualAdjustments: config.manualAdjustments || {},
                     tradeoffs: config.tradeoffs || [],

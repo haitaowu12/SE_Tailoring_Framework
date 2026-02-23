@@ -14,6 +14,10 @@
  *
  * _FRAMEWORK_VERSION: 3.2
  * _LAST_SYNC: 2026-02
+ * _SYNC_CONTRACT:
+ *   - Process/metric applicability source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
+ *   - Consistency/override source: 02-PRACTICAL/Interdependency-Quick-Reference.md
+ *   - Methodology narrative source: 01-PAPER/03-Methodology.md
  */
 
 export * from './processes.js';

@@ -52,7 +52,7 @@ export function renderInterdependency(container) {
         if (tab === 'rules') {
             content.innerHTML = `
         <div class="mb-lg">
-          <p class="text-secondary text-sm mb-md">7 consistency rules prevent logically inconsistent tailoring combinations. Hard Constraints (HC) must be satisfied; Warnings (WN) should be reviewed.</p>
+          <p class="text-secondary text-sm mb-md">${CONSISTENCY_RULES.length} consistency rules prevent logically inconsistent tailoring combinations. Hard Constraints (HC) must be satisfied; Warnings (WN) should be reviewed.</p>
         </div>
         ${CONSISTENCY_RULES.map(r => {
                 const triggerDesc = Array.isArray(r.trigger.process) ? r.trigger.process.map(processName).join(' or ') : r.trigger.process === 'any_technical' ? 'Any Technical Process' : processName(r.trigger.process);

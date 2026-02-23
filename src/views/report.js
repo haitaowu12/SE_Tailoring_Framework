@@ -80,7 +80,7 @@ export function renderReport(container) {
         <div>
           <div class="font-bold">${state.saTier.name}</div>
           <div class="text-sm text-secondary">${state.saTier.description}</div>
-          <div class="text-sm mt-sm"><strong>Minimum Rigor Floor:</strong> ${state.saTier.floor}</div>
+          <div class="text-sm mt-sm"><strong>Minimum Rigor Floor:</strong> ${state.saTier.floor || 'None'}</div>
         </div>
       </div>
     </div>` : ''}
@@ -100,7 +100,7 @@ export function renderReport(container) {
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
       <h4 class="mb-md">⚠️ Override Conditions (${state.overrides.length})</h4>
-      ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${processName(o.processId)}</strong>: ${o.from} → ${o.to} — ${o.reason} (${o.condition})</div>`).join('')}
+      ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${processName(o.processId)}</strong>: ${o.from} → ${o.to} — ${o.reason}${o.condition ? ` (${o.condition})` : ''}</div>`).join('')}
     </div>` : ''}
 
     ${state.violations.length > 0 ? `
@@ -113,17 +113,26 @@ export function renderReport(container) {
       <h4 class="mb-md">Process Levels & Drivers</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Top Drivers</th></tr></thead>
+          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metric(s)</th><th>Weighted Ref (Advisory)</th><th>Top Drivers</th></tr></thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
     const derived = state.derived[p.id] || 'basic';
     const final_ = state.levels[p.id] || 'basic';
+    const detail = state.derivationDetails?.[p.id] || {};
+    const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
+      ? detail.triggerMetrics.join(', ')
+      : '—';
+    const weightedRef = typeof detail.weightedReferenceScore === 'number'
+      ? `${detail.weightedReferenceScore} (${detail.weightedReferenceLevel || '—'})`
+      : '—';
     const drivers = getDriverAttribution(p.id, state.scores, state.matrixMap);
     const changed = derived !== final_;
     return `<tr>
                 <td><span class="process-id">${p.id}</span> ${p.name}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
+                <td class="text-xs">${triggerMetrics}${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</td>
+                <td class="text-xs text-secondary">${weightedRef}</td>
                 <td class="text-xs text-secondary">${drivers.slice(0, 3).map(d => `${d.metric}=${d.value}(${d.role})`).join(', ')}</td>
               </tr>`;
   }).join('')}
