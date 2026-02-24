@@ -12,12 +12,15 @@
  *   vee-model-layout.js → Derived from process lifecycle positions
  *   sa-methods.js      → 02-PRACTICAL/SA-Integration-Guide.md
  *
- * _FRAMEWORK_VERSION: 3.2
+ * _FRAMEWORK_VERSION: 3.2.1
  * _LAST_SYNC: 2026-02
  * _SYNC_CONTRACT:
  *   - Process/metric applicability source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
  *   - Consistency/override source: 02-PRACTICAL/Interdependency-Quick-Reference.md
  *   - Methodology narrative source: 01-PAPER/03-Methodology.md
+ *   - Derivation model: conditional highest-tier (corroborated Comprehensive)
+ *   - Rule baseline: 17 consistency rules (paper §6.5/§6.6 canonical set)
+ *   - Override baseline: 8 override conditions, including project-context security trigger
  */
 
 export * from './processes.js';
@@ -28,7 +31,7 @@ export * from './sa-methods.js';
 
 // Framework metadata
 export const FRAMEWORK_META = {
-    version: '3.2',
+    version: '3.2.1',
     name: 'SE Process Tailoring Framework',
     standard: 'ISO/IEC/IEEE 15288:2023',
     lastUpdated: '2026-02',

@@ -8,6 +8,12 @@ import { simulatePropagation } from '../utils/assessment-engine.js';
 export function renderInterdependency(container) {
     const state = getState();
     const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
+    const processRefName = (ref) => {
+        if (ref === 'any_technical') return 'Any Technical Process';
+        if (ref === 'all_technical') return 'All Technical Processes';
+        if (Array.isArray(ref)) return ref.map(processName).join(' or ');
+        return processName(ref);
+    };
 
     container.innerHTML = `
     <h2 class="mb-lg">🔗 Process Interdependencies</h2>
@@ -78,12 +84,14 @@ export function renderInterdependency(container) {
           <div class="prop-row" style="font-weight:700;color:var(--text-secondary);font-size:11px;text-transform:uppercase">
             <span>Source Process</span><span>→</span><span>Target Process</span><span>Min Level</span><span>Type</span>
           </div>
-          ${PROPAGATION_RULES.filter(r => r.target !== 'all_technical').map(r => `
+          ${PROPAGATION_RULES.map(r => `
             <div class="prop-row">
-              <span>${processName(r.source)} ≥ ${FRAMEWORK_META.levelLabels[r.sourceLevel]}</span>
+              <span>${processRefName(r.source)} ≥ ${FRAMEWORK_META.levelLabels[r.sourceLevel]}</span>
               <span class="chain-arrow">→</span>
-              <span>${processName(r.target)}</span>
-              <span class="level-badge ${r.minLevel}">${FRAMEWORK_META.levelLabels[r.minLevel]}</span>
+              <span>${processRefName(r.target)}</span>
+              <span class="level-badge ${r.minLevel || r.maxLevel}">
+                ${r.minLevel ? `≥ ${FRAMEWORK_META.levelLabels[r.minLevel]}` : `≤ ${FRAMEWORK_META.levelLabels[r.maxLevel]}`}
+              </span>
               <span class="prop-type ${r.type}">${r.type} (d${r.depth})</span>
             </div>
           `).join('')}

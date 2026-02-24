@@ -1,7 +1,7 @@
 /**
  * SE Tailoring Model — Vee Model Layout
  * Maps processes to positions on the Vee lifecycle diagram.
- * _VERSION: 3.2 | _LAST_UPDATED: 2026-02
+ * _VERSION: 3.2.1 | _LAST_UPDATED: 2026-02
  */
 
 // Vee model phases and process mappings
@@ -22,7 +22,7 @@ export const VEE_PROCESS_MAP = [
     // Left side (descending) — decomposition & definition
     { processId: 17, phase: 'concept', x: 10, y: 12, label: 'Business/Mission Analysis' },
     { processId: 18, phase: 'requirements', x: 14, y: 24, label: 'Stakeholder Needs & Req' },
-    { processId: 19, phase: 'requirements', x: 20, y: 32, label: 'System Requirements' },
+    { processId: 19, phase: 'requirements', x: 20, y: 32, label: 'System Requirements Definition' },
     { processId: 20, phase: 'architecture', x: 26, y: 42, label: 'Architecture Definition' },
     { processId: 21, phase: 'design', x: 32, y: 52, label: 'Design Definition' },
     { processId: 22, phase: 'design', x: 38, y: 60, label: 'System Analysis' },

@@ -2,7 +2,7 @@
  * Shared App State
  */
 const state = {
-    projectInfo: { name: '', date: '', team: '', phase: '' },
+    projectInfo: { name: '', date: '', team: '', phase: '', securityCritical: false },
     scores: {},
     saResponses: {},
     saTier: null,

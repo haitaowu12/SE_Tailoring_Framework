@@ -116,7 +116,11 @@ export function renderMatrixView(container) {
       }
 
       if (currentState.assessmentComplete) {
-        const result = runFullAssessment(currentState.scores, currentMatrixMap);
+        const result = runFullAssessment(
+          currentState.scores,
+          currentMatrixMap,
+          currentState.projectInfo || {}
+        );
         const finalLevels = { ...result.levels };
         if (currentState.manualAdjustments) {
           for (const [mpid, adj] of Object.entries(currentState.manualAdjustments)) {

@@ -1,8 +1,8 @@
 /**
  * Report View — Assessment summary & export
  */
-import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS } from '../data/se-tailoring-data.js';
-import { getDriverAttribution } from '../utils/assessment-engine.js';
+import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
+import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig } from '../utils/export-import.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, showToast } from '../state.js';
@@ -28,6 +28,12 @@ export function renderReport(container) {
   });
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
+  const processRefName = (ref) => {
+    if (ref === 'any_technical') return 'Any Technical Process';
+    if (ref === 'all_technical') return 'All Technical Processes';
+    if (Array.isArray(ref)) return ref.map(processName).join(', ');
+    return processName(ref);
+  };
 
   container.innerHTML = `
     <div class="flex justify-between items-center mb-lg">
@@ -49,6 +55,7 @@ export function renderReport(container) {
           <tr><td class="text-secondary">Date</td><td>${state.projectInfo.date || '—'}</td></tr>
           <tr><td class="text-secondary">Team</td><td>${state.projectInfo.team || '—'}</td></tr>
           <tr><td class="text-secondary">Phase</td><td>${state.projectInfo.phase || '—'}</td></tr>
+          <tr><td class="text-secondary">Security-Critical Context</td><td>${state.projectInfo.securityCritical ? 'Enabled' : 'Disabled'}</td></tr>
         </table>
       </div>
       <div class="card">
@@ -110,10 +117,124 @@ export function renderReport(container) {
     </div>` : ''}
 
     <div class="card mb-xl">
+      <h4 class="mb-md">📋 Full Process Tailoring Profile</h4>
+      <p class="text-xs text-secondary mb-md">Complete tailoring profile showing derived levels, overrides, and final assignments for all core processes.</p>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Process</th>
+              <th>Group</th>
+              <th>Derived</th>
+              <th>Override</th>
+              <th>Fix</th>
+              <th>Final</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${CORE_PROCESSES.map(p => {
+              const derived = state.derived[p.id] || 'basic';
+              const final_ = state.levels[p.id] || 'basic';
+              const override = state.overrides?.find(o => o.processId === p.id);
+              const fix = state.fixes?.find(f => f.processId === p.id);
+              const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
+              return `<tr>
+                <td><span class="process-id">${p.id}</span></td>
+                <td>${p.name}</td>
+                <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
+                <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
+                <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
+                <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
+                <td><span class="level-badge ${final_}" style="font-weight:700;">${final_[0].toUpperCase()}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    ${state.overrides.length > 0 ? `
+    <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
+      <h4 class="mb-md">🔗 Override Chain Documentation</h4>
+      <p class="text-xs text-secondary mb-md">Traceability from metric thresholds to process level floors.</p>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Override Condition</th>
+              <th>Trigger</th>
+              <th>Affected Process</th>
+              <th>Change</th>
+              <th>Source Standard</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.overrides.map(o => {
+              const overrideDef = OVERRIDE_CONDITIONS.find(oc => oc.id === o.overrideId || oc.label === o.reason);
+              const triggerText = o.condition || overrideDef?.condition || '—';
+              return `<tr>
+                <td><strong>${o.reason}</strong></td>
+                <td><code style="font-size:11px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${triggerText}</code></td>
+                <td>${processName(o.processId)}</td>
+                <td><span class="level-badge ${o.from}" style="opacity:0.6;">${o.from[0].toUpperCase()}</span> → <span class="level-badge ${o.to}">${o.to[0].toUpperCase()}</span></td>
+                <td class="text-xs text-secondary">${overrideDef?.source || '—'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
+    ${(state.fixes?.length > 0 || state.violations?.length > 0) ? `
+    <div class="card mb-xl" style="border-left: 3px solid var(--accent-info)">
+      <h4 class="mb-md">⚡ Propagation Chain Documentation</h4>
+      <p class="text-xs text-secondary mb-md">Consistency rule enforcement showing how process dependencies were resolved.</p>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Rule</th>
+              <th>Type</th>
+              <th>Trigger Process</th>
+              <th>Required Process</th>
+              <th>Action</th>
+              <th>Rationale</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.fixes?.map(f => {
+              const rule = data.CONSISTENCY_RULES?.find(r => r.label?.includes(f.reason) || r.id === f.ruleId);
+              return `<tr style="background: rgba(52,211,153,0.05);">
+                <td><strong>Rule ${rule?.id || '—'}</strong></td>
+                <td><span style="background: rgba(239,68,68,0.15); color:#ef4444; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">HC</span></td>
+                <td>${rule?.trigger?.process ? processRefName(rule.trigger.process) : '—'}</td>
+                <td>${processName(f.processId)}</td>
+                <td><span class="level-badge ${f.from}" style="opacity:0.6;">${f.from[0].toUpperCase()}</span> → <span class="level-badge ${f.to}">${f.to[0].toUpperCase()}</span></td>
+                <td class="text-xs text-secondary">${rule?.rationale?.substring(0, 80) || '—'}...</td>
+              </tr>`;
+            }).join('') || ''}
+            ${state.violations?.filter(v => v.type === 'WN').map(v => {
+              const rule = data.CONSISTENCY_RULES?.find(r => r.id === v.ruleId);
+              return `<tr style="background: rgba(251,191,36,0.05);">
+                <td><strong>Rule ${v.ruleId}</strong></td>
+                <td><span style="background: rgba(251,191,36,0.15); color:#f59e0b; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">WN</span></td>
+                <td>${rule?.trigger?.process ? processRefName(rule.trigger.process) : '—'}</td>
+                <td>${processName(v.affectedProcess)}</td>
+                <td><span style="color:var(--accent-warning); font-size:11px;">Review recommended</span></td>
+                <td class="text-xs text-secondary">${v.rationale?.substring(0, 80) || v.label}...</td>
+              </tr>`;
+            }).join('') || ''}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
+    <div class="card mb-xl">
       <h4 class="mb-md">Process Levels & Drivers</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metric(s)</th><th>Weighted Ref (Advisory)</th><th>Top Drivers</th></tr></thead>
+          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metric(s)</th><th>Conditional Cap</th><th>Weighted Ref (Advisory)</th><th>Top Drivers</th></tr></thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
     const derived = state.derived[p.id] || 'basic';
@@ -132,6 +253,7 @@ export function renderReport(container) {
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
                 <td class="text-xs">${triggerMetrics}${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</td>
+                <td class="text-xs text-secondary">${detail.conditionalRuleApplied ? `${detail.triggerLevel} → ${detail.level}` : 'No'}</td>
                 <td class="text-xs text-secondary">${weightedRef}</td>
                 <td class="text-xs text-secondary">${drivers.slice(0, 3).map(d => `${d.metric}=${d.value}(${d.role})`).join(', ')}</td>
               </tr>`;

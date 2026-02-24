@@ -1,7 +1,7 @@
 /**
  * Assessment View — Step-by-step metric scoring wizard
  */
-import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP } from '../data/se-tailoring-data.js';
+import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS } from '../data/se-tailoring-data.js';
 import { runFullAssessment, getDriverAttribution } from '../utils/assessment-engine.js';
 import { getState, setState, showToast } from '../state.js';
 import { navigateTo } from '../router.js';
@@ -19,12 +19,38 @@ let currentStep = 0;
 let localScores = {};
 let localProject = {};
 
+function compareScore(lhs, op, rhs) {
+  if (op === '>=') return lhs >= rhs;
+  if (op === '=') return lhs === rhs;
+  if (op === '<=') return lhs <= rhs;
+  return false;
+}
+
+function isBasicExcluded(processId, scores, projectInfo = {}) {
+  for (const ov of OVERRIDE_CONDITIONS) {
+    const trigger = ov.trigger || {};
+    let triggered = false;
+
+    if (trigger.type === 'metric') {
+      const score = typeof scores?.[trigger.metric] === 'number' ? scores[trigger.metric] : 3;
+      triggered = compareScore(score, trigger.op, trigger.value);
+    } else if (trigger.type === 'context') {
+      triggered = projectInfo?.[trigger.field] === trigger.equals;
+    }
+
+    if (triggered && ov.processes.includes(processId)) {
+      return { excluded: true, reason: ov.label, minLevel: ov.minLevel };
+    }
+  }
+  return { excluded: false, reason: null, minLevel: null };
+}
+
 export function renderAssessment(container) {
   const isFreshLoad = !container.querySelector('.assessment-container');
   if (isFreshLoad) {
     const state = getState();
     localScores = { ...state.scores };
-    localProject = { ...state.projectInfo };
+    localProject = { securityCritical: false, ...state.projectInfo };
 
     METRICS.forEach(m => {
       if (localScores[m.id] === undefined) {
@@ -38,6 +64,15 @@ export function renderAssessment(container) {
       <div class="assessment-header">
         <h2>🎯 Project Assessment</h2>
         <p class="text-secondary">Score 16 metrics to get process-specific tailoring recommendations</p>
+      </div>
+      <div class="ordinal-warning mb-lg" style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); border-radius: 10px; padding: 14px 18px;">
+        <div style="display: flex; align-items: flex-start; gap: 10px;">
+          <span style="font-size: 18px;">⚠️</span>
+          <div>
+            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Ordinal Scale Warning</div>
+            <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">Metric scores (1-5) and derived levels (B/S/C) are <strong>ordinal scales</strong>, not cardinal values. They indicate relative ranking within this project only. <strong>Do not compare scores or averages across different projects</strong>—use them only for determining appropriate tailoring levels for the current project.</div>
+          </div>
+        </div>
       </div>
       <div class="step-progress">
         ${STEPS.map((s, i) => `
@@ -147,6 +182,13 @@ function renderStep(container) {
             <option value="disposal" ${localProject.phase === 'disposal' ? 'selected' : ''}>Retirement / Disposal</option>
           </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">Security-Critical Context</label>
+          <label class="flex items-center gap-sm" style="font-size: 13px;">
+            <input type="checkbox" id="proj-security-critical" ${localProject.securityCritical ? 'checked' : ''}>
+            <span>Project is security-critical (enables security override floor)</span>
+          </label>
+        </div>
       </div>
     `;
     ['proj-name', 'proj-date', 'proj-team', 'proj-phase'].forEach(id => {
@@ -154,6 +196,9 @@ function renderStep(container) {
         const key = id.replace('proj-', '');
         localProject[key] = e.target.value;
       });
+    });
+    content.querySelector('#proj-security-critical').addEventListener('change', (e) => {
+      localProject.securityCritical = !!e.target.checked;
     });
     return;
   }
@@ -296,7 +341,7 @@ function startWizard(metricId, contentContainer) {
 function renderResults(content) {
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const result = runFullAssessment(localScores, matrixMap);
+  const result = runFullAssessment(localScores, matrixMap, localProject);
   const derivationDetails = result.derivationDetails || {};
   const saTier = result.saTier;
 
@@ -316,15 +361,101 @@ function renderResults(content) {
   const processName = (id) => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
 
   const m5Val = localScores.M5 || 3;
+  const securityCritical = !!localProject.securityCritical;
 
   content.innerHTML = `
     <h3 class="mb-lg">📊 Assessment Results</h3>
+    
+    <div class="ordinal-warning-banner mb-lg" style="background: rgba(239,68,68,0.08); border: 2px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px 18px;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">⚠️</span>
+        <div>
+          <div style="font-weight: 700; color: var(--accent-danger); font-size: 14px;">Ordinal Score Warning</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+            Metric scores are <strong>ordinal values</strong>, not cardinal. Total scores or averages <strong>cannot be compared between projects</strong>. 
+            Scores indicate relative rigor within this assessment only.
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="workflow-diagram mb-lg" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px;">
+      <details>
+        <summary style="cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+          <span>📋</span> Tailoring Workflow (click to expand)
+        </summary>
+        <div style="margin-top: 12px; font-size: 11px; font-family: monospace; line-height: 1.4; white-space: pre; overflow-x: auto;">
+┌──────────────────────────────────────────────────────────────────────┐
+│                      SE TAILORING WORKFLOW                            │
+└──────────────────────────────────────────────────────────────────────┘
+
+  Step 1: Score Metrics (§3.2-3.3)
+  └──▶ Assess 16 metrics (1-5 scale), document rationale
+
+  Step 2: Derive Process Levels (§3.4)
+  └──▶ For each process: identify metrics → map to tiers → conditional derivation
+       (Comprehensive requires corroboration; single high trigger may cap at Standard)
+
+  Step 3: Check Overrides (§3.4.4)
+  └──▶ Does criticality override apply? ──[Yes]──▶ Apply minimum level
+                    │
+                   [No]
+                    ▼
+  Step 4: Apply Interdependencies (§6.5-6.6)
+  └──▶ Hard constraint violated? ──[Yes]──▶ Elevate level
+                    │
+                   [No]
+                    ▼
+  Step 5: Review Trade-offs (§3.6)
+  └──▶ Accepting trade-off? ──[Yes]──▶ Document in Trade-off Log
+                    │
+                   [No]
+                    ▼
+  Step 6: Generate Profile
+  └──▶ Process Tailoring Profile with attribution and sign-off
+        </div>
+      </details>
+    </div>
+    
+    <div class="metric-legend mb-lg" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 16px;">
+      <div class="text-xs text-secondary mb-sm" style="font-weight: 600;">Metric Legend (Override-Relevant)</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px;">
+        <span><strong style="color: var(--accent-primary);">M4</strong> – Multi-Contractor Integration</span>
+        <span><strong style="color: var(--accent-primary);">M3</strong> – Technology Novelty</span>
+        <span><strong style="color: var(--accent-primary);">M5</strong> – Safety Criticality</span>
+        <span><strong style="color: var(--accent-primary);">M6</strong> – Mission Criticality</span>
+        <span><strong style="color: var(--accent-primary);">M7</strong> – Environmental Criticality</span>
+        <span><strong style="color: var(--accent-primary);">M8</strong> – Regulatory Burden</span>
+        <span><strong style="color: var(--accent-primary);">CTX</strong> – Security-Critical project context</span>
+      </div>
+    </div>
+    
+    <div class="workflow-diagram mb-lg" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 16px;">
+      <div class="text-xs text-secondary mb-sm" style="font-weight: 600;">Tailoring Workflow</div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11px;">
+        <span style="background: rgba(99,102,241,0.15); padding: 4px 10px; border-radius: 4px; font-weight: 600;">1. Score Metrics</span>
+        <span style="color: var(--text-tertiary);">→</span>
+        <span style="background: rgba(99,102,241,0.15); padding: 4px 10px; border-radius: 4px; font-weight: 600;">2. Derive Levels</span>
+        <span style="color: var(--text-tertiary);">→</span>
+        <span style="background: rgba(245,158,11,0.15); padding: 4px 10px; border-radius: 4px; font-weight: 600;">3. Apply Overrides</span>
+        <span style="color: var(--text-tertiary);">→</span>
+        <span style="background: rgba(245,158,11,0.15); padding: 4px 10px; border-radius: 4px; font-weight: 600;">4. Check Consistency</span>
+        <span style="color: var(--text-tertiary);">→</span>
+        <span style="background: rgba(52,211,153,0.15); padding: 4px 10px; border-radius: 4px; font-weight: 600;">5. Final Profile</span>
+      </div>
+      <div style="margin-top: 10px; font-size: 10px; color: var(--text-tertiary);">
+        Decision points: <span style="background: rgba(245,158,11,0.1); padding: 1px 4px; border-radius: 3px;">Criticality override?</span> 
+        <span style="background: rgba(239,68,68,0.1); padding: 1px 4px; border-radius: 3px;">HC violated?</span> 
+        <span style="background: rgba(52,211,153,0.1); padding: 1px 4px; border-radius: 3px;">Accepting trade-off?</span>
+      </div>
+    </div>
     
     <div class="sa-tier-result mb-lg" style="background: ${tierColors[saTier.tier]}15; border: 2px solid ${tierColors[saTier.tier]}; border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
         <div class="text-sm text-secondary">Safety Assurance Criticality Tier (derived from M5: Safety Impact = ${m5Val})</div>
         <div style="font-size: 24px; font-weight: 800; color: ${tierColors[saTier.tier]}">Tier ${saTier.tier}: ${saTier.name}</div>
         <div class="text-sm">${saTier.description}</div>
+        <div class="text-xs text-secondary mt-sm">Security-Critical Context: <strong>${securityCritical ? 'Enabled' : 'Disabled'}</strong></div>
       </div>
       <div style="text-align: right;">
         ${saTier.floor ? `<div class="text-xs" style="color: ${tierColors[saTier.tier]}">Min Floor: ${saTier.floor}</div>` : '<div class="text-xs text-secondary">No floor applied</div>'}
@@ -346,6 +477,10 @@ function renderResults(content) {
         <strong>⚠ Remaining Warnings (${result.violations.length})</strong>
         ${result.violations.map(v => `<div class="text-sm mt-sm">• Rule ${v.ruleId} [${v.type}]: ${v.label}</div>`).join('')}
       </div>` : ''}
+    <div class="basic-exclusion-legend mb-lg" style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px 16px;">
+      <div class="text-xs text-secondary mb-sm" style="font-weight: 600;">Basic Level Exclusion</div>
+      <div class="text-sm">When criticality thresholds are exceeded, <strong style="color: var(--level-basic); text-decoration: line-through;">Basic</strong> is not available for affected processes. These processes show a <span style="background: rgba(239,68,68,0.15); padding: 1px 4px; border-radius: 3px; font-size: 11px;">🚫 B excluded</span> indicator.</div>
+    </div>
     <div class="grid-3 mb-lg">
       <div class="card stat-card"><div class="stat-value" style="color:var(--level-basic)">${Object.values(result.levels).filter(l => l === 'basic').length}</div><div class="stat-label">Basic</div></div>
       <div class="card stat-card"><div class="stat-value" style="color:var(--level-standard)">${Object.values(result.levels).filter(l => l === 'standard').length}</div><div class="stat-label">Standard</div></div>
@@ -360,6 +495,7 @@ function renderResults(content) {
     const drivers = getDriverAttribution(p.id, localScores, matrixMap);
     const wasOverridden = result.overrides.some(o => o.processId === p.id);
     const wasFixed = result.fixes.some(f => f.processId === p.id);
+    const basicExcluded = isBasicExcluded(p.id, localScores, localProject);
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
       : '—';
@@ -372,8 +508,10 @@ function renderResults(content) {
               <span class="result-process">${p.name}</span>
               <span class="level-badge ${level}">${level}</span>
             </div>
+            ${basicExcluded.excluded ? `<div class="text-xs" style="color:var(--accent-danger)">🚫 B excluded (${basicExcluded.reason})</div>` : ''}
             ${wasOverridden ? '<div class="text-xs" style="color:var(--accent-warning)">⚠ Override applied</div>' : ''}
             ${wasFixed ? '<div class="text-xs" style="color:var(--accent-success)">✓ Consistency fix</div>' : ''}
+            ${detail.conditionalRuleApplied ? `<div class="text-xs" style="color:var(--accent-warning)">⚠ Conditional cap applied (trigger ${detail.triggerLevel} → derived ${detail.level})</div>` : ''}
             <div class="text-xs text-secondary mt-sm">Trigger metric(s): <strong>${triggerMetrics}</strong>${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</div>
             <div class="text-xs text-secondary">Weighted reference (advisory): <strong>${weightedRef}</strong></div>
             <div class="drivers-list mt-sm">
@@ -393,9 +531,9 @@ function renderResults(content) {
 function finalizeAssessment() {
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const result = runFullAssessment(localScores, matrixMap);
+  const result = runFullAssessment(localScores, matrixMap, localProject);
   setState({
-    projectInfo: localProject,
+    projectInfo: { ...localProject, securityCritical: !!localProject.securityCritical },
     scores: localScores,
     saTier: result.saTier,
     derived: result.derived,

@@ -68,16 +68,16 @@ function buildNavbar() {
                 const config = await importConfig(e.target.files[0]);
                 const { setState } = await import('./state.js');
                 setState({
-                    projectInfo: config.projectInfo,
-                    scores: config.metricScores,
-                    levels: config.processLevels,
-                    derived: config.derivedLevels,
+                    projectInfo: { securityCritical: false, ...(config.projectInfo || {}) },
+                    scores: config.metricScores || {},
+                    levels: config.processLevels || {},
+                    derived: config.derivedLevels || {},
                     derivationDetails: config.derivationDetails || {},
-                    overrides: config.overrides,
+                    overrides: config.overrides || [],
                     manualAdjustments: config.manualAdjustments || {},
                     tradeoffs: config.tradeoffs || [],
                     matrixMap: config.matrixMap || null,
-                    cultureType: config.cultureType,
+                    cultureType: config.cultureType || null,
                     notes: config.notes || '',
                     assessmentComplete: Object.keys(config.metricScores || {}).length > 0
                 });

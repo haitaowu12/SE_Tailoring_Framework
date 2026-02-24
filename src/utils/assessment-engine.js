@@ -39,6 +39,64 @@ function scoreOrDefault(scores, metricId) {
     return typeof score === 'number' ? score : 3;
 }
 
+function compareScore(lhs, op, rhs) {
+    if (op === '>=') return lhs >= rhs;
+    if (op === '=') return lhs === rhs;
+    if (op === '<=') return lhs <= rhs;
+    return false;
+}
+
+function getTechnicalProcessIds() {
+    return CORE_PROCESSES.filter(p => p.group === 'technical').map(p => p.id);
+}
+
+function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
+    const trigger = overrideCondition?.trigger;
+    if (!trigger) return false;
+
+    if (trigger.type === 'metric') {
+        const score = scoreOrDefault(scores, trigger.metric);
+        return compareScore(score, trigger.op, trigger.value);
+    }
+
+    if (trigger.type === 'context') {
+        return context?.[trigger.field] === trigger.equals;
+    }
+
+    return false;
+}
+
+function applyConditionalHighestTierRule(drivers) {
+    const primaryDrivers = drivers.filter(d => d.role === 'P');
+    const secondaryDrivers = drivers.filter(d => d.role === 'S');
+
+    const primaryAtC = primaryDrivers.filter(d => d.value >= 4);
+    const secondaryAtSPlus = secondaryDrivers.filter(d => d.value >= 3);
+    const secondaryAtC = secondaryDrivers.filter(d => d.value >= 4);
+    const anyAtS = drivers.some(d => d.value >= 3);
+    const allAtB = drivers.every(d => d.value <= 2);
+
+    if (primaryAtC.length >= 2) {
+        return 'comprehensive';
+    }
+    if (primaryAtC.length === 1 && secondaryAtSPlus.length >= 1) {
+        return 'comprehensive';
+    }
+    if (primaryAtC.length === 1 && secondaryAtSPlus.length === 0) {
+        return 'standard';
+    }
+    if (primaryAtC.length === 0 && secondaryAtC.length >= 1) {
+        return 'standard';
+    }
+    if (anyAtS) {
+        return 'standard';
+    }
+    if (allAtB) {
+        return 'basic';
+    }
+    return 'basic';
+}
+
 /** Calculate process derivation details from metric scores */
 export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     const map = matrixMap[processId];
@@ -49,7 +107,8 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
             triggerScore: null,
             triggerLevel: 'basic',
             weightedReferenceScore: 3,
-            weightedReferenceLevel: levelFromScore(3)
+            weightedReferenceLevel: levelFromScore(3),
+            conditionalRuleApplied: false
         };
     }
 
@@ -67,7 +126,8 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
             triggerScore: null,
             triggerLevel: 'basic',
             weightedReferenceScore: 3,
-            weightedReferenceLevel: levelFromScore(3)
+            weightedReferenceLevel: levelFromScore(3),
+            conditionalRuleApplied: false
         };
     }
 
@@ -88,13 +148,21 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
         .sort(metricSort);
     const triggerLevel = levelFromScore(maxScore);
 
+    const conditionalLevel = applyConditionalHighestTierRule(drivers);
+    const conditionalRuleApplied = conditionalLevel !== triggerLevel;
+    const conditionalRuleReason = conditionalRuleApplied
+        ? 'Comprehensive trigger not corroborated by conditional derivation rule'
+        : null;
+
     return {
-        level: triggerLevel,
+        level: conditionalLevel,
         triggerMetrics,
         triggerScore: maxScore,
         triggerLevel,
         weightedReferenceScore: Number(weightedReferenceScore.toFixed(2)),
-        weightedReferenceLevel
+        weightedReferenceLevel,
+        conditionalRuleApplied,
+        conditionalRuleReason
     };
 }
 
@@ -121,26 +189,27 @@ export function calculateAllProcessDerivations(scores, matrixMap = METRIC_PROCES
     return derivations;
 }
 
-/** Apply override conditions (safety, regulatory, etc.) */
-export function applyOverrides(levels, scores) {
+/** Apply override conditions (safety, regulatory, and project-context) */
+export function applyOverrides(levels, scores, context = {}) {
     const applied = { ...levels };
     const overridesApplied = [];
 
     for (const ov of OVERRIDE_CONDITIONS) {
-        let triggered = false;
-        if (ov.id === 'life_safety' && (scores.M5 || 3) >= 5) triggered = true;
-        else if (ov.id === 'safety_critical' && (scores.M5 || 3) >= 4) triggered = true;
-        else if (ov.id === 'mission_critical' && (scores.M6 || 3) >= 4) triggered = true;
-        else if (ov.id === 'high_regulatory' && (scores.M8 || 3) >= 4) triggered = true;
-        else if (ov.id === 'env_critical' && (scores.M7 || 3) >= 5) triggered = true;
-        else if (ov.id === 'novel_tech' && (scores.M3 || 3) >= 4) triggered = true;
-
-        if (triggered) {
+        if (isOverrideTriggered(ov, scores, context)) {
             for (const pid of ov.processes) {
                 if (levelIndex(applied[pid] || 'basic') < levelIndex(ov.minLevel)) {
                     const prev = applied[pid];
                     applied[pid] = ov.minLevel;
-                    overridesApplied.push({ processId: pid, from: prev, to: ov.minLevel, reason: ov.label, condition: ov.condition });
+                    overridesApplied.push({
+                        processId: pid,
+                        from: prev,
+                        to: ov.minLevel,
+                        reason: ov.label,
+                        condition: ov.condition,
+                        overrideId: ov.id,
+                        overrideSource: ov.source,
+                        triggerType: ov.trigger?.type || 'metric'
+                    });
                 }
             }
         }
@@ -162,20 +231,36 @@ export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCE
 }
 
 /** Check consistency rules, return violations */
-export function checkConsistency(levels) {
+export function checkConsistency(levels, scores = {}) {
     const violations = [];
+    const technicalIds = getTechnicalProcessIds();
 
     for (const rule of CONSISTENCY_RULES) {
         let triggered = false;
 
         if (rule.trigger.process === 'any_technical') {
-            // Rule 7: any technical process >= standard
-            triggered = CORE_PROCESSES.filter(p => p.group === 'technical')
-                .some(p => levelIndex(levels[p.id] || 'basic') >= levelIndex(rule.trigger.level));
+            triggered = technicalIds.some(pid =>
+                levelIndex(levels[pid] || 'basic') >= levelIndex(rule.trigger.level)
+            );
         } else if (Array.isArray(rule.trigger.process)) {
             triggered = rule.trigger.process.some(pid => {
                 const lvl = levels[pid] || 'basic';
-                return rule.trigger.op === '>=' ? levelIndex(lvl) >= levelIndex(rule.trigger.level) : lvl === rule.trigger.level;
+                return rule.trigger.op === '>='
+                    ? levelIndex(lvl) >= levelIndex(rule.trigger.level)
+                    : rule.trigger.op === '='
+                        ? lvl === rule.trigger.level
+                        : false;
+            });
+        } else if (rule.trigger.process === 'all_technical') {
+            triggered = technicalIds.every(pid => {
+                const lvl = levels[pid] || 'basic';
+                return rule.trigger.op === '>='
+                    ? levelIndex(lvl) >= levelIndex(rule.trigger.level)
+                    : rule.trigger.op === '='
+                        ? lvl === rule.trigger.level
+                        : rule.trigger.op === '<='
+                            ? levelIndex(lvl) <= levelIndex(rule.trigger.level)
+                            : false;
             });
         } else {
             const lvl = levels[rule.trigger.process] || 'basic';
@@ -183,18 +268,40 @@ export function checkConsistency(levels) {
                 ? levelIndex(lvl) >= levelIndex(rule.trigger.level)
                 : rule.trigger.op === '='
                     ? lvl === rule.trigger.level
+                    : rule.trigger.op === '<='
+                        ? levelIndex(lvl) <= levelIndex(rule.trigger.level)
                     : false;
         }
 
         if (triggered) {
             const reqProcess = rule.required.process;
-            const reqLvl = levels[reqProcess] || 'basic';
             let violated = false;
+            let affectedProcess = reqProcess;
+            let currentLevel = levels[reqProcess] || 'basic';
+            let violatingProcesses = [];
 
-            if (rule.required.op === '>=') {
-                violated = levelIndex(reqLvl) < levelIndex(rule.required.level);
-            } else if (rule.required.op === '<=') {
-                violated = levelIndex(reqLvl) > levelIndex(rule.required.level);
+            if (reqProcess === 'all_technical') {
+                violatingProcesses = technicalIds.filter(pid => {
+                    const lvl = levels[pid] || 'basic';
+                    if (rule.required.op === '<=') return levelIndex(lvl) > levelIndex(rule.required.level);
+                    if (rule.required.op === '>=') return levelIndex(lvl) < levelIndex(rule.required.level);
+                    if (rule.required.op === '=') return lvl !== rule.required.level;
+                    return false;
+                });
+                violated = violatingProcesses.length > 0;
+                // For rule 12, conservative auto-fix elevates Project Planning.
+                affectedProcess = typeof rule.trigger.process === 'number' ? rule.trigger.process : 9;
+                currentLevel = levels[affectedProcess] || 'basic';
+            } else {
+                const reqLvl = levels[reqProcess] || 'basic';
+                currentLevel = reqLvl;
+                if (rule.required.op === '>=') {
+                    violated = levelIndex(reqLvl) < levelIndex(rule.required.level);
+                } else if (rule.required.op === '<=') {
+                    violated = levelIndex(reqLvl) > levelIndex(rule.required.level);
+                } else if (rule.required.op === '=') {
+                    violated = reqLvl !== rule.required.level;
+                }
             }
 
             if (violated) {
@@ -204,10 +311,11 @@ export function checkConsistency(levels) {
                     label: rule.label,
                     rationale: rule.rationale,
                     severity: rule.type === 'HC' ? 'error' : 'warning',
-                    affectedProcess: reqProcess,
-                    currentLevel: reqLvl,
+                    affectedProcess,
+                    currentLevel,
                     requiredLevel: rule.required.level,
-                    requiredOp: rule.required.op
+                    requiredOp: rule.required.op,
+                    violatingProcesses
                 });
             }
         }
@@ -218,27 +326,63 @@ export function checkConsistency(levels) {
 /** Simulate propagation when a process level changes */
 export function simulatePropagation(processId, newLevel, currentLevels) {
     const changes = [];
-    for (const rule of PROPAGATION_RULES) {
-        if (rule.source === processId && levelIndex(newLevel) >= levelIndex(rule.sourceLevel)) {
-            const target = rule.target;
-            if (target === 'all_technical') continue;
-            const curLvl = currentLevels[target] || 'basic';
-            if (levelIndex(curLvl) < levelIndex(rule.minLevel)) {
-                changes.push({ processId: target, from: curLvl, to: rule.minLevel, type: rule.type, depth: rule.depth });
-            }
+    const technicalIds = getTechnicalProcessIds();
+
+    const applyToTarget = (rule, targetId) => {
+        const currentLevel = currentLevels[targetId] || 'basic';
+        if (rule.minLevel && levelIndex(currentLevel) < levelIndex(rule.minLevel)) {
+            changes.push({
+                processId: targetId,
+                from: currentLevel,
+                to: rule.minLevel,
+                type: rule.type,
+                depth: rule.depth,
+                ruleId: rule.ruleId || rule.id
+            });
+            return;
         }
+        if (rule.maxLevel && levelIndex(currentLevel) > levelIndex(rule.maxLevel)) {
+            changes.push({
+                processId: targetId,
+                from: currentLevel,
+                to: rule.maxLevel,
+                type: rule.type,
+                depth: rule.depth,
+                ruleId: rule.ruleId || rule.id
+            });
+        }
+    };
+
+    for (const rule of PROPAGATION_RULES) {
+        let sourceTriggered = false;
+        if (rule.source === 'any_technical') {
+            sourceTriggered = technicalIds.includes(processId) && levelIndex(newLevel) >= levelIndex(rule.sourceLevel);
+        } else {
+            sourceTriggered = rule.source === processId && levelIndex(newLevel) >= levelIndex(rule.sourceLevel);
+        }
+
+        if (!sourceTriggered) continue;
+
+        if (rule.target === 'all_technical') {
+            for (const technicalId of technicalIds) {
+                applyToTarget(rule, technicalId);
+            }
+            continue;
+        }
+
+        applyToTarget(rule, rule.target);
     }
     return changes;
 }
 
 /** Full assessment pipeline */
-export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
+export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     const derivationDetails = calculateAllProcessDerivations(scores, matrixMap);
     const derived = {};
     for (const [pid, detail] of Object.entries(derivationDetails)) {
         derived[pid] = detail.level;
     }
-    const { levels: withOverrides, overrides } = applyOverrides(derived, scores);
+    const { levels: withOverrides, overrides } = applyOverrides(derived, scores, context);
 
     let final = { ...withOverrides };
     const saOverrides = [];
@@ -254,24 +398,59 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP) {
                     processId: pid,
                     from: prev,
                     to: saTier.floor,
-                    reason: `SA Tier ${saTier.tier} Floor`
+                    reason: `SA Tier ${saTier.tier} Floor`,
+                    condition: `M5 = ${scoreOrDefault(scores, 'M5')}`,
+                    triggerType: 'metric'
                 });
             }
         }
     }
 
-    const violations = checkConsistency(final);
-
     const fixes = [];
-    for (const v of violations.filter(v => v.type === 'HC')) {
-        if (v.requiredOp === '>=' && levelIndex(final[v.affectedProcess] || 'basic') < levelIndex(v.requiredLevel)) {
-            const prev = final[v.affectedProcess];
-            final[v.affectedProcess] = v.requiredLevel;
-            fixes.push({ processId: v.affectedProcess, from: prev, to: v.requiredLevel, reason: v.label });
-        }
-    }
+    let iterations = 0;
+    let remainingViolations = checkConsistency(final, scores);
 
-    const remainingViolations = checkConsistency(final);
+    while (iterations < 8) {
+        const hcViolations = remainingViolations.filter(v => v.type === 'HC');
+        if (hcViolations.length === 0) break;
+
+        let fixedThisRound = false;
+        for (const v of hcViolations) {
+            // Rule 12 conservative auto-fix: elevate Project Planning to Standard (never downgrade technical work).
+            if (v.ruleId === 12) {
+                const currentPlanning = final[9] || 'basic';
+                if (levelIndex(currentPlanning) < levelIndex('standard')) {
+                    final[9] = 'standard';
+                    fixes.push({
+                        processId: 9,
+                        from: currentPlanning,
+                        to: 'standard',
+                        reason: 'Rule 12 conservative fix (Planning floor)',
+                        ruleId: 12
+                    });
+                    fixedThisRound = true;
+                }
+                continue;
+            }
+
+            if (v.requiredOp === '>=' && levelIndex(final[v.affectedProcess] || 'basic') < levelIndex(v.requiredLevel)) {
+                const prev = final[v.affectedProcess];
+                final[v.affectedProcess] = v.requiredLevel;
+                fixes.push({
+                    processId: v.affectedProcess,
+                    from: prev,
+                    to: v.requiredLevel,
+                    reason: v.label,
+                    ruleId: v.ruleId
+                });
+                fixedThisRound = true;
+            }
+        }
+
+        if (!fixedThisRound) break;
+        remainingViolations = checkConsistency(final, scores);
+        iterations += 1;
+    }
 
     return {
         derived,
