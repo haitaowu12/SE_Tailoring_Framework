@@ -1,6 +1,6 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _VERSION: 3.2 | _LAST_UPDATED: 2026-02
+ * _VERSION: 3.2.1 | _LAST_UPDATED: 2026-02
  * _SOURCE: 02-PRACTICAL/Assessment-Worksheet.md, Process-Metric-Applicability-Matrix.md
  * _SYNC_CONTRACT:
  *   - Canonical process/metric map: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
@@ -232,149 +232,159 @@ export const LEVEL_THRESHOLDS = {
     30: { standard: 'M7≥3 or M8≥3', comprehensive: 'M7≥4 and M8≥4' }
 };
 
-// Override conditions
-export const OVERRIDE_CONDITIONS = [
-    { id: 'safety_critical', condition: 'M5 ≥ 4', label: 'Safety-Critical', processes: [12, 16, 19, 20, 25, 27], minLevel: 'standard' },
-    { id: 'life_safety', condition: 'M5 = 5', label: 'Life Safety', processes: [12, 16, 19, 20, 25, 27], minLevel: 'comprehensive' },
-    { id: 'mission_critical', condition: 'M6 ≥ 4', label: 'Mission-Critical', processes: [12, 20, 28], minLevel: 'standard' },
-    { id: 'high_regulatory', condition: 'M8 ≥ 4', label: 'High Regulatory', processes: [13, 14, 16, 25], minLevel: 'standard' },
-    { id: 'env_critical', condition: 'M7 = 5', label: 'Environmental Critical', processes: [21, 28, 29, 30], minLevel: 'standard' },
-    { id: 'novel_tech', condition: 'M3 ≥ 4', label: 'Novel Technology', processes: [11, 22, 25], minLevel: 'standard' }
-];
-
 /**
- * Consistency Rules (from §6.5)
- * Per INCOSE SE Handbook and ISO 15288 process I/O relationships (N2 diagram).
- * HC = Hard Constraint (auto-enforced), WN = Warning (advisory)
+ * Override Conditions (Master Table)
+ * _SOURCE: 01-PAPER/06-Interdependencies.md §6.4.1 Master Override Table
+ * _SYNC_CONTRACT: Authoritative override baseline (8 conditions).
+ *
+ * Trigger metadata:
+ * - trigger.type = 'metric' uses metric/op/value fields
+ * - trigger.type = 'context' uses project-context field/equals
  */
-export const CONSISTENCY_RULES = [
-    // --- Vee Model Left Side: Requirements → Design Flow ---
+export const OVERRIDE_CONDITIONS = [
     {
-        id: 1, type: 'HC',
-        trigger: { process: 18, level: 'comprehensive', op: '>=' },
-        required: { process: 19, level: 'standard', op: '>=' },
-        label: 'Stakeholder Needs ≥ Comprehensive → Requirements ≥ Standard',
-        rationale: 'Per ISO 15288 §6.4.2–6.4.3: Comprehensive needs elicitation generates complex, multi-stakeholder data that requires structured requirements management to maintain traceability.'
+        id: 'life_safety',
+        condition: 'M5 = 5',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 5 },
+        label: 'Life-Safety Systems',
+        description: 'SIL 4, IEC 61508 SIL 4; EN 50129 SIL 4',
+        processes: [12, 16, 19, 20, 25, 27],
+        minLevel: 'comprehensive',
+        source: 'EN 50126/50129; IEC 61508'
     },
     {
-        id: 2, type: 'HC',
-        trigger: { process: 19, level: 'comprehensive', op: '>=' },
-        required: { process: 20, level: 'standard', op: '>=' },
-        label: 'Requirements ≥ Comprehensive → Architecture ≥ Standard',
-        rationale: 'Per INCOSE SE Handbook: Model-based requirements drive formal architecture; architecture must receive and allocate those requirements structurally.'
+        id: 'safety_critical',
+        condition: 'M5 >= 4',
+        trigger: { type: 'metric', metric: 'M5', op: '>=', value: 4 },
+        label: 'Safety-Critical Systems',
+        description: 'SIL 2-3, IEC 61508 SIL 2-3',
+        processes: [12, 16, 19, 20, 25, 27],
+        minLevel: 'standard',
+        source: 'ISO 15288 §6.4.9-10; IEC 61508'
     },
     {
-        id: 3, type: 'HC',
-        trigger: { process: 21, level: 'comprehensive', op: '>=' },
-        required: { process: 20, level: 'standard', op: '>=' },
-        label: 'Design ≥ Comprehensive → Architecture ≥ Standard',
-        rationale: 'High-fidelity design (SysML, formal notation) must be grounded in a structured architecture description per ISO 42010.'
-    },
-    // --- Vee Model Right Side: V&V Traceability ---
-    {
-        id: 4, type: 'HC',
-        trigger: { process: [25, 27], level: 'comprehensive', op: '>=' },
-        required: { process: 19, level: 'standard', op: '>=' },
-        label: 'V&V ≥ Comprehensive → Requirements ≥ Standard',
-        rationale: 'Per Vee Model: Comprehensive V&V requires a structured requirements baseline with formal traceability (RVTM) to verify and validate against.'
+        id: 'mission_critical',
+        condition: 'M6 >= 4',
+        trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
+        label: 'Mission-Critical Systems',
+        description: 'High mission impact',
+        processes: [12, 20, 25, 27, 28],
+        minLevel: 'standard',
+        source: 'ISO 15288 §6.4.11'
     },
     {
-        id: 5, type: 'HC',
-        trigger: { process: 25, level: 'comprehensive', op: '>=' },
-        required: { process: 24, level: 'standard', op: '>=' },
-        label: 'Verification ≥ Comprehensive → Integration ≥ Standard',
-        rationale: 'Per ISO 15288 §6.4.8–6.4.9: Comprehensive verification (multi-method, risk-based) requires a structured integration baseline with controlled interfaces.'
-    },
-    // --- Configuration & Information Management Backbone ---
-    {
-        id: 6, type: 'HC',
-        trigger: { process: 19, level: 'comprehensive', op: '>=' },
-        required: { process: 13, level: 'standard', op: '>=' },
-        label: 'Requirements ≥ Comprehensive → CM ≥ Standard',
-        rationale: 'Per ISO 15288 §6.3.5: Comprehensive requirements involve large volumes of volatile data requiring formal baseline management and change control.'
+        id: 'high_regulatory',
+        condition: 'M8 >= 4',
+        trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
+        label: 'High Regulatory Burden',
+        description: 'DO-178C, ISO 26262, EN 50129',
+        processes: [13, 14, 16, 25],
+        minLevel: 'standard',
+        source: 'DO-178C; ISO 26262; EN 50129'
     },
     {
-        id: 7, type: 'WN',
-        trigger: { process: 24, level: 'comprehensive', op: '>=' },
-        required: { process: 13, level: 'standard', op: '>=' },
-        label: 'Integration ≥ Comprehensive → CM ≥ Standard',
-        rationale: 'Complex integration with many interfaces requires formal configuration control (CCB) to prevent interface drift.'
-    },
-    // --- Technical Management Support ---
-    {
-        id: 8, type: 'HC',
-        trigger: { process: 'any_technical', level: 'standard', op: '>=' },
-        required: { process: 9, level: 'standard', op: '>=' },
-        label: 'Any Technical ≥ Standard → Project Planning ≥ Standard',
-        rationale: 'Per INCOSE SE Handbook: Standard technical processes require formal planning inputs (WBS, IMS) to coordinate interdependent activities.'
+        id: 'env_critical',
+        condition: 'M7 = 5',
+        trigger: { type: 'metric', metric: 'M7', op: '=', value: 5 },
+        label: 'Environmental Criticality',
+        description: 'Significant environmental risks',
+        processes: [13, 14, 21, 28, 29, 30],
+        minLevel: 'standard',
+        source: 'ISO 14001; ISO 15288 §6.4.13'
     },
     {
-        id: 9, type: 'WN',
-        trigger: { process: 12, level: 'basic', op: '=' },
-        required: { process: 11, level: 'standard', op: '<=' },
-        label: 'Risk Mgmt = Basic → Decision Mgmt ≤ Standard',
-        rationale: 'Comprehensive Decision Management requires quantitative risk data as input; basic risk management cannot supply this.'
-    },
-    // --- Operational Lifecycle ---
-    {
-        id: 10, type: 'WN',
-        trigger: { process: 28, level: 'comprehensive', op: '>=' },
-        required: { process: 29, level: 'standard', op: '>=' },
-        label: 'Operation ≥ Comprehensive → Maintenance ≥ Standard',
-        rationale: 'Per ISO 15288 §6.4.12–6.4.13: Comprehensive operations with predictive analytics generates maintenance data requiring structured maintenance processes.'
-    },
-    // --- Measurement & Quality ---
-    {
-        id: 11, type: 'WN',
-        trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' },
-        required: { process: 15, level: 'standard', op: '>=' },
-        label: 'Any Technical ≥ Comprehensive → Measurement ≥ Standard',
-        rationale: 'Per ISO 15939: Comprehensive processes require structured measurement to track performance and support data-driven decisions.'
+        id: 'novel_tech',
+        condition: 'M3 >= 4',
+        trigger: { type: 'metric', metric: 'M3', op: '>=', value: 4 },
+        label: 'Novel Technology Systems',
+        description: 'TRL 1-6',
+        processes: [11, 22, 25],
+        minLevel: 'standard',
+        source: 'ISO 15288 §6.4.6; NASA NPR 7123.1'
     },
     {
-        id: 12, type: 'WN',
-        trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' },
-        required: { process: 16, level: 'standard', op: '>=' },
-        label: 'Any Technical ≥ Comprehensive → QA ≥ Standard',
-        rationale: 'Per ISO 9001: Comprehensive technical work requires formal quality assurance to verify process compliance and product quality.'
+        id: 'multi_contractor',
+        condition: 'M4 >= 4',
+        trigger: { type: 'metric', metric: 'M4', op: '>=', value: 4 },
+        label: 'Multi-Contractor Integration',
+        description: 'Complex integration across contractors',
+        processes: [13, 24],
+        minLevel: 'standard',
+        source: 'ISO 15288 §6.4.8'
+    },
+    {
+        id: 'security_critical',
+        condition: 'Project Security-Critical Context = true',
+        trigger: { type: 'context', field: 'securityCritical', equals: true },
+        label: 'Security-Critical Systems',
+        description: 'Explicit project-level security criticality declaration',
+        processes: [12, 13, 14],
+        minLevel: 'standard',
+        source: 'IEC 62443; NIST 800-53'
     }
 ];
 
 /**
- * Propagation Rules (from §6.6)
- * Per INCOSE SE Handbook N2 diagram process I/O flows.
- * When source reaches sourceLevel, target should be at least minLevel.
- * type: 'mandatory' = auto-upgrade, 'recommended' = advisory
+ * External Standard Mapping
+ * Maps external safety/security standards to metric thresholds
+ */
+export const EXTERNAL_STANDARD_MAPPING = [
+    { standard: 'IEC 61508 SIL 2-3', metric: 'M5', threshold: '>= 4', notes: 'Safety-critical; potential for harm' },
+    { standard: 'IEC 61508 SIL 4', metric: 'M5', threshold: '= 5', notes: 'Life-safety; potential for fatality' },
+    { standard: 'DO-178C DAL A-C', metric: 'M5, M8', threshold: '>= 4', notes: 'Aviation software; safety + regulatory' },
+    { standard: 'ISO 26262 ASIL C-D', metric: 'M5, M8', threshold: '>= 4', notes: 'Automotive; safety + regulatory' },
+    { standard: 'EN 50129 SIL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Railway; safety-critical' },
+    { standard: 'IEC 62443 SL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Industrial cybersecurity' },
+    { standard: 'NIST 800-53 High', metric: 'M8', threshold: '>= 4', notes: 'US federal security controls' }
+];
+
+/**
+ * Consistency Rules (canonical 17-rule baseline from Paper §6.5)
+ * HC = Hard Constraint (auto-enforced), WN = Warning (advisory)
+ */
+export const CONSISTENCY_RULES = [
+    { id: 1, type: 'HC', trigger: { process: 18, level: 'comprehensive', op: '>=' }, required: { process: 19, level: 'standard', op: '>=' }, label: 'Stakeholder Needs ≥ Comprehensive → System Requirements Definition ≥ Standard', rationale: 'Comprehensive needs elicitation requires structured system requirements management.' },
+    { id: 2, type: 'HC', trigger: { process: 19, level: 'comprehensive', op: '>=' }, required: { process: 25, level: 'standard', op: '>=' }, label: 'System Requirements Definition ≥ Comprehensive → Verification ≥ Standard', rationale: 'High-rigor requirements require formal verification planning and evidence.' },
+    { id: 3, type: 'HC', trigger: { process: 19, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'System Requirements Definition ≥ Comprehensive → Validation ≥ Standard', rationale: 'Comprehensive requirements require structured validation against stakeholder intent.' },
+    { id: 4, type: 'HC', trigger: { process: 19, level: 'comprehensive', op: '>=' }, required: { process: 13, level: 'standard', op: '>=' }, label: 'System Requirements Definition ≥ Comprehensive → Configuration Management ≥ Standard', rationale: 'Comprehensive requirements require baseline and change control discipline.' },
+    { id: 5, type: 'WN', trigger: { process: 19, level: 'standard', op: '=' }, required: { process: 25, level: 'basic', op: '>=' }, label: 'System Requirements Definition = Standard → Verification ≥ Basic', rationale: 'Standard requirements should still maintain basic verification coverage.' },
+    { id: 6, type: 'HC', trigger: { process: 20, level: 'comprehensive', op: '>=' }, required: { process: 21, level: 'standard', op: '>=' }, label: 'Architecture Definition ≥ Comprehensive → Design Definition ≥ Standard', rationale: 'Comprehensive architecture should be realized with structured design definition.' },
+    { id: 7, type: 'WN', trigger: { process: 20, level: 'comprehensive', op: '>=' }, required: { process: 24, level: 'standard', op: '>=' }, label: 'Architecture Definition ≥ Comprehensive → Integration ≥ Standard', rationale: 'Complex architecture benefits from structured integration rigor.' },
+    { id: 8, type: 'WN', trigger: { process: 21, level: 'comprehensive', op: '>=' }, required: { process: 23, level: 'standard', op: '>=' }, label: 'Design Definition ≥ Comprehensive → Implementation ≥ Standard', rationale: 'Comprehensive design should be implemented with at least standard rigor.' },
+    { id: 9, type: 'HC', trigger: { process: [25, 27], level: 'comprehensive', op: '>=' }, required: { process: 19, level: 'standard', op: '>=' }, label: 'Verification or Validation ≥ Comprehensive → System Requirements Definition ≥ Standard', rationale: 'Comprehensive V&V must be backed by structured requirements baselines.' },
+    { id: 10, type: 'HC', trigger: { process: 24, level: 'comprehensive', op: '>=' }, required: { process: 25, level: 'standard', op: '>=' }, label: 'Integration ≥ Comprehensive → Verification ≥ Standard', rationale: 'Comprehensive integration requires corresponding verification maturity.' },
+    { id: 11, type: 'WN', trigger: { process: 25, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'Verification ≥ Comprehensive → Validation ≥ Standard', rationale: 'High-rigor verification commonly implies at least standard validation.' },
+    { id: 12, type: 'HC', trigger: { process: 9, level: 'basic', op: '=' }, required: { process: 'all_technical', level: 'basic', op: '<=' }, label: 'Project Planning = Basic → All Technical Processes ≤ Basic', rationale: 'Basic planning cannot sustain higher-rigor technical execution without inconsistency.' },
+    { id: 13, type: 'WN', trigger: { process: 12, level: 'basic', op: '=' }, required: { process: 11, level: 'standard', op: '<=' }, label: 'Risk Management = Basic → Decision Management ≤ Standard', rationale: 'Basic risk inputs generally cap decision-management rigor.' },
+    { id: 14, type: 'WN', trigger: { process: 12, level: 'comprehensive', op: '>=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management ≥ Comprehensive → Decision Management ≥ Standard', rationale: 'Comprehensive risk outputs should inform at least standard decision management.' },
+    { id: 15, type: 'WN', trigger: { process: 28, level: 'comprehensive', op: '>=' }, required: { process: 29, level: 'standard', op: '>=' }, label: 'Operation ≥ Comprehensive → Maintenance ≥ Standard', rationale: 'Comprehensive operations produce data and workload requiring structured maintenance.' },
+    { id: 16, type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 15, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Measurement ≥ Standard', rationale: 'Comprehensive technical rigor should be supported by structured measurement.' },
+    { id: 17, type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 16, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Quality Assurance ≥ Standard', rationale: 'Comprehensive technical rigor should be supported by structured quality assurance.' }
+];
+
+/**
+ * Propagation Rules (canonical baseline from Paper §6.6.2, P1..P18)
+ * type: 'mandatory' = auto-upgrade candidate, 'recommended' = advisory propagation
  */
 export const PROPAGATION_RULES = [
-    // --- Vee Model Left Side: Requirements → Design → Implementation ---
-    { source: 17, sourceLevel: 'comprehensive', target: 18, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'Business analysis outputs (problem definition, ConOps) feed directly into stakeholder needs elicitation' },
-    { source: 18, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'ISO 15288 §6.4.2→6.4.3: Stakeholder needs are transformed into system requirements' },
-    { source: 19, sourceLevel: 'comprehensive', target: 20, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'ISO 15288 §6.4.3→6.4.4: System requirements are allocated to architecture elements' },
-    { source: 20, sourceLevel: 'comprehensive', target: 21, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'ISO 15288 §6.4.4→6.4.5: Architecture viewpoints constrain and direct detailed design' },
-    { source: 21, sourceLevel: 'comprehensive', target: 23, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'Design specifications drive implementation; complex design requires structured build' },
-    // --- Vee Model Right Side: Integration → V&V ---
-    { source: 23, sourceLevel: 'standard', target: 24, minLevel: 'basic', type: 'recommended', depth: 1, rationale: 'Implementation output feeds integration; structured build benefits from planned integration' },
-    { source: 24, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'ISO 15288 §6.4.8→6.4.9: Integrated system is the subject of verification' },
-    { source: 25, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'recommended', depth: 2, rationale: 'Vee Model: Verification evidence feeds validation; comprehensive verification warrants structured validation' },
-    // --- Requirements → V&V Traceability (Vee Model Horizontal) ---
-    { source: 19, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'Vee Model: System requirements form the verification test basis; comprehensive requirements need structured verification' },
-    { source: 19, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'Vee Model: Requirements traceability feeds validation planning; comprehensive requirements need formal validation' },
-    { source: 19, sourceLevel: 'standard', target: 25, minLevel: 'basic', type: 'recommended', depth: 1, rationale: 'Even standard requirements benefit from planned verification' },
-    { source: 18, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'recommended', depth: 2, rationale: 'Vee Model: Stakeholder needs form the validation acceptance criteria' },
-    // --- Configuration Management Backbone ---
-    { source: 19, sourceLevel: 'comprehensive', target: 13, minLevel: 'standard', type: 'mandatory', depth: 1, rationale: 'ISO 15288 §6.3.5: Complex requirements need baseline management and change control' },
-    { source: 20, sourceLevel: 'comprehensive', target: 13, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'Architecture baselines must be under configuration control for interface management' },
-    // --- Architecture → Integration Linkage ---
-    { source: 20, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'Architecture defines integration strategy and interface sequences' },
-    // --- Technical Management Support ---
-    { source: 12, sourceLevel: 'comprehensive', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'Quantitative risk analysis provides critical input to structured decision-making' },
-    { source: 9, sourceLevel: 'basic', target: 'all_technical', minLevel: 'basic', type: 'mandatory', depth: 1, rationale: 'Project Planning is universal enabler; all technical processes depend on planning outputs' },
-    // --- System Analysis Cross-Cutting ---
-    { source: 22, sourceLevel: 'comprehensive', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'System analysis results (trade studies, M&S) directly feed decision management' },
-    // --- Operational Lifecycle ---
-    { source: 26, sourceLevel: 'comprehensive', target: 28, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'Transition deliverables (training, procedures) form the basis for operations' },
-    { source: 28, sourceLevel: 'comprehensive', target: 29, minLevel: 'standard', type: 'recommended', depth: 1, rationale: 'ISO 15288 §6.4.12→6.4.13: Operational data (FRACAS, performance) drives maintenance strategy' }
+    { id: 'P1', source: 18, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 1, rationale: 'Stakeholder needs at comprehensive level require structured system requirements.' },
+    { id: 'P2', source: 19, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 2, rationale: 'Comprehensive requirements require formal verification rigor.' },
+    { id: 'P3', source: 19, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 3, rationale: 'Comprehensive requirements require validation structure.' },
+    { id: 'P4', source: 19, sourceLevel: 'comprehensive', target: 13, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 4, rationale: 'Comprehensive requirements require baseline and change control.' },
+    { id: 'P5', source: 19, sourceLevel: 'standard', target: 25, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 5, rationale: 'Standard requirements still benefit from basic verification.' },
+    { id: 'P6', source: 20, sourceLevel: 'comprehensive', target: 21, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 6, rationale: 'Comprehensive architecture should flow into at least standard design definition.' },
+    { id: 'P7', source: 20, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 7, rationale: 'Comprehensive architecture generally benefits from standard integration rigor.' },
+    { id: 'P8', source: 21, sourceLevel: 'comprehensive', target: 23, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 8, rationale: 'Comprehensive design generally implies standard implementation rigor.' },
+    { id: 'P9', source: 25, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive verification requires structured requirements baselines.' },
+    { id: 'P10', source: 27, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive validation requires structured requirements baselines.' },
+    { id: 'P11', source: 24, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 10, rationale: 'Comprehensive integration should be matched by at least standard verification.' },
+    { id: 'P12', source: 25, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'recommended', depth: 2, ruleId: 11, rationale: 'Comprehensive verification typically supports standard-or-higher validation.' },
+    { id: 'P13', source: 9, sourceLevel: 'basic', target: 'all_technical', minLevel: 'basic', type: 'mandatory', depth: 1, ruleId: 12, rationale: 'Basic planning cannot sustain technical processes above basic.' },
+    { id: 'P14', source: 12, sourceLevel: 'basic', target: 11, maxLevel: 'standard', type: 'recommended', depth: 1, ruleId: 13, rationale: 'Basic risk management generally caps decision-management rigor.' },
+    { id: 'P15', source: 12, sourceLevel: 'comprehensive', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 14, rationale: 'Comprehensive risk outputs should be reflected in decision-management rigor.' },
+    { id: 'P16', source: 28, sourceLevel: 'comprehensive', target: 29, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 15, rationale: 'Comprehensive operations should be paired with structured maintenance.' },
+    { id: 'P17', source: 'any_technical', sourceLevel: 'comprehensive', target: 15, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 16, rationale: 'Comprehensive technical work should be supported by structured measurement.' },
+    { id: 'P18', source: 'any_technical', sourceLevel: 'comprehensive', target: 16, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 17, rationale: 'Comprehensive technical work should be supported by structured quality assurance.' }
 ];
 
 /**

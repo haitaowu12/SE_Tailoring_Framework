@@ -155,7 +155,7 @@ export const PROCESS_DETAILS = {
         },
         outputs: [
             { name: 'Problem statement', feedsInto: 'Stakeholder Needs (Basic), Portfolio Management (Standard)' },
-            { name: 'Solution alternatives', feedsInto: 'System Requirements (Basic), Architecture Definition (Basic)' },
+            { name: 'Solution alternatives', feedsInto: 'System Requirements Definition (Basic), Architecture Definition (Basic)' },
             { name: 'ConOps', feedsInto: 'Stakeholder Needs (Standard), Validation (Standard)' }
         ]
     },
@@ -205,7 +205,7 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Architecture models in formal notation', 'Comprehensive architecture description', 'Detailed interface specifications', 'Extensive alternatives analysis with trade studies', 'Formal evaluation report', 'Architecture governance documentation', 'Architecture metrics', 'Patterns and reference architectures', 'Fault Tolerance Strategy Document [RAM]', 'Safety Partitioning Specification [Safety]']
         },
         outputs: [
-            { name: 'Architecture description', feedsInto: 'Design Definition (Basic), System Requirements (Standard)' },
+            { name: 'Architecture description', feedsInto: 'Design Definition (Basic), System Requirements Definition (Standard)' },
             { name: 'Interface specifications', feedsInto: 'Integration (Standard), Verification (Standard)' },
             { name: 'RAMS apportionment', feedsInto: 'Design Definition (Standard), Verification (Standard)' }
         ]
@@ -323,7 +323,7 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Validation strategy', 'Detailed plans with stakeholder focus', 'Comprehensive procedures', 'Validation environment management', 'Extensive reports with stakeholder acceptance', 'Stakeholder involvement strategy', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Validation effectiveness metrics', 'Safety Acceptance Certificate [Safety]', 'RAMS Validation Plan [RAM]']
         },
         outputs: [
-            { name: 'Validation reports', feedsInto: 'Stakeholder Needs (Standard), System Requirements (Standard)' },
+            { name: 'Validation reports', feedsInto: 'Stakeholder Needs (Standard), System Requirements Definition (Standard)' },
             { name: 'Stakeholder acceptance', feedsInto: 'Transition (Standard), Quality Assurance (Standard)' },
             { name: 'Defect records', feedsInto: 'Risk Management (Standard), Quality Assurance (Standard)' }
         ]
