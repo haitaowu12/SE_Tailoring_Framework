@@ -334,8 +334,8 @@ export const EXTERNAL_STANDARD_MAPPING = [
     { standard: 'DO-178C DAL A-C', metric: 'M5, M8', threshold: '>= 4', notes: 'Aviation software; safety + regulatory' },
     { standard: 'ISO 26262 ASIL C-D', metric: 'M5, M8', threshold: '>= 4', notes: 'Automotive; safety + regulatory' },
     { standard: 'EN 50129 SIL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Railway; safety-critical' },
-    { standard: 'IEC 62443 SL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Industrial cybersecurity' },
-    { standard: 'NIST 800-53 High', metric: 'M8', threshold: '>= 4', notes: 'US federal security controls' }
+    { standard: 'IEC 62443 SL 3-4', metric: 'projectInfo.securityCritical', threshold: '= true', notes: 'Industrial cybersecurity; explicit project security-critical context (not inferred from metric scores)' },
+    { standard: 'NIST 800-53 High', metric: 'projectInfo.securityCritical', threshold: '= true', notes: 'US federal security controls; explicit project security-critical context (not inferred from metric scores)' }
 ];
 
 /**
