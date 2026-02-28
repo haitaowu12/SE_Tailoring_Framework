@@ -462,6 +462,17 @@ function renderResults(content) {
       </div>
     </div>
     
+    ${result.rightSizingActions?.length ? `
+      <div class="override-banner" style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);">
+        <strong>📐 Right-Sizing Applied (${result.rightSizingActions.length} adjustments)</strong>
+        <div class="text-xs text-secondary mt-sm mb-sm">PSI=${result.indices?.psi || '—'} (Scale) · CSI=${result.indices?.csi || '—'} (Constraints) · CRI=${result.indices?.cri || '—'} (Capability)</div>
+        ${result.rightSizingActions.map(a => `<div class="text-sm mt-sm">• <strong>${processName(a.processId)}</strong>: ${a.from} → ${a.to} <span class="text-xs text-secondary">(${a.reason})</span></div>`).join('')}
+      </div>` : result.indices ? `
+      <div style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
+        <div class="text-xs text-secondary" style="font-weight: 600;">📐 Right-Sizing Indices</div>
+        <div class="text-sm mt-sm">PSI=${result.indices.psi} (Scale) · CSI=${result.indices.csi} (Constraints) · CRI=${result.indices.cri} (Capability) — <span style="color: var(--accent-success);">No adjustments needed</span></div>
+      </div>` : ''}
+
     ${result.overrides.length ? `
       <div class="override-banner">
         <strong>⚠️ Override Conditions Applied (${result.overrides.length})</strong>
@@ -540,6 +551,8 @@ function finalizeAssessment() {
     derivationDetails: result.derivationDetails || {},
     levels: result.levels,
     overrides: result.overrides,
+    rightSizingActions: result.rightSizingActions || [],
+    indices: result.indices || {},
     violations: result.violations,
     fixes: result.fixes,
     assessmentComplete: true

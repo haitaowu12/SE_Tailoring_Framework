@@ -77,6 +77,36 @@ export function renderReport(container) {
       </div>
     </div>
 
+    <div class="card mb-xl" style="border-left: 3px solid ${state.rightSizingActions?.length > 0 ? '#6366f1' : '#34d399'};">
+      <h4 class="mb-md">📐 Right-Sizing Analysis</h4>
+      <div class="grid-3 mb-md">
+        <div style="text-align: center; padding: 12px;">
+          <div style="font-size: 28px; font-weight: 900; color: #6366f1;">${state.indices?.psi || '—'}</div>
+          <div class="text-xs text-secondary">PSI (Project Scale)</div>
+          <div class="text-xs" style="color: #888;">${(state.indices?.psi || 3) <= 2 ? 'Small' : (state.indices?.psi || 3) <= 3 ? 'Medium' : 'Large/Mega'}</div>
+        </div>
+        <div style="text-align: center; padding: 12px;">
+          <div style="font-size: 28px; font-weight: 900; color: #f59e0b;">${state.indices?.csi || '—'}</div>
+          <div class="text-xs text-secondary">CSI (Constraint Stress)</div>
+          <div class="text-xs" style="color: #888;">${(state.indices?.csi || 3) >= 4 ? 'High Pressure' : (state.indices?.csi || 3) >= 3 ? 'Moderate' : 'Low'}</div>
+        </div>
+        <div style="text-align: center; padding: 12px;">
+          <div style="font-size: 28px; font-weight: 900; color: #22d3ee;">${state.indices?.cri || '—'}</div>
+          <div class="text-xs text-secondary">CRI (Capability)</div>
+          <div class="text-xs" style="color: #888;">${(state.indices?.cri || 2) <= 1 ? 'Resistant' : (state.indices?.cri || 2) <= 2 ? 'Tolerant' : 'Supportive'}</div>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+        <strong>Level Distribution:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive (${Math.round(compCount / CORE_PROCESSES.length * 100)}% Comprehensive)
+      </div>
+      ${state.rightSizingActions?.length > 0 ? `
+      <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
+        <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">📐 ${state.rightSizingActions.length} Right-Sizing Adjustments Applied</div>
+        ${state.rightSizingActions.map(a => `<div class="text-sm mb-sm">• <strong>${processName(a.processId)}</strong>: ${a.from} → ${a.to} <span class="text-xs text-secondary">(${a.reason})</span></div>`).join('')}
+      </div>` : `
+      <div class="text-sm" style="color: #34d399;">✓ Profile is within right-sizing bounds. No adjustments needed.</div>`}
+    </div>
+
     ${state.saTier ? `
     <div class="card mb-xl" style="border-left: 3px solid #ef4444; background: rgba(239,68,68,0.04);">
       <h4 class="mb-md">🔒 Safety Assurance Criticality</h4>
@@ -134,12 +164,12 @@ export function renderReport(container) {
           </thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
-              const derived = state.derived[p.id] || 'basic';
-              const final_ = state.levels[p.id] || 'basic';
-              const override = state.overrides?.find(o => o.processId === p.id);
-              const fix = state.fixes?.find(f => f.processId === p.id);
-              const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
-              return `<tr>
+    const derived = state.derived[p.id] || 'basic';
+    const final_ = state.levels[p.id] || 'basic';
+    const override = state.overrides?.find(o => o.processId === p.id);
+    const fix = state.fixes?.find(f => f.processId === p.id);
+    const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
+    return `<tr>
                 <td><span class="process-id">${p.id}</span></td>
                 <td>${p.name}</td>
                 <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
@@ -148,7 +178,7 @@ export function renderReport(container) {
                 <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td><span class="level-badge ${final_}" style="font-weight:700;">${final_[0].toUpperCase()}</span></td>
               </tr>`;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -171,16 +201,16 @@ export function renderReport(container) {
           </thead>
           <tbody>
             ${state.overrides.map(o => {
-              const overrideDef = OVERRIDE_CONDITIONS.find(oc => oc.id === o.overrideId || oc.label === o.reason);
-              const triggerText = o.condition || overrideDef?.condition || '—';
-              return `<tr>
+    const overrideDef = OVERRIDE_CONDITIONS.find(oc => oc.id === o.overrideId || oc.label === o.reason);
+    const triggerText = o.condition || overrideDef?.condition || '—';
+    return `<tr>
                 <td><strong>${o.reason}</strong></td>
                 <td><code style="font-size:11px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${triggerText}</code></td>
                 <td>${processName(o.processId)}</td>
                 <td><span class="level-badge ${o.from}" style="opacity:0.6;">${o.from[0].toUpperCase()}</span> → <span class="level-badge ${o.to}">${o.to[0].toUpperCase()}</span></td>
                 <td class="text-xs text-secondary">${overrideDef?.source || '—'}</td>
               </tr>`;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -204,8 +234,8 @@ export function renderReport(container) {
           </thead>
           <tbody>
             ${state.fixes?.map(f => {
-              const rule = data.CONSISTENCY_RULES?.find(r => r.label?.includes(f.reason) || r.id === f.ruleId);
-              return `<tr style="background: rgba(52,211,153,0.05);">
+    const rule = data.CONSISTENCY_RULES?.find(r => r.label?.includes(f.reason) || r.id === f.ruleId);
+    return `<tr style="background: rgba(52,211,153,0.05);">
                 <td><strong>Rule ${rule?.id || '—'}</strong></td>
                 <td><span style="background: rgba(239,68,68,0.15); color:#ef4444; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">HC</span></td>
                 <td>${rule?.trigger?.process ? processRefName(rule.trigger.process) : '—'}</td>
@@ -213,10 +243,10 @@ export function renderReport(container) {
                 <td><span class="level-badge ${f.from}" style="opacity:0.6;">${f.from[0].toUpperCase()}</span> → <span class="level-badge ${f.to}">${f.to[0].toUpperCase()}</span></td>
                 <td class="text-xs text-secondary">${rule?.rationale?.substring(0, 80) || '—'}...</td>
               </tr>`;
-            }).join('') || ''}
+  }).join('') || ''}
             ${state.violations?.filter(v => v.type === 'WN').map(v => {
-              const rule = data.CONSISTENCY_RULES?.find(r => r.id === v.ruleId);
-              return `<tr style="background: rgba(251,191,36,0.05);">
+    const rule = data.CONSISTENCY_RULES?.find(r => r.id === v.ruleId);
+    return `<tr style="background: rgba(251,191,36,0.05);">
                 <td><strong>Rule ${v.ruleId}</strong></td>
                 <td><span style="background: rgba(251,191,36,0.15); color:#f59e0b; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">WN</span></td>
                 <td>${rule?.trigger?.process ? processRefName(rule.trigger.process) : '—'}</td>
@@ -224,7 +254,7 @@ export function renderReport(container) {
                 <td><span style="color:var(--accent-warning); font-size:11px;">Review recommended</span></td>
                 <td class="text-xs text-secondary">${v.rationale?.substring(0, 80) || v.label}...</td>
               </tr>`;
-            }).join('') || ''}
+  }).join('') || ''}
           </tbody>
         </table>
       </div>

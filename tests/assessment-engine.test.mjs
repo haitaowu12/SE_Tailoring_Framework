@@ -1,6 +1,6 @@
 /**
- * SE Tailoring Framework v4.0 Test Suite
- * Tests the simplified "highest tier wins" algorithm
+ * SE Tailoring Framework v4.1 Test Suite
+ * Tests the "highest tier wins" algorithm + right-sizing
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,11 @@ import {
   runFullAssessment,
   calculateProcessDerivation,
   getDriverAttribution,
-  applyOverrides
+  applyOverrides,
+  computePSI,
+  computeCSI,
+  computeCRI,
+  applyRightSizing
 } from '../src/utils/assessment-engine.js';
 import { CONSISTENCY_RULES, PROPAGATION_RULES } from '../src/data/se-tailoring-data.js';
 import { validateConfig } from '../src/utils/export-import.js';
@@ -112,7 +116,7 @@ test('v4.0: SA floor integration', () => {
   const result = runFullAssessment(scores);
 
   assert.ok(['II', 'III'].includes(result.saTier?.tier) || result.saFloorApplied);
-  
+
   // Verify safety processes elevated
   for (const pid of [12, 16, 19, 25, 27, 28, 29]) {
     const level = result.levels[pid];
@@ -144,14 +148,24 @@ test('canonical propagation catalog contains P1..P18', () => {
 test('corrected process-metric mappings match canonical matrix rows', () => {
   const scores = makeScores(3);
 
+  // Decision Management (11): M1, M3, M6 (P), M13, M15 (P); M8, M12 (S)
   const d11 = Object.fromEntries(getDriverAttribution(11, scores).map(d => [d.metric, d.role]));
   assert.equal(d11.M5, undefined);
+  assert.equal(d11.M13, 'P', 'M13 should be Primary for Decision Management');
+  assert.equal(d11.M15, 'P', 'M15 should be Primary for Decision Management');
+  assert.equal(d11.M8, 'S', 'M8 should be Secondary for Decision Management');
 
   const d12 = Object.fromEntries(getDriverAttribution(12, scores).map(d => [d.metric, d.role]));
   assert.equal(d12.M7, undefined);
 
   const d14 = Object.fromEntries(getDriverAttribution(14, scores).map(d => [d.metric, d.role]));
   assert.equal(d14.M1, undefined);
+
+  // Measurement (15): M6, M9, M10, M15 (all P); no secondaries
+  const d15 = Object.fromEntries(getDriverAttribution(15, scores).map(d => [d.metric, d.role]));
+  assert.equal(d15.M6, 'P', 'M6 should be Primary for Measurement');
+  assert.equal(d15.M15, 'P', 'M15 should be Primary for Measurement');
+  assert.equal(d15.M9, 'P', 'M9 should be Primary for Measurement');
 
   const d23 = Object.fromEntries(getDriverAttribution(23, scores).map(d => [d.metric, d.role]));
   assert.equal(d23.M5, undefined);
@@ -194,4 +208,65 @@ test('config validation accepts old and new schema variants', () => {
 
   assert.equal(validateConfig(oldConfig).valid, true);
   assert.equal(validateConfig(newConfig).valid, true);
+});
+
+// ====== Right-Sizing Tests ======
+
+test('PSI computation uses max(M1, M2, M4)', () => {
+  const scores = makeScores(1);
+  assert.equal(computePSI(scores), 1, 'All 1s → PSI=1');
+
+  scores.M1 = 4;
+  assert.equal(computePSI(scores), 4, 'M1=4 → PSI=4');
+
+  scores.M1 = 2; scores.M4 = 5;
+  assert.equal(computePSI(scores), 5, 'M4=5 → PSI=5');
+});
+
+test('CSI computation uses max(M9, M10, M15)', () => {
+  const scores = makeScores(1);
+  assert.equal(computeCSI(scores), 1);
+
+  scores.M10 = 4;
+  assert.equal(computeCSI(scores), 4);
+});
+
+test('CRI computation maps M16 to 1-3', () => {
+  assert.equal(computeCRI({ M16: 1 }), 1, 'M16=1 → CRI=1 (Resistant)');
+  assert.equal(computeCRI({ M16: 2 }), 1, 'M16=2 → CRI=1');
+  assert.equal(computeCRI({ M16: 3 }), 2, 'M16=3 → CRI=2 (Tolerant)');
+  assert.equal(computeCRI({ M16: 4 }), 3, 'M16=4 → CRI=3 (Supportive)');
+  assert.equal(computeCRI({ M16: 5 }), 3, 'M16=5 → CRI=3');
+});
+
+test('CRI=1 caps non-override processes at Standard', () => {
+  const scores = makeScores(5);
+  scores.M16 = 1; // Resistant org
+  scores.M5 = 1;  // No safety override
+  const result = runFullAssessment(scores);
+  // With CRI=1, no process should be Comprehensive unless safety-overridden
+  assert.ok(result.rightSizingActions.length > 0, 'Right-sizing should apply actions');
+  assert.ok(result.indices.cri === 1, 'CRI should be 1');
+});
+
+test('Small project (PSI=1) enforces rigor budget on Comprehensive count', () => {
+  const scores = makeScores(5); // All 5s → everything Comprehensive
+  scores.M1 = 1; scores.M2 = 1; scores.M4 = 1; // PSI=1 (small)
+  scores.M11 = 1; scores.M12 = 1;
+  scores.M16 = 5; // CRI=3 (no capability cap)
+  const result = runFullAssessment(scores);
+  assert.ok(result.indices.psi <= 2, 'PSI should be small');
+  // Max 3 Comprehensive for small projects
+  const compCount = Object.values(result.levels).filter(l => l === 'comprehensive').length;
+  assert.ok(compCount <= 3, `Small project should have ≤3 Comprehensive, got ${compCount}`);
+});
+
+test('runFullAssessment returns rightSizingActions and indices', () => {
+  const scores = makeScores(3);
+  const result = runFullAssessment(scores);
+  assert.ok(Array.isArray(result.rightSizingActions), 'rightSizingActions should be array');
+  assert.ok(typeof result.indices === 'object', 'indices should be object');
+  assert.ok('psi' in result.indices, 'indices should have psi');
+  assert.ok('csi' in result.indices, 'indices should have csi');
+  assert.ok('cri' in result.indices, 'indices should have cri');
 });
