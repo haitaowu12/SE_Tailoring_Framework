@@ -1,11 +1,18 @@
 /**
- * Assessment Engine — Scoring algorithm & override logic
+ * Assessment Engine — v4.0 Simplified Scoring Algorithm
+ * 
+ * Algorithm Steps:
+ * 1. Get applicable metrics for each process
+ * 2. Convert metric scores to tiers (highest score wins)
+ * 3. Find MAX tier across all applicable metrics
+ * 4. Apply overrides (safety, regulatory, project-context)
+ * 5. Apply SA floor (Safety Assurance minimum levels)
+ * 6. Apply interdependencies (consistency rules)
  */
 import { METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, CONSISTENCY_RULES, PROPAGATION_RULES, CORE_PROCESSES } from '../data/se-tailoring-data.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
-const SCORE_WEIGHTS = { P: 2, S: 1 };
 const metricSort = (a, b) => Number(a.replace('M', '')) - Number(b.replace('M', ''));
 
 const SA_TIERS = [
@@ -66,49 +73,26 @@ function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
     return false;
 }
 
-function applyConditionalHighestTierRule(drivers) {
-    const primaryDrivers = drivers.filter(d => d.role === 'P');
-    const secondaryDrivers = drivers.filter(d => d.role === 'S');
-
-    const primaryAtC = primaryDrivers.filter(d => d.value >= 4);
-    const secondaryAtSPlus = secondaryDrivers.filter(d => d.value >= 3);
-    const secondaryAtC = secondaryDrivers.filter(d => d.value >= 4);
-    const anyAtS = drivers.some(d => d.value >= 3);
-    const allAtB = drivers.every(d => d.value <= 2);
-
-    if (primaryAtC.length >= 2) {
-        return 'comprehensive';
-    }
-    if (primaryAtC.length === 1 && secondaryAtSPlus.length >= 1) {
-        return 'comprehensive';
-    }
-    if (primaryAtC.length === 1 && secondaryAtSPlus.length === 0) {
-        return 'standard';
-    }
-    if (primaryAtC.length === 0 && secondaryAtC.length >= 1) {
-        return 'standard';
-    }
-    if (anyAtS) {
-        return 'standard';
-    }
-    if (allAtB) {
-        return 'basic';
-    }
-    return 'basic';
-}
-
-/** Calculate process derivation details from metric scores */
+/**
+ * Calculate process derivation details using v4.0 simplified algorithm.
+ * 
+ * Algorithm:
+ * 1. Get all applicable metrics for the process (Primary and Secondary drivers)
+ * 2. Find the MAX score across all applicable metrics (highest tier wins)
+ * 3. Convert max score to level: 1-2=basic, 3=standard, 4-5=comprehensive
+ * 4. Track which metrics drove the decision (all metrics with max score)
+ * 
+ * No weighted averaging. No conditional derivation. Simple highest-score-wins.
+ */
 export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     const map = matrixMap[processId];
     if (!map || Object.keys(map).length === 0) {
         return {
             level: 'basic',
             triggerMetrics: [],
-            triggerScore: null,
+            triggerScore: 3,
             triggerLevel: 'basic',
-            weightedReferenceScore: 3,
-            weightedReferenceLevel: levelFromScore(3),
-            conditionalRuleApplied: false
+            allMetricScores: []
         };
     }
 
@@ -123,23 +107,11 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
         return {
             level: 'basic',
             triggerMetrics: [],
-            triggerScore: null,
+            triggerScore: 3,
             triggerLevel: 'basic',
-            weightedReferenceScore: 3,
-            weightedReferenceLevel: levelFromScore(3),
-            conditionalRuleApplied: false
+            allMetricScores: []
         };
     }
-
-    let weightedSum = 0;
-    let totalWeight = 0;
-    for (const d of drivers) {
-        const weight = SCORE_WEIGHTS[d.role] || 1;
-        weightedSum += d.value * weight;
-        totalWeight += weight;
-    }
-    const weightedReferenceScore = totalWeight > 0 ? weightedSum / totalWeight : 3;
-    const weightedReferenceLevel = levelFromScore(weightedReferenceScore);
 
     const maxScore = Math.max(...drivers.map(d => d.value));
     const triggerMetrics = drivers
@@ -148,25 +120,23 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
         .sort(metricSort);
     const triggerLevel = levelFromScore(maxScore);
 
-    const conditionalLevel = applyConditionalHighestTierRule(drivers);
-    const conditionalRuleApplied = conditionalLevel !== triggerLevel;
-    const conditionalRuleReason = conditionalRuleApplied
-        ? 'Comprehensive trigger not corroborated by conditional derivation rule'
-        : null;
+    const allMetricScores = drivers.map(d => ({
+        metric: d.metric,
+        role: d.role,
+        value: d.value,
+        level: d.level
+    }));
 
     return {
-        level: conditionalLevel,
+        level: triggerLevel,
         triggerMetrics,
         triggerScore: maxScore,
         triggerLevel,
-        weightedReferenceScore: Number(weightedReferenceScore.toFixed(2)),
-        weightedReferenceLevel,
-        conditionalRuleApplied,
-        conditionalRuleReason
+        allMetricScores
     };
 }
 
-/** Calculate individual process level from metric scores */
+/** Calculate individual process level from metric scores using highest-tier-wins */
 export function calculateProcessLevel(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     return calculateProcessDerivation(processId, scores, matrixMap).level;
 }
@@ -189,7 +159,10 @@ export function calculateAllProcessDerivations(scores, matrixMap = METRIC_PROCES
     return derivations;
 }
 
-/** Apply override conditions (safety, regulatory, and project-context) */
+/**
+ * Apply override conditions (safety, regulatory, and project-context).
+ * Overrides elevate process levels when specific conditions are met.
+ */
 export function applyOverrides(levels, scores, context = {}) {
     const applied = { ...levels };
     const overridesApplied = [];
@@ -217,7 +190,10 @@ export function applyOverrides(levels, scores, context = {}) {
     return { levels: applied, overrides: overridesApplied };
 }
 
-/** Get driver attribution for a process */
+/**
+ * Get driver attribution for a process.
+ * Returns all metrics (Primary and Secondary) that influence the process level.
+ */
 export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     const map = matrixMap[processId];
     if (!map) return [];
@@ -230,7 +206,10 @@ export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCE
     return drivers.sort((a, b) => (a.role === 'P' ? 0 : 1) - (b.role === 'P' ? 0 : 1) || b.value - a.value);
 }
 
-/** Check consistency rules, return violations */
+/**
+ * Check consistency rules (interdependencies), return violations.
+ * Interdependencies ensure related processes maintain appropriate level relationships.
+ */
 export function checkConsistency(levels, scores = {}) {
     const violations = [];
     const technicalIds = getTechnicalProcessIds();
@@ -323,7 +302,10 @@ export function checkConsistency(levels, scores = {}) {
     return violations;
 }
 
-/** Simulate propagation when a process level changes */
+/**
+ * Simulate propagation when a process level changes.
+ * Shows downstream effects on related processes via interdependency rules.
+ */
 export function simulatePropagation(processId, newLevel, currentLevels) {
     const changes = [];
     const technicalIds = getTechnicalProcessIds();
@@ -375,15 +357,29 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
     return changes;
 }
 
-/** Full assessment pipeline */
+/**
+ * Full assessment pipeline implementing v4.0 simplified algorithm.
+ * 
+ * Execution Steps:
+ * 1. Derive initial levels from metrics (highest tier wins for each process)
+ * 2. Apply override conditions (safety, regulatory, project-context)
+ * 3. Apply SA floor (Safety Assurance minimum levels based on M5)
+ * 4. Apply interdependencies (consistency rules with auto-fix)
+ * 
+ * Returns complete assessment with derivation details, overrides, and violations.
+ */
 export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
+    // Step 1: Derive initial levels using highest-tier-wins algorithm
     const derivationDetails = calculateAllProcessDerivations(scores, matrixMap);
     const derived = {};
     for (const [pid, detail] of Object.entries(derivationDetails)) {
         derived[pid] = detail.level;
     }
+    
+    // Step 2: Apply override conditions (safety, regulatory, project-context)
     const { levels: withOverrides, overrides } = applyOverrides(derived, scores, context);
 
+    // Step 3: Apply SA floor (Safety Assurance minimum levels)
     let final = { ...withOverrides };
     const saOverrides = [];
 
@@ -406,6 +402,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         }
     }
 
+    // Step 4: Apply interdependencies (consistency rules with auto-fix)
     const fixes = [];
     let iterations = 0;
     let remainingViolations = checkConsistency(final, scores);
@@ -416,7 +413,6 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
 
         let fixedThisRound = false;
         for (const v of hcViolations) {
-            // Rule 12 conservative auto-fix: elevate Project Planning to Standard (never downgrade technical work).
             if (v.ruleId === 12) {
                 const currentPlanning = final[9] || 'basic';
                 if (levelIndex(currentPlanning) < levelIndex('standard')) {
