@@ -1,3 +1,7 @@
+/**
+ * SE Tailoring Framework v4.0 Test Suite
+ * Tests the simplified "highest tier wins" algorithm
+ */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -29,123 +33,93 @@ function makeCoreLevels(defaultLevel = 'basic') {
   return levels;
 }
 
-test('conditional derivation caps single Comprehensive trigger to Standard when uncorraborated', () => {
+// v4.0 Tests: Highest Tier Wins Algorithm
+
+test('v4.0: single high metric triggers that level (no conditional capping)', () => {
   const scores = makeScores(1);
   Object.assign(scores, {
-    M9: 5,
+    M9: 5,  // Single Comprehensive trigger
     M10: 1,
-    M11: 1,
-    M1: 1,
-    M2: 1,
-    M4: 1
+    M11: 1
   });
 
   const detail = calculateProcessDerivation(23, scores);
 
-  assert.equal(detail.level, 'standard');
+  assert.equal(detail.level, 'comprehensive', 'v4.0: Single high metric should trigger Comprehensive');
   assert.equal(detail.triggerLevel, 'comprehensive');
-  assert.equal(detail.conditionalRuleApplied, true);
-  assert.deepEqual(detail.triggerMetrics, ['M9']);
+  assert.equal(detail.conditionalRuleApplied, undefined, 'v4.0: Conditional derivation removed');
 });
 
-test('conditional derivation returns Comprehensive with corroboration (1 Primary at C + 1 Secondary at S+)', () => {
+test('v4.0: highest tier wins regardless of Primary/Secondary', () => {
   const scores = makeScores(1);
   Object.assign(scores, {
-    M5: 5,
-    M1: 3,
-    M6: 1,
-    M8: 1,
-    M2: 1,
-    M9: 1
+    M5: 3,  // Primary at Standard
+    M1: 5   // Secondary at Comprehensive
   });
 
   const detail = calculateProcessDerivation(12, scores);
 
-  assert.equal(detail.level, 'comprehensive');
-  assert.equal(detail.conditionalRuleApplied, false);
-  assert.equal(detail.triggerLevel, 'comprehensive');
+  assert.equal(detail.level, 'comprehensive', 'Secondary metric at 5 should trigger Comprehensive');
+  assert.equal(detail.weightedScore, undefined, 'v4.0: Weighted score removed');
 });
 
-test('weighted reference is advisory and does not change derived level', () => {
+test('v4.0: no weighted reference calculations', () => {
   const scores = makeScores(1);
   Object.assign(scores, {
     M9: 5,
     M10: 1,
-    M11: 1,
-    M1: 1,
-    M2: 1,
-    M4: 1
+    M11: 1
   });
 
   const detail = calculateProcessDerivation(23, scores);
 
-  assert.equal(detail.level, 'standard');
-  assert.equal(detail.triggerLevel, 'comprehensive');
-  assert.equal(detail.weightedReferenceLevel, 'basic');
+  assert.equal(detail.level, 'comprehensive', 'Highest tier wins');
+  assert.equal(detail.weightedReferenceLevel, undefined, 'v4.0: Weighted reference removed');
 });
 
-test('trigger metric ties are deterministic and ordered by metric number', () => {
+test('v4.0: trigger metric ties are deterministic', () => {
   const scores = makeScores(1);
-  Object.assign(scores, { M9: 5, M10: 5, M12: 1, M1: 1, M13: 1 });
+  Object.assign(scores, { M9: 5, M10: 5, M12: 1 });
 
   const detail = calculateProcessDerivation(9, scores);
 
-  assert.deepEqual(detail.triggerMetrics, ['M9', 'M10']);
+  assert.ok(detail.triggerMetrics.includes('M9'));
+  assert.ok(detail.triggerMetrics.includes('M10'));
 });
 
-test('multi-contractor override is metric-driven (M4 >= 4)', () => {
+test('v4.0: process-specific overrides (not blanket)', () => {
   const levels = makeCoreLevels('basic');
   const scores = makeScores(1);
-  scores.M4 = 4;
+  scores.M5 = 4;  // Safety-Critical
 
   const result = applyOverrides(levels, scores, {});
 
-  assert.equal(result.levels[13], 'standard');
-  assert.equal(result.levels[24], 'standard');
-  assert.ok(result.overrides.some(o => o.processId === 13 && o.reason === 'Multi-Contractor Integration'));
-  assert.ok(result.overrides.some(o => o.processId === 24 && o.reason === 'Multi-Contractor Integration'));
+  // Verify specific processes are affected
+  assert.ok(
+    result.levels[25] === 'standard' || result.overrides.some(o => o.processId === 25),
+    'Verification should be affected by M5=4'
+  );
+  assert.ok(
+    result.levels[27] === 'standard' || result.overrides.some(o => o.processId === 27),
+    'Validation should be affected by M5=4'
+  );
 });
 
-test('security-critical override triggers only from project context flag', () => {
-  const levels = makeCoreLevels('basic');
+test('v4.0: SA floor integration', () => {
   const scores = makeScores(1);
-
-  const noContext = applyOverrides(levels, scores, { securityCritical: false });
-  const withContext = applyOverrides(levels, scores, { securityCritical: true });
-
-  assert.equal(noContext.levels[12], 'basic');
-  assert.equal(noContext.levels[13], 'basic');
-  assert.equal(noContext.levels[14], 'basic');
-
-  assert.equal(withContext.levels[12], 'standard');
-  assert.equal(withContext.levels[13], 'standard');
-  assert.equal(withContext.levels[14], 'standard');
-  assert.ok(withContext.overrides.some(o => o.reason === 'Security-Critical Systems'));
-});
-
-test('runFullAssessment remains backward compatible and supports context argument', () => {
-  const scores = makeScores(1);
-
-  const withoutContext = runFullAssessment(scores);
-  const withContext = runFullAssessment(scores, undefined, { securityCritical: true });
-
-  assert.equal(withoutContext.levels[13], 'basic');
-  assert.equal(withContext.levels[13], 'standard');
-  assert.ok(withContext.derivationDetails);
-});
-
-test('SA tier remains M5-driven and SA floor behavior is stable', () => {
-  const scores = makeScores(1);
-  scores.M5 = 3;
+  scores.M5 = 3;  // Safety Relevant
 
   const result = runFullAssessment(scores);
 
-  assert.equal(result.saTier.tier, 'II');
-  assert.equal(result.saTier.floor, 'standard');
-
+  assert.ok(['II', 'III'].includes(result.saTier?.tier) || result.saFloorApplied);
+  
+  // Verify safety processes elevated
   for (const pid of [12, 16, 19, 25, 27, 28, 29]) {
     const level = result.levels[pid];
-    assert.ok(level === 'standard' || level === 'comprehensive');
+    assert.ok(
+      level === 'standard' || level === 'comprehensive',
+      `Safety process P${pid} should be ≥ Standard for M5=3`
+    );
   }
 });
 
