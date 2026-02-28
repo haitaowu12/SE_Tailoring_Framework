@@ -27,22 +27,22 @@ export const METRICS = [
         id: 'M1', name: 'Architectural Complexity', dimension: 'complexity',
         anchors: { 1: 'Few elements, simple interactions', 3: 'Multiple elements, known patterns', 5: 'Many elements, non-linear interactions' },
         guidedQuestions: [
-            { 
+            {
                 text: "Does the architecture involve SYSTEM-OF-SYSTEMS with emergent, unpredictable behaviors across multiple organizations?",
                 yesScore: 5,
                 rationale: 'Multiple interacting systems with non-linear dependencies'
             },
-            { 
+            {
                 text: "Are there NUMEROUS customized elements (10+) with significant, non-standard interactions requiring custom integration?",
                 yesScore: 4,
                 rationale: 'High element count with complex custom interactions'
             },
-            { 
+            {
                 text: "Does the architecture use MULTIPLE elements (5-10) following known, proven industry patterns (e.g., client-server, microservices)?",
                 yesScore: 3,
                 rationale: 'Moderate complexity with established architectural patterns'
             },
-            { 
+            {
                 text: "Is the architecture composed of FEW elements (2-4) with simple, well-documented interactions?",
                 yesScore: 2,
                 rationale: 'Low complexity, straightforward element relationships'
@@ -53,22 +53,22 @@ export const METRICS = [
         id: 'M2', name: 'Interface Complexity', dimension: 'complexity',
         anchors: { 1: 'Simple, well-defined', 3: 'Multiple, need coordination', 5: 'Complex with emergent behaviors' },
         guidedQuestions: [
-            { 
+            {
                 text: "Are there MULTIPLE COMPLEX external interfaces (10+) across different organizations that are undefined or rapidly evolving?",
                 yesScore: 5,
                 rationale: 'High interface count with cross-organizational coordination and evolution'
             },
-            { 
+            {
                 text: "Are there NUMEROUS internal/external interfaces (5-10) requiring formal ICDs and tight configuration control?",
                 yesScore: 4,
                 rationale: 'Formal interface control required across multiple boundaries'
             },
-            { 
+            {
                 text: "Are there SEVERAL well-defined interfaces (3-5) with mostly internal dependencies and standard protocols?",
                 yesScore: 3,
                 rationale: 'Moderate interface count with established definitions'
             },
-            { 
+            {
                 text: "Are there only FEW simple interfaces (1-2) using standard, off-the-shelf communication protocols?",
                 yesScore: 2,
                 rationale: 'Minimal interface complexity'
@@ -79,22 +79,22 @@ export const METRICS = [
         id: 'M3', name: 'Technology Maturity', dimension: 'complexity',
         anchors: { 1: 'Proven technologies', 3: 'Mix of mature and emerging', 5: 'Novel or unproven' },
         guidedQuestions: [
-            { 
+            {
                 text: "Does the system rely on BLEEDING-EDGE technologies at TRL 1-4 (basic research to lab validation)?",
                 yesScore: 5,
                 rationale: 'Unproven technology with high technical risk'
             },
-            { 
+            {
                 text: "Does the system use EMERGING technologies at TRL 5-6 that have not been widely adopted in your industry?",
                 yesScore: 4,
                 rationale: 'Limited industry track record, requires validation'
             },
-            { 
+            {
                 text: "Is the system a MIX of mature technologies (TRL 7-8) with some recent but proven innovations?",
                 yesScore: 3,
                 rationale: 'Mostly proven with minor new elements'
             },
-            { 
+            {
                 text: "Are ALL core technologies fully mature (TRL 9) with extensive industry deployment, even if in a new configuration?",
                 yesScore: 2,
                 rationale: 'Low technology risk'
@@ -105,22 +105,22 @@ export const METRICS = [
         id: 'M4', name: 'Integration Complexity', dimension: 'complexity',
         anchors: { 1: 'Straightforward', 3: 'Requires systematic planning', 5: 'Cross-domain dependencies' },
         guidedQuestions: [
-            { 
+            {
                 text: "Does integration require coordination across MULTIPLE engineering disciplines, diverse contractors, AND legacy systems simultaneously?",
                 yesScore: 5,
                 rationale: 'Multi-domain integration with organizational complexity'
             },
-            { 
+            {
                 text: "Are there SIGNIFICANT integration challenges requiring custom middleware, bridging adapters, or major hardware modifications?",
                 yesScore: 4,
                 rationale: 'Custom integration solutions required'
             },
-            { 
+            {
                 text: "Does integration require SYSTEMATIC planning but uses standard APIs and well-documented physical interfaces?",
                 yesScore: 3,
                 rationale: 'Planned integration with established interfaces'
             },
-            { 
+            {
                 text: "Is integration STRAIGHTFORWARD with plug-and-play components or minor software configurations?",
                 yesScore: 2,
                 rationale: 'Minimal integration effort'
@@ -132,22 +132,22 @@ export const METRICS = [
         anchors: { 1: 'No safety implications', 3: 'Moderate safety concerns (minor injury)', 5: 'Safety-critical (fatality potential)' },
         note: 'Primary driver for Safety Assurance Criticality Tier. M5=5 triggers life-safety overrides.',
         guidedQuestions: [
-            { 
+            {
                 text: "Could a system failure DIRECTLY result in FATALITY, catastrophic injury, or loss of life (e.g., train collision, structural collapse, electrocution)?",
                 yesScore: 5,
                 rationale: 'Life-Safety (Tier 3) – Triggers comprehensive SA program with independent safety assessment'
             },
-            { 
+            {
                 text: "Could a failure cause SEVERE INJURY requiring hospitalization, permanent disability, or major regulatory investigation (e.g., broken bones, chemical exposure, fire)?",
                 yesScore: 4,
                 rationale: 'Safety-Critical (Tier 2+) – Requires formal hazard analysis and safety case'
             },
-            { 
+            {
                 text: "Could a failure result in MINOR INJURY requiring first aid or medical treatment (e.g., cuts, bruises, minor burns) but not life-threatening?",
                 yesScore: 3,
                 rationale: 'Safety-Relevant (Tier 2) – Requires safety engineer separate from design'
             },
-            { 
+            {
                 text: "Are there only INDIRECT safety implications (e.g., situational awareness, minor ergonomic issues) with no direct injury potential?",
                 yesScore: 2,
                 rationale: 'Negligible (Tier 1) – No specific SA independence requirements'
@@ -158,22 +158,22 @@ export const METRICS = [
         id: 'M6', name: 'Mission Criticality', dimension: 'safety',
         anchors: { 1: 'Low mission impact', 3: 'Moderate mission impact', 5: 'Mission-critical' },
         guidedQuestions: [
-            { 
+            {
                 text: "Would system failure result in COMPLETE INABILITY to perform primary mission (e.g., total system stoppage, massive revenue loss >$1M/day)?",
                 yesScore: 5,
                 rationale: 'Catastrophic mission impact – complete operational failure'
             },
-            { 
+            {
                 text: "Would failure SEVERELY DEGRADE mission performance requiring immediate emergency workarounds and significant downtime (hours to days)?",
                 yesScore: 4,
                 rationale: 'Major mission degradation with emergency response required'
             },
-            { 
+            {
                 text: "Would failure cause MODERATE DISRUPTION that can be managed with standard operational backups or redundancies?",
                 yesScore: 3,
                 rationale: 'Manageable disruption with existing contingencies'
             },
-            { 
+            {
                 text: "Would failure cause only MINOR INCONVENIENCE with minimal impact on core business or operations?",
                 yesScore: 2,
                 rationale: 'Low mission impact'
@@ -184,22 +184,22 @@ export const METRICS = [
         id: 'M7', name: 'Environmental Impact', dimension: 'safety',
         anchors: { 1: 'Minimal concerns', 3: 'Moderate considerations', 5: 'Significant environmental risks' },
         guidedQuestions: [
-            { 
+            {
                 text: "Could the system cause CATASTROPHIC, IRREVERSIBLE environmental damage or major public health crises (e.g., toxic spill affecting thousands)?",
                 yesScore: 5,
                 rationale: 'Catastrophic environmental impact with public health implications'
             },
-            { 
+            {
                 text: "Is there potential for SIGNIFICANT environmental pollution requiring extensive mitigation, permits, and ongoing regulatory reporting?",
                 yesScore: 4,
                 rationale: 'Major environmental impact requiring formal oversight'
             },
-            { 
+            {
                 text: "Are there MODERATE environmental considerations that require standard mitigation limits and routine monitoring?",
                 yesScore: 3,
                 rationale: 'Moderate impact with standard regulatory compliance'
             },
-            { 
+            {
                 text: "Does the system have MINOR environmental footprint (e.g., standard waste disposal, moderate energy use) with minimal regulatory oversight?",
                 yesScore: 2,
                 rationale: 'Minimal environmental impact'
@@ -210,22 +210,22 @@ export const METRICS = [
         id: 'M8', name: 'Regulatory Compliance', dimension: 'safety',
         anchors: { 1: 'Minimal requirements', 3: 'Standard compliance', 5: 'Extensive regulatory framework' },
         guidedQuestions: [
-            { 
+            {
                 text: "Is the system subject to an EXTENSIVE, COMPLEX web of strict federal/international regulations requiring rigorous independent certification (e.g., DO-178C DAL A, ISO 26262 ASIL D)?",
                 yesScore: 5,
                 rationale: 'Highest regulatory burden with independent certification required'
             },
-            { 
+            {
                 text: "Are there SIGNIFICANT, SPECIFIC regulatory standards that mandate formal auditing, traceability, and compliance reporting (e.g., FDA 21 CFR Part 820, EN 50129)?",
                 yesScore: 4,
                 rationale: 'High regulatory burden with formal compliance evidence required'
             },
-            { 
+            {
                 text: "Does the system need to comply with STANDARD industry codes and municipal regulations (e.g., building codes, NFPA 130)?",
                 yesScore: 3,
                 rationale: 'Standard regulatory compliance'
             },
-            { 
+            {
                 text: "Are there only BASIC internal policies or minor local guidelines to follow with no formal external oversight?",
                 yesScore: 2,
                 rationale: 'Minimal regulatory requirements'
@@ -236,22 +236,22 @@ export const METRICS = [
         id: 'M9', name: 'Schedule Pressure', dimension: 'constraints',
         anchors: { 1: 'Flexible timeline', 3: 'Moderate constraints', 5: 'Aggressive, immovable deadlines' },
         guidedQuestions: [
-            { 
+            {
                 text: "Are there AGGRESSIVE, IMMOVABLE deadlines where ANY delay causes catastrophic project failure or massive financial penalties (>$500K/week)?",
                 yesScore: 5,
                 rationale: 'Extreme schedule pressure with zero tolerance for delay'
             },
-            { 
+            {
                 text: "Is the schedule VERY TIGHT requiring frequent concurrent engineering, significant planned overtime, and critical path compression?",
                 yesScore: 4,
                 rationale: 'High schedule pressure requiring aggressive management'
             },
-            { 
+            {
                 text: "Are there MODERATE schedule constraints requiring careful management, critical path tracking, and some schedule margin?",
                 yesScore: 3,
                 rationale: 'Standard schedule management required'
             },
-            { 
+            {
                 text: "Is the timeline SLIGHTLY ACCELERATED but generally comfortable with adequate schedule margin?",
                 yesScore: 2,
                 rationale: 'Low schedule pressure'
@@ -262,22 +262,22 @@ export const METRICS = [
         id: 'M10', name: 'Budget Constraints', dimension: 'constraints',
         anchors: { 1: 'Adequate budget', 3: 'Careful management needed', 5: 'Tight, limited flexibility' },
         guidedQuestions: [
-            { 
+            {
                 text: "Is the budget EXTREMELY TIGHT with ABSOLUTELY NO contingency, where ANY cost overrun kills the project or requires major scope reduction?",
                 yesScore: 5,
                 rationale: 'Extreme budget constraint with zero margin'
             },
-            { 
+            {
                 text: "Are funds HIGHLY RESTRICTED requiring constant rigorous cost control, frequent trade-offs, and minimal management reserve?",
                 yesScore: 4,
                 rationale: 'High budget pressure requiring active cost management'
             },
-            { 
+            {
                 text: "Is the budget CAREFULLY MANAGED with standard management reserves (10-15%) and contingencies in place?",
                 yesScore: 3,
                 rationale: 'Standard budget management'
             },
-            { 
+            {
                 text: "Are funds ADEQUATELY PROVISIONED with comfortable margins for error (>20% contingency)?",
                 yesScore: 2,
                 rationale: 'Low budget pressure'
@@ -288,22 +288,22 @@ export const METRICS = [
         id: 'M11', name: 'Team Experience', dimension: 'constraints',
         anchors: { 1: 'Highly experienced', 3: 'Mixed experience', 5: 'Limited relevant experience' },
         guidedQuestions: [
-            { 
+            {
                 text: "Is the team COMPLETELY NEW to this type of system, domain, AND technology with NO relevant prior experience?",
                 yesScore: 5,
                 rationale: 'No relevant experience – high learning curve'
             },
-            { 
+            {
                 text: "Does the team have SIGNIFICANT SKILL GAPS requiring external consultants, extensive ramp-up training, or knowledge transfer programs?",
                 yesScore: 4,
                 rationale: 'Major skill gaps requiring mitigation'
             },
-            { 
+            {
                 text: "Is there a MIX of experienced seniors and junior members needing standard supervision and mentoring?",
                 yesScore: 3,
                 rationale: 'Mixed experience level – standard supervision required'
             },
-            { 
+            {
                 text: "Is the team MOSTLY EXPERIENCED with this technology, with only one or two minor unfamiliar areas?",
                 yesScore: 2,
                 rationale: 'High relevant experience'
@@ -314,22 +314,22 @@ export const METRICS = [
         id: 'M12', name: 'Geographic Distribution', dimension: 'constraints',
         anchors: { 1: 'Co-located', 3: 'Partially distributed', 5: 'Globally distributed' },
         guidedQuestions: [
-            { 
+            {
                 text: "Is the team GLOBALLY DISTRIBUTED across MULTIPLE incompatible time zones (>8 hour spread) with significant language/cultural barriers?",
                 yesScore: 5,
                 rationale: 'Extreme distribution with major coordination challenges'
             },
-            { 
+            {
                 text: "Are KEY development, testing, and management teams located in DISTINCTLY DIFFERENT geographical regions making real-time coordination difficult?",
                 yesScore: 4,
                 rationale: 'High distribution requiring formal coordination'
             },
-            { 
+            {
                 text: "Is the team PARTIALLY DISTRIBUTED, perhaps across a few regional offices or a hybrid remote model within compatible time zones?",
                 yesScore: 3,
                 rationale: 'Moderate distribution with some coordination needs'
             },
-            { 
+            {
                 text: "Is the team MOSTLY CO-LOCATED with only occasional remote contributors or single time-zone distribution?",
                 yesScore: 2,
                 rationale: 'Low distribution – easy coordination'
@@ -340,22 +340,22 @@ export const METRICS = [
         id: 'M13', name: 'Stakeholder Count', dimension: 'stakeholder',
         anchors: { 1: 'Few, aligned', 3: 'Multiple groups', 5: 'Numerous, diverse communities' },
         guidedQuestions: [
-            { 
+            {
                 text: "Are there NUMEROUS, DIVERSE, HEAVILY CONFLICTING stakeholder communities (e.g., public, government agencies, multiple contractors, advocacy groups)?",
                 yesScore: 5,
                 rationale: 'High stakeholder complexity with conflicting interests'
             },
-            { 
+            {
                 text: "Are there MULTIPLE DISTINCT stakeholder groups with competing interests requiring formal negotiation and arbitration?",
                 yesScore: 4,
                 rationale: 'Multiple stakeholders with competing priorities'
             },
-            { 
+            {
                 text: "Are there SEVERAL stakeholder groups, but their needs are GENERALLY ALIGNED and well-understood?",
                 yesScore: 3,
                 rationale: 'Moderate stakeholder count with aligned interests'
             },
-            { 
+            {
                 text: "Is there a SMALL, EASILY IDENTIFIED group of stakeholders (<5) with clear, non-conflicting needs?",
                 yesScore: 2,
                 rationale: 'Low stakeholder complexity'
@@ -366,22 +366,22 @@ export const METRICS = [
         id: 'M14', name: 'Requirements Volatility', dimension: 'stakeholder',
         anchors: { 1: 'Stable, understood', 3: 'Moderate change expected', 5: 'High volatility, evolving needs' },
         guidedQuestions: [
-            { 
+            {
                 text: "Are requirements expected to CHANGE CONSTANTLY due to extreme uncertainty, shifting market forces, or political whims throughout development?",
                 yesScore: 5,
                 rationale: 'Extreme volatility – requirements unstable throughout lifecycle'
             },
-            { 
+            {
                 text: "Is there HIGH VOLATILITY with MAJOR requirements likely to be discovered or fundamentally altered LATE in the development cycle?",
                 yesScore: 4,
                 rationale: 'High volatility with late-stage changes expected'
             },
-            { 
+            {
                 text: "Are there MODERATE EXPECTED CHANGES requiring a formal change control board and baseline management?",
                 yesScore: 3,
                 rationale: 'Standard volatility with formal change control'
             },
-            { 
+            {
                 text: "Are requirements MOSTLY STABLE with only minor, well-understood refinements anticipated?",
                 yesScore: 2,
                 rationale: 'Low volatility – stable requirements baseline'
@@ -392,22 +392,22 @@ export const METRICS = [
         id: 'M15', name: 'Political Sensitivity', dimension: 'stakeholder',
         anchors: { 1: 'Low public interest', 3: 'Moderate political factors', 5: 'High-profile, politically sensitive' },
         guidedQuestions: [
-            { 
+            {
                 text: "Is the project HIGHLY VISIBLE to the GENERAL PUBLIC and MEDIA where FAILURE would cause a MASSIVE POLITICAL SCANDAL or career-ending consequences?",
                 yesScore: 5,
                 rationale: 'Extreme political visibility with scandal potential'
             },
-            { 
+            {
                 text: "Does the project attract SIGNIFICANT SCRUTINY from TOP EXECUTIVES, board members, industry regulators, or elected officials?",
                 yesScore: 4,
                 rationale: 'High executive/regulatory scrutiny'
             },
-            { 
+            {
                 text: "Are there MODERATE ORGANIZATIONAL POLITICS and cross-departmental turf issues to navigate?",
                 yesScore: 3,
                 rationale: 'Moderate internal political factors'
             },
-            { 
+            {
                 text: "Is there SOME MINOR INTERNAL VISIBILITY but generally treated as a STANDARD OPERATIONAL PROJECT?",
                 yesScore: 2,
                 rationale: 'Low political sensitivity'
@@ -419,22 +419,22 @@ export const METRICS = [
         anchors: { 1: 'Resistant (SE = overhead)', 3: 'Tolerant (show value)', 5: 'Supportive (actively invests)' },
         note: 'Primarily shapes adoption strategy; contributes weakly to derived levels per v4.0.',
         guidedQuestions: [
-            { 
+            {
                 text: "Does the EXECUTIVE TEAM MANDATE and ACTIVELY INVEST HEAVILY in rigorous SE practices across the organization with dedicated funding and headcount?",
                 yesScore: 5,
                 rationale: 'Strong SE culture with executive sponsorship'
             },
-            { 
+            {
                 text: "Is there FORMAL, DOCUMENTED SUPPORT for SE, though implementation might sometimes be inconsistent across projects?",
                 yesScore: 4,
                 rationale: 'Formal SE support with variable implementation'
             },
-            { 
+            {
                 text: "Is the organization TOLERANT of SE but REQUIRES PRACTITIONERS TO CONSTANTLY PROVE ITS VALUE on each project?",
                 yesScore: 3,
                 rationale: 'Tolerant but skeptical – value must be demonstrated'
             },
-            { 
+            {
                 text: "Is there ACTIVE SKEPTICISM toward Systems Engineering, generally viewing it mostly as DOCUMENTATION OVERHEAD with no tangible value?",
                 yesScore: 2,
                 rationale: 'Resistant culture – SE seen as bureaucracy'
@@ -453,11 +453,11 @@ export const METRICS = [
 export const METRIC_PROCESS_MAP = {
     9: { M1: 'S', M9: 'P', M10: 'P', M12: 'P', M13: 'S' },
     10: { M9: 'P', M10: 'P', M11: 'S', M15: 'S' },
-    11: { M1: 'P', M3: 'P', M6: 'P', M12: 'S', M15: 'S' },
+    11: { M1: 'P', M3: 'P', M6: 'P', M8: 'S', M12: 'S', M13: 'P', M15: 'P' },
     12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M8: 'P', M9: 'S' },
     13: { M1: 'S', M2: 'P', M4: 'P', M8: 'P', M14: 'S' },
     14: { M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
-    15: { M6: 'S', M9: 'P', M10: 'P', M15: 'S' },
+    15: { M6: 'P', M9: 'P', M10: 'P', M15: 'P' },
     16: { M3: 'S', M5: 'P', M6: 'P', M8: 'P', M11: 'S' },
     17: { M3: 'S', M6: 'P', M8: 'S', M13: 'P', M15: 'P' },
     18: { M5: 'S', M6: 'S', M13: 'P', M14: 'P', M15: 'P' },
@@ -481,11 +481,11 @@ export const METRIC_PROCESS_MAP = {
 export const LEVEL_THRESHOLDS = {
     9: { standard: 'M9≥3 or M10≥3', comprehensive: 'M9≥4 or M10≥4', primaryMetrics: ['M9', 'M10'], secondaryMetrics: ['M12'] },
     10: { standard: 'M9≥3 or M10≥3', comprehensive: 'M9≥4 or M10≥4', primaryMetrics: ['M9', 'M10'], secondaryMetrics: ['M11', 'M15'] },
-    11: { standard: 'M1≥3 or M6≥3', comprehensive: 'M1≥4 or M6≥4', primaryMetrics: ['M1', 'M6'], secondaryMetrics: ['M12', 'M15'] },
+    11: { standard: 'M1≥3 or M6≥3 or M13≥3 or M15≥3', comprehensive: 'M1≥4 or M6≥4 or M13≥4 or M15≥4', primaryMetrics: ['M1', 'M3', 'M6', 'M13', 'M15'], secondaryMetrics: ['M8', 'M12'] },
     12: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6', 'M8'], secondaryMetrics: ['M1', 'M2', 'M9'] },
     13: { standard: 'M2≥3 or M8≥3', comprehensive: 'M2≥4 or M8≥4', primaryMetrics: ['M2', 'M8'], secondaryMetrics: ['M12', 'M14'] },
     14: { standard: 'M8≥3 or M12≥3', comprehensive: 'M8≥4 or M12≥4', primaryMetrics: ['M8', 'M12'], secondaryMetrics: ['M13', 'M15'] },
-    15: { standard: 'M9≥3 or M10≥3', comprehensive: 'M9≥4 or M10≥4', primaryMetrics: ['M9', 'M10'], secondaryMetrics: ['M15'] },
+    15: { standard: 'M9≥3 or M10≥3 or M6≥3 or M15≥3', comprehensive: 'M9≥4 or M10≥4 or M6≥4 or M15≥4', primaryMetrics: ['M9', 'M10', 'M6', 'M15'], secondaryMetrics: [] },
     16: { standard: 'M5≥3 or M8≥3', comprehensive: 'M5≥4 or M8≥4', primaryMetrics: ['M5', 'M8'], secondaryMetrics: ['M11', 'M13', 'M15'] },
     17: { standard: 'M6≥3 or M13≥3', comprehensive: 'M6≥4 or M13≥4', primaryMetrics: ['M6', 'M13'], secondaryMetrics: ['M8', 'M15'] },
     18: { standard: 'M13≥3 or M14≥3', comprehensive: 'M13≥4 or M14≥4', primaryMetrics: ['M13', 'M14'], secondaryMetrics: ['M15'] },
@@ -898,3 +898,52 @@ export const SA_STANDARDS_REFERENCE = [
     { id: 'nfpa130', name: 'NFPA 130', application: 'Fixed guideway transit' },
     { id: 'iec61508', name: 'IEC 61508', application: 'Functional safety (all industries)' }
 ];
+
+// =====================================================================
+// RIGHT-SIZING: Derived Indices & Rigor Governance (Integrated Evaluation)
+// =====================================================================
+
+/**
+ * Rigor budget table: max Comprehensive and guideline Standard counts by PSI.
+ * PSI 1-2 = small, PSI 3 = medium, PSI 4-5 = large/mega.
+ */
+export const RIGOR_BUDGET = [
+    { psiMin: 1, psiMax: 2, label: 'Small', maxComprehensive: 3, typicalStandardRange: [6, 8], notes: 'Remainder Basic by design' },
+    { psiMin: 3, psiMax: 3, label: 'Medium', maxComprehensive: 8, typicalStandardRange: [8, 12], notes: 'At least ~25% Basic' },
+    { psiMin: 4, psiMax: 5, label: 'Large/Mega', maxComprehensive: 22, typicalStandardRange: [0, 22], notes: 'Flag if >70% Comprehensive; exec review required' }
+];
+
+/**
+ * Capability ceilings by CRI.
+ * CRI=1: cap at Standard except safety/regulatory overrides.
+ * CRI=2: data-intensive processes capped at Standard unless PSI>=3.
+ * CRI=3: no caps.
+ */
+export const CAPABILITY_CEILINGS = [
+    { cri: 1, maxLevel: 'standard', label: 'Resistant / Low Capability', exemptMetrics: ['M5', 'M6', 'M7', 'M8'], notes: 'Override-exempt processes may still reach Comprehensive' },
+    { cri: 2, maxLevel: 'comprehensive', label: 'Mixed / Moderate', dataIntensiveCap: 'standard', dataIntensiveProcesses: [14, 15, 16], psiExemptionThreshold: 3, notes: 'Data-intensive processes capped at Standard unless PSI>=3' },
+    { cri: 3, maxLevel: 'comprehensive', label: 'Supportive / High Capability', notes: 'No capability caps' }
+];
+
+/**
+ * Process priority classes for structured reduction.
+ * When rigor budget is exceeded, downgrade from lowest priority first.
+ * Safety/regulatory overrides are never downgraded regardless of priority.
+ */
+export const PROCESS_PRIORITY_CLASSES = {
+    core: {
+        label: 'Core High-Leverage',
+        description: 'Always keep highest where triggered',
+        processes: [12, 18, 19, 20, 24, 25, 27, 13]
+    },
+    contextSensitive: {
+        label: 'Context-Sensitive',
+        description: 'Keep high if metrics strongly drive them',
+        processes: [9, 10, 11, 14]
+    },
+    secondary: {
+        label: 'Secondary',
+        description: 'Lower leverage for small projects',
+        processes: [15, 16, 17, 21, 22, 23, 26, 28, 29, 30]
+    }
+};
