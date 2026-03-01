@@ -182,13 +182,6 @@ function renderStep(container) {
             <option value="disposal" ${localProject.phase === 'disposal' ? 'selected' : ''}>Retirement / Disposal</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">Security-Critical Context</label>
-          <label class="flex items-center gap-sm" style="font-size: 13px;">
-            <input type="checkbox" id="proj-security-critical" ${localProject.securityCritical ? 'checked' : ''}>
-            <span>Project is security-critical (enables security override floor)</span>
-          </label>
-        </div>
       </div>
     `;
     ['proj-name', 'proj-date', 'proj-team', 'proj-phase'].forEach(id => {
@@ -197,14 +190,8 @@ function renderStep(container) {
         localProject[key] = e.target.value;
       });
     });
-    content.querySelector('#proj-security-critical').addEventListener('change', (e) => {
-      localProject.securityCritical = !!e.target.checked;
-    });
     return;
   }
-
-
-
   if (step.id === 'results') {
     renderResults(content);
     return;
@@ -361,7 +348,6 @@ function renderResults(content) {
   const processName = (id) => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
 
   const m5Val = localScores.M5 || 3;
-  const securityCritical = !!localProject.securityCritical;
 
   content.innerHTML = `
     <h3 class="mb-lg">📊 Assessment Results</h3>
@@ -455,7 +441,6 @@ function renderResults(content) {
         <div class="text-sm text-secondary">Safety Assurance Criticality Tier (derived from M5: Safety Impact = ${m5Val})</div>
         <div style="font-size: 24px; font-weight: 800; color: ${tierColors[saTier.tier]}">Tier ${saTier.tier}: ${saTier.name}</div>
         <div class="text-sm">${saTier.description}</div>
-        <div class="text-xs text-secondary mt-sm">Security-Critical Context: <strong>${securityCritical ? 'Enabled' : 'Disabled'}</strong></div>
       </div>
       <div style="text-align: right;">
         ${saTier.floor ? `<div class="text-xs" style="color: ${tierColors[saTier.tier]}">Min Floor: ${saTier.floor}</div>` : '<div class="text-xs text-secondary">No floor applied</div>'}
@@ -544,7 +529,7 @@ function finalizeAssessment() {
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const result = runFullAssessment(localScores, matrixMap, localProject);
   setState({
-    projectInfo: { ...localProject, securityCritical: !!localProject.securityCritical },
+    projectInfo: { ...localProject },
     scores: localScores,
     saTier: result.saTier,
     derived: result.derived,

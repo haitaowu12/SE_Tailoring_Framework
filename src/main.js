@@ -68,7 +68,7 @@ function buildNavbar() {
                 const config = await importConfig(e.target.files[0]);
                 const { setState } = await import('./state.js');
                 setState({
-                    projectInfo: { securityCritical: false, ...(config.projectInfo || {}) },
+                    projectInfo: { ...(config.projectInfo || {}) },
                     scores: config.metricScores || {},
                     levels: config.processLevels || {},
                     derived: config.derivedLevels || {},

@@ -155,18 +155,18 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M6', name: 'Mission Criticality', dimension: 'safety',
-        anchors: { 1: 'Low mission impact', 3: 'Moderate mission impact', 5: 'Mission-critical' },
+        id: 'M6', name: 'Mission & Security Criticality', dimension: 'safety',
+        anchors: { 1: 'Low mission impact, isolated network', 3: 'Moderate impact, segmented data', 5: 'Mission-critical, life-safety cyber' },
         guidedQuestions: [
             {
-                text: "Would system failure result in COMPLETE INABILITY to perform primary mission (e.g., total system stoppage, massive revenue loss >$1M/day)?",
+                text: "Would system compromise or failure result in COMPLETE INABILITY to perform primary mission or expose life-safety cyber vectors (e.g., CBTC networks, SCADA)?",
                 yesScore: 5,
-                rationale: 'Catastrophic mission impact – complete operational failure'
+                rationale: 'Catastrophic mission impact or life-safety cyber risk'
             },
             {
-                text: "Would failure SEVERELY DEGRADE mission performance requiring immediate emergency workarounds and significant downtime (hours to days)?",
+                text: "Would failure/compromise SEVERELY DEGRADE mission performance or expose critical operational data, requiring immediate emergency response?",
                 yesScore: 4,
-                rationale: 'Major mission degradation with emergency response required'
+                rationale: 'Major mission/security degradation requiring emergency workarounds'
             },
             {
                 text: "Would failure cause MODERATE DISRUPTION that can be managed with standard operational backups or redundancies?",
@@ -590,14 +590,44 @@ export const OVERRIDE_CONDITIONS = [
         source: 'ISO 15288 §6.4.12'
     },
     // =====================================================================
-    // MISSION CRITICAL OVERRIDES (M6-based)
+    // MISSION & SECURITY CRITICAL OVERRIDES (M6-based)
     // =====================================================================
+    {
+        id: 'mission_critical_risk',
+        condition: 'M6 >= 4 → Process 12 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
+        label: 'Mission/Security-Critical: Risk Management',
+        description: 'M6≥4 requires standard risk management with threat modeling and mission failure analysis',
+        processes: [12],
+        minLevel: 'standard',
+        source: 'ISO 15288 §6.4; IEC 62443'
+    },
+    {
+        id: 'mission_critical_cm',
+        condition: 'M6 >= 4 → Process 13 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
+        label: 'Mission/Security-Critical: Configuration Management',
+        description: 'M6≥4 requires secure baseline control, patch management, and change tracking',
+        processes: [13],
+        minLevel: 'standard',
+        source: 'IEC 62443; NIST 800-82'
+    },
+    {
+        id: 'mission_critical_info',
+        condition: 'M6 >= 4 → Process 14 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
+        label: 'Mission/Security-Critical: Information Management',
+        description: 'M6≥4 requires standard information management with data protection and access control',
+        processes: [14],
+        minLevel: 'standard',
+        source: 'IEC 62443; NIST 800-82'
+    },
     {
         id: 'mission_critical_architecture',
         condition: 'M6 >= 4 → Process 20 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission-Critical: System Architecture Definition',
-        description: 'M6≥4 (major mission degradation) requires standard architecture with redundancy and fail-safe design',
+        label: 'Mission/Security-Critical: System Architecture Definition',
+        description: 'M6≥4 requires standard architecture with redundancy and secure-by-design concepts',
         processes: [20],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.4'
@@ -606,11 +636,21 @@ export const OVERRIDE_CONDITIONS = [
         id: 'mission_critical_verification',
         condition: 'M6 >= 4 → Process 25 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission-Critical: Verification',
+        label: 'Mission/Security-Critical: Verification',
         description: 'M6≥4 requires standard verification with mission success criteria validation',
         processes: [25],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.9'
+    },
+    {
+        id: 'life_safety_cyber_verification',
+        condition: 'M6 = 5 → Process 25 ≥ Comprehensive',
+        trigger: { type: 'metric', metric: 'M6', op: '=', value: 5 },
+        label: 'Life-Safety Cyber Risk: Verification',
+        description: 'M6=5 requires comprehensive verification including penetration testing and cyber-physical V&V',
+        processes: [25],
+        minLevel: 'comprehensive',
+        source: 'IEC 62443 SL4; NIST 800-82'
     },
     {
         id: 'mission_critical_validation',
@@ -626,7 +666,7 @@ export const OVERRIDE_CONDITIONS = [
         id: 'mission_critical_operation',
         condition: 'M6 >= 4 → Process 28 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission-Critical: Operation',
+        label: 'Mission/Security-Critical: Operation',
         description: 'M6≥4 requires standard operation with contingency procedures and emergency response',
         processes: [28],
         minLevel: 'standard',
@@ -720,39 +760,6 @@ export const OVERRIDE_CONDITIONS = [
         processes: [30],
         minLevel: 'standard',
         source: 'ISO 14001; EPA regulations'
-    },
-    // =====================================================================
-    // SECURITY OVERRIDES (Context-based)
-    // =====================================================================
-    {
-        id: 'security_critical_risk',
-        condition: 'Project Security-Critical Context = true → Process 12 ≥ Standard',
-        trigger: { type: 'context', field: 'securityCritical', equals: true },
-        label: 'Security-Critical: Risk Management',
-        description: 'Security-critical context requires standard risk management with cybersecurity threat analysis',
-        processes: [12],
-        minLevel: 'standard',
-        source: 'IEC 62443; NIST 800-53'
-    },
-    {
-        id: 'security_critical_cm',
-        condition: 'Project Security-Critical Context = true → Process 13 ≥ Standard',
-        trigger: { type: 'context', field: 'securityCritical', equals: true },
-        label: 'Security-Critical: Configuration Management',
-        description: 'Security-critical context requires standard CM with secure baseline control and change tracking',
-        processes: [13],
-        minLevel: 'standard',
-        source: 'IEC 62443-3-3; NIST 800-53 CM family'
-    },
-    {
-        id: 'security_critical_info',
-        condition: 'Project Security-Critical Context = true → Process 14 ≥ Standard',
-        trigger: { type: 'context', field: 'securityCritical', equals: true },
-        label: 'Security-Critical: Information Management',
-        description: 'Security-critical context requires standard information management with data protection and access control',
-        processes: [14],
-        minLevel: 'standard',
-        source: 'IEC 62443; NIST 800-53'
     }
 ];
 
@@ -769,9 +776,9 @@ export const EXTERNAL_STANDARD_MAPPING = [
     { standard: 'IEC 61508 SIL 4', metric: 'M5', threshold: '= 5', notes: 'Life-safety; triggers life_safety_* overrides → Comprehensive minimum for requirements, architecture, V&V' },
     { standard: 'DO-178C DAL A-C', metric: 'M5, M8', threshold: '>= 4', notes: 'Aviation software; safety + regulatory overrides apply' },
     { standard: 'ISO 26262 ASIL C-D', metric: 'M5, M8', threshold: '>= 4', notes: 'Automotive; safety + regulatory overrides apply' },
-    { standard: 'EN 50129 SIL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Railway; safety-critical overrides apply' },
-    { standard: 'IEC 62443 SL 3-4', metric: 'projectInfo.securityCritical', threshold: '= true', notes: 'Industrial cybersecurity; triggers security_critical_* overrides → Standard minimum for risk, CM, info management' },
-    { standard: 'NIST 800-53 High', metric: 'projectInfo.securityCritical', threshold: '= true', notes: 'US federal security controls; triggers security_critical_* overrides' }
+    { standard: 'EN 50126/8/9 SIL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Railway; safety-critical overrides apply' },
+    { standard: 'IEC 62443 SL 3-4', metric: 'M6', threshold: '>= 4', notes: 'Industrial cybersecurity; triggers mission_critical_* overrides → Standard min for Risk, CM, Info Mgmt' },
+    { standard: 'NIST 800-82 / 53 High', metric: 'M6', threshold: '= 5', notes: 'US federal security controls; triggers life-safety cyber overrides' }
 ];
 
 /**
