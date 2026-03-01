@@ -450,14 +450,18 @@ export const METRICS = [
 // The algorithm treats ALL applicable metrics (P+S) equally using "highest tier wins".
 // There is NO weighted scoring (no P=2, S=1 weighting) in v4.0.
 // Source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
+// V4.1 NOTE: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
+// from process-level driving. High constraint scores mean "less budget/time available"
+// which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
+// Index) which governs right-sizing caps and priority-based reduction instead.
 export const METRIC_PROCESS_MAP = {
-    9: { M1: 'S', M9: 'P', M10: 'P', M12: 'P', M13: 'S' },
-    10: { M9: 'P', M10: 'P', M11: 'S', M15: 'S' },
+    9: { M1: 'P', M4: 'P', M12: 'P', M13: 'S' },
+    10: { M1: 'P', M4: 'P', M13: 'S', M15: 'S' },
     11: { M1: 'P', M3: 'P', M6: 'P', M8: 'S', M12: 'S', M13: 'P', M15: 'P' },
-    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M8: 'P', M9: 'S' },
+    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M8: 'P' },
     13: { M1: 'S', M2: 'P', M4: 'P', M8: 'P', M14: 'S' },
     14: { M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
-    15: { M6: 'P', M9: 'P', M10: 'P', M15: 'P' },
+    15: { M6: 'P', M8: 'P', M14: 'S' },
     16: { M3: 'S', M5: 'P', M6: 'P', M8: 'P', M11: 'S' },
     17: { M3: 'S', M6: 'P', M8: 'S', M13: 'P', M15: 'P' },
     18: { M5: 'S', M6: 'S', M13: 'P', M14: 'P', M15: 'P' },
@@ -465,27 +469,28 @@ export const METRIC_PROCESS_MAP = {
     20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M5: 'S', M6: 'S', M11: 'S' },
     21: { M1: 'P', M2: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
     22: { M1: 'P', M2: 'S', M3: 'P', M4: 'S', M5: 'S', M6: 'P' },
-    23: { M1: 'P', M2: 'S', M4: 'P', M9: 'S', M10: 'S', M11: 'P' },
+    23: { M1: 'P', M2: 'S', M4: 'P', M3: 'S', M11: 'P' },
     24: { M1: 'S', M2: 'P', M4: 'P', M5: 'S', M11: 'S', M12: 'P' },
     25: { M1: 'S', M2: 'P', M4: 'P', M5: 'P', M8: 'S' },
-    26: { M6: 'P', M9: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
+    26: { M6: 'P', M4: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
     27: { M5: 'P', M6: 'P', M8: 'S', M13: 'P', M14: 'S', M15: 'S' },
     28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
-    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'P', M10: 'S', M11: 'S' },
+    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'P', M11: 'S' },
     30: { M6: 'S', M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
 };
 
 // Level thresholds per process (v4.0 Simplified - "Highest Tier Wins")
 // Algorithm: Trigger Tier = MAX(Tier(M₁), Tier(M₂), ...) where Tier(score): 1-2→Basic, 3→Standard, 4-5→Comprehensive
 // These thresholds are provided for REFERENCE ONLY. The actual derivation uses the simple highest-tier-wins rule.
+// V4.1: M9/M10 removed from all thresholds — they are constraint metrics that feed CSI only
 export const LEVEL_THRESHOLDS = {
-    9: { standard: 'M9≥3 or M10≥3', comprehensive: 'M9≥4 or M10≥4', primaryMetrics: ['M9', 'M10'], secondaryMetrics: ['M12'] },
-    10: { standard: 'M9≥3 or M10≥3', comprehensive: 'M9≥4 or M10≥4', primaryMetrics: ['M9', 'M10'], secondaryMetrics: ['M11', 'M15'] },
+    9: { standard: 'M1≥3 or M4≥3', comprehensive: 'M1≥4 or M4≥4', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M12', 'M13'] },
+    10: { standard: 'M1≥3 or M4≥3', comprehensive: 'M1≥4 or M4≥4', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M13', 'M15'] },
     11: { standard: 'M1≥3 or M6≥3 or M13≥3 or M15≥3', comprehensive: 'M1≥4 or M6≥4 or M13≥4 or M15≥4', primaryMetrics: ['M1', 'M3', 'M6', 'M13', 'M15'], secondaryMetrics: ['M8', 'M12'] },
-    12: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6', 'M8'], secondaryMetrics: ['M1', 'M2', 'M9'] },
+    12: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6', 'M8'], secondaryMetrics: ['M1', 'M2'] },
     13: { standard: 'M2≥3 or M8≥3', comprehensive: 'M2≥4 or M8≥4', primaryMetrics: ['M2', 'M8'], secondaryMetrics: ['M12', 'M14'] },
     14: { standard: 'M8≥3 or M12≥3', comprehensive: 'M8≥4 or M12≥4', primaryMetrics: ['M8', 'M12'], secondaryMetrics: ['M13', 'M15'] },
-    15: { standard: 'M9≥3 or M10≥3 or M6≥3 or M15≥3', comprehensive: 'M9≥4 or M10≥4 or M6≥4 or M15≥4', primaryMetrics: ['M9', 'M10', 'M6', 'M15'], secondaryMetrics: [] },
+    15: { standard: 'M6≥3 or M8≥3', comprehensive: 'M6≥4 or M8≥4', primaryMetrics: ['M6', 'M8'], secondaryMetrics: ['M14'] },
     16: { standard: 'M5≥3 or M8≥3', comprehensive: 'M5≥4 or M8≥4', primaryMetrics: ['M5', 'M8'], secondaryMetrics: ['M11', 'M13', 'M15'] },
     17: { standard: 'M6≥3 or M13≥3', comprehensive: 'M6≥4 or M13≥4', primaryMetrics: ['M6', 'M13'], secondaryMetrics: ['M8', 'M15'] },
     18: { standard: 'M13≥3 or M14≥3', comprehensive: 'M13≥4 or M14≥4', primaryMetrics: ['M13', 'M14'], secondaryMetrics: ['M15'] },
@@ -493,13 +498,13 @@ export const LEVEL_THRESHOLDS = {
     20: { standard: 'M1≥3 or M6≥3', comprehensive: 'M1≥4 or M6≥4', primaryMetrics: ['M1', 'M6'], secondaryMetrics: ['M2', 'M3', 'M5', 'M11'] },
     21: { standard: 'M1≥3 or M3≥3', comprehensive: 'M1≥4 or M3≥4', primaryMetrics: ['M1', 'M3'], secondaryMetrics: ['M5', 'M8', 'M11'] },
     22: { standard: 'M1≥3 or M6≥3', comprehensive: 'M1≥4 or M6≥4', primaryMetrics: ['M1', 'M6'], secondaryMetrics: ['M2', 'M3', 'M4', 'M5'] },
-    23: { standard: 'M3≥3 or M4≥3', comprehensive: 'M3≥4 or M4≥4', primaryMetrics: ['M3', 'M4'], secondaryMetrics: ['M9', 'M10', 'M11'] },
+    23: { standard: 'M1≥3 or M4≥3', comprehensive: 'M1≥4 or M4≥4', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M3', 'M11'] },
     24: { standard: 'M2≥3 or M4≥3', comprehensive: 'M2≥4 or M4≥4', primaryMetrics: ['M2', 'M4'], secondaryMetrics: ['M5', 'M11', 'M12'] },
     25: { standard: 'M5≥3 or M2≥3', comprehensive: 'M5≥4 or M2≥4', primaryMetrics: ['M5', 'M2'], secondaryMetrics: ['M8'] },
-    26: { standard: 'M6≥3 or M12≥3', comprehensive: 'M6≥4 or M12≥4', primaryMetrics: ['M6', 'M12'], secondaryMetrics: ['M13', 'M15', 'M16'] },
+    26: { standard: 'M6≥3 or M12≥3', comprehensive: 'M6≥4 or M12≥4', primaryMetrics: ['M6', 'M12'], secondaryMetrics: ['M4', 'M13', 'M15', 'M16'] },
     27: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6'], secondaryMetrics: ['M8', 'M13', 'M14', 'M15'] },
     28: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6', 'M7'], secondaryMetrics: ['M11', 'M12', 'M16'] },
-    29: { standard: 'M5≥3 or M7≥3', comprehensive: 'M5≥4 or M7≥4', primaryMetrics: ['M5', 'M7'], secondaryMetrics: ['M4', 'M10', 'M11'] },
+    29: { standard: 'M5≥3 or M7≥3', comprehensive: 'M5≥4 or M7≥4', primaryMetrics: ['M5', 'M7'], secondaryMetrics: ['M4', 'M11'] },
     30: { standard: 'M7≥3 or M8≥3', comprehensive: 'M7≥4 or M8≥4', primaryMetrics: ['M7', 'M8'], secondaryMetrics: ['M15', 'M16'] }
 };
 
