@@ -110,8 +110,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 <h1>SE Process Tailoring Report</h1>
 <div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} (ISO/IEC/IEEE 15288:2023)</div>
 <table><tr><td><strong>Project</strong>: ${projectInfo.name || '—'}</td><td><strong>Date</strong>: ${projectInfo.date || now}</td></tr>
-<tr><td><strong>Team</strong>: ${projectInfo.team || '—'}</td><td><strong>Phase</strong>: ${projectInfo.phase || '—'}</td></tr>
-<tr><td><strong>Security-Critical Context</strong>: ${projectInfo.securityCritical ? 'Enabled' : 'Disabled'}</td><td></td></tr></table>
+<tr><td><strong>Team</strong>: ${projectInfo.team || '—'}</td><td><strong>Phase</strong>: ${projectInfo.phase || '—'}</td></tr></table>
 
 <h2>Metric Scores</h2><table><tr><th>Metric</th><th>Score</th><th>Description</th></tr>`;
 

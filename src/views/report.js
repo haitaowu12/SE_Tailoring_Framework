@@ -54,8 +54,7 @@ export function renderReport(container) {
           <tr><td class="text-secondary">Name</td><td>${state.projectInfo.name || '—'}</td></tr>
           <tr><td class="text-secondary">Date</td><td>${state.projectInfo.date || '—'}</td></tr>
           <tr><td class="text-secondary">Team</td><td>${state.projectInfo.team || '—'}</td></tr>
-          <tr><td class="text-secondary">Phase</td><td>${state.projectInfo.phase || '—'}</td></tr>
-          <tr><td class="text-secondary">Security-Critical Context</td><td>${state.projectInfo.securityCritical ? 'Enabled' : 'Disabled'}</td></tr>
+          <tr><td class="text-secondary">Phase</td><td>${state.projectInfo.phase || 'N/A'}</td></tr>
         </table>
       </div>
       <div class="card">
