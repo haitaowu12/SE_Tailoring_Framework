@@ -50,14 +50,14 @@ export const PROCESSES = [
     },
     {
         id: 12, name: 'Risk Management', group: 'tech_mgmt', purpose: 'Identify, assess, and treat risks throughout the project lifecycle', extended: false,
-        definition: { basic: 'Simple risk register with high/medium/low assessment', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
+        definition: { basic: 'Simple risk register with high/medium/low assessment. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
         assumptions: 'Risks identified through experience and intuition; assessment is qualitative (H/M/L); monitoring is informal.',
         whenToElevate: 'Elevate to Standard for medium-complexity projects. Elevate to Comprehensive for safety-critical systems.',
         cultureActions: { resistant: 'Frame risks as "What could go wrong?"; use guerrilla tactics if formal registers rejected', tolerant: 'Demonstrate ROI of risk management; use internal champions', supportive: 'Implement quantitative risk analysis; create risk dashboards' }
     },
     {
         id: 13, name: 'Configuration Management', group: 'tech_mgmt', purpose: 'Establish and maintain consistency of system attributes throughout the lifecycle', extended: false,
-        definition: { basic: 'Basic item tracking with simple version control', standard: 'Structured CM with change control board', comprehensive: 'Comprehensive CM with PLM/ALM integration' },
+        definition: { basic: 'Basic item tracking with simple version control. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured CM with change control board', comprehensive: 'Comprehensive CM with PLM/ALM integration' },
         assumptions: 'Configuration items tracked in simple list; versions controlled manually; changes requested informally.',
         whenToElevate: 'Elevate to Standard for multiple interfaces or regulatory requirements.'
     },
@@ -88,13 +88,13 @@ export const PROCESSES = [
     },
     {
         id: 18, name: 'Stakeholder Needs & Requirements', group: 'technical', purpose: 'Elicit, analyze, and validate stakeholder needs', extended: false,
-        definition: { basic: 'Basic needs elicitation and validation', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Comprehensive modeling with engagement planning' },
+        definition: { basic: 'Basic needs elicitation and validation. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Comprehensive modeling with engagement planning' },
         assumptions: 'Stakeholders identified through direct engagement; needs captured informally.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups with conflicting needs.'
     },
     {
         id: 19, name: 'System Requirements Definition', group: 'technical', purpose: 'Transform stakeholder needs into system requirements', extended: false,
-        definition: { basic: 'Simple derivation with basic traceability', standard: 'Structured development with database management', comprehensive: 'Model-based with full traceability network per SysML/INCOSE' },
+        definition: { basic: 'Simple derivation with basic traceability. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured development with database management', comprehensive: 'Model-based with full traceability network per SysML/INCOSE' },
         assumptions: 'Requirements documented in simple list; traceability is manual.',
         whenToElevate: 'Elevate to Standard for safety-related requirements or formal verification needs.'
     },
@@ -124,13 +124,13 @@ export const PROCESSES = [
     },
     {
         id: 24, name: 'Integration', group: 'technical', purpose: 'Combine system elements into a functioning whole', extended: false,
-        definition: { basic: 'Basic integration with issue tracking', standard: 'Structured integration with verification', comprehensive: 'Comprehensive integration with risk assessment' },
+        definition: { basic: 'Basic integration with issue tracking. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured integration with verification', comprehensive: 'Comprehensive integration with risk assessment' },
         assumptions: 'Integration is straightforward; issues tracked in simple log.',
         whenToElevate: 'Elevate to Standard for many interfaces or cross-domain dependencies.'
     },
     {
         id: 25, name: 'Verification', group: 'technical', purpose: 'Confirm system meets specified requirements (built correctly)', extended: false,
-        definition: { basic: 'Basic testing with defect logging', standard: 'Structured verification with multiple methods', comprehensive: 'Comprehensive risk-based verification with full traceability' },
+        definition: { basic: 'Basic testing with defect logging. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured verification with multiple methods', comprehensive: 'Comprehensive risk-based verification with full traceability' },
         assumptions: 'Verification limited to basic testing; defects tracked informally.',
         whenToElevate: 'Elevate to Standard for safety-related or regulated systems.'
     },
