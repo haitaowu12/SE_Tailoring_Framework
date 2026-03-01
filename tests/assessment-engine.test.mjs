@@ -145,8 +145,21 @@ test('canonical propagation catalog contains P1..P18', () => {
   assert.ok(PROPAGATION_RULES.some(r => r.id === 'P18'));
 });
 
-test('corrected process-metric mappings match canonical matrix rows', () => {
+test('corrected process-metric mappings match canonical matrix rows (v4.1 M9/M10 removed)', () => {
   const scores = makeScores(3);
+
+  // Project Planning (9): M1, M4 (P), M12 (P); M13 (S) — M9/M10 removed
+  const d9 = Object.fromEntries(getDriverAttribution(9, scores).map(d => [d.metric, d.role]));
+  assert.equal(d9.M1, 'P', 'M1 should be Primary for Project Planning');
+  assert.equal(d9.M4, 'P', 'M4 should be Primary for Project Planning');
+  assert.equal(d9.M9, undefined, 'M9 should NOT drive Project Planning');
+  assert.equal(d9.M10, undefined, 'M10 should NOT drive Project Planning');
+
+  // Assessment & Control (10): M1, M4 (P); M13, M15 (S) — M9/M10 removed
+  const d10 = Object.fromEntries(getDriverAttribution(10, scores).map(d => [d.metric, d.role]));
+  assert.equal(d10.M1, 'P', 'M1 should be Primary for Assessment & Control');
+  assert.equal(d10.M9, undefined, 'M9 should NOT drive Assessment & Control');
+  assert.equal(d10.M10, undefined, 'M10 should NOT drive Assessment & Control');
 
   // Decision Management (11): M1, M3, M6 (P), M13, M15 (P); M8, M12 (S)
   const d11 = Object.fromEntries(getDriverAttribution(11, scores).map(d => [d.metric, d.role]));
@@ -155,27 +168,37 @@ test('corrected process-metric mappings match canonical matrix rows', () => {
   assert.equal(d11.M15, 'P', 'M15 should be Primary for Decision Management');
   assert.equal(d11.M8, 'S', 'M8 should be Secondary for Decision Management');
 
+  // Risk Management (12): M5, M6, M8 (P); M1, M2 (S) — M9 removed
   const d12 = Object.fromEntries(getDriverAttribution(12, scores).map(d => [d.metric, d.role]));
   assert.equal(d12.M7, undefined);
+  assert.equal(d12.M9, undefined, 'M9 should NOT drive Risk Management');
 
   const d14 = Object.fromEntries(getDriverAttribution(14, scores).map(d => [d.metric, d.role]));
   assert.equal(d14.M1, undefined);
 
-  // Measurement (15): M6, M9, M10, M15 (all P); no secondaries
+  // Measurement (15): M6, M8 (P); M14 (S) — M9/M10/M15 removed
   const d15 = Object.fromEntries(getDriverAttribution(15, scores).map(d => [d.metric, d.role]));
   assert.equal(d15.M6, 'P', 'M6 should be Primary for Measurement');
-  assert.equal(d15.M15, 'P', 'M15 should be Primary for Measurement');
-  assert.equal(d15.M9, 'P', 'M9 should be Primary for Measurement');
+  assert.equal(d15.M8, 'P', 'M8 should be Primary for Measurement');
+  assert.equal(d15.M9, undefined, 'M9 should NOT drive Measurement');
+  assert.equal(d15.M10, undefined, 'M10 should NOT drive Measurement');
 
+  // Implementation (23): M1, M4 (P), M11 (P); M3 (S) — M9/M10 removed
   const d23 = Object.fromEntries(getDriverAttribution(23, scores).map(d => [d.metric, d.role]));
   assert.equal(d23.M5, undefined);
   assert.equal(d23.M8, undefined);
+  assert.equal(d23.M9, undefined, 'M9 should NOT drive Implementation');
+  assert.equal(d23.M10, undefined, 'M10 should NOT drive Implementation');
 
+  // Transition (26): M6, M12, M13 (P); M4, M15, M16 (S) — M9 removed
   const d26 = Object.fromEntries(getDriverAttribution(26, scores).map(d => [d.metric, d.role]));
   assert.equal(d26.M5, undefined);
+  assert.equal(d26.M9, undefined, 'M9 should NOT drive Transition');
 
+  // Maintenance (29): M5, M6, M7 (P); M4, M11 (S) — M10 removed
   const d29 = Object.fromEntries(getDriverAttribution(29, scores).map(d => [d.metric, d.role]));
   assert.equal(d29.M7, 'P');
+  assert.equal(d29.M10, undefined, 'M10 should NOT drive Maintenance');
 
   const d30 = Object.fromEntries(getDriverAttribution(30, scores).map(d => [d.metric, d.role]));
   assert.equal(d30.M5, undefined);
