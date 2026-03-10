@@ -4,9 +4,9 @@
  * Lets users build a system element tree, navigate to per-element assessments,
  * propagate defaults bidirectionally, and resolve conflicts.
  */
-import { METRICS, CORE_PROCESSES, PROCESS_DETAILS } from '../data/se-tailoring-data.js';
+import { METRICS, CORE_PROCESSES } from '../data/se-tailoring-data.js';
 import {
-    getState, showToast, addChildElement, removeElement,
+    getState, setState, showToast, addChildElement, removeElement,
     setActiveElement, getActiveNode, getElementBreadcrumbs,
     getElementCount, getElementsFlat, renameElement,
     setElementProcessAdjustment
@@ -133,20 +133,18 @@ export function renderSystemElements(container) {
                     const justification = manualAdj ? manualAdj.justification : '';
                     return `
                     <tr>
-                      <td title="Click to view process details">
+                      <td title="Click to view process details in Process Explorer">
                         <span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> 
-                        <a href="javascript:void(0)" class="process-name-link" data-id="${p.id}" data-level="${level}" style="max-width: 140px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; color: var(--accent-primary-light); text-decoration: underline;">${p.name}</a>
+                        <a href="javascript:void(0)" class="process-name-link" data-id="${p.id}" style="max-width: 140px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; color: var(--accent-primary-light); text-decoration: underline;">${p.name}</a>
                       </td>
                       <td>
-                        <select class="form-control form-control-sm process-level-select" data-process="${p.id}" style="width: 110px; font-size: 11px; padding: 2px 4px;">
-                          <option value="default" ${!manualAdj ? 'selected' : ''}>Derived (${derivedLevel.charAt(0).toUpperCase()})</option>
-                          <option value="basic" ${manualAdj?.level === 'basic' ? 'selected' : ''}>Basic</option>
-                          <option value="standard" ${manualAdj?.level === 'standard' ? 'selected' : ''}>Standard</option>
-                          <option value="comprehensive" ${manualAdj?.level === 'comprehensive' ? 'selected' : ''}>Comprehensive</option>
-                        </select>
+                        <span class="level-badge ${level}">
+                          ${level.charAt(0).toUpperCase()}
+                          ${manualAdj ? ' (Manual)' : ' (Derived)'}
+                        </span>
                       </td>
-                      <td>
-                        <input type="text" class="form-control form-control-sm process-justification-input" data-process="${p.id}" value="${justification}" placeholder="Add justification..." style="font-size: 11px; padding: 2px 4px; width: 100%;">
+                      <td style="font-size: 11px; color: var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${justification.replace(/"/g, '&quot;')}">
+                        ${justification || '<span style="opacity: 0.5;">—</span>'}
                       </td>
                     </tr>`;
                   }).join('')}
@@ -197,16 +195,6 @@ export function renderSystemElements(container) {
           </div>` : ''}
         </div>
       </div>
-      
-      <!-- Process Details Modal -->
-      <div id="process-details-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-        <div class="modal-content" style="background: var(--bg-card); padding: 20px; border-radius: 12px; width: 90%; max-width: 650px; max-height: 80vh; overflow-y: auto; border: 1px solid var(--border-subtle); box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px; margin-bottom: 15px;">
-                <h3 id="modal-process-title" style="margin: 0; color: var(--text-primary);">Process Details</h3>
-                <button class="btn-close" id="btn-close-process-modal" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-secondary);">×</button>
-            </div>
-            <div class="modal-body" id="modal-process-body" style="font-size: 14px; color: var(--text-secondary);">
-            </div>
         </div>
       </div>
     </div>
@@ -410,41 +398,13 @@ export function renderSystemElements(container) {
         exportSystemBreakdownCSV();
     });
 
-    // Handle manual adjustment changes
-    container.querySelectorAll('.process-level-select').forEach(select => {
-        select.addEventListener('change', (e) => {
-            const processId = e.target.dataset.process;
-            const level = e.target.value;
-            const justifyInput = container.querySelector(`.process-justification-input[data-process="${processId}"]`);
-            const justification = justifyInput ? justifyInput.value : '';
-            setElementProcessAdjustment(activeNode.id, processId, level, justification);
-            renderSystemElements(container);
-        });
-    });
-
-    container.querySelectorAll('.process-justification-input').forEach(input => {
-        input.addEventListener('change', (e) => {
-            const processId = e.target.dataset.process;
-            const justification = e.target.value;
-            const select = container.querySelector(`.process-level-select[data-process="${processId}"]`);
-            if (select && select.value !== 'default') {
-                setElementProcessAdjustment(activeNode.id, processId, select.value, justification);
-            }
-        });
-    });
-
-    // Process details modal
-    const modal = container.querySelector('#process-details-modal');
+    // Process explorer link
     container.querySelectorAll('.process-name-link').forEach(link => {
         link.addEventListener('click', (e) => {
             const processId = e.target.dataset.id;
-            const level = e.target.dataset.level;
-            showProcessModal(processId, level, modal);
+            setState({ activeProcessExplorerId: processId });
+            navigateTo('process-explorer');
         });
-    });
-    
-    container.querySelector('#btn-close-process-modal')?.addEventListener('click', () => {
-        if(modal) modal.style.display = 'none';
     });
 
     // Suggest upstream
@@ -568,54 +528,7 @@ function showConflictBanner(container, conflicts, direction) {
     });
 }
 
-/**
- * Show process details modal
- */
-function showProcessModal(processId, level, modalElement) {
-    if (!modalElement || !PROCESS_DETAILS) return;
-    const details = PROCESS_DETAILS[processId];
-    if (!details) {
-        showToast('No details available for this process', 'warning');
-        return;
-    }
-    
-    const titleEl = modalElement.querySelector('#modal-process-title');
-    const bodyEl = modalElement.querySelector('#modal-process-body');
-    
-    const processName = CORE_PROCESSES.find(p => p.id === processId)?.name || processId;
-    titleEl.innerHTML = `<span class="process-id" style="font-size:12px; vertical-align:middle; margin-right:8px; padding:2px 4px;">${processId}</span> ${processName} <span class="level-badge ${level}" style="font-size:12px; margin-left:8px; padding:2px 6px;">${level.toUpperCase()}</span>`;
-    
-    const act = details.activities[level];
-    const deliv = details.deliverables[level];
-    const out = details.outputs[level];
 
-    bodyEl.innerHTML = `
-        <div style="margin-bottom: 20px;">
-            <h4 style="color: var(--text-primary); margin-bottom: 8px; font-size: 15px;">Description</h4>
-            <p>${details.description}</p>
-        </div>
-        <div style="margin-bottom: 20px;">
-            <h4 style="color: var(--text-primary); margin-bottom: 8px; font-size: 15px;">${level.charAt(0).toUpperCase() + level.slice(1)} Level Activities</h4>
-            <ul style="padding-left: 20px; margin: 0;">
-                ${act ? act.map(a => `<li style="margin-bottom: 4px;">${a}</li>`).join('') : '<li>None specified</li>'}
-            </ul>
-        </div>
-        <div style="margin-bottom: 20px;">
-            <h4 style="color: var(--text-primary); margin-bottom: 8px; font-size: 15px;">Deliverables</h4>
-            <ul style="padding-left: 20px; margin: 0;">
-                ${deliv ? deliv.map(d => `<li style="margin-bottom: 4px;">${d}</li>`).join('') : '<li>None specified</li>'}
-            </ul>
-        </div>
-        <div style="margin-bottom: 20px;">
-            <h4 style="color: var(--text-primary); margin-bottom: 8px; font-size: 15px;">Outputs</h4>
-            <ul style="padding-left: 20px; margin: 0;">
-                ${out ? out.map(o => `<li style="margin-bottom: 4px;">${o}</li>`).join('') : '<li>None specified</li>'}
-            </ul>
-        </div>
-    `;
-    
-    modalElement.style.display = 'flex';
-}
 
 /**
  * Trigger export in export-import.js
