@@ -1,9 +1,10 @@
 /**
  * Assessment View — Step-by-step metric scoring wizard
+ * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS } from '../data/se-tailoring-data.js';
 import { runFullAssessment, getDriverAttribution } from '../utils/assessment-engine.js';
-import { getState, setState, showToast } from '../state.js';
+import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, setElementAssessmentResult, markMetricManual } from '../state.js';
 import { navigateTo } from '../router.js';
 
 const STEPS = [
@@ -49,7 +50,12 @@ export function renderAssessment(container) {
   const isFreshLoad = !container.querySelector('.assessment-container');
   if (isFreshLoad) {
     const state = getState();
-    localScores = { ...state.scores };
+    const activeNode = getActiveNode();
+    // Load per-element scores if available, otherwise fall back to global
+    const elementScores = activeNode?.scores || {};
+    localScores = Object.keys(elementScores).length > 0
+      ? { ...elementScores }
+      : { ...state.scores };
     localProject = { securityCritical: false, ...state.projectInfo };
 
     METRICS.forEach(m => {
@@ -59,11 +65,27 @@ export function renderAssessment(container) {
     });
   }
 
+  const activeNode = getActiveNode();
+  const isHierarchical = activeNode && activeNode.id !== 'default';
+  const crumbs = isHierarchical ? getElementBreadcrumbs(activeNode.id) : [];
+
   container.innerHTML = `
     <div class="assessment-container">
+      ${isHierarchical ? `
+      <div class="hierarchy-context-bar">
+        <div class="hierarchy-crumbs">
+          ${crumbs.map((c, i) => `<span class="h-crumb${c.id === activeNode.id ? ' active' : ''}">${c.name}</span>${i < crumbs.length - 1 ? ' <span class="h-sep">›</span> ' : ''}`).join('')}
+        </div>
+        <div class="hierarchy-badges">
+          <span class="se-type-badge ${activeNode.assessmentType}">${activeNode.assessmentType}</span>
+          <button class="btn btn-ghost btn-sm" id="btn-back-to-tree">← Back to Elements</button>
+        </div>
+      </div>` : ''}
       <div class="assessment-header">
-        <h2>🎯 Project Assessment</h2>
-        <p class="text-secondary">Score 16 metrics to get process-specific tailoring recommendations</p>
+        <h2>🎯 ${isHierarchical ? activeNode.name + ' — ' : ''}Assessment</h2>
+        <p class="text-secondary">${isHierarchical
+          ? `Scoring metrics for system element: ${activeNode.name} (${activeNode.assessmentType} assessment)`
+          : 'Score 16 metrics to get process-specific tailoring recommendations'}</p>
       </div>
       <div class="ordinal-warning mb-lg" style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); border-radius: 10px; padding: 14px 18px;">
         <div style="display: flex; align-items: flex-start; gap: 10px;">
@@ -127,6 +149,18 @@ export function renderAssessment(container) {
     .override-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .violation-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .fix-banner { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+    .hierarchy-context-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px; background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; margin-bottom: 16px; }
+    .hierarchy-crumbs { display: flex; align-items: center; gap: 4px; font-size: 13px; }
+    .h-crumb { color: var(--text-secondary); }
+    .h-crumb.active { color: var(--accent-primary-light); font-weight: 600; }
+    .h-sep { color: var(--text-tertiary); }
+    .hierarchy-badges { display: flex; align-items: center; gap: 8px; }
+    .se-type-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+    .se-type-badge.full { background: rgba(99,102,241,0.15); color: var(--accent-primary-light); }
+    .se-type-badge.quick { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .se-type-badge.inherited { background: rgba(52,211,153,0.15); color: #34d399; }
+    .metric-inherited-lock { opacity: 0.5; pointer-events: none; position: relative; }
+    .metric-inherited-lock::after { content: '↑ Inherited'; position: absolute; top: 8px; right: 12px; font-size: 10px; color: #34d399; background: rgba(52,211,153,0.15); padding: 1px 6px; border-radius: 3px; }
   `;
   container.appendChild(style);
 
@@ -149,6 +183,8 @@ export function renderAssessment(container) {
       renderAssessment(container);
     });
   });
+  // Back to elements tree (hierarchy context)
+  container.querySelector('#btn-back-to-tree')?.addEventListener('click', () => navigateTo('elements'));
 }
 
 function renderStep(container) {
@@ -271,6 +307,12 @@ function setMetricScore(metricId, value, contentContainer) {
   const avg = (dimMetrics.reduce((s, x) => s + (localScores[x.id] || 3), 0) / dimMetrics.length).toFixed(1);
   const avgDisplay = document.querySelector('.dim-avg strong');
   if (avgDisplay) avgDisplay.textContent = avg;
+
+  // Track as manually set for the active element
+  const activeNode = getActiveNode();
+  if (activeNode) {
+    markMetricManual(activeNode.id, metricId);
+  }
 }
 
 function startWizard(metricId, contentContainer) {
@@ -528,6 +570,8 @@ function finalizeAssessment() {
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const result = runFullAssessment(localScores, matrixMap, localProject);
+
+  // Store results globally (backward compat)
   setState({
     projectInfo: { ...localProject },
     scores: localScores,
@@ -542,7 +586,15 @@ function finalizeAssessment() {
     fixes: result.fixes,
     assessmentComplete: true
   });
-  showToast('Assessment complete! Process levels calculated.', 'success');
+
+  // Also store per-element (hierarchy)
+  const activeNode = getActiveNode();
+  if (activeNode) {
+    setElementScores(activeNode.id, { ...localScores });
+    setElementAssessmentResult(activeNode.id, result);
+  }
+
+  showToast(`Assessment complete for "${activeNode?.name || 'Project'}"! Process levels calculated.`, 'success');
   currentStep = 0;
   navigateTo('report');
 }

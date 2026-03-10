@@ -16,9 +16,11 @@ import { renderMatrixView } from './views/matrix-view.js';
 import { renderManualAdjust } from './views/manual-adjust.js';
 import { renderDeliverables } from './views/deliverables.js';
 import { renderReport } from './views/report.js';
+import { renderSystemElements } from './views/system-elements.js';
 
 // Register all routes
 registerRoute('dashboard', renderDashboard);
+registerRoute('elements', renderSystemElements);
 registerRoute('assessment', renderAssessment);
 registerRoute('processes', renderProcessExplorer);
 registerRoute('vee-model', renderVeeModel);
@@ -38,6 +40,7 @@ function buildNavbar() {
     </div>
     <div class="nav-links">
       <button class="nav-link" data-route="dashboard">Dashboard</button>
+      <button class="nav-link" data-route="elements">Elements</button>
       <button class="nav-link" data-route="assessment">Assessment</button>
       <button class="nav-link" data-route="processes">Processes</button>
       <button class="nav-link" data-route="vee-model">Vee Model</button>
