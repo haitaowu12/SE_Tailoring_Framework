@@ -2,7 +2,7 @@
  * Dashboard View — Landing page with framework overview
  */
 import { FRAMEWORK_META, CORE_PROCESSES, PROCESS_GROUPS, METRICS, DIMENSIONS, CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
-import { getState } from '../state.js';
+import { getState, getElementCount } from '../state.js';
 import { navigateTo } from '../router.js';
 
 export function renderDashboard(container) {
@@ -117,6 +117,11 @@ export function renderDashboard(container) {
     <section class="quick-nav mb-xl animate-fade-in-up stagger-6">
       <h2 class="mb-lg">Quick Navigation</h2>
       <div class="grid-3">
+        <button class="card nav-card hover-lift click-ripple" data-route="elements">
+          <div class="nav-card-icon">🏗️</div>
+          <h4>System Elements</h4>
+          <p class="text-xs text-secondary">Build hierarchy & per-element assessments (${getElementCount()} elements)</p>
+        </button>
         <button class="card nav-card hover-lift click-ripple" data-route="vee-model">
           <div class="nav-card-icon">📐</div>
           <h4>Vee Model</h4>
