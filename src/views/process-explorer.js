@@ -697,7 +697,7 @@ export function renderProcessExplorer(container) {
   });
   container.querySelectorAll('.process-list-card').forEach(card => {
     card.addEventListener('click', () => {
-      activeProcess = parseInt(card.dataset.pid);
+      activeProcess = card.dataset.pid;
       activeLevel = 'basic';
       renderProcessExplorer(container);
     });
