@@ -6,28 +6,27 @@
  */
 import { METRICS, CORE_PROCESSES } from '../data/se-tailoring-data.js';
 import {
-    getState, setState, showToast, addChildElement, removeElement,
-    setActiveElement, getActiveNode, getElementBreadcrumbs,
-    getElementCount, getElementsFlat, renameElement,
-    setElementProcessAdjustment
+  getState, showToast, addChildElement, removeElement,
+  setActiveElement, getActiveNode, getElementBreadcrumbs,
+  getElementCount, getElementsFlat, renameElement
 } from '../state.js';
 import { propagateDownstream, suggestUpstream } from '../utils/inheritance-engine.js';
 import { navigateTo } from '../router.js';
 
 export function renderSystemElements(container) {
-    const state = getState();
-    const tree = state.assessmentTree;
-    const elements = getElementsFlat();
-    const activeNode = getActiveNode();
-    const crumbs = getElementBreadcrumbs(tree.activeId);
-    const elementCount = getElementCount();
+  const state = getState();
+  const tree = state.assessmentTree;
+  const elements = getElementsFlat();
+  const activeNode = getActiveNode();
+  const crumbs = getElementBreadcrumbs(tree.activeId);
+  const elementCount = getElementCount();
 
-    // Collect pending conflicts for active node
-    const parentNode = activeNode.parentId ? tree.nodes[activeNode.parentId] : null;
-    const childNodes = activeNode.childIds.map(id => tree.nodes[id]).filter(Boolean);
-    const hasChildren = childNodes.length > 0;
+  // Collect pending conflicts for active node
+  const parentNode = activeNode.parentId ? tree.nodes[activeNode.parentId] : null;
+  const childNodes = activeNode.childIds.map(id => tree.nodes[id]).filter(Boolean);
+  const hasChildren = childNodes.length > 0;
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="se-elements-container">
       <div class="se-header">
         <h2>🏗️ System Element Breakdown</h2>
@@ -47,7 +46,6 @@ export function renderSystemElements(container) {
         <div class="se-tree-panel">
           <div class="se-panel-header">
             <h3>System Tree <span class="badge-count">${elementCount}</span></h3>
-            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown and tailored levels to CSV">📥 Export CSV</button>
           </div>
           <div class="se-tree" id="se-tree">
             ${renderTreeNodes(tree.nodes, tree.rootId, tree.activeId, 0)}
@@ -87,18 +85,18 @@ export function renderSystemElements(container) {
             <h4>Metric Scores</h4>
             <div class="se-metric-grid">
               ${METRICS.map(m => {
-                const val = activeNode.scores?.[m.id] ?? 3;
-                const isInherited = activeNode.inheritedMetrics?.[m.id];
-                const isManual = activeNode.manualMetrics?.includes(m.id);
-                const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
-                return `
+    const val = activeNode.scores?.[m.id] ?? 3;
+    const isInherited = activeNode.inheritedMetrics?.[m.id];
+    const isManual = activeNode.manualMetrics?.includes(m.id);
+    const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
+    return `
                 <div class="se-metric-chip ${isInherited ? 'inherited' : ''} ${isManual ? 'manual' : ''}">
                   <span class="se-metric-id">${m.id}</span>
                   <span class="se-metric-val" style="color:${scoreColor}">${val}</span>
                   ${isInherited ? '<span class="se-inherit-icon" title="Inherited from parent">↑</span>' : ''}
                   ${isManual ? '<span class="se-manual-icon" title="Manually set (protected)">🔒</span>' : ''}
                 </div>`;
-              }).join('')}
+  }).join('')}
             </div>
           </div>
 
@@ -117,37 +115,25 @@ export function renderSystemElements(container) {
               </div>
             </summary>
             <div class="se-result-summary-content">
-              <table class="data-table" style="font-size: 12px; margin-top: 8px; width: 100%;">
+              <table class="data-table" style="font-size: 12px; margin-top: 8px;">
                 <thead>
                   <tr>
                     <th>Process</th>
                     <th>Final Level</th>
-                    <th>Justification</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${CORE_PROCESSES.map(p => {
-                    const derivedLevel = activeNode.levels[p.id] || 'basic';
-                    const manualAdj = activeNode.manualAdjustments?.[p.id];
-                    const level = manualAdj ? manualAdj.level : derivedLevel;
-                    const justification = manualAdj ? manualAdj.justification : '';
-                    return `
+    const level = activeNode.levels[p.id] || 'basic';
+    return `
                     <tr>
-                      <td title="Click to view process details in Process Explorer">
+                      <td title="${p.name}">
                         <span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> 
-                        <a href="javascript:void(0)" class="process-name-link" data-id="${p.id}" style="max-width: 140px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; color: var(--accent-primary-light); text-decoration: underline;">${p.name}</a>
+                        <span style="max-width: 160px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">${p.name}</span>
                       </td>
-                      <td>
-                        <span class="level-badge ${level}">
-                          ${level.charAt(0).toUpperCase()}
-                          ${manualAdj ? ' (Manual)' : ' (Derived)'}
-                        </span>
-                      </td>
-                      <td style="font-size: 11px; color: var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${justification.replace(/"/g, '&quot;')}">
-                        ${justification || '<span style="opacity: 0.5;">—</span>'}
-                      </td>
+                      <td><span class="level-badge ${level}" style="font-size: 10px; padding: 2px 4px;">${level.toUpperCase()}</span></td>
                     </tr>`;
-                  }).join('')}
+  }).join('')}
                 </tbody>
               </table>
             </div>
@@ -195,14 +181,12 @@ export function renderSystemElements(container) {
           </div>` : ''}
         </div>
       </div>
-        </div>
-      </div>
     </div>
     `;
 
-    // === Styles ===
-    const style = document.createElement('style');
-    style.textContent = `
+  // === Styles ===
+  const style = document.createElement('style');
+  style.textContent = `
       .se-elements-container { max-width: 1200px; margin: 0 auto; }
       .se-header { text-align: center; margin-bottom: 24px; }
       .se-breadcrumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-subtle); }
@@ -290,185 +274,171 @@ export function renderSystemElements(container) {
       .btn-accept { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.3); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
       .btn-reject { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
     `;
-    container.appendChild(style);
+  container.appendChild(style);
 
-    // === Event Handlers ===
+  // === Event Handlers ===
 
-    // Tree node click
-    container.querySelectorAll('.se-tree-node').forEach(node => {
-        node.addEventListener('click', () => {
-            setActiveElement(node.dataset.id);
-            renderSystemElements(container);
-        });
+  // Tree node click
+  container.querySelectorAll('.se-tree-node').forEach(node => {
+    node.addEventListener('click', () => {
+      setActiveElement(node.dataset.id);
+      renderSystemElements(container);
     });
+  });
 
-    // Breadcrumb navigation
-    container.querySelectorAll('.se-crumb').forEach(crumb => {
-        crumb.addEventListener('click', () => {
-            setActiveElement(crumb.dataset.id);
-            renderSystemElements(container);
-        });
+  // Breadcrumb navigation
+  container.querySelectorAll('.se-crumb').forEach(crumb => {
+    crumb.addEventListener('click', () => {
+      setActiveElement(crumb.dataset.id);
+      renderSystemElements(container);
     });
+  });
 
-    // Add element
-    container.querySelector('#btn-add-element')?.addEventListener('click', () => {
-        const nameInput = container.querySelector('#new-element-name');
-        const typeSelect = container.querySelector('#new-element-type');
-        const name = nameInput.value.trim();
-        if (!name) {
-            showToast('Please enter an element name', 'warning');
-            return;
-        }
-        const id = addChildElement(tree.activeId, name, typeSelect.value);
-        if (id) {
-            showToast(`Added "${name}" as child of "${activeNode.name}"`, 'success');
-            renderSystemElements(container);
-        }
+  // Add element
+  container.querySelector('#btn-add-element')?.addEventListener('click', () => {
+    const nameInput = container.querySelector('#new-element-name');
+    const typeSelect = container.querySelector('#new-element-type');
+    const name = nameInput.value.trim();
+    if (!name) {
+      showToast('Please enter an element name', 'warning');
+      return;
+    }
+    const id = addChildElement(tree.activeId, name, typeSelect.value);
+    if (id) {
+      showToast(`Added "${name}" as child of "${activeNode.name}"`, 'success');
+      renderSystemElements(container);
+    }
+  });
+
+  // Remove element
+  container.querySelector('#btn-remove-element')?.addEventListener('click', () => {
+    const confirmed = confirm(`Remove "${activeNode.name}" and all its children? This cannot be undone.`);
+    if (confirmed) {
+      removeElement(activeNode.id);
+      showToast(`Removed "${activeNode.name}"`, 'success');
+      renderSystemElements(container);
+    }
+  });
+
+  // Assess element — navigate to assessment view for the active element
+  container.querySelector('#btn-assess-element')?.addEventListener('click', () => {
+    setActiveElement(activeNode.id);
+    navigateTo('assessment');
+  });
+
+  // Navigate to child
+  container.querySelectorAll('.se-nav-child').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setActiveElement(btn.dataset.id);
+      renderSystemElements(container);
     });
+  });
 
-    // Remove element
-    container.querySelector('#btn-remove-element')?.addEventListener('click', () => {
-        const confirmed = confirm(`Remove "${activeNode.name}" and all its children? This cannot be undone.`);
-        if (confirmed) {
-            removeElement(activeNode.id);
-            showToast(`Removed "${activeNode.name}"`, 'success');
-            renderSystemElements(container);
-        }
-    });
+  // Propagate downstream
+  container.querySelector('#btn-propagate-down')?.addEventListener('click', () => {
+    let totalApplied = 0;
+    let totalConflicts = [];
 
-    // Assess element — navigate to assessment view for the active element
-    container.querySelector('#btn-assess-element')?.addEventListener('click', () => {
-        setActiveElement(activeNode.id);
-        navigateTo('assessment');
-    });
+    for (const child of childNodes) {
+      const result = propagateDownstream(activeNode, child);
+      // Apply non-conflicting scores
+      for (const [m, val] of Object.entries(result.applied)) {
+        child.scores[m] = val;
+      }
+      totalApplied += Object.keys(result.applied).length;
+      totalConflicts = totalConflicts.concat(
+        result.conflicts.map(c => ({ ...c, childName: child.name, childId: child.id }))
+      );
+    }
 
-    // Navigate to child
-    container.querySelectorAll('.se-nav-child').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            setActiveElement(btn.dataset.id);
-            renderSystemElements(container);
-        });
-    });
+    if (totalConflicts.length > 0) {
+      showConflictBanner(container, totalConflicts, 'downstream');
+    }
+    showToast(`Propagated ${totalApplied} metrics to ${childNodes.length} children` +
+      (totalConflicts.length ? ` (${totalConflicts.length} conflicts)` : ''), 'success');
+    renderSystemElements(container);
+  });
 
-    // Propagate downstream
-    container.querySelector('#btn-propagate-down')?.addEventListener('click', () => {
-        let totalApplied = 0;
-        let totalConflicts = [];
+  // Pull from parent
+  container.querySelector('#btn-pull-parent')?.addEventListener('click', () => {
+    if (!parentNode) return;
+    const result = propagateDownstream(parentNode, activeNode);
+    for (const [m, val] of Object.entries(result.applied)) {
+      activeNode.scores[m] = val;
+    }
+    if (result.conflicts.length > 0) {
+      showConflictBanner(container, result.conflicts.map(c => ({
+        ...c, childName: activeNode.name, childId: activeNode.id
+      })), 'downstream');
+    }
+    showToast(`Pulled ${Object.keys(result.applied).length} metrics from parent` +
+      (result.conflicts.length ? ` (${result.conflicts.length} conflicts)` : ''), 'success');
+    renderSystemElements(container);
+  });
 
-        for (const child of childNodes) {
-            const result = propagateDownstream(activeNode, child);
-            // Apply non-conflicting scores
-            for (const [m, val] of Object.entries(result.applied)) {
-                child.scores[m] = val;
-            }
-            totalApplied += Object.keys(result.applied).length;
-            totalConflicts = totalConflicts.concat(
-                result.conflicts.map(c => ({ ...c, childName: child.name, childId: child.id }))
-            );
-        }
-
-        if (totalConflicts.length > 0) {
-            showConflictBanner(container, totalConflicts, 'downstream');
-        }
-        showToast(`Propagated ${totalApplied} metrics to ${childNodes.length} children` +
-            (totalConflicts.length ? ` (${totalConflicts.length} conflicts)` : ''), 'success');
-        renderSystemElements(container);
-    });
-
-    // Pull from parent
-    container.querySelector('#btn-pull-parent')?.addEventListener('click', () => {
-        if (!parentNode) return;
-        const result = propagateDownstream(parentNode, activeNode);
-        for (const [m, val] of Object.entries(result.applied)) {
-            activeNode.scores[m] = val;
-        }
-        if (result.conflicts.length > 0) {
-            showConflictBanner(container, result.conflicts.map(c => ({
-                ...c, childName: activeNode.name, childId: activeNode.id
-            })), 'downstream');
-        }
-        showToast(`Pulled ${Object.keys(result.applied).length} metrics from parent` +
-            (result.conflicts.length ? ` (${result.conflicts.length} conflicts)` : ''), 'success');
-        renderSystemElements(container);
-    });
-
-    // Export CSV
-    container.querySelector('#btn-export-breakdown')?.addEventListener('click', () => {
-        exportSystemBreakdownCSV();
-    });
-
-    // Process explorer link
-    container.querySelectorAll('.process-name-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            const processId = e.target.dataset.id;
-            setState({ activeProcessExplorerId: processId });
-            navigateTo('process-explorer');
-        });
-    });
-
-    // Suggest upstream
-    container.querySelector('#btn-suggest-up')?.addEventListener('click', () => {
-        if (!parentNode) return;
-        const result = suggestUpstream(childNodes, parentNode);
-        for (const [m, val] of Object.entries(result.suggested)) {
-            parentNode.scores[m] = val;
-        }
-        if (result.conflicts.length > 0) {
-            showConflictBanner(container, result.conflicts.map(c => ({
-                metric: c.metric,
-                parentValue: c.parentValue,
-                childValue: c.suggestedValue,
-                source: 'manual',
-                childName: parentNode.name,
-                childId: parentNode.id,
-                message: c.message
-            })), 'upstream');
-        }
-        showToast(`Suggested ${Object.keys(result.suggested).length} metrics upstream to "${parentNode.name}"` +
-            (result.conflicts.length ? ` (${result.conflicts.length} conflicts)` : ''), 'success');
-        renderSystemElements(container);
-    });
+  // Suggest upstream
+  container.querySelector('#btn-suggest-up')?.addEventListener('click', () => {
+    if (!parentNode) return;
+    const result = suggestUpstream(childNodes, parentNode);
+    for (const [m, val] of Object.entries(result.suggested)) {
+      parentNode.scores[m] = val;
+    }
+    if (result.conflicts.length > 0) {
+      showConflictBanner(container, result.conflicts.map(c => ({
+        metric: c.metric,
+        parentValue: c.parentValue,
+        childValue: c.suggestedValue,
+        source: 'manual',
+        childName: parentNode.name,
+        childId: parentNode.id,
+        message: c.message
+      })), 'upstream');
+    }
+    showToast(`Suggested ${Object.keys(result.suggested).length} metrics upstream to "${parentNode.name}"` +
+      (result.conflicts.length ? ` (${result.conflicts.length} conflicts)` : ''), 'success');
+    renderSystemElements(container);
+  });
 }
 
 /**
  * Render tree nodes recursively as indented clickable items.
  */
 function renderTreeNodes(nodes, nodeId, activeId, depth) {
-    const node = nodes[nodeId];
-    if (!node) return '';
+  const node = nodes[nodeId];
+  if (!node) return '';
 
-    const indent = depth * 16;
-    const isActive = nodeId === activeId;
-    const hasChildren = node.childIds && node.childIds.length > 0;
-    const icon = hasChildren ? '📂' : '📄';
+  const indent = depth * 16;
+  const isActive = nodeId === activeId;
+  const hasChildren = node.childIds && node.childIds.length > 0;
+  const icon = hasChildren ? '📂' : '📄';
 
-    let html = `
+  let html = `
     <div class="se-tree-node ${isActive ? 'active' : ''}" data-id="${nodeId}" style="padding-left: ${indent + 8}px">
       <span class="node-icon">${icon}</span>
       <span class="node-name">${node.name}</span>
       <span class="node-status ${node.status}" title="${node.status}"></span>
     </div>`;
 
-    if (hasChildren) {
-        for (const childId of node.childIds) {
-            html += renderTreeNodes(nodes, childId, activeId, depth + 1);
-        }
+  if (hasChildren) {
+    for (const childId of node.childIds) {
+      html += renderTreeNodes(nodes, childId, activeId, depth + 1);
     }
+  }
 
-    return html;
+  return html;
 }
 
 /**
  * Show conflict resolution banner.
  */
 function showConflictBanner(container, conflicts, direction) {
-    const banner = container.querySelector('#se-conflict-banner');
-    if (!banner || conflicts.length === 0) return;
+  const banner = container.querySelector('#se-conflict-banner');
+  if (!banner || conflicts.length === 0) return;
 
-    const dirLabel = direction === 'downstream' ? 'Downstream Propagation' : 'Upstream Suggestion';
+  const dirLabel = direction === 'downstream' ? 'Downstream Propagation' : 'Upstream Suggestion';
 
-    banner.innerHTML = `
+  banner.innerHTML = `
     <div class="se-conflict-banner">
       <div class="se-conflict-title">⚠ ${dirLabel} — ${conflicts.length} Conflict(s) Detected</div>
       <p class="text-xs text-secondary mb-md">These metrics have manually-set values that differ from the proposed propagation. Choose how to resolve each conflict.</p>
@@ -490,58 +460,40 @@ function showConflictBanner(container, conflicts, direction) {
       </div>
     </div>`;
 
-    // Per-conflict resolution
-    banner.querySelectorAll('[data-action]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.idx);
-            const conflict = conflicts[idx];
-            const node = getState().assessmentTree.nodes[conflict.childId];
-            if (btn.dataset.action === 'accept' && node) {
-                node.scores[conflict.metric] = direction === 'downstream'
-                    ? conflict.parentValue : conflict.childValue;
-                // Remove from manual since user accepted override
-                node.manualMetrics = node.manualMetrics.filter(m => m !== conflict.metric);
-            }
-            const item = banner.querySelector(`#conflict-${idx}`);
-            if (item) item.style.opacity = '0.3';
-            item.querySelector('[data-action="accept"]')?.setAttribute('disabled', 'true');
-            item.querySelector('[data-action="reject"]')?.setAttribute('disabled', 'true');
-        });
+  // Per-conflict resolution
+  banner.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const conflict = conflicts[idx];
+      const node = getState().assessmentTree.nodes[conflict.childId];
+      if (btn.dataset.action === 'accept' && node) {
+        node.scores[conflict.metric] = direction === 'downstream'
+          ? conflict.parentValue : conflict.childValue;
+        // Remove from manual since user accepted override
+        node.manualMetrics = node.manualMetrics.filter(m => m !== conflict.metric);
+      }
+      const item = banner.querySelector(`#conflict-${idx}`);
+      if (item) item.style.opacity = '0.3';
+      item.querySelector('[data-action="accept"]')?.setAttribute('disabled', 'true');
+      item.querySelector('[data-action="reject"]')?.setAttribute('disabled', 'true');
     });
+  });
 
-    // Bulk actions
-    banner.querySelector('#btn-accept-all')?.addEventListener('click', () => {
-        for (const c of conflicts) {
-            const node = getState().assessmentTree.nodes[c.childId];
-            if (node) {
-                node.scores[c.metric] = direction === 'downstream' ? c.parentValue : c.childValue;
-                node.manualMetrics = node.manualMetrics.filter(m => m !== c.metric);
-            }
-        }
-        showToast('Accepted all propagated values', 'success');
-        renderSystemElements(container);
-    });
+  // Bulk actions
+  banner.querySelector('#btn-accept-all')?.addEventListener('click', () => {
+    for (const c of conflicts) {
+      const node = getState().assessmentTree.nodes[c.childId];
+      if (node) {
+        node.scores[c.metric] = direction === 'downstream' ? c.parentValue : c.childValue;
+        node.manualMetrics = node.manualMetrics.filter(m => m !== c.metric);
+      }
+    }
+    showToast('Accepted all propagated values', 'success');
+    renderSystemElements(container);
+  });
 
-    banner.querySelector('#btn-reject-all')?.addEventListener('click', () => {
-        showToast('Kept all manual values', 'info');
-        banner.innerHTML = '';
-    });
-}
-
-
-
-/**
- * Trigger export in export-import.js
- */
-function exportSystemBreakdownCSV() {
-    import('../utils/export-import.js').then(module => {
-        if (module.exportSystemBreakdownCSV) {
-            module.exportSystemBreakdownCSV(getState(), CORE_PROCESSES);
-        } else {
-            showToast('Export function not yet implemented', 'warning');
-        }
-    }).catch(err => {
-        console.error('Failed to load export module', err);
-        showToast('Failed to load export module', 'error');
-    });
+  banner.querySelector('#btn-reject-all')?.addEventListener('click', () => {
+    showToast('Kept all manual values', 'info');
+    banner.innerHTML = '';
+  });
 }

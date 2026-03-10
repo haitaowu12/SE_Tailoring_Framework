@@ -26,8 +26,7 @@ const state = {
                 levels: {},                   // per-node process levels (after assessment)
                 manualMetrics: [],            // metric IDs manually set by user (never auto-overwritten)
                 assessmentResult: null,       // full assessment result object
-                hasIndependentSafetyAnalysis: false,
-                manualAdjustments: {}         // { CON: { level: 'C', justification: '...' } }
+                hasIndependentSafetyAnalysis: false
             }
         }
     },
@@ -74,7 +73,7 @@ export function showToast(message, type = 'info') {
 // ===== Tree Manipulation Helpers (v3.3) =====
 
 const QUICK_OVERRIDE_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'];
-const ALL_METRICS = ['M1','M2','M3','M4','M5','M6','M7','M8','M9','M10','M11','M12','M13','M14','M15','M16'];
+const ALL_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16'];
 
 function generateId() {
     return `elem_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -120,8 +119,7 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         levels: {},
         manualMetrics: [],
         assessmentResult: null,
-        hasIndependentSafetyAnalysis: false,
-        manualAdjustments: {}
+        hasIndependentSafetyAnalysis: false
     };
     parent.childIds.push(id);
     listeners.forEach(fn => fn(state));
@@ -276,21 +274,3 @@ export function getElementsFlat() {
     return result;
 }
 
-/**
- * Set a manual adjustment for a specific process on a specific element.
- * If level is 'default', the adjustment is removed.
- */
-export function setElementProcessAdjustment(elementId, processId, level, justification) {
-    const node = state.assessmentTree.nodes[elementId];
-    if (node) {
-        if (!node.manualAdjustments) {
-            node.manualAdjustments = {};
-        }
-        if (level === 'default') {
-            delete node.manualAdjustments[processId];
-        } else {
-            node.manualAdjustments[processId] = { level, justification };
-        }
-        listeners.forEach(fn => fn(state));
-    }
-}
