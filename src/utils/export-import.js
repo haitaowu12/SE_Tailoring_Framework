@@ -216,3 +216,53 @@ export function exportMatrixPDF(state, metrics, processes, dimensions, defaultMa
 
     doc.save(`se-tailoring-matrix-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
+
+/** Export System Breakdown and Tailoring to CSV */
+export function exportSystemBreakdownCSV(state, CORE_PROCESSES) {
+    const tree = state.assessmentTree;
+    const rows = [];
+    
+    // Header
+    const headers = ['Element Depth', 'Element ID', 'Element Name', 'Assessment Type', 'Status', ...CORE_PROCESSES.map(p => p.id)];
+    rows.push(headers.join(','));
+    
+    // Walk tree 
+    const walk = (id, depth) => {
+        const node = tree.nodes[id];
+        if (!node) return;
+        
+        const row = [
+            depth,
+            node.id,
+            `"${node.name.replace(/"/g, '""')}"`,
+            node.assessmentType || 'full',
+            node.status || 'draft'
+        ];
+        
+        // Add final level for each process
+        for (const p of CORE_PROCESSES) {
+            const derivedLevel = node.levels[p.id] || 'basic';
+            const manualAdj = node.manualAdjustments?.[p.id];
+            const finalLevel = manualAdj ? manualAdj.level : derivedLevel;
+            const justifyStr = manualAdj?.justification ? ` [Justification: ${manualAdj.justification.replace(/"/g, '""')}]` : '';
+            row.push(`"${finalLevel.charAt(0).toUpperCase()}${justifyStr}"`);
+        }
+        
+        rows.push(row.join(','));
+        
+        for (const childId of node.childIds) {
+            walk(childId, depth + 1);
+        }
+    };
+    
+    walk(tree.rootId, 0);
+    
+    const csvContent = rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `se-tailoring-breakdown-${(state.projectInfo?.name || 'project').replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
