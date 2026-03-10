@@ -26,7 +26,8 @@ const state = {
                 levels: {},                   // per-node process levels (after assessment)
                 manualMetrics: [],            // metric IDs manually set by user (never auto-overwritten)
                 assessmentResult: null,       // full assessment result object
-                hasIndependentSafetyAnalysis: false
+                hasIndependentSafetyAnalysis: false,
+                manualAdjustments: {}         // { processId: { level: 'comprehensive', justification: '...' } }
             }
         }
     },
@@ -119,7 +120,8 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         levels: {},
         manualMetrics: [],
         assessmentResult: null,
-        hasIndependentSafetyAnalysis: false
+        hasIndependentSafetyAnalysis: false,
+        manualAdjustments: {}
     };
     parent.childIds.push(id);
     listeners.forEach(fn => fn(state));
@@ -272,5 +274,21 @@ export function getElementsFlat() {
     };
     walk(tree.rootId, 0);
     return result;
+}
+
+/**
+ * Set a manual adjustment for a specific process on a specific element.
+ * If level is 'default', the adjustment is removed.
+ */
+export function setElementProcessAdjustment(elementId, processId, level, justification) {
+    const node = state.assessmentTree.nodes[elementId];
+    if (!node) return;
+    if (!node.manualAdjustments) node.manualAdjustments = {};
+    if (level === 'default') {
+        delete node.manualAdjustments[processId];
+    } else {
+        node.manualAdjustments[processId] = { level, justification: justification || '' };
+    }
+    listeners.forEach(fn => fn(state));
 }
 
