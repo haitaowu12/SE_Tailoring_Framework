@@ -3,7 +3,7 @@
  */
 import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRIC_PROCESS_MAP, METRICS } from '../data/se-tailoring-data.js';
 import { PROCESS_DETAILS } from '../data/process-details.js';
-import { getState } from '../state.js';
+import { getState, setState } from '../state.js';
 
 let activeProcess = null;
 let activeLevel = 'basic';
@@ -612,6 +612,12 @@ const CULTURE_TACTICS = {
 
 export function renderProcessExplorer(container) {
   const state = getState();
+  
+  if (state.activeProcessExplorerId) {
+    activeProcess = state.activeProcessExplorerId;
+    setState({ activeProcessExplorerId: null });
+  }
+
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const filtered = CORE_PROCESSES.filter(p => {
     if (filterGroup !== 'all' && p.group !== filterGroup) return false;
