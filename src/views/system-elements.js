@@ -6,7 +6,7 @@
  */
 import { METRICS, CORE_PROCESSES } from '../data/se-tailoring-data.js';
 import {
-  getState, showToast, addChildElement, removeElement,
+  getState, setState, showToast, addChildElement, removeElement,
   setActiveElement, getActiveNode, getElementBreadcrumbs,
   getElementCount, getElementsFlat, renameElement
 } from '../state.js';
@@ -46,6 +46,7 @@ export function renderSystemElements(container) {
         <div class="se-tree-panel">
           <div class="se-panel-header">
             <h3>System Tree <span class="badge-count">${elementCount}</span></h3>
+            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown to CSV">📥 Export CSV</button>
           </div>
           <div class="se-tree" id="se-tree">
             ${renderTreeNodes(tree.nodes, tree.rootId, tree.activeId, 0)}
@@ -124,14 +125,21 @@ export function renderSystemElements(container) {
                 </thead>
                 <tbody>
                   ${CORE_PROCESSES.map(p => {
-    const level = activeNode.levels[p.id] || 'basic';
+    const derivedLevel = activeNode.levels[p.id] || 'basic';
+    const manualAdj = activeNode.manualAdjustments?.[p.id];
+    const finalLevel = manualAdj ? manualAdj.level : derivedLevel;
+    const isManual = !!manualAdj;
     return `
                     <tr>
-                      <td title="${p.name}">
+                      <td>
                         <span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> 
-                        <span style="max-width: 160px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">${p.name}</span>
+                        <a href="javascript:void(0)" class="process-name-link" data-id="${p.id}" style="color: var(--accent-primary-light); text-decoration: underline; cursor: pointer;" title="View in Process Explorer">${p.name}</a>
                       </td>
-                      <td><span class="level-badge ${level}" style="font-size: 10px; padding: 2px 4px;">${level.toUpperCase()}</span></td>
+                      <td>
+                        <span class="level-badge ${finalLevel}" style="font-size: 10px; padding: 2px 6px;">
+                          ${finalLevel.charAt(0).toUpperCase() + finalLevel.slice(1)}${isManual ? ' ✎' : ''}
+                        </span>
+                      </td>
                     </tr>`;
   }).join('')}
                 </tbody>
@@ -398,6 +406,30 @@ export function renderSystemElements(container) {
     showToast(`Suggested ${Object.keys(result.suggested).length} metrics upstream to "${parentNode.name}"` +
       (result.conflicts.length ? ` (${result.conflicts.length} conflicts)` : ''), 'success');
     renderSystemElements(container);
+  });
+
+  // Process name links → navigate to Process Explorer
+  container.querySelectorAll('.process-name-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const processId = e.target.dataset.id;
+      setState({ activeProcessExplorerId: processId });
+      navigateTo('process-explorer');
+    });
+  });
+
+  // Export CSV
+  container.querySelector('#btn-export-breakdown')?.addEventListener('click', () => {
+    import('../utils/export-import.js').then(module => {
+      if (module.exportSystemBreakdownCSV) {
+        module.exportSystemBreakdownCSV(getState(), CORE_PROCESSES);
+      } else {
+        showToast('Export function not available', 'warning');
+      }
+    }).catch(err => {
+      console.error('Failed to load export module', err);
+      showToast('Failed to load export module', 'error');
+    });
   });
 }
 
