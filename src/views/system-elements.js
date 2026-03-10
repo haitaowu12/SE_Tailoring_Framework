@@ -414,7 +414,7 @@ export function renderSystemElements(container) {
       e.preventDefault();
       const processId = e.target.dataset.id;
       setState({ activeProcessExplorerId: processId });
-      navigateTo('process-explorer');
+      navigateTo('processes');
     });
   });
 
