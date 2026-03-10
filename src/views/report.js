@@ -5,7 +5,7 @@ import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OV
 import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig } from '../utils/export-import.js';
 import * as data from '../data/se-tailoring-data.js';
-import { getState, showToast } from '../state.js';
+import { getState, showToast, getElementsFlat } from '../state.js';
 import { navigateTo } from '../router.js';
 
 export function renderReport(container) {
@@ -15,6 +15,9 @@ export function renderReport(container) {
     container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment'));
     return;
   }
+
+  const elements = getElementsFlat();
+  const tree = state.assessmentTree;
 
   const basicCount = Object.values(state.levels).filter(l => l === 'basic').length;
   const stdCount = Object.values(state.levels).filter(l => l === 'standard').length;
@@ -75,6 +78,54 @@ export function renderReport(container) {
         </div>
       </div>
     </div>
+
+    ${elements.length > 1 ? `
+    <div class="card mb-xl">
+      <h4 class="mb-md">🏗️ System Element Tailoring Overview</h4>
+      <p class="text-xs text-secondary mb-md">Hierarchical breakdown of system elements and their targeted tailoring assessments.</p>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Assessment Type</th>
+              <th>Status</th>
+              <th>Process Levels (B / S / C)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${elements.map(e => {
+              const bCount = Object.values(e.levels || {}).filter(l => l === 'basic').length;
+              const sCount = Object.values(e.levels || {}).filter(l => l === 'standard').length;
+              const cCount = Object.values(e.levels || {}).filter(l => l === 'comprehensive').length;
+              const hasResult = e.assessmentResult != null;
+              const indent = e.depth * 20;
+              const icon = e.childIds?.length > 0 ? '📂' : '📄';
+              
+              const levelsBadgeHtml = hasResult 
+                ? '<div class="se-level-counts text-xs" style="display: flex; gap: 4px;">' +
+                  '<span class="level-badge basic" title="Basic Processes" style="padding: 2px 6px;">' + bCount + ' B</span>' +
+                  '<span class="level-badge standard" title="Standard Processes" style="padding: 2px 6px;">' + sCount + ' S</span>' +
+                  '<span class="level-badge comprehensive" title="Comprehensive Processes" style="padding: 2px 6px;">' + cCount + ' C</span>' +
+                  '</div>' 
+                : '<span class="text-tertiary text-xs">Not assessed</span>';
+
+              return `
+                <tr>
+                  <td style="padding-left: ${indent + 12}px">
+                    <span style="opacity:0.7; font-size:12px; margin-right:4px;">${icon}</span>
+                    <strong style="${e.id === tree.rootId ? 'color: var(--accent-primary-light);' : ''}">${e.name}</strong>
+                  </td>
+                  <td><span class="se-type-badge ${e.assessmentType}">${e.assessmentType}</span></td>
+                  <td><span class="se-status-badge ${e.status}">${e.status}</span></td>
+                  <td>${levelsBadgeHtml}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
 
     <div class="card mb-xl" style="border-left: 3px solid ${state.rightSizingActions?.length > 0 ? '#6366f1' : '#34d399'};">
       <h4 class="mb-md">📐 Right-Sizing Analysis</h4>
@@ -326,6 +377,14 @@ export function renderReport(container) {
     .dim-score-card { text-align: center; padding: 16px; }
     .dim-score-value { font-size: 2rem; font-weight: 900; }
     .dim-score-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .se-type-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+    .se-type-badge.full { background: rgba(99,102,241,0.15); color: var(--accent-primary-light); }
+    .se-type-badge.quick { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .se-type-badge.inherited { background: rgba(52,211,153,0.15); color: #34d399; }
+    .se-status-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    .se-status-badge.draft { background: rgba(148,163,184,0.15); color: var(--text-secondary); }
+    .se-status-badge.under_review { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .se-status-badge.approved { background: rgba(52,211,153,0.15); color: #34d399; }
   `;
   container.appendChild(style);
 

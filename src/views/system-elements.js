@@ -4,7 +4,7 @@
  * Lets users build a system element tree, navigate to per-element assessments,
  * propagate defaults bidirectionally, and resolve conflicts.
  */
-import { METRICS } from '../data/se-tailoring-data.js';
+import { METRICS, CORE_PROCESSES } from '../data/se-tailoring-data.js';
 import {
     getState, showToast, addChildElement, removeElement,
     setActiveElement, getActiveNode, getElementBreadcrumbs,
@@ -102,14 +102,42 @@ export function renderSystemElements(container) {
 
           <!-- Assessment Result Summary -->
           ${activeNode.assessmentResult ? `
-          <div class="se-result-summary">
-            <h4>Assessment Results</h4>
-            <div class="se-level-counts">
-              <span class="level-badge basic">${Object.values(activeNode.levels).filter(l => l === 'basic').length} Basic</span>
-              <span class="level-badge standard">${Object.values(activeNode.levels).filter(l => l === 'standard').length} Standard</span>
-              <span class="level-badge comprehensive">${Object.values(activeNode.levels).filter(l => l === 'comprehensive').length} Comprehensive</span>
+          <details class="se-result-summary-details">
+            <summary class="se-result-summary-header" title="Click to expand/collapse process details">
+              <div class="se-result-summary-title">
+                <h4>Assessment Results</h4>
+                <div class="se-level-counts">
+                  <span class="level-badge basic">${Object.values(activeNode.levels).filter(l => l === 'basic').length} B</span>
+                  <span class="level-badge standard">${Object.values(activeNode.levels).filter(l => l === 'standard').length} S</span>
+                  <span class="level-badge comprehensive">${Object.values(activeNode.levels).filter(l => l === 'comprehensive').length} C</span>
+                  <span style="font-size: 10px; margin-left: 4px; color: var(--text-tertiary);">▼</span>
+                </div>
+              </div>
+            </summary>
+            <div class="se-result-summary-content">
+              <table class="data-table" style="font-size: 12px; margin-top: 8px;">
+                <thead>
+                  <tr>
+                    <th>Process</th>
+                    <th>Final Level</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${CORE_PROCESSES.map(p => {
+                    const level = activeNode.levels[p.id] || 'basic';
+                    return `
+                    <tr>
+                      <td title="${p.name}">
+                        <span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> 
+                        <span style="max-width: 160px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle;">${p.name}</span>
+                      </td>
+                      <td><span class="level-badge ${level}" style="font-size: 10px; padding: 2px 4px;">${level.toUpperCase()}</span></td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
             </div>
-          </div>` : `
+          </details>` : `
           <div class="se-no-result">
             <p class="text-secondary">No assessment completed yet. Click "Assess This Element" to begin.</p>
           </div>`}
@@ -213,9 +241,14 @@ export function renderSystemElements(container) {
       .se-inherit-icon { font-size: 10px; color: #34d399; }
       .se-manual-icon { font-size: 10px; }
 
-      .se-result-summary { margin-bottom: 20px; padding: 14px; background: rgba(99,102,241,0.05); border-radius: 8px; }
-      .se-result-summary h4 { font-size: 14px; margin-bottom: 10px; }
-      .se-level-counts { display: flex; gap: 10px; flex-wrap: wrap; }
+      .se-result-summary-details { margin-bottom: 20px; background: rgba(99,102,241,0.05); border-radius: 8px; border: 1px solid rgba(99,102,241,0.1); }
+      .se-result-summary-header { padding: 14px; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+      .se-result-summary-header::-webkit-details-marker { display: none; }
+      .se-result-summary-title { display: flex; align-items: center; justify-content: space-between; width: 100%; }
+      .se-result-summary-title h4 { font-size: 14px; margin: 0; padding: 0; color: var(--text-primary); }
+      .se-result-summary-content { padding: 0 14px 14px 14px; }
+      details[open] .se-result-summary-header { border-bottom: 1px dashed rgba(99,102,241,0.2); margin-bottom: 8px; }
+      .se-level-counts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
       .se-no-result { padding: 20px; text-align: center; background: rgba(148,163,184,0.05); border-radius: 8px; margin-bottom: 20px; }
 
       .se-propagation { margin-bottom: 20px; }
