@@ -455,28 +455,28 @@ export const METRICS = [
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
 // Index) which governs right-sizing caps and priority-based reduction instead.
 export const METRIC_PROCESS_MAP = {
-    9: { M1: 'P', M4: 'P', M12: 'P', M13: 'S' },
-    10: { M1: 'P', M4: 'P', M13: 'S', M15: 'S' },
-    11: { M1: 'P', M3: 'P', M6: 'P', M8: 'S', M12: 'S', M13: 'P', M15: 'P' },
-    12: { M1: 'S', M2: 'S', M5: 'P', M6: 'P', M8: 'P' },
-    13: { M1: 'S', M2: 'P', M4: 'P', M8: 'P', M14: 'S' },
-    14: { M2: 'S', M8: 'P', M12: 'P', M13: 'S' },
-    15: { M6: 'P', M8: 'P', M14: 'S' },
-    16: { M3: 'S', M5: 'P', M6: 'P', M8: 'P', M11: 'S' },
-    17: { M3: 'S', M6: 'P', M8: 'S', M13: 'P', M15: 'P' },
-    18: { M5: 'S', M6: 'S', M13: 'P', M14: 'P', M15: 'P' },
-    19: { M1: 'P', M2: 'P', M3: 'S', M5: 'P', M8: 'S', M14: 'S' },
-    20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M5: 'S', M6: 'S', M11: 'S' },
-    21: { M1: 'P', M2: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
-    22: { M1: 'P', M2: 'S', M3: 'P', M4: 'S', M5: 'S', M6: 'P' },
-    23: { M1: 'P', M2: 'S', M4: 'P', M3: 'S', M11: 'P' },
-    24: { M1: 'S', M2: 'P', M4: 'P', M5: 'S', M11: 'S', M12: 'P' },
-    25: { M1: 'S', M2: 'P', M4: 'P', M5: 'P', M8: 'S' },
-    26: { M6: 'P', M4: 'S', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
-    27: { M5: 'P', M6: 'P', M8: 'S', M13: 'P', M14: 'S', M15: 'S' },
-    28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
-    29: { M4: 'S', M5: 'P', M6: 'P', M7: 'P', M11: 'S' },
-    30: { M6: 'S', M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
+    9: { M1: 'P', M12: 'P' },
+    10: { M1: 'P', M15: 'P' },
+    11: { M1: 'P', M3: 'P', M13: 'P' },
+    12: { M5: 'P', M8: 'P' },
+    13: { M2: 'P', M8: 'P' },
+    14: { M8: 'P', M12: 'P' },
+    15: { M8: 'P' },
+    16: { M8: 'P' },
+    17: { M13: 'P', M15: 'P' },
+    18: { M13: 'P', M14: 'P' },
+    19: { M1: 'P', M2: 'P' },
+    20: { M1: 'P', M2: 'P', M3: 'P' },
+    21: { M1: 'P', M2: 'P', M3: 'P' },
+    22: { M1: 'P', M3: 'P' },
+    23: { M1: 'P', M4: 'P', M11: 'P' },
+    24: { M2: 'P', M4: 'P', M12: 'P' },
+    25: { M2: 'P', M4: 'P', M5: 'P' },
+    26: { M12: 'P', M13: 'P' },
+    27: { M5: 'P', M6: 'P', M13: 'P' },
+    28: { M7: 'P' },
+    29: { M7: 'P' },
+    30: { M7: 'P', M8: 'P' }
 };
 
 // Level thresholds per process (v4.0 Simplified - "Highest Tier Wins")
@@ -536,7 +536,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: System Requirements Definition',
         description: 'M5=5 (fatality potential) requires comprehensive requirements rigor with formal hazard analysis integration',
         processes: [19],
-        minLevel: 'comprehensive',
+        minLevel: 'standard',
         source: 'EN 50126/50129; IEC 61508; 01-PAPER/03-Methodology.md §3.4.4'
     },
     {
@@ -546,7 +546,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: System Architecture Definition',
         description: 'M5=5 requires comprehensive architecture with SIL allocation and safety integrity verification',
         processes: [20],
-        minLevel: 'comprehensive',
+        minLevel: 'standard',
         source: 'EN 50129; IEC 61508-2'
     },
     {
@@ -556,7 +556,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: Verification',
         description: 'M5=5 requires comprehensive verification with independent safety testing and evidence',
         processes: [25],
-        minLevel: 'comprehensive',
+        minLevel: 'standard',
         source: 'IEC 61508-3; DO-178C'
     },
     {
@@ -566,7 +566,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: Validation',
         description: 'M5=5 requires comprehensive validation with safety acceptance and operational hazard assessment',
         processes: [27],
-        minLevel: 'comprehensive',
+        minLevel: 'standard',
         source: 'EN 50126; IEC 61508-7'
     },
     {
