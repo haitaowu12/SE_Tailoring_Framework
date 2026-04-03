@@ -18,26 +18,26 @@ const metricSort = (a, b) => Number(a.replace('M', '')) - Number(b.replace('M', 
 
 const SA_TIERS = [
     { tier: 'I', name: 'Negligible', description: 'Standard SE processes sufficient', floor: null },
-    { tier: 'II', name: 'Safety Relevant', description: 'Additional safety assurance activities needed', floor: 'standard' },
-    { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'comprehensive' }
+    { tier: 'II', name: 'Safety Relevant', description: 'Additional safety assurance activities needed', floor: 'basic' },
+    { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'standard' }
 ];
 
 const SA_PROCESSES = [12, 16, 19, 25, 27, 28, 29];
 
 /**
  * Derive SA Criticality Tier from M5 (Safety Impact) score.
- * M5=1-2 → Tier I (Negligible), M5=3 → Tier II (Safety Relevant), M5=4-5 → Tier III (Safety Critical)
+ * M5=1-3 → Tier I (Negligible), M5=4 → Tier II (Safety Relevant), M5=5 → Tier III (Safety Critical)
  */
 export function calculateSATier(scores) {
     const m5 = scores?.M5 || 3;
 
-    if (m5 >= 4) return { ...SA_TIERS[2], score: m5 };
-    if (m5 >= 3) return { ...SA_TIERS[1], score: m5 };
+    if (m5 === 5) return { ...SA_TIERS[2], score: m5 };
+    if (m5 >= 4) return { ...SA_TIERS[1], score: m5 };
     return { ...SA_TIERS[0], score: m5 };
 }
 
 function levelFromScore(score) {
-    if (score >= 4) return 'comprehensive';
+    if (score >= 5) return 'comprehensive';
     if (score >= 3) return 'standard';
     return 'basic';
 }
