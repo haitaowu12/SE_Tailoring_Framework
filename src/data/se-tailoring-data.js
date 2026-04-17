@@ -12,8 +12,8 @@
  *   vee-model-layout.js → Derived from process lifecycle positions
  *   sa-methods.js      → 02-PRACTICAL/SA-Integration-Guide.md
  *
- * _FRAMEWORK_VERSION: 3.2.1
- * _LAST_SYNC: 2026-02
+ * _FRAMEWORK_VERSION: 3.3.0
+ * _LAST_SYNC: 2026-04
  * _SYNC_CONTRACT:
  *   - Process/metric applicability source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
  *   - Consistency/override source: 02-PRACTICAL/Interdependency-Quick-Reference.md
@@ -31,10 +31,10 @@ export * from './sa-methods.js';
 
 // Framework metadata
 export const FRAMEWORK_META = {
-    version: '3.2.1',
+    version: '3.3.0',
     name: 'SE Process Tailoring Framework',
     standard: 'ISO/IEC/IEEE 15288:2023',
-    lastUpdated: '2026-02',
+    lastUpdated: '2026-04',
     coreProcessCount: 22,
     extendedProcessCount: 8,
     metricCount: 16,

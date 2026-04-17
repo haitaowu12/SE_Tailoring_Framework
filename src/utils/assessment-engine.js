@@ -125,22 +125,32 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
 
     if (derivedLevel === 'comprehensive') {
         const applicableMetrics = Object.entries(matrixMap[processId] || {});
-        const metricsAtStandardOrAbove = applicableMetrics.filter(([m]) => {
-            const score = scoreOrDefault(scores, m);
-            return score >= 3;
-        }).length;
-        const metricsAtComprehensive = applicableMetrics.filter(([m]) => {
-            const score = scoreOrDefault(scores, m);
-            return score === 5;
-        }).length;
-        const soleCIsCriticality = metricsAtComprehensive === 1 && applicableMetrics.filter(([m]) => {
-            const score = scoreOrDefault(scores, m);
-            return score === 5;
-        }).every(([m]) => m === 'M5' || m === 'M7');
 
-        if (metricsAtStandardOrAbove >= 2 || metricsAtComprehensive >= 1) {
-            confidence = 'corroborated';
-        } else if (soleCIsCriticality) {
+        // Count Primary drivers at Comprehensive (score=5)
+        const primaryAtComprehensive = applicableMetrics.filter(([m, role]) => {
+            return role === 'P' && scoreOrDefault(scores, m) === 5;
+        }).length;
+
+        // Count Secondary drivers at Standard+ (score>=3)
+        const secondaryAtStandardPlus = applicableMetrics.filter(([m, role]) => {
+            return role === 'S' && scoreOrDefault(scores, m) >= 3;
+        }).length;
+
+        // Corroboration check per Critical Review §5.3 / CHANGELOG v3.3.0:
+        // Requires 2+ Primary drivers at Comprehensive, OR
+        // 1 Primary at Comprehensive + ≥1 Secondary at Standard+
+        const corroborated = (
+            primaryAtComprehensive >= 2 ||
+            (primaryAtComprehensive >= 1 && secondaryAtStandardPlus >= 1)
+        );
+
+        // Safety/criticality override: single M5=5 or M7=5 always corroborated
+        // (these represent irreducible safety/regulatory constraints)
+        const safetyCriticalSole = applicableMetrics.some(([m]) =>
+            (m === 'M5' || m === 'M7') && scoreOrDefault(scores, m) === 5
+        );
+
+        if (corroborated || safetyCriticalSole) {
             confidence = 'corroborated';
         } else {
             derivedLevel = 'standard';
