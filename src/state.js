@@ -45,16 +45,73 @@ const state = {
     tradeoffs: [],
     cultureType: null,
     notes: '',
-    assessmentComplete: false
+    assessmentComplete: false,
+    confidence: {}
 };
 
 const listeners = [];
+
+const AUTOSAVE_KEY = 'se-tailoring-autosave';
+const AUTOSAVE_DEBOUNCE_MS = 5000;
+let autosaveTimer = null;
+
+function debounceAutosave() {
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+        try {
+            const data = JSON.stringify({
+                projectInfo: state.projectInfo,
+                scores: state.scores,
+                saResponses: state.saResponses,
+                saTier: state.saTier,
+                derived: state.derived,
+                derivationDetails: state.derivationDetails,
+                levels: state.levels,
+                overrides: state.overrides,
+                violations: state.violations,
+                fixes: state.fixes,
+                manualAdjustments: state.manualAdjustments,
+                tradeoffs: state.tradeoffs,
+                cultureType: state.cultureType,
+                notes: state.notes,
+                assessmentComplete: state.assessmentComplete,
+                confidence: state.confidence,
+                assessmentTree: state.assessmentTree,
+                savedAt: new Date().toISOString()
+            });
+            localStorage.setItem(AUTOSAVE_KEY, data);
+        } catch (e) {
+            console.warn('Auto-save failed:', e);
+        }
+    }, AUTOSAVE_DEBOUNCE_MS);
+}
 
 export function getState() { return state; }
 
 export function setState(updates) {
     Object.assign(state, updates);
     listeners.forEach(fn => fn(state));
+    debounceAutosave();
+}
+
+export function loadAutosave() {
+    try {
+        const raw = localStorage.getItem(AUTOSAVE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        return data;
+    } catch (e) {
+        console.warn('Auto-save load failed:', e);
+        return null;
+    }
+}
+
+export function clearAutosave() {
+    try {
+        localStorage.removeItem(AUTOSAVE_KEY);
+    } catch (e) {
+        console.warn('Auto-save clear failed:', e);
+    }
 }
 
 export function subscribe(fn) {

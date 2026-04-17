@@ -210,6 +210,7 @@ export function renderReport(container) {
               <th>Override</th>
               <th>Fix</th>
               <th>Final</th>
+              <th>Confidence</th>
             </tr>
           </thead>
           <tbody>
@@ -219,14 +220,24 @@ export function renderReport(container) {
     const override = state.overrides?.find(o => o.processId === p.id);
     const fix = state.fixes?.find(f => f.processId === p.id);
     const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
+    const conf = state.confidence?.[p.id] || 'high';
+    const confBadge = conf === 'corroborated'
+      ? '<span class="confidence-badge-inline corroborated" title="Corroborated by multiple metrics">✅</span>'
+      : conf === 'available-with-justification'
+        ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">⚠️</span>'
+        : '<span class="confidence-badge-inline high" title="High confidence">—</span>';
+    const justificationFlag = conf === 'available-with-justification'
+      ? ' <span class="justification-flag" title="Justification required for Comprehensive level">📋 Justification Required</span>'
+      : '';
     return `<tr>
                 <td><span class="process-id">${p.id}</span></td>
-                <td>${p.name}</td>
+                <td>${p.name}${justificationFlag}</td>
                 <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td><span class="level-badge ${final_}" style="font-weight:700;">${final_[0].toUpperCase()}</span></td>
+                <td>${confBadge}</td>
               </tr>`;
   }).join('')}
           </tbody>
@@ -314,12 +325,14 @@ export function renderReport(container) {
       <h4 class="mb-md">Process Levels & Drivers</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metric(s)</th><th>Conditional Cap</th><th>Weighted Ref (Advisory)</th><th>Top Drivers</th></tr></thead>
+          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Confidence</th><th>Trigger Metric(s)</th><th>Conditional Cap</th><th>Weighted Ref (Advisory)</th><th>Top Drivers</th></tr></thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
     const derived = state.derived[p.id] || 'basic';
     const final_ = state.levels[p.id] || 'basic';
     const detail = state.derivationDetails?.[p.id] || {};
+    const conf = state.confidence?.[p.id] || 'high';
+    const confLabel = conf === 'corroborated' ? '✅ Corroborated' : conf === 'available-with-justification' ? '⚠️ Needs Justification' : 'High';
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
       : '—';
@@ -332,6 +345,7 @@ export function renderReport(container) {
                 <td><span class="process-id">${p.id}</span> ${p.name}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
+                <td class="text-xs">${confLabel}</td>
                 <td class="text-xs">${triggerMetrics}${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</td>
                 <td class="text-xs text-secondary">${detail.conditionalRuleApplied ? `${detail.triggerLevel} → ${detail.level}` : 'No'}</td>
                 <td class="text-xs text-secondary">${weightedRef}</td>
@@ -385,6 +399,11 @@ export function renderReport(container) {
     .se-status-badge.draft { background: rgba(148,163,184,0.15); color: var(--text-secondary); }
     .se-status-badge.under_review { background: rgba(245,158,11,0.15); color: #f59e0b; }
     .se-status-badge.approved { background: rgba(52,211,153,0.15); color: #34d399; }
+    .confidence-badge-inline { font-size: 14px; cursor: help; }
+    .confidence-badge-inline.corroborated { color: #22c55e; }
+    .confidence-badge-inline.available-with-justification { color: #f59e0b; }
+    .confidence-badge-inline.high { color: var(--text-tertiary); }
+    .justification-flag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.15); color: #f59e0b; font-weight: 600; margin-left: 4px; cursor: help; }
   `;
   container.appendChild(style);
 

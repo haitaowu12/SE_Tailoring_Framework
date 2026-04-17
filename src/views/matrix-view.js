@@ -134,7 +134,7 @@ export function renderMatrixView(container) {
           levels: finalLevels,
           overrides: result.overrides,
           fixes: result.fixes,
-          // Recalculate violations with final levels
+          confidence: result.confidence || {},
         });
       } else {
         setState({ matrixMap: currentMatrixMap });

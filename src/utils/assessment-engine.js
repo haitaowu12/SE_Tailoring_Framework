@@ -9,6 +9,7 @@
  * 5. Apply SA floor (Safety Assurance minimum levels)
  * 6. RIGHT-SIZE: Compute PSI/CSI/CRI → apply capability ceilings → enforce rigor budget
  * 7. Apply interdependencies (consistency rules)
+ * 8. CORROBORATION: Compute confidence for Comprehensive processes
  */
 import { METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, CONSISTENCY_RULES, PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, CAPABILITY_CEILINGS, PROCESS_PRIORITY_CLASSES } from '../data/se-tailoring-data.js';
 
@@ -80,7 +81,7 @@ function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
  * Algorithm:
  * 1. Get all applicable metrics for the process (Primary and Secondary drivers)
  * 2. Find the MAX score across all applicable metrics (highest tier wins)
- * 3. Convert max score to level: 1-2=basic, 3=standard, 4-5=comprehensive
+ * 3. Convert max score to level: 1-2=basic, 3-4=standard, 5=comprehensive
  * 4. Track which metrics drove the decision (all metrics with max score)
  * 
  * No weighted averaging. No conditional derivation. Simple highest-score-wins.
@@ -119,7 +120,33 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
         .filter(d => d.value === maxScore)
         .map(d => d.metric)
         .sort(metricSort);
-    const triggerLevel = levelFromScore(maxScore);
+    let derivedLevel = levelFromScore(maxScore);
+    let confidence = 'high';
+
+    if (derivedLevel === 'comprehensive') {
+        const applicableMetrics = Object.entries(matrixMap[processId] || {});
+        const metricsAtStandardOrAbove = applicableMetrics.filter(([m]) => {
+            const score = scoreOrDefault(scores, m);
+            return score >= 3;
+        }).length;
+        const metricsAtComprehensive = applicableMetrics.filter(([m]) => {
+            const score = scoreOrDefault(scores, m);
+            return score === 5;
+        }).length;
+        const soleCIsCriticality = metricsAtComprehensive === 1 && applicableMetrics.filter(([m]) => {
+            const score = scoreOrDefault(scores, m);
+            return score === 5;
+        }).every(([m]) => m === 'M5' || m === 'M7');
+
+        if (metricsAtStandardOrAbove >= 2 || metricsAtComprehensive >= 1) {
+            confidence = 'corroborated';
+        } else if (soleCIsCriticality) {
+            confidence = 'corroborated';
+        } else {
+            derivedLevel = 'standard';
+            confidence = 'available-with-justification';
+        }
+    }
 
     const allMetricScores = drivers.map(d => ({
         metric: d.metric,
@@ -129,10 +156,11 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
     }));
 
     return {
-        level: triggerLevel,
+        level: derivedLevel,
         triggerMetrics,
         triggerScore: maxScore,
-        triggerLevel,
+        triggerLevel: derivedLevel,
+        confidence,
         allMetricScores
     };
 }
@@ -269,7 +297,6 @@ export function checkConsistency(levels, scores = {}) {
                     return false;
                 });
                 violated = violatingProcesses.length > 0;
-                // For rule 12, conservative auto-fix elevates Project Planning.
                 affectedProcess = typeof rule.trigger.process === 'number' ? rule.trigger.process : 9;
                 currentLevel = levels[affectedProcess] || 'basic';
             } else {
@@ -611,7 +638,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
 
         let fixedThisRound = false;
         for (const v of hcViolations) {
-            if (v.ruleId === 12) {
+            if (v.ruleId === 12 || v.ruleId === '12') {
                 const currentPlanning = final[9] || 'basic';
                 if (levelIndex(currentPlanning) < levelIndex('standard')) {
                     final[9] = 'standard';
@@ -619,7 +646,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
                         processId: 9,
                         from: currentPlanning,
                         to: 'standard',
-                        reason: 'Rule 12 conservative fix (Planning floor)',
+                        reason: 'Rule 12 strengthened fix (Planning floor)',
                         ruleId: 12
                     });
                     fixedThisRound = true;
@@ -646,6 +673,37 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         iterations += 1;
     }
 
+    // Step 6: Compute confidence for each process based on final levels
+    const confidence = {};
+    for (const p of CORE_PROCESSES) {
+        const finalLevel = final[p.id];
+        if (finalLevel === 'comprehensive') {
+            const applicableMetrics = Object.entries(METRIC_PROCESS_MAP[p.id] || {});
+            const metricsAtStandardOrAbove = applicableMetrics.filter(([m]) => {
+                const score = scoreOrDefault(scores, m);
+                return score >= 3;
+            }).length;
+            const metricsAtComprehensive = applicableMetrics.filter(([m]) => {
+                const score = scoreOrDefault(scores, m);
+                return score === 5;
+            }).length;
+            const soleCIsCriticality = metricsAtComprehensive === 1 && applicableMetrics.filter(([m]) => {
+                const score = scoreOrDefault(scores, m);
+                return score === 5;
+            }).every(([m]) => m === 'M5' || m === 'M7');
+
+            if (metricsAtStandardOrAbove >= 2 || metricsAtComprehensive >= 1) {
+                confidence[p.id] = 'corroborated';
+            } else if (soleCIsCriticality) {
+                confidence[p.id] = 'corroborated';
+            } else {
+                confidence[p.id] = 'available-with-justification';
+            }
+        } else {
+            confidence[p.id] = 'high';
+        }
+    }
+
     return {
         derived,
         derivationDetails,
@@ -656,6 +714,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         levels: final,
         violations: remainingViolations,
         scores,
-        saTier
+        saTier,
+        confidence
     };
 }
