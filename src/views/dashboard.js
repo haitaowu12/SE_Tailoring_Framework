@@ -239,7 +239,7 @@ export function renderDashboard(container) {
     .hero { text-align: center; padding: 60px 20px 40px; }
     .hero-badge { display: inline-block; padding: 4px 16px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; font-size: 12px; color: var(--accent-primary-light); font-weight: 600; margin-bottom: 16px; }
     .hero-title { font-size: 3.5rem; font-weight: 900; line-height: 1.1; margin-bottom: 16px; }
-    .gradient-text { background: linear-gradient(135deg, #6366f1, #22d3ee, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .gradient-text { color: var(--accent-primary); }
     .hero-subtitle { max-width: 640px; margin: 0 auto 32px; color: var(--text-secondary); font-size: 1.1rem; line-height: 1.7; }
     .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
     .stats-strip { margin-top: 40px; margin-bottom: 48px; }

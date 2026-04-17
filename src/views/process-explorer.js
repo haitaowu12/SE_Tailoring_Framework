@@ -686,7 +686,7 @@ export function renderProcessExplorer(container) {
       .metric-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin: 3px; }
       .metric-tag.P { background: rgba(99,102,241,0.2); color: var(--accent-primary-light); }
       .metric-tag.S { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
-      .mini-card { background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.04) 100%); border: 1px solid rgba(99,102,241,0.15); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-xl); }
+      .mini-card { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-lg); margin-bottom: var(--space-xl); }
       .mini-card-item { padding: 4px 0; font-size: var(--font-size-xs); }
       @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
     `;

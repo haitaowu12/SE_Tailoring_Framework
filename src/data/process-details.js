@@ -12,8 +12,8 @@ export const PROCESS_DETAILS = {
     9: {
         activities: {
             basic: ['(*) Develop basic project plan', '(*) Create simple schedule (milestone-based)', 'List resources', 'Estimate costs (high-level)'],
-            standard: ['Create Project Management Plan (PMP)', 'Develop Work Breakdown Structure (WBS)', 'Develop Integrated Master Schedule (IMS)', 'Plan resources in detail', 'Register risks formally', 'Schedule SA milestones and reviews [Safety]', 'Budget for SA activities [Safety]'],
-            comprehensive: ['Integrate multi-view planning', 'Perform probabilistic schedule analysis', 'Optimize resources with capacity modeling', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
+            standard: ['(*) Create Project Management Plan (PMP)', '(*) Develop Work Breakdown Structure (WBS)', 'Develop Integrated Master Schedule (IMS)', 'Plan resources in detail', 'Register risks formally', 'Schedule SA milestones and reviews [Safety]', 'Budget for SA activities [Safety]'],
+            comprehensive: ['(*) Integrate multi-view planning', '(*) Perform probabilistic schedule analysis', 'Optimize resources with capacity modeling', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
         },
         deliverables: {
             basic: ['Basic project plan', 'Simple schedule', 'Resource list', 'Cost estimate'],
@@ -30,8 +30,8 @@ export const PROCESS_DETAILS = {
     10: {
         activities: {
             basic: ['(*) Report project status', '(*) Log issues (simple tracking)', 'Minute meetings', 'Log changes (record only)'],
-            standard: ['Measure performance against baselines (EVM)', 'Track issues with severity and ownership', 'Review actions with owners and deadlines', 'Control changes through formal process', 'Plan corrections with impact assessment', 'Track SA metrics and KPIs [Safety]', 'Monitor SA action items [Safety]'],
-            comprehensive: ['Dashboard performance monitoring with KPIs', 'Track issues with metrics and trend analysis', 'Analyze trends for early warning', 'Model predictions for corrective actions', 'Implement continuous improvement', 'Report SA status with dashboards [Safety]']
+            standard: ['(*) Measure performance against baselines (EVM)', '(*) Track issues with severity and ownership', 'Review actions with owners and deadlines', 'Control changes through formal process', 'Plan corrections with impact assessment', 'Track SA metrics and KPIs [Safety]', 'Monitor SA action items [Safety]'],
+            comprehensive: ['(*) Dashboard performance monitoring with KPIs', '(*) Track issues with metrics and trend analysis', 'Analyze trends for early warning', 'Model predictions for corrective actions', 'Implement continuous improvement', 'Report SA status with dashboards [Safety]']
         },
         deliverables: {
             basic: ['Status reports', 'Issue log', 'Meeting minutes', 'Basic change log'],
@@ -47,8 +47,8 @@ export const PROCESS_DETAILS = {
     11: {
         activities: {
             basic: ['(*) Analyze basic alternatives (informal)', '(*) Record decision outcomes'],
-            standard: ['Plan decision process with criteria', 'Create decision criteria matrices with weights', 'Report analyses with rationale', 'Document rationale and trade-offs', 'Analyze SA alternatives and trade-offs [Safety]'],
-            comprehensive: ['Govern decision framework with policies', 'Model advanced scenarios with sensitivity analysis', 'Analyze uncertainties with Monte Carlo', 'Measure decision effectiveness', 'Record rationale for SA choices [Safety]']
+            standard: ['(*) Plan decision process with criteria', '(*) Create decision criteria matrices with weights', 'Report analyses with rationale', 'Document rationale and trade-offs', 'Analyze SA alternatives and trade-offs [Safety]'],
+            comprehensive: ['(*) Govern decision framework with policies', '(*) Model advanced scenarios with sensitivity analysis', 'Analyze uncertainties with Monte Carlo', 'Measure decision effectiveness', 'Record rationale for SA choices [Safety]']
         },
         deliverables: {
             basic: ['Decision records', 'Basic alternatives analysis', 'Meeting minutes with decisions'],
@@ -63,8 +63,8 @@ export const PROCESS_DETAILS = {
     12: {
         activities: {
             basic: ['(*) Register risks (incl. obvious hazards)', '(*) Assess using simple matrix (H/M/L)', '(*) Report risks basically', 'Monitor via informal methods'],
-            standard: ['Plan risk management formally', 'Detail risk register with probability/impact', 'Plan responses with triggers and owners', 'Report regularly to stakeholders', 'Review risks at milestones', 'Identify and assess safety hazards [Safety]', 'Develop SA risk responses [Safety]'],
-            comprehensive: ['Document risk management framework', 'Model/simulate risks with distributions', 'Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
+            standard: ['(*) Plan risk management formally', '(*) Detail risk register with probability/impact', '(*) Plan responses with triggers and owners', 'Report regularly to stakeholders', 'Review risks at milestones', 'Identify and assess safety hazards [Safety]', 'Develop SA risk responses [Safety]'],
+            comprehensive: ['(*) Document risk management framework', '(*) Model/simulate risks with distributions', '(*) Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
         },
         deliverables: {
             basic: ['Simple risk register', 'Risk assessment matrix (H/M/L)', 'Basic risk reports'],
@@ -80,8 +80,8 @@ export const PROCESS_DETAILS = {
     13: {
         activities: {
             basic: ['(*) List configuration items (CIs)', '(*) Control versions (manual or simple tool)', 'Request changes simply (informal)', 'Report status (basic)'],
-            standard: ['Plan configuration management', 'Identify configuration scheme', 'Control via Change Control Board (CCB)', 'Account status formally', 'Audit configurations', 'Manage safety-related CIs [Safety]', 'Control safety baseline changes [Safety]'],
-            comprehensive: ['Plan comprehensively with strategy', 'Systematically identify with structure', 'Analyze change impacts with traceability', 'Automate reports with dashboards', 'Integrate with PLM/ALM systems', 'Maintain SA documentation under CM [Safety]']
+            standard: ['(*) Plan configuration management', '(*) Identify configuration scheme', 'Control via Change Control Board (CCB)', 'Account status formally', 'Audit configurations', 'Manage safety-related CIs [Safety]', 'Control safety baseline changes [Safety]'],
+            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Systematically identify with structure', 'Analyze change impacts with traceability', 'Automate reports with dashboards', 'Integrate with PLM/ALM systems', 'Maintain SA documentation under CM [Safety]']
         },
         deliverables: {
             basic: ['Configuration item list', 'Simple change request forms', 'Basic configuration status reports', 'Version control records'],
@@ -97,8 +97,8 @@ export const PROCESS_DETAILS = {
     14: {
         activities: {
             basic: ['(*) Structure repository', '(*) Backup data', 'List access controls', 'Inventory information'],
-            standard: ['Plan information management', 'Categorize scheme with classification', 'Control access with procedures', 'Plan recovery with procedures', 'Protocol exchanges with stakeholders', 'Manage SA documentation repository [Safety]'],
-            comprehensive: ['Document information architecture', 'Schema metadata with relationships', 'Matrix access with audit procedures', 'Plan continuity with contingencies', 'Agree exchanges with formal agreements']
+            standard: ['(*) Plan information management', '(*) Categorize scheme with classification', 'Control access with procedures', 'Plan recovery with procedures', 'Protocol exchanges with stakeholders', 'Manage SA documentation repository [Safety]'],
+            comprehensive: ['(*) Document information architecture', '(*) Schema metadata with relationships', 'Matrix access with audit procedures', 'Plan continuity with contingencies', 'Agree exchanges with formal agreements']
         },
         deliverables: {
             basic: ['Information repository structure', 'Basic access control list', 'Backup procedures', 'Simple information inventory'],
@@ -113,8 +113,8 @@ export const PROCESS_DETAILS = {
     15: {
         activities: {
             basic: ['(*) Define simple metrics (schedule, cost, quality)', '(*) Collect data (manual)', 'Report measurements (basic)'],
-            standard: ['Plan measurement with objectives', 'Define measurement constructs', 'Procedure collection with automation', 'Analyze trends', 'Review measures periodically', 'Define SA metrics (RAMS indicators) [Safety]'],
-            comprehensive: ['Plan comprehensively with strategy', 'Framework measurement with models', 'Automate tools with dashboards', 'Analyze methods with statistics', 'Evaluate effectiveness continuously', 'Collect and report SA performance data [Safety]']
+            standard: ['(*) Plan measurement with objectives', '(*) Define measurement constructs', 'Procedure collection with automation', 'Analyze trends', 'Review measures periodically', 'Define SA metrics (RAMS indicators) [Safety]'],
+            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Framework measurement with models', 'Automate tools with dashboards', 'Analyze methods with statistics', 'Evaluate effectiveness continuously', 'Collect and report SA performance data [Safety]']
         },
         deliverables: {
             basic: ['Simple metrics definitions', 'Basic data collection forms', 'Measurement reports'],
@@ -129,8 +129,8 @@ export const PROCESS_DETAILS = {
     16: {
         activities: {
             basic: ['(*) Plan basic quality assurance', '(*) Conduct audits (informal)', '(*) Report non-conformances', 'Track resolutions (simple)'],
-            standard: ['Develop quality assurance plan', 'Perform evaluations with criteria', 'Report regularly to stakeholders', 'Initiate improvements with actions', 'Conduct SA audits [Safety]', 'Verify SA process compliance [Safety]'],
-            comprehensive: ['Strategize assurance with objectives', 'Conduct comprehensive audits with methodology', 'Analyze trends for early warning', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
+            standard: ['(*) Develop quality assurance plan', '(*) Perform evaluations with criteria', '(*) Report regularly to stakeholders', 'Initiate improvements with actions', 'Conduct SA audits [Safety]', 'Verify SA process compliance [Safety]'],
+            comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct comprehensive audits with methodology', '(*) Analyze trends for early warning', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
         },
         deliverables: {
             basic: ['Quality assurance plan', 'Audit reports', 'Non-conformance records', 'Resolution tracking'],
@@ -145,8 +145,8 @@ export const PROCESS_DETAILS = {
     17: {
         activities: {
             basic: ['(*) Define problem statement', '(*) Explore solution alternatives (informal)', '(*) Identify initial stakeholders (~3 groups)'],
-            standard: ['Develop analysis plan', 'Map stakeholders (3-4 groups)', 'Analyze problems with context', 'Define initial concepts', 'Preliminary hazard identification [Safety]', 'Initial SA criticality assessment [Safety]'],
-            comprehensive: ['Perform comprehensive analysis', 'Model stakeholder value (5+ groups)', 'Conduct opportunity analysis with PESTEL', 'Develop business cases with ROI', 'Identify safety-related stakeholders [Safety]']
+            standard: ['(*) Develop analysis plan', '(*) Map stakeholders (3-4 groups)', '(*) Analyze problems with context', 'Define initial concepts', 'Preliminary hazard identification [Safety]', 'Initial SA criticality assessment [Safety]'],
+            comprehensive: ['(*) Perform comprehensive analysis', '(*) Model stakeholder value (5+ groups)', '(*) Conduct opportunity analysis with PESTEL', 'Develop business cases with ROI', 'Identify safety-related stakeholders [Safety]']
         },
         deliverables: {
             basic: ['Problem statement', 'Solution alternatives', 'Initial stakeholder list', 'ConOps (can be part of SRD)'],
@@ -162,8 +162,8 @@ export const PROCESS_DETAILS = {
     18: {
         activities: {
             basic: ['(*) List stakeholders', '(*) Elicit basic needs (interviews)', 'Validate simply (review)', 'Note constraints'],
-            standard: ['Analyze stakeholders with influence', 'Elicit needs formally with techniques', 'Validate with plan and criteria', 'Analyze constraints with impact', 'Resolve conflicts with stakeholders', 'Define mission profile and operational scenarios', 'Capture safety needs from stakeholders [Safety]', 'Establish preliminary RAM targets [RAM]'],
-            comprehensive: ['Map stakeholder influence comprehensively', 'Model comprehensive needs', 'Apply multiple validation techniques', 'Strategize engagement', 'Analyze constraint impacts comprehensively', 'Identify safety constraints [Safety]']
+            standard: ['(*) Analyze stakeholders with influence', '(*) Elicit needs formally with techniques', 'Validate with plan and criteria', 'Analyze constraints with impact', 'Resolve conflicts with stakeholders', 'Define mission profile and operational scenarios', 'Capture safety needs from stakeholders [Safety]', 'Establish preliminary RAM targets [RAM]'],
+            comprehensive: ['(*) Map stakeholder influence comprehensively', '(*) Model comprehensive needs', 'Apply multiple validation techniques', 'Strategize engagement', 'Analyze constraint impacts comprehensively', 'Identify safety constraints [Safety]']
         },
         deliverables: {
             basic: ['Stakeholder list', 'Needs statements', 'Simple validation records', 'Basic constraints list'],
@@ -179,8 +179,8 @@ export const PROCESS_DETAILS = {
     19: {
         activities: {
             basic: ['(*) Document requirements (simple list)', '(*) Trace simply with matrix', 'Review requirements (informal)'],
-            standard: ['Plan requirements development', 'Specify requirements with attributes', 'Manage requirements in database', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety integrity levels (SIL) [Safety]'],
-            comprehensive: ['Model behaviors with formal notation', 'Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Formal RAMS requirements per EN 50126 [RAM]']
+            standard: ['(*) Plan requirements development', '(*) Specify requirements with attributes', 'Manage requirements in database', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety integrity levels (SIL) [Safety]'],
+            comprehensive: ['(*) Model behaviors with formal notation', '(*) Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Formal RAMS requirements per EN 50126 [RAM]']
         },
         deliverables: {
             basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records'],
@@ -196,8 +196,8 @@ export const PROCESS_DETAILS = {
     20: {
         activities: {
             basic: ['(*) Define concepts (block diagrams)', '(*) List interfaces', 'Evaluate options (informal)', 'Document architecture'],
-            standard: ['Plan architecture development', 'Develop with viewpoints per ISO 42010', 'Create interface control documents (ICDs)', 'Evaluate alternatives with trade studies', 'Plan architecture governance', 'Perform RAMS apportionment [RAM]', 'Allocate SIL to subsystems [Safety]', 'Define safety partitioning and isolation [Safety]'],
-            comprehensive: ['Model architectures in formal notation', 'Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate with formal methodology', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
+            standard: ['(*) Plan architecture development', '(*) Develop with viewpoints per ISO 42010', 'Create interface control documents (ICDs)', 'Evaluate alternatives with trade studies', 'Plan architecture governance', 'Perform RAMS apportionment [RAM]', 'Allocate SIL to subsystems [Safety]', 'Define safety partitioning and isolation [Safety]'],
+            comprehensive: ['(*) Model architectures in formal notation', '(*) Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate with formal methodology', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
         },
         deliverables: {
             basic: ['Simple architecture description', 'Basic interface list', 'Architecture diagrams', 'Evaluation notes'],
@@ -213,8 +213,8 @@ export const PROCESS_DETAILS = {
     21: {
         activities: {
             basic: ['(*) Create design documentation', '(*) Create design diagrams', 'Select technologies', 'Basic verification'],
-            standard: ['Plan design process', 'Develop comprehensive documentation', 'Analyze alternatives', 'Verify designs with analysis', 'Assess technologies', 'Conduct design reviews', 'Perform FMEA/FMECA [RAM]', 'Conduct maintainability analysis [RAM]', 'Execute safety design reviews [Safety]'],
-            comprehensive: ['Model designs in formal notation', 'Develop detailed multi-view documentation', 'Optimize with extensive analysis', 'Comprehensive verification strategy', 'Advanced technology assessment with roadmap', 'Formal design reviews', 'Define diagnostic and test provisions [RAM]', 'Analyze failure modes and effects [RAM]']
+            standard: ['(*) Plan design process', '(*) Develop comprehensive documentation', 'Analyze alternatives', 'Verify designs with analysis', 'Assess technologies', 'Conduct design reviews', 'Perform FMEA/FMECA [RAM]', 'Conduct maintainability analysis [RAM]', 'Execute safety design reviews [Safety]'],
+            comprehensive: ['(*) Model designs in formal notation', '(*) Develop detailed multi-view documentation', 'Optimize with extensive analysis', 'Comprehensive verification strategy', 'Advanced technology assessment with roadmap', 'Formal design reviews', 'Define diagnostic and test provisions [RAM]', 'Analyze failure modes and effects [RAM]']
         },
         deliverables: {
             basic: ['Design documentation', 'Design diagrams', 'Technology selections', 'Basic verification records'],
@@ -230,8 +230,8 @@ export const PROCESS_DETAILS = {
     22: {
         activities: {
             basic: ['(*) Perform basic analyses', '(*) Document analysis data', 'Document methodology'],
-            standard: ['Plan analysis activities', 'Define analysis methodologies', 'Conduct analyses with recommendations', 'Define tool usage', 'Support decisions', 'Perform RAM analysis (FMEA/FMECA) [RAM]', 'Conduct RAMS trade studies [RAM]', 'Analyze safety risks [Safety]'],
-            comprehensive: ['Develop analysis strategy', 'Create comprehensive framework', 'Perform advanced modeling/simulation', 'Validate methodologies', 'Document tool environments', 'Quantify uncertainties', 'Measure analysis effectiveness', 'Perform availability modeling [RAM]', 'Execute reliability predictions [RAM]', 'Support safety case development [Safety]']
+            standard: ['(*) Plan analysis activities', '(*) Define analysis methodologies', 'Conduct analyses with recommendations', 'Define tool usage', 'Support decisions', 'Perform RAM analysis (FMEA/FMECA) [RAM]', 'Conduct RAMS trade studies [RAM]', 'Analyze safety risks [Safety]'],
+            comprehensive: ['(*) Develop analysis strategy', '(*) Create comprehensive framework', 'Perform advanced modeling/simulation', 'Validate methodologies', 'Document tool environments', 'Quantify uncertainties', 'Measure analysis effectiveness', 'Perform availability modeling [RAM]', 'Execute reliability predictions [RAM]', 'Support safety case development [Safety]']
         },
         deliverables: {
             basic: ['Simple analysis reports', 'Analysis data', 'Basic methodology documentation'],
@@ -247,8 +247,8 @@ export const PROCESS_DETAILS = {
     23: {
         activities: {
             basic: ['(*) Build per specifications', '(*) Perform basic acceptance testing', 'Document product'],
-            standard: ['Plan implementation with procedures', 'Track progress', 'Execute acceptance tests', 'Create comprehensive documentation', 'Conduct implementation reviews', 'Perform safety-related inspections [Safety]', 'Execute component safety testing [Safety]'],
-            comprehensive: ['Develop implementation strategy', 'Optimize with advanced techniques', 'Continuous monitoring dashboard', 'Comprehensive acceptance testing', 'Extensive documentation suite', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Maintain safety traceability [Safety]']
+            standard: ['(*) Plan implementation with procedures', '(*) Track progress', 'Execute acceptance tests', 'Create comprehensive documentation', 'Conduct implementation reviews', 'Perform safety-related inspections [Safety]', 'Execute component safety testing [Safety]'],
+            comprehensive: ['(*) Develop implementation strategy', '(*) Optimize with advanced techniques', 'Continuous monitoring dashboard', 'Comprehensive acceptance testing', 'Extensive documentation suite', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Maintain safety traceability [Safety]']
         },
         deliverables: {
             basic: ['Implementation plan', 'Implementation records', 'Basic acceptance documentation', 'Product documentation'],
@@ -263,8 +263,8 @@ export const PROCESS_DETAILS = {
     24: {
         activities: {
             basic: ['(*) Integrate system elements', '(*) Verify interfaces', '(*) Perform integration testing', 'Track integration issues'],
-            standard: ['Plan integration with sequence', 'Specify integration environment', 'Execute procedures', 'Verify with records', 'Track issues in database', 'Conduct reviews', 'Perform RAM testing [RAM]', 'Execute safety integration tests [Safety]', 'Verify safety functions [Safety]'],
-            comprehensive: ['Develop integration strategy', 'Plan with risk assessment', 'Manage integration environment', 'Comprehensive verification', 'Advanced issue analytics', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Update Hazard Log with integration findings [Safety]']
+            standard: ['(*) Plan integration with sequence', '(*) Specify integration environment', '(*) Execute procedures', 'Verify with records', 'Track issues in database', 'Conduct reviews', 'Perform RAM testing [RAM]', 'Execute safety integration tests [Safety]', 'Verify safety functions [Safety]'],
+            comprehensive: ['(*) Develop integration strategy', '(*) Plan with risk assessment', '(*) Manage integration environment', 'Comprehensive verification', 'Advanced issue analytics', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Update Hazard Log with integration findings [Safety]']
         },
         deliverables: {
             basic: ['Integration plan', 'Integration records', 'Issue log', 'Integration report'],
@@ -280,8 +280,8 @@ export const PROCESS_DETAILS = {
     25: {
         activities: {
             basic: ['(*) Plan verification', '(*) Execute verification procedures', '(*) Report results', 'Log defects'],
-            standard: ['Plan with multiple methods (T/D/I/A)', 'Specify verification environment', 'Execute comprehensive procedures', 'Track defects in database', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify SIL compliance [Safety]'],
-            comprehensive: ['Develop verification strategy', 'Plan risk-based approach', 'Execute comprehensive procedures', 'Manage verification environment', 'Comprehensive reporting with traceability', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Prepare safety verification evidence [Safety]']
+            standard: ['(*) Plan with multiple methods (T/D/I/A)', '(*) Specify verification environment', '(*) Execute comprehensive procedures', 'Track defects in database', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify SIL compliance [Safety]'],
+            comprehensive: ['(*) Develop verification strategy', '(*) Plan risk-based approach', '(*) Execute comprehensive procedures', 'Manage verification environment', 'Comprehensive reporting with traceability', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Prepare safety verification evidence [Safety]']
         },
         deliverables: {
             basic: ['Verification plan', 'Verification procedures', 'Verification reports', 'Defect log'],
@@ -297,8 +297,8 @@ export const PROCESS_DETAILS = {
     26: {
         activities: {
             basic: ['(*) Plan transition', '(*) Install system', 'Provide basic training', 'Report transition'],
-            standard: ['Plan detailed transition', 'Execute comprehensive installation', 'Verify operational readiness', 'Conduct training program', 'Review transition', 'Prepare documentation package', 'Conduct safety acceptance [Safety]', 'Transfer safety documentation [Safety]'],
-            comprehensive: ['Develop transition strategy', 'Plan with risk assessment', 'Install with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal reviews', 'Complete transition package', 'Measure effectiveness', 'Obtain Safety Case approval [Safety]', 'Conduct safety training for operators [Safety]']
+            standard: ['(*) Plan detailed transition', '(*) Execute comprehensive installation', 'Verify operational readiness', 'Conduct training program', 'Review transition', 'Prepare documentation package', 'Conduct safety acceptance [Safety]', 'Transfer safety documentation [Safety]'],
+            comprehensive: ['(*) Develop transition strategy', '(*) Plan with risk assessment', 'Install with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal reviews', 'Complete transition package', 'Measure effectiveness', 'Obtain Safety Case approval [Safety]', 'Conduct safety training for operators [Safety]']
         },
         deliverables: {
             basic: ['Transition plan', 'Installation procedures', 'Training materials', 'Transition report'],
@@ -314,8 +314,8 @@ export const PROCESS_DETAILS = {
     27: {
         activities: {
             basic: ['(*) Plan validation', '(*) Execute validation procedures', '(*) Report results', 'Log defects'],
-            standard: ['Plan with multiple methods', 'Specify validation environment', 'Execute comprehensive procedures', 'Plan stakeholder involvement', 'Track defects in database', 'Conduct reviews', 'Validate RAMS requirements [RAM]', 'Validate safety functions in operational context [Safety]'],
-            comprehensive: ['Develop validation strategy', 'Plan with stakeholder focus', 'Execute comprehensive procedures', 'Manage validation environment', 'Comprehensive reporting with acceptance', 'Stakeholder involvement strategy', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Obtain safety sign-off [Safety]', 'Develop RAMS validation plan [RAM]']
+            standard: ['(*) Plan with multiple methods', '(*) Specify validation environment', '(*) Execute comprehensive procedures', 'Plan stakeholder involvement', 'Track defects in database', 'Conduct reviews', 'Validate RAMS requirements [RAM]', 'Validate safety functions in operational context [Safety]'],
+            comprehensive: ['(*) Develop validation strategy', '(*) Plan with stakeholder focus', '(*) Execute comprehensive procedures', 'Manage validation environment', 'Comprehensive reporting with acceptance', 'Stakeholder involvement strategy', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Obtain safety sign-off [Safety]', 'Develop RAMS validation plan [RAM]']
         },
         deliverables: {
             basic: ['Validation plan', 'Validation procedures', 'Validation reports', 'Defect log'],
@@ -331,8 +331,8 @@ export const PROCESS_DETAILS = {
     28: {
         activities: {
             basic: ['(*) Execute operational procedures', '(*) Monitor performance', '(*) Track problems', 'Provide user support'],
-            standard: ['Plan operations', 'Execute comprehensive procedures', 'Monitor with KPIs', 'Analyze performance', 'Manage problems', 'Provide user support procedures', 'Conduct reviews', 'Train operators', 'Monitor RAM performance [RAM]', 'Implement FRACAS [RAM]', 'Maintain operational Hazard Log [Safety]'],
-            comprehensive: ['Develop operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced analytics', 'Problem management with root cause', 'Comprehensive user support', 'Formal reviews', 'Advanced training', 'Measure operational effectiveness', 'Continuous RAMS monitoring [RAM]', 'Conduct periodic safety reviews [Safety]']
+            standard: ['(*) Plan operations', '(*) Execute comprehensive procedures', '(*) Monitor with KPIs', 'Analyze performance', 'Manage problems', 'Provide user support procedures', 'Conduct reviews', 'Train operators', 'Monitor RAM performance [RAM]', 'Implement FRACAS [RAM]', 'Maintain operational Hazard Log [Safety]'],
+            comprehensive: ['(*) Develop operational strategy', '(*) Detailed procedures with contingencies', '(*) Performance monitoring framework', 'Advanced analytics', 'Problem management with root cause', 'Comprehensive user support', 'Formal reviews', 'Advanced training', 'Measure operational effectiveness', 'Continuous RAMS monitoring [RAM]', 'Conduct periodic safety reviews [Safety]']
         },
         deliverables: {
             basic: ['Operational procedures', 'Performance reports', 'Problem records', 'User support documentation'],
@@ -348,8 +348,8 @@ export const PROCESS_DETAILS = {
     29: {
         activities: {
             basic: ['(*) Plan maintenance', '(*) Execute maintenance procedures', '(*) Track problems', 'Report maintenance'],
-            standard: ['Plan detailed maintenance', 'Execute comprehensive procedures', 'Manage maintenance environment', 'Track problems in database', 'Conduct reviews', 'Prepare documentation package', 'Update Hazard Log post-maintenance [Safety]', 'Track reliability growth [RAM]'],
-            comprehensive: ['Develop maintenance strategy', 'Detailed procedures with optimization', 'Predictive maintenance methodology', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness', 'Conduct change impact analysis for safety [Safety]', 'RAMS performance review & optimization [RAM]']
+            standard: ['(*) Plan detailed maintenance', '(*) Execute comprehensive procedures', '(*) Manage maintenance environment', 'Track problems in database', 'Conduct reviews', 'Prepare documentation package', 'Update Hazard Log post-maintenance [Safety]', 'Track reliability growth [RAM]'],
+            comprehensive: ['(*) Develop maintenance strategy', '(*) Detailed procedures with optimization', '(*) Predictive maintenance methodology', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness', 'Conduct change impact analysis for safety [Safety]', 'RAMS performance review & optimization [RAM]']
         },
         deliverables: {
             basic: ['Maintenance plan', 'Maintenance procedures', 'Problem records', 'Maintenance reports'],
@@ -365,8 +365,8 @@ export const PROCESS_DETAILS = {
     30: {
         activities: {
             basic: ['(*) Plan disposal', '(*) Execute disposal procedures', 'Archive records', 'Report disposal'],
-            standard: ['Plan detailed disposal', 'Execute comprehensive procedures', 'Assess environmental impact', 'Address health and safety', 'Conduct reviews', 'Plan archiving', 'Prepare documentation', 'Identify and manage hazardous materials [Safety]', 'Close out Hazard Log [Safety]'],
-            comprehensive: ['Develop disposal strategy', 'Detailed procedures with risk assessment', 'Comprehensive environmental analysis', 'Detailed health and safety plan', 'Formal reviews', 'Complete disposal documentation', 'Advanced archiving strategy', 'Measure effectiveness', 'Develop disposal safety case [Safety]', 'Archive safety records [Safety]']
+            standard: ['(*) Plan detailed disposal', '(*) Execute comprehensive procedures', 'Assess environmental impact', 'Address health and safety', 'Conduct reviews', 'Plan archiving', 'Prepare documentation', 'Identify and manage hazardous materials [Safety]', 'Close out Hazard Log [Safety]'],
+            comprehensive: ['(*) Develop disposal strategy', '(*) Detailed procedures with risk assessment', 'Comprehensive environmental analysis', 'Detailed health and safety plan', 'Formal reviews', 'Complete disposal documentation', 'Advanced archiving strategy', 'Measure effectiveness', 'Develop disposal safety case [Safety]', 'Archive safety records [Safety]']
         },
         deliverables: {
             basic: ['Disposal plan', 'Disposal procedures', 'Disposal report', 'Archive list'],
