@@ -4,7 +4,7 @@
 import './styles/index.css';
 import './styles/animations.css';
 import { registerRoute, initRouter, navigateTo } from './router.js';
-import { getState } from './state.js';
+import { getState, setState, loadAutosave, clearAutosave } from './state.js';
 import { importConfig } from './utils/export-import.js';
 import { showToast } from './state.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -82,6 +82,7 @@ function buildNavbar() {
                     matrixMap: config.matrixMap || null,
                     cultureType: config.cultureType || null,
                     notes: config.notes || '',
+                    confidence: config.confidence || {},
                     assessmentComplete: Object.keys(config.metricScores || {}).length > 0
                 });
                 showToast('Configuration imported successfully!', 'success');
@@ -110,4 +111,54 @@ function buildNavbar() {
 document.addEventListener('DOMContentLoaded', () => {
     buildNavbar();
     initRouter(document.getElementById('main-content'));
+
+    const saved = loadAutosave();
+    if (saved && saved.assessmentComplete) {
+        const savedDate = saved.savedAt ? new Date(saved.savedAt).toLocaleString() : 'unknown time';
+        const overlay = document.createElement('div');
+        overlay.id = 'autosave-restore-overlay';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        overlay.innerHTML = `
+            <div style="background:var(--bg-card);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                <div style="font-size:2rem;margin-bottom:12px;">💾</div>
+                <h3 style="margin-bottom:8px;">Saved Assessment Found</h3>
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">An auto-saved assessment from <strong>${savedDate}</strong> was found for project "<strong>${saved.projectInfo?.name || 'Untitled'}</strong>".</p>
+                <div style="display:flex;gap:10px;justify-content:center;">
+                    <button class="btn btn-primary" id="btn-restore-yes">Restore</button>
+                    <button class="btn btn-secondary" id="btn-restore-no">Start Fresh</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.querySelector('#btn-restore-yes').addEventListener('click', () => {
+            setState({
+                projectInfo: saved.projectInfo || {},
+                scores: saved.scores || {},
+                saResponses: saved.saResponses || {},
+                saTier: saved.saTier || null,
+                derived: saved.derived || {},
+                derivationDetails: saved.derivationDetails || {},
+                levels: saved.levels || {},
+                overrides: saved.overrides || [],
+                violations: saved.violations || [],
+                fixes: saved.fixes || [],
+                manualAdjustments: saved.manualAdjustments || {},
+                tradeoffs: saved.tradeoffs || [],
+                cultureType: saved.cultureType || null,
+                notes: saved.notes || '',
+                assessmentComplete: saved.assessmentComplete || false,
+                confidence: saved.confidence || {},
+                assessmentTree: saved.assessmentTree || state.assessmentTree
+            });
+            overlay.remove();
+            showToast('Assessment restored from auto-save!', 'success');
+            navigateTo('dashboard');
+        });
+
+        overlay.querySelector('#btn-restore-no').addEventListener('click', () => {
+            clearAutosave();
+            overlay.remove();
+        });
+    }
 });

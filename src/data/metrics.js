@@ -455,32 +455,32 @@ export const METRICS = [
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
 // Index) which governs right-sizing caps and priority-based reduction instead.
 export const METRIC_PROCESS_MAP = {
-    9: { M1: 'P', M12: 'P' },
-    10: { M1: 'P', M15: 'P' },
-    11: { M1: 'P', M3: 'P', M13: 'P' },
-    12: { M5: 'P', M8: 'P' },
-    13: { M2: 'P', M8: 'P' },
-    14: { M8: 'P', M12: 'P' },
-    15: { M8: 'P' },
-    16: { M8: 'P' },
-    17: { M13: 'P', M15: 'P' },
-    18: { M13: 'P', M14: 'P' },
-    19: { M1: 'P', M2: 'P' },
-    20: { M1: 'P', M2: 'P', M3: 'P' },
-    21: { M1: 'P', M2: 'P', M3: 'P' },
-    22: { M1: 'P', M3: 'P' },
-    23: { M1: 'P', M4: 'P', M11: 'P' },
-    24: { M2: 'P', M4: 'P', M12: 'P' },
-    25: { M2: 'P', M4: 'P', M5: 'P' },
-    26: { M12: 'P', M13: 'P' },
-    27: { M5: 'P', M6: 'P', M13: 'P' },
-    28: { M7: 'P' },
-    29: { M7: 'P' },
-    30: { M7: 'P', M8: 'P' }
+    9: { M1: 'P', M4: 'P', M12: 'S', M13: 'S' },
+    10: { M1: 'P', M4: 'P', M13: 'S', M15: 'S' },
+    11: { M1: 'P', M3: 'P', M6: 'P', M13: 'P', M15: 'P', M8: 'S', M12: 'S' },
+    12: { M5: 'P', M6: 'P', M8: 'P', M1: 'S', M2: 'S' },
+    13: { M2: 'P', M8: 'P', M12: 'S', M14: 'S' },
+    14: { M8: 'P', M12: 'P', M13: 'S', M15: 'S' },
+    15: { M6: 'P', M8: 'P', M14: 'S' },
+    16: { M5: 'P', M8: 'P', M11: 'S', M13: 'S', M15: 'S' },
+    17: { M6: 'P', M13: 'P', M8: 'S', M15: 'S' },
+    18: { M13: 'P', M14: 'P', M15: 'S' },
+    19: { M1: 'P', M2: 'P', M5: 'S', M8: 'S', M14: 'S' },
+    20: { M1: 'P', M2: 'P', M3: 'P', M6: 'S', M5: 'S', M11: 'S' },
+    21: { M1: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
+    22: { M1: 'P', M3: 'P', M6: 'S', M2: 'S', M4: 'S', M5: 'S' },
+    23: { M1: 'P', M4: 'P', M11: 'P', M3: 'S' },
+    24: { M2: 'P', M4: 'P', M12: 'P', M5: 'S', M11: 'S' },
+    25: { M2: 'P', M4: 'P', M5: 'P', M8: 'S' },
+    26: { M6: 'P', M12: 'P', M4: 'S', M13: 'S', M15: 'S', M16: 'S' },
+    27: { M5: 'P', M6: 'P', M13: 'P', M8: 'S', M14: 'S', M15: 'S' },
+    28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
+    29: { M5: 'P', M7: 'P', M4: 'S', M11: 'S' },
+    30: { M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
 };
 
 // Level thresholds per process (v4.0 Simplified - "Highest Tier Wins")
-// Algorithm: Trigger Tier = MAX(Tier(M₁), Tier(M₂), ...) where Tier(score): 1-2→Basic, 3→Standard, 4-5→Comprehensive
+// Algorithm: Trigger Tier = MAX(Tier(M₁), Tier(M₂), ...) where Tier(score): 1-2→Basic, 3-4→Standard, 5→Comprehensive
 // These thresholds are provided for REFERENCE ONLY. The actual derivation uses the simple highest-tier-wins rule.
 // V4.1: M9/M10 removed from all thresholds — they are constraint metrics that feed CSI only
 export const LEVEL_THRESHOLDS = {
@@ -793,11 +793,12 @@ export const CONSISTENCY_RULES = [
     { id: 5, type: 'WN', trigger: { process: 19, level: 'standard', op: '=' }, required: { process: 25, level: 'basic', op: '>=' }, label: 'System Requirements Definition = Standard → Verification ≥ Basic', rationale: 'Standard requirements should still maintain basic verification coverage.' },
     { id: 6, type: 'HC', trigger: { process: 20, level: 'comprehensive', op: '>=' }, required: { process: 21, level: 'standard', op: '>=' }, label: 'Architecture Definition ≥ Comprehensive → Design Definition ≥ Standard', rationale: 'Comprehensive architecture should be realized with structured design definition.' },
     { id: 7, type: 'WN', trigger: { process: 20, level: 'comprehensive', op: '>=' }, required: { process: 24, level: 'standard', op: '>=' }, label: 'Architecture Definition ≥ Comprehensive → Integration ≥ Standard', rationale: 'Complex architecture benefits from structured integration rigor.' },
-    { id: 8, type: 'WN', trigger: { process: 21, level: 'comprehensive', op: '>=' }, required: { process: 23, level: 'standard', op: '>=' }, label: 'Design Definition ≥ Comprehensive → Implementation ≥ Standard', rationale: 'Comprehensive design should be implemented with at least standard rigor.' },
-    { id: 9, type: 'HC', trigger: { process: [25, 27], level: 'comprehensive', op: '>=' }, required: { process: 19, level: 'standard', op: '>=' }, label: 'Verification or Validation ≥ Comprehensive → System Requirements Definition ≥ Standard', rationale: 'Comprehensive V&V must be backed by structured requirements baselines.' },
+    { id: '8a', type: 'WN', trigger: { process: 21, level: 'comprehensive', op: '>=' }, required: { process: 23, level: 'standard', op: '>=' }, label: 'Design Definition ≥ Comprehensive → Implementation ≥ Standard', rationale: 'Comprehensive design should be implemented with at least standard rigor.' },
+    { id: '8b', type: 'WN', trigger: { process: 21, level: 'comprehensive', op: '>=' }, required: { process: 22, level: 'standard', op: '>=' }, label: 'Design Definition ≥ Comprehensive → System Analysis ≥ Standard', rationale: 'Comprehensive design decisions should be supported by structured system analysis.' },
+    { id: 9, type: 'HC', trigger: { process: [25, 27], level: 'comprehensive', op: '>=' }, required: { process: 19, level: 'standard', op: '>=' }, label: 'Verification or Validation ≥ Comprehensive → System Requirements Definition ≥ Standard (Floor)', rationale: 'Comprehensive V&V must be backed by structured requirements baselines. This is a floor constraint: requirements rigor cannot be lower than V&V rigor demands.' },
     { id: 10, type: 'HC', trigger: { process: 24, level: 'comprehensive', op: '>=' }, required: { process: 25, level: 'standard', op: '>=' }, label: 'Integration ≥ Comprehensive → Verification ≥ Standard', rationale: 'Comprehensive integration requires corresponding verification maturity.' },
-    { id: 11, type: 'WN', trigger: { process: 25, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'Verification ≥ Comprehensive → Validation ≥ Standard', rationale: 'High-rigor verification commonly implies at least standard validation.' },
-    { id: 12, type: 'HC', trigger: { process: 9, level: 'basic', op: '=' }, required: { process: 'all_technical', level: 'basic', op: '<=' }, label: 'Project Planning = Basic → All Technical Processes ≤ Basic', rationale: 'Basic planning cannot sustain higher-rigor technical execution without inconsistency.' },
+    { id: 11, type: 'HC', trigger: { process: 25, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'Verification ≥ Comprehensive → Validation ≥ Standard', rationale: 'High-rigor verification requires at least standard validation to confirm stakeholder intent is met.' },
+    { id: 12, type: 'HC', trigger: { process: 9, level: 'basic', op: '=' }, required: { process: 'all_technical', level: 'basic', op: '<=' }, label: 'Project Planning = Basic → All Technical Processes ≤ Basic (Strengthened)', rationale: 'Basic planning cannot sustain higher-rigor technical execution. If any technical process exceeds Basic, Project Planning must be elevated to at least Standard.' },
     { id: 13, type: 'WN', trigger: { process: 12, level: 'basic', op: '=' }, required: { process: 11, level: 'standard', op: '<=' }, label: 'Risk Management = Basic → Decision Management ≤ Standard', rationale: 'Basic risk inputs generally cap decision-management rigor.' },
     { id: 14, type: 'WN', trigger: { process: 12, level: 'comprehensive', op: '>=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management ≥ Comprehensive → Decision Management ≥ Standard', rationale: 'Comprehensive risk outputs should inform at least standard decision management.' },
     { id: 15, type: 'WN', trigger: { process: 28, level: 'comprehensive', op: '>=' }, required: { process: 29, level: 'standard', op: '>=' }, label: 'Operation ≥ Comprehensive → Maintenance ≥ Standard', rationale: 'Comprehensive operations produce data and workload requiring structured maintenance.' },
@@ -817,7 +818,8 @@ export const PROPAGATION_RULES = [
     { id: 'P5', source: 19, sourceLevel: 'standard', target: 25, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 5, rationale: 'Standard requirements still benefit from basic verification.' },
     { id: 'P6', source: 20, sourceLevel: 'comprehensive', target: 21, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 6, rationale: 'Comprehensive architecture should flow into at least standard design definition.' },
     { id: 'P7', source: 20, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 7, rationale: 'Comprehensive architecture generally benefits from standard integration rigor.' },
-    { id: 'P8', source: 21, sourceLevel: 'comprehensive', target: 23, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 8, rationale: 'Comprehensive design generally implies standard implementation rigor.' },
+    { id: 'P8a', source: 21, sourceLevel: 'comprehensive', target: 23, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: '8a', rationale: 'Comprehensive design generally implies standard implementation rigor.' },
+    { id: 'P8b', source: 21, sourceLevel: 'comprehensive', target: 22, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: '8b', rationale: 'Comprehensive design decisions should be supported by structured system analysis.' },
     { id: 'P9', source: 25, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive verification requires structured requirements baselines.' },
     { id: 'P10', source: 27, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive validation requires structured requirements baselines.' },
     { id: 'P11', source: 24, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 10, rationale: 'Comprehensive integration should be matched by at least standard verification.' },

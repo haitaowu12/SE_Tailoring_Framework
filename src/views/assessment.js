@@ -584,6 +584,7 @@ function finalizeAssessment() {
     indices: result.indices || {},
     violations: result.violations,
     fixes: result.fixes,
+    confidence: result.confidence || {},
     assessmentComplete: true
   });
 

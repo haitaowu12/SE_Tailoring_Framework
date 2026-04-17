@@ -62,6 +62,15 @@ export function renderDashboard(container) {
           <span class="level-badge comprehensive">Comprehensive</span>
         </div>
       </div>
+      ${state.confidence ? `
+      <div class="confidence-strip mt-md">
+        ${Object.entries(state.confidence).filter(([, c]) => c === 'corroborated').length > 0 ? `
+        <span class="confidence-badge corroborated" title="Comprehensive level corroborated by multiple metrics">✅ ${Object.entries(state.confidence).filter(([, c]) => c === 'corroborated').length} Corroborated</span>
+        ` : ''}
+        ${Object.entries(state.confidence).filter(([, c]) => c === 'available-with-justification').length > 0 ? `
+        <span class="confidence-badge available-with-justification" title="Comprehensive available with documented justification">⚠️ ${Object.entries(state.confidence).filter(([, c]) => c === 'available-with-justification').length} Need Justification</span>
+        ` : ''}
+      </div>` : ''}
     </section>` : ''}
 
     <section class="levels-section mb-xl animate-fade-in-up stagger-3">
@@ -74,7 +83,7 @@ export function renderDashboard(container) {
           </div>
           <p class="text-sm text-secondary mt-md">${FRAMEWORK_META.levelDescriptions[l]}</p>
           <div class="level-range mt-md text-xs text-secondary">
-            ${l === 'basic' ? 'Trigger tier: scores 1-2' : l === 'standard' ? 'Trigger tier: score 3' : 'Trigger tier: scores 4-5'}
+            ${l === 'basic' ? 'Trigger tier: scores 1-2' : l === 'standard' ? 'Trigger tier: scores 3-4' : 'Trigger tier: score 5'}
           </div>
         </div>`).join('')}
       </div>
@@ -250,6 +259,10 @@ export function renderDashboard(container) {
     .basic-count { color: var(--level-basic); }
     .standard-count { color: var(--level-standard); }
     .comprehensive-count { color: var(--level-comprehensive); }
+    .confidence-strip { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .confidence-badge { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: help; }
+    .confidence-badge.corroborated { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+    .confidence-badge.available-with-justification { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
     .culture-type-card { padding: 16px; background: var(--bg-card); border-radius: 8px; text-align: center; }
     .culture-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .culture-badge.resistant { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
