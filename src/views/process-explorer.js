@@ -615,7 +615,7 @@ export function renderProcessExplorer(container) {
 
   // If navigated here from Elements tab with a specific process target
   if (state.activeProcessExplorerId) {
-    activeProcess = state.activeProcessExplorerId;
+    activeProcess = parseInt(state.activeProcessExplorerId, 10) || null;
     setState({ activeProcessExplorerId: null });
   }
 
@@ -629,19 +629,19 @@ export function renderProcessExplorer(container) {
   container.innerHTML = `
     <h2 class="mb-lg">🔍 Process Explorer</h2>
     <div class="explorer-controls mb-lg">
-      <input class="input" id="process-search" placeholder="Search processes..." value="${searchQuery}" style="max-width:300px">
-      <div class="tabs" id="group-tabs">
-        <button class="tab ${filterGroup === 'all' ? 'active' : ''}" data-group="all">All (${CORE_PROCESSES.length})</button>
-        <button class="tab ${filterGroup === 'tech_mgmt' ? 'active' : ''}" data-group="tech_mgmt">Tech Management</button>
-        <button class="tab ${filterGroup === 'technical' ? 'active' : ''}" data-group="technical">Technical</button>
+      <input class="input" id="process-search" placeholder="Search processes..." value="${searchQuery}" style="max-width:300px" aria-label="Search processes" role="searchbox">
+      <div class="tabs" id="group-tabs" role="tablist" aria-label="Process group filter">
+        <button class="tab ${filterGroup === 'all' ? 'active' : ''}" data-group="all" role="tab" aria-selected="${filterGroup === 'all'}">All (${CORE_PROCESSES.length})</button>
+        <button class="tab ${filterGroup === 'tech_mgmt' ? 'active' : ''}" data-group="tech_mgmt" role="tab" aria-selected="${filterGroup === 'tech_mgmt'}">Tech Management</button>
+        <button class="tab ${filterGroup === 'technical' ? 'active' : ''}" data-group="technical" role="tab" aria-selected="${filterGroup === 'technical'}">Technical</button>
       </div>
     </div>
     <div class="explorer-layout">
-      <div class="process-list-panel">
+      <div class="process-list-panel" role="listbox" aria-label="Process list">
         ${filtered.map(p => {
     const level = state.levels[p.id];
     return `
-          <div class="process-list-card ${activeProcess === p.id ? 'selected' : ''} hover-lift" data-pid="${p.id}">
+          <div class="process-list-card ${activeProcess === p.id ? 'selected' : ''} hover-lift" data-pid="${p.id}" role="option" tabindex="0" aria-selected="${activeProcess === p.id}" aria-label="${p.name} – ${p.purpose}">
             <div class="flex justify-between items-center">
               <div class="flex items-center gap-sm">
                 <span class="process-id">${p.id}</span>
@@ -659,33 +659,39 @@ export function renderProcessExplorer(container) {
     </div>
   `;
 
-  const style = document.createElement('style');
-  style.textContent = `
-    .explorer-controls { display: flex; flex-direction: column; gap: 12px; }
-    .explorer-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
-    .process-list-panel { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 8px; }
-    .process-list-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px; cursor: pointer; transition: all 0.2s; }
-    .process-list-card.selected { border-color: var(--accent-primary); background: rgba(99,102,241,0.08); }
-    .process-list-card:hover { border-color: var(--border-medium); }
-    .process-detail-panel { min-height: 500px; }
-    .empty-state { display: flex; align-items: center; justify-content: center; min-height: 400px; }
-    .detail-section { margin-bottom: 24px; }
-    .detail-section h4 { margin-bottom: 12px; color: var(--accent-primary-light); }
-    .level-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .level-tab { padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary); transition: all 0.2s; }
-    .level-tab.active-basic { background: var(--level-basic-bg); color: var(--level-basic); border-color: var(--level-basic-border); }
-    .level-tab.active-standard { background: var(--level-standard-bg); color: var(--level-standard); border-color: var(--level-standard-border); }
-    .level-tab.active-comprehensive { background: var(--level-comprehensive-bg); color: var(--level-comprehensive); border-color: var(--level-comprehensive-border); }
-    .activity-item { padding: 6px 0; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); }
-    .activity-item.essential { color: var(--text-primary); font-weight: 500; }
-    .deliverable-item { padding: 6px 0; font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); display: flex; gap: 6px; align-items: flex-start; }
-    .output-item { background: rgba(34,211,238,0.06); border-radius: 8px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
-    .metric-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin: 3px; }
-    .metric-tag.P { background: rgba(99,102,241,0.2); color: var(--accent-primary-light); }
-    .metric-tag.S { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
-    @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
-  `;
-  container.appendChild(style);
+  // Inject styles only once (avoid re-injecting on every re-render)
+  if (!document.getElementById('process-explorer-styles')) {
+    const style = document.createElement('style');
+    style.id = 'process-explorer-styles';
+    style.textContent = `
+      .explorer-controls { display: flex; flex-direction: column; gap: 12px; }
+      .explorer-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
+      .process-list-panel { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 8px; }
+      .process-list-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all var(--transition-fast); }
+      .process-list-card.selected { border-color: var(--accent-primary); background: rgba(99,102,241,0.08); }
+      .process-list-card:hover { border-color: var(--border-medium); }
+      .process-detail-panel { min-height: 500px; }
+      .empty-state { display: flex; align-items: center; justify-content: center; min-height: 400px; }
+      .detail-section { margin-bottom: var(--space-xl); }
+      .detail-section h4 { margin-bottom: var(--space-md); color: var(--accent-primary-light); }
+      .level-tabs { display: flex; gap: 8px; margin-bottom: var(--space-lg); }
+      .level-tab { padding: 6px 16px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 600; cursor: pointer; border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary); transition: all var(--transition-fast); }
+      .level-tab.active-basic { background: var(--level-basic-bg); color: var(--level-basic); border-color: var(--level-basic-border); }
+      .level-tab.active-standard { background: var(--level-standard-bg); color: var(--level-standard); border-color: var(--level-standard-border); }
+      .level-tab.active-comprehensive { background: var(--level-comprehensive-bg); color: var(--level-comprehensive); border-color: var(--level-comprehensive-border); }
+      .activity-item { padding: 6px 0; font-size: var(--font-size-xs); color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); }
+      .activity-item.essential { color: var(--text-primary); font-weight: 500; }
+      .deliverable-item { padding: 6px 0; font-size: var(--font-size-xs); color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); display: flex; gap: 6px; align-items: flex-start; }
+      .output-item { background: rgba(34,211,238,0.06); border-radius: var(--radius-md); padding: 10px; margin-bottom: 8px; font-size: var(--font-size-xs); }
+      .metric-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin: 3px; }
+      .metric-tag.P { background: rgba(99,102,241,0.2); color: var(--accent-primary-light); }
+      .metric-tag.S { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
+      .mini-card { background: linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.04) 100%); border: 1px solid rgba(99,102,241,0.15); border-radius: var(--radius-lg); padding: var(--space-lg); margin-bottom: var(--space-xl); }
+      .mini-card-item { padding: 4px 0; font-size: var(--font-size-xs); }
+      @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
+    `;
+    document.head.appendChild(style);
+  }
 
   // Event handlers
   container.querySelector('#process-search').addEventListener('input', (e) => {
@@ -697,9 +703,36 @@ export function renderProcessExplorer(container) {
   });
   container.querySelectorAll('.process-list-card').forEach(card => {
     card.addEventListener('click', () => {
-      activeProcess = card.dataset.pid;
+      activeProcess = parseInt(card.dataset.pid, 10);
       activeLevel = 'basic';
       renderProcessExplorer(container);
+    });
+    // Keyboard accessibility: Enter/Space to select
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        activeProcess = parseInt(card.dataset.pid, 10);
+        activeLevel = 'basic';
+        renderProcessExplorer(container);
+      }
+    });
+  });
+
+  // Level tab click handlers (scoped to container, replaces global CustomEvent)
+  bindLevelTabs(container);
+}
+
+/** Bind level tab click handlers within the current container scope */
+function bindLevelTabs(container) {
+  container.querySelectorAll('.level-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      activeLevel = tab.dataset.level;
+      const panel = document.getElementById('process-detail');
+      if (panel && activeProcess) {
+        panel.innerHTML = renderProcessDetail(activeProcess, getState());
+        // Re-bind level tabs after detail panel re-render
+        bindLevelTabs(container);
+      }
     });
   });
 }
@@ -764,9 +797,9 @@ function renderProcessDetail(processId, state) {
         <p class="text-sm text-secondary">${p.definition[activeLevel] || '—'}</p>
       </div>` : ''}
 
-      <div class="level-tabs">
+      <div class="level-tabs" role="tablist">
         ${['basic', 'standard', 'comprehensive'].map(l => `
-          <button class="level-tab ${activeLevel === l ? 'active-' + l : ''}" data-level="${l}" onclick="document.dispatchEvent(new CustomEvent('setLevel',{detail:'${l}'}))">${FRAMEWORK_META.levelLabels[l]}</button>
+          <button class="level-tab ${activeLevel === l ? 'active-' + l : ''}" data-level="${l}" role="tab" aria-selected="${activeLevel === l}" aria-label="View ${FRAMEWORK_META.levelLabels[l]} level activities">${FRAMEWORK_META.levelLabels[l]}</button>
         `).join('')}
       </div>
 
@@ -856,7 +889,7 @@ function renderMiniCard(card, currentLevel) {
   }
 
   return `
-    <div class="mini-card" style="background:linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(139,92,246,0.04) 100%); border:1px solid rgba(99,102,241,0.15); border-radius:12px; padding:16px; margin-bottom:20px;">
+    <div class="mini-card">
       <div class="flex gap-lg" style="flex-wrap:wrap;">
         <div style="flex:1; min-width:200px;">
           <h5 style="color:var(--accent-primary-light); margin-bottom:10px; font-size:13px;">⬆️ Upstream Must Be At Least</h5>
@@ -887,11 +920,4 @@ function renderMiniCard(card, currentLevel) {
   `;
 }
 
-// Listen for level tab changes
-document.addEventListener('setLevel', (e) => {
-  activeLevel = e.detail;
-  const panel = document.getElementById('process-detail');
-  if (panel && activeProcess) {
-    panel.innerHTML = renderProcessDetail(activeProcess, getState());
-  }
-});
+// Level tab changes are now handled by scoped bindLevelTabs() within renderProcessExplorer

@@ -36,19 +36,29 @@ function buildNavbar() {
     navbar.innerHTML = `
     <div class="nav-brand" onclick="location.hash='dashboard'">
       <div class="brand-icon">SE</div>
-      <span>Tailoring Model</span>
+      <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v3.3.0</small></span>
     </div>
     <div class="nav-links">
       <button class="nav-link" data-route="dashboard">Dashboard</button>
       <button class="nav-link" data-route="elements">Elements</button>
       <button class="nav-link" data-route="assessment">Assessment</button>
-      <button class="nav-link" data-route="processes">Processes</button>
-      <button class="nav-link" data-route="vee-model">Vee Model</button>
-      <button class="nav-link" data-route="interdependency">Dependencies</button>
-      <button class="nav-link" data-route="matrix">Matrix</button>
-      <button class="nav-link" data-route="adjust">Adjust</button>
-      <button class="nav-link" data-route="deliverables">Deliverables</button>
-      <button class="nav-link" data-route="report">Report</button>
+      <div class="nav-dropdown">
+        <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Analysis ▾</button>
+        <div class="nav-dropdown-menu" role="menu">
+          <button class="nav-link" data-route="processes" role="menuitem">Process Explorer</button>
+          <button class="nav-link" data-route="vee-model" role="menuitem">Vee Model</button>
+          <button class="nav-link" data-route="interdependency" role="menuitem">Dependencies</button>
+          <button class="nav-link" data-route="matrix" role="menuitem">Matrix View</button>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Output ▾</button>
+        <div class="nav-dropdown-menu" role="menu">
+          <button class="nav-link" data-route="adjust" role="menuitem">Manual Adjust</button>
+          <button class="nav-link" data-route="deliverables" role="menuitem">Deliverables</button>
+          <button class="nav-link" data-route="report" role="menuitem">Report</button>
+        </div>
+      </div>
     </div>
     <div class="nav-actions">
       <button class="btn btn-ghost btn-sm" id="btn-import" title="Import Config">📥</button>
@@ -56,7 +66,7 @@ function buildNavbar() {
     </div>
   `;
 
-    // Nav link click handlers
+    // Nav link click handlers (includes dropdown items)
     navbar.querySelectorAll('.nav-link').forEach(btn => {
         btn.addEventListener('click', () => navigateTo(btn.dataset.route));
     });
@@ -105,6 +115,17 @@ function buildNavbar() {
     window.addEventListener('scroll', () => {
         navbar.classList.toggle('scrolled', window.scrollY > 10);
     });
+
+    // Highlight dropdown trigger when a child route is active
+    function updateDropdownHighlights() {
+        navbar.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+            const hasActive = dropdown.querySelector('.nav-link.active');
+            const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+            trigger.classList.toggle('has-active', !!hasActive);
+        });
+    }
+    window.addEventListener('hashchange', () => setTimeout(updateDropdownHighlights, 50));
+    setTimeout(updateDropdownHighlights, 50);
 }
 
 // Initialize app
