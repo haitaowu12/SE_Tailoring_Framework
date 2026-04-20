@@ -4,7 +4,7 @@
  * AI SYNC: This file maps directly to the SE Tailoring Model Master Index.
  * When processes change, update this file to keep the web app in sync.
  *
- * _VERSION: 3.3.0
+ * _VERSION: 3.5.0
  * _LAST_UPDATED: 2026-04
  * _SOURCE: 00-MASTER/SE-Tailoring-Model-Master-Index.md
  * _SYNC_CONTRACT:
@@ -81,13 +81,13 @@ export const PROCESSES = [
     },
     // --- Technical Processes (Core) ---
     {
-        id: 17, name: 'Business or Mission Analysis', group: 'technical', purpose: 'Define the problem or opportunity and explore solution alternatives', extended: false,
+        id: 17, name: 'Business/Mission Analysis', group: 'technical', purpose: 'Define the problem or opportunity and explore solution alternatives', extended: false,
         definition: { basic: 'Basic problem identification and alternatives exploration', standard: 'Structured analysis with stakeholder mapping per INCOSE', comprehensive: 'Comprehensive analysis with value modeling for strategic alignment' },
         assumptions: 'Problem is well-understood; stakeholders are few and aligned.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups or complex context.'
     },
     {
-        id: 18, name: 'Stakeholder Needs & Requirements', group: 'technical', purpose: 'Elicit, analyze, and validate stakeholder needs', extended: false,
+        id: 18, name: 'Stakeholder Needs & Requirements Definition', group: 'technical', purpose: 'Elicit, analyze, and validate stakeholder needs', extended: false,
         definition: { basic: 'Basic needs elicitation and validation. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Comprehensive modeling with engagement planning' },
         assumptions: 'Stakeholders identified through direct engagement; needs captured informally.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups with conflicting needs.'
@@ -99,7 +99,7 @@ export const PROCESSES = [
         whenToElevate: 'Elevate to Standard for safety-related requirements or formal verification needs.'
     },
     {
-        id: 20, name: 'System Architecture Definition', group: 'technical', purpose: 'Define the system architecture that satisfies requirements', extended: false,
+        id: 20, name: 'Architecture Definition', group: 'technical', purpose: 'Define the system architecture that satisfies requirements', extended: false,
         definition: { basic: 'Basic concepts with interface lists', standard: 'Structured development with evaluation per ISO 42010', comprehensive: 'Model-based with governance for complex architectures' },
         assumptions: 'Architecture defined in simple diagrams; interfaces listed informally.',
         whenToElevate: 'Elevate to Standard for multi-system integration or mission-critical systems.'
