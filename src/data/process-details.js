@@ -25,7 +25,8 @@ export const PROCESS_DETAILS = {
             { name: 'Schedule', feedsInto: 'All Technical Processes (for planning), Measurement (Basic)' },
             { name: 'Resource plan', feedsInto: 'HR Management (Basic), Infrastructure Management (Standard)' },
             { name: 'Risk register', feedsInto: 'Risk Management (Standard), Decision Management (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the planning detail, schedule formality, and resource allocation rigor.'
     },
     10: {
         activities: {
@@ -42,7 +43,8 @@ export const PROCESS_DETAILS = {
             { name: 'Status reports', feedsInto: 'Information Management (Basic), Portfolio Management (Standard)' },
             { name: 'Issue log', feedsInto: 'Quality Assurance (Basic), Knowledge Management (Basic)' },
             { name: 'Change records', feedsInto: 'Configuration Management (Standard), Decision Management (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the performance measurement depth, change control formality, and reporting frequency.'
     },
     11: {
         activities: {
@@ -58,7 +60,8 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Decision records', feedsInto: 'Configuration Management (Standard), System Analysis (Standard)' },
             { name: 'Alternatives analysis', feedsInto: 'Architecture Definition (Standard), Design Definition (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the decision traceability depth, criteria formality, and stakeholder involvement.'
     },
     12: {
         activities: {
@@ -75,7 +78,8 @@ export const PROCESS_DETAILS = {
             { name: 'Risk register', feedsInto: 'Project Planning (Standard), Decision Management (Standard)' },
             { name: 'Risk assessment', feedsInto: 'System Analysis (Standard), Quality Assurance (Standard)' },
             { name: 'Risk response plans', feedsInto: 'Configuration Management (Comprehensive), Integration (Comprehensive)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the risk identification breadth, assessment methodology, and response planning formality.'
     },
     13: {
         activities: {
@@ -92,7 +96,8 @@ export const PROCESS_DETAILS = {
             { name: 'CI list', feedsInto: 'Integration (Basic), Implementation (Standard)' },
             { name: 'Baselines', feedsInto: 'Verification (Standard), Validation (Standard)' },
             { name: 'Change records', feedsInto: 'Project Assessment (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the scope of configuration items, change control formality, and baseline management depth.'
     },
     14: {
         activities: {
@@ -108,7 +113,8 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Repository structure', feedsInto: 'Knowledge Management (Basic), all processes (storage)' },
             { name: 'Access controls', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the information architecture formality, access control rigor, and retention requirements.'
     },
     15: {
         activities: {
@@ -124,7 +130,8 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Metrics definitions', feedsInto: 'Project Assessment (Standard), Portfolio Management (Standard)' },
             { name: 'Trend analysis', feedsInto: 'Decision Management (Standard), Risk Management (Comprehensive)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the measurement framework scope, data collection formality, and analysis depth.'
     },
     16: {
         activities: {
@@ -140,7 +147,8 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Audit reports', feedsInto: 'Stakeholder Needs (Standard), Validation (Standard)' },
             { name: 'Non-conformance records', feedsInto: 'Project Assessment (Standard), Risk Management (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the audit frequency, non-conformance tracking formality, and process compliance depth.'
     },
     17: {
         activities: {
@@ -157,7 +165,8 @@ export const PROCESS_DETAILS = {
             { name: 'Problem statement', feedsInto: 'Stakeholder Needs (Basic), Portfolio Management (Standard)' },
             { name: 'Solution alternatives', feedsInto: 'System Requirements Definition (Basic), Architecture Definition (Basic)' },
             { name: 'ConOps', feedsInto: 'Stakeholder Needs (Standard), Validation (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the problem definition formality, stakeholder analysis depth, and opportunity assessment rigor.'
     },
     18: {
         activities: {
@@ -174,7 +183,8 @@ export const PROCESS_DETAILS = {
             { name: 'Stakeholder list', feedsInto: 'Project Planning (Standard), System Requirements (Basic)' },
             { name: 'Needs statements', feedsInto: 'System Requirements (Basic), Validation (Basic)' },
             { name: 'Constraints list', feedsInto: 'Architecture Definition (Standard), System Requirements (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the elicitation methodology, needs documentation formality, and transformation rigor into requirements.'
     },
     19: {
         activities: {
@@ -191,7 +201,8 @@ export const PROCESS_DETAILS = {
             { name: 'Requirements document', feedsInto: 'Architecture Definition (Basic), Verification (Basic)' },
             { name: 'Traceability matrix', feedsInto: 'Verification (Standard), Validation (Standard)' },
             { name: 'Hazard Log', feedsInto: 'Risk Management (Standard), System Analysis (Standard), Validation (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the required traceability depth, formality of baselines, and integration with safety and regulatory arguments.'
     },
     20: {
         activities: {
@@ -208,7 +219,8 @@ export const PROCESS_DETAILS = {
             { name: 'Architecture description', feedsInto: 'Design Definition (Basic), System Requirements Definition (Standard)' },
             { name: 'Interface specifications', feedsInto: 'Integration (Standard), Verification (Standard)' },
             { name: 'RAMS apportionment', feedsInto: 'Design Definition (Standard), Verification (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the breadth of trade studies, formality of architecture documentation, and depth of interface specification.'
     },
     21: {
         activities: {
@@ -225,7 +237,8 @@ export const PROCESS_DETAILS = {
             { name: 'Design documentation', feedsInto: 'Implementation (Basic), Integration (Standard)' },
             { name: 'Technology assessment', feedsInto: 'Risk Management (Standard), Decision Management (Standard)' },
             { name: 'FMEA/FMECA results', feedsInto: 'Risk Management (Standard), System Analysis (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the level of design detail, formality of design reviews, and extent of design verification.'
     },
     22: {
         activities: {
@@ -242,7 +255,8 @@ export const PROCESS_DETAILS = {
             { name: 'Analysis reports', feedsInto: 'Decision Management (Basic), Architecture Definition (Standard)' },
             { name: 'Trade study results', feedsInto: 'Design Definition (Standard), Risk Management (Standard)' },
             { name: 'Safety analysis', feedsInto: 'Risk Management (Standard), Verification (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the analysis breadth, methodology rigor, and trade study documentation formality.'
     },
     23: {
         activities: {
@@ -258,7 +272,8 @@ export const PROCESS_DETAILS = {
         outputs: [
             { name: 'Implemented product', feedsInto: 'Integration (Basic), Verification (Basic)' },
             { name: 'Implementation records', feedsInto: 'Configuration Management (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the implementation standards compliance, coding/production rigor, and unit verification depth.'
     },
     24: {
         activities: {
@@ -275,7 +290,8 @@ export const PROCESS_DETAILS = {
             { name: 'Integrated system', feedsInto: 'Verification (Basic), Transition (Standard)' },
             { name: 'Issue log', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' },
             { name: 'Interface verification records', feedsInto: 'Configuration Management (Standard), Design Definition (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the integration strategy formality, interface verification depth, and incremental integration planning.'
     },
     25: {
         activities: {
@@ -292,7 +308,8 @@ export const PROCESS_DETAILS = {
             { name: 'Verification reports', feedsInto: 'Transition (Standard), Validation (Basic)' },
             { name: 'Defect records', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' },
             { name: 'Verification evidence', feedsInto: 'Validation (Standard), Configuration Management (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the verification method rigor, independence of verification, and traceability to requirements.'
     },
     26: {
         activities: {
@@ -309,7 +326,8 @@ export const PROCESS_DETAILS = {
             { name: 'Deployed system', feedsInto: 'Operation (Basic), Maintenance (Basic)' },
             { name: 'Training materials', feedsInto: 'Operation (Standard), Knowledge Management (Standard)' },
             { name: 'Operational readiness', feedsInto: 'Operation (Standard), Validation (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the transition planning formality, training depth, and operational readiness verification.'
     },
     27: {
         activities: {
@@ -326,7 +344,8 @@ export const PROCESS_DETAILS = {
             { name: 'Validation reports', feedsInto: 'Stakeholder Needs (Standard), System Requirements Definition (Standard)' },
             { name: 'Stakeholder acceptance', feedsInto: 'Transition (Standard), Quality Assurance (Standard)' },
             { name: 'Defect records', feedsInto: 'Risk Management (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the stakeholder involvement depth, scenario coverage, and formality of validation evidence.'
     },
     28: {
         activities: {
@@ -343,7 +362,8 @@ export const PROCESS_DETAILS = {
             { name: 'Operational data', feedsInto: 'Maintenance (Basic), Measurement (Standard)' },
             { name: 'Problem records', feedsInto: 'Quality Assurance (Standard), Knowledge Management (Standard)' },
             { name: 'FRACAS data', feedsInto: 'Design Definition (Standard), System Analysis (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the operational monitoring depth, maintenance planning integration, and performance tracking formality.'
     },
     29: {
         activities: {
@@ -360,7 +380,8 @@ export const PROCESS_DETAILS = {
             { name: 'Maintenance records', feedsInto: 'Operation (Basic), Configuration Management (Standard)' },
             { name: 'Problem trends', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' },
             { name: 'Reliability data', feedsInto: 'System Analysis (Standard), Design Definition (Comprehensive)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the maintenance planning formality, failure analysis depth, and upgrade management rigor.'
     },
     30: {
         activities: {
@@ -377,6 +398,7 @@ export const PROCESS_DETAILS = {
             { name: 'Disposal records', feedsInto: 'Information Management (Standard), Knowledge Management (Standard)' },
             { name: 'Archive', feedsInto: 'Knowledge Management (Basic)' },
             { name: 'Environmental assessment', feedsInto: 'Risk Management (Standard), Quality Assurance (Standard)' }
-        ]
+        ],
+        useInTailoring: 'In tailoring, the main levers are the disposal planning formality, environmental compliance depth, and data retention requirements.'
     }
 };

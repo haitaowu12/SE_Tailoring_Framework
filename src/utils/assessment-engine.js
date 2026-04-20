@@ -414,7 +414,7 @@ export function computePSI(scores) {
     const m12 = scoreOrDefault(scores, 'M12');
     const secondary = Math.max(m11, m12);
 
-    // Secondary can nudge PSI up by 1 if both primary and secondary are high
+    // Secondary modifier: reclassify PSI one category higher if primary ≤ 2 but secondary ≥ 4 (rule-based reclassification, not numeric addition)
     if (primary <= 2 && secondary >= 4) return Math.min(primary + 1, 5);
     return primary;
 }
@@ -434,6 +434,9 @@ export function computeCSI(scores) {
 
 /**
  * Compute Capability/Readiness Index (CRI) from culture metric.
+ * CRI is derived by rule-based mapping from M16 categories
+ * (Resistant/Tolerant/Supportive) into three readiness classes;
+ * no arithmetic aggregation across metrics is performed.
  * Maps M16 to 1-3 scale: 1-2→Resistant(1), 3→Tolerant(2), 4-5→Supportive(3).
  * Returns 1-3 ordinal scale.
  */
