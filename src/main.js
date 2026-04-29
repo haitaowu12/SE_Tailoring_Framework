@@ -5,7 +5,7 @@ import './styles/index.css';
 import './styles/animations.css';
 import { registerRoute, initRouter, navigateTo } from './router.js';
 import { getState, setState, loadAutosave, clearAutosave } from './state.js';
-import { importConfig } from './utils/export-import.js';
+import { importConfig, exportConfig } from './utils/export-import.js';
 import { showToast } from './state.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderAssessment } from './views/assessment.js';
@@ -36,7 +36,7 @@ function buildNavbar() {
     navbar.innerHTML = `
     <div class="nav-brand" onclick="location.hash='dashboard'">
       <div class="brand-icon">SE</div>
-      <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v3.3.0</small></span>
+      <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v3.5.1</small></span>
     </div>
     <div class="nav-links">
       <button class="nav-link" data-route="dashboard">Dashboard</button>
@@ -79,7 +79,6 @@ function buildNavbar() {
         input.onchange = async (e) => {
             try {
                 const config = await importConfig(e.target.files[0]);
-                const { setState } = await import('./state.js');
                 setState({
                     projectInfo: { ...(config.projectInfo || {}) },
                     scores: config.metricScores || {},
@@ -90,6 +89,7 @@ function buildNavbar() {
                     manualAdjustments: config.manualAdjustments || {},
                     tradeoffs: config.tradeoffs || [],
                     matrixMap: config.matrixMap || null,
+                    assessmentTree: config.assessmentTree || getState().assessmentTree,
                     cultureType: config.cultureType || null,
                     notes: config.notes || '',
                     confidence: config.confidence || {},
@@ -106,7 +106,6 @@ function buildNavbar() {
 
     // Export button
     navbar.querySelector('#btn-export').addEventListener('click', async () => {
-        const { exportConfig } = await import('./utils/export-import.js');
         exportConfig(getState());
         showToast('Configuration exported!', 'success');
     });
@@ -170,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 notes: saved.notes || '',
                 assessmentComplete: saved.assessmentComplete || false,
                 confidence: saved.confidence || {},
-                assessmentTree: saved.assessmentTree || state.assessmentTree
+                assessmentTree: saved.assessmentTree || getState().assessmentTree
             });
             overlay.remove();
             showToast('Assessment restored from auto-save!', 'success');

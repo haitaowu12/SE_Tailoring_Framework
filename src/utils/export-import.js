@@ -1,9 +1,6 @@
 /**
  * Export/Import — Configuration management (JSON)
  */
-import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 
 /** Export current state as JSON */
 export function exportConfig(state) {
@@ -20,6 +17,7 @@ export function exportConfig(state) {
         manualAdjustments: state.manualAdjustments || {},
         tradeoffs: state.tradeoffs || [],
         matrixMap: state.matrixMap || null,
+        assessmentTree: state.assessmentTree || null,
         cultureType: state.cultureType || null,
         notes: state.notes || ''
     };
@@ -80,7 +78,7 @@ export function validateConfig(config) {
 
 /** Generate HTML report */
 export function generateReport(state, data) {
-    const { projectInfo = {}, scores = {}, levels = {}, derived = {}, derivationDetails = {}, overrides = [], violations = [] } = state;
+    const { projectInfo = {}, scores = {}, levels = {}, derived = {}, derivationDetails = {}, overrides = [], violations = [], confidence = {} } = state;
     const processMap = {};
     data.CORE_PROCESSES.forEach(p => processMap[p.id] = p);
     const metricMap = {};
@@ -120,7 +118,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
     }
     html += '</table>';
 
-    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metrics</th><th>Conditional Cap</th><th>Weighted Ref</th><th>Level</th></tr>';
+    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metrics</th><th>Corroboration</th><th>Level</th></tr>';
     for (const p of data.CORE_PROCESSES) {
         const d = derived[p.id] || 'basic';
         const f = levels[p.id] || 'basic';
@@ -128,14 +126,13 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
         const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
             ? detail.triggerMetrics.join(', ')
             : '—';
-        const weightedRef = typeof detail.weightedReferenceScore === 'number'
-            ? `${detail.weightedReferenceScore} (${detail.weightedReferenceLevel || '—'})`
-            : '—';
-        const conditionalCap = detail.conditionalRuleApplied
-            ? `${detail.triggerLevel || '—'} → ${detail.level || d}`
-            : 'No';
+        const confidenceLabel = confidence[p.id] === 'corroborated'
+            ? 'Corroborated'
+            : confidence[p.id] === 'available-with-justification'
+                ? 'Available with justification'
+                : 'High';
         const changed = d !== f ? ' ⬆️' : '';
-        html += `<tr><td>${p.id}. ${p.name}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${triggerMetrics}</td><td>${conditionalCap}</td><td>${weightedRef}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
+        html += `<tr><td>${p.id}. ${p.name}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${triggerMetrics}</td><td>${confidenceLabel}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
     }
     html += '</table>';
 
@@ -166,7 +163,8 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 }
 
 /** Export Matrix to Excel */
-export function exportMatrixExcel(state, metrics, processes, defaultMap) {
+export async function exportMatrixExcel(state, metrics, processes, defaultMap) {
+    const XLSX = await import('xlsx');
     const map = state.matrixMap || defaultMap;
     const rows = [];
     const headers = ['Process ID', 'Process Name', ...metrics.map(m => m.id)];
@@ -185,7 +183,9 @@ export function exportMatrixExcel(state, metrics, processes, defaultMap) {
 }
 
 /** Export Matrix to PDF */
-export function exportMatrixPDF(state, metrics, processes, dimensions, defaultMap) {
+export async function exportMatrixPDF(state, metrics, processes, dimensions, defaultMap) {
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF('landscape');
     const map = state.matrixMap || defaultMap;
     doc.text("Process-Metric Applicability Matrix Configuration", 14, 15);

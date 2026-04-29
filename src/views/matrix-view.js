@@ -4,6 +4,7 @@
 import { CORE_PROCESSES, METRICS, DIMENSIONS, METRIC_PROCESS_MAP, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { runFullAssessment } from '../utils/assessment-engine.js';
 import { getState, setState } from '../state.js';
+import { exportMatrixExcel, exportMatrixPDF } from '../utils/export-import.js';
 
 export function renderMatrixView(container) {
   const state = getState();
@@ -154,14 +155,11 @@ export function renderMatrixView(container) {
     }
   });
 
-  // Export handlers will be imported dynamically
   container.querySelector('#btn-export-matrix-excel').addEventListener('click', async () => {
-    const { exportMatrixExcel } = await import('../utils/export-import.js');
-    exportMatrixExcel(getState(), METRICS, CORE_PROCESSES, METRIC_PROCESS_MAP);
+    await exportMatrixExcel(getState(), METRICS, CORE_PROCESSES, METRIC_PROCESS_MAP);
   });
 
   container.querySelector('#btn-export-matrix-pdf').addEventListener('click', async () => {
-    const { exportMatrixPDF } = await import('../utils/export-import.js');
-    exportMatrixPDF(getState(), METRICS, CORE_PROCESSES, DIMENSIONS, METRIC_PROCESS_MAP);
+    await exportMatrixPDF(getState(), METRICS, CORE_PROCESSES, DIMENSIONS, METRIC_PROCESS_MAP);
   });
 }
