@@ -6,9 +6,11 @@ import { PROCESS_DETAILS } from '../data/process-details.js';
 import { getState, setState } from '../state.js';
 
 let activeProcess = null;
-let activeLevel = 'basic';
+let activeLevel = null;
 let filterGroup = 'all';
 let searchQuery = '';
+
+const LEVEL_KEYS = ['basic', 'standard', 'comprehensive'];
 
 const MINI_CARDS = {
   'risk-management': {
@@ -616,7 +618,12 @@ export function renderProcessExplorer(container) {
   // If navigated here from Elements tab with a specific process target
   if (state.activeProcessExplorerId) {
     activeProcess = parseInt(state.activeProcessExplorerId, 10) || null;
+    activeLevel = activeProcess ? getCurrentProcessLevel(state, activeProcess) : null;
     setState({ activeProcessExplorerId: null });
+  }
+
+  if (activeProcess && (!activeLevel || !LEVEL_KEYS.includes(activeLevel))) {
+    activeLevel = getCurrentProcessLevel(state, activeProcess);
   }
 
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
@@ -674,11 +681,16 @@ export function renderProcessExplorer(container) {
       .empty-state { display: flex; align-items: center; justify-content: center; min-height: 400px; }
       .detail-section { margin-bottom: var(--space-xl); }
       .detail-section h4 { margin-bottom: var(--space-md); color: var(--accent-primary-light); }
-      .level-tabs { display: flex; gap: 8px; margin-bottom: var(--space-lg); }
+      .process-detail-header { align-items: flex-start; gap: var(--space-lg); }
+      .process-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      .process-meta-pill { border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 9px; font-size: 11px; color: var(--text-secondary); }
+      .level-selector-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; padding: 12px 0 18px; margin-bottom: var(--space-xl); border-bottom: 1px solid var(--border-subtle); }
+      .level-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
       .level-tab { padding: 6px 16px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 600; cursor: pointer; border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary); transition: all var(--transition-fast); }
       .level-tab.active-basic { background: var(--level-basic-bg); color: var(--level-basic); border-color: var(--level-basic-border); }
       .level-tab.active-standard { background: var(--level-standard-bg); color: var(--level-standard); border-color: var(--level-standard-border); }
       .level-tab.active-comprehensive { background: var(--level-comprehensive-bg); color: var(--level-comprehensive); border-color: var(--level-comprehensive-border); }
+      .detail-empty-line { color: var(--text-tertiary); font-size: var(--font-size-sm); padding: 8px 0; }
       .activity-item { padding: 6px 0; font-size: var(--font-size-xs); color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); }
       .activity-item.essential { color: var(--text-primary); font-weight: 500; }
       .deliverable-item { padding: 6px 0; font-size: var(--font-size-xs); color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); display: flex; gap: 6px; align-items: flex-start; }
@@ -688,6 +700,17 @@ export function renderProcessExplorer(container) {
       .metric-tag.S { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
       .mini-card { background: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: var(--space-lg); margin-bottom: var(--space-xl); }
       .mini-card-item { padding: 4px 0; font-size: var(--font-size-xs); }
+      .implementation-aids { border-top: 1px solid var(--border-subtle); padding-top: var(--space-xl); }
+      .aid-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-md); }
+      .aid-panel { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-md); background: rgba(255,255,255,0.025); }
+      .aid-panel.basic { border-color: rgba(59,130,246,0.25); background: rgba(59,130,246,0.055); }
+      .aid-panel.culture { border-color: rgba(139,92,246,0.24); background: rgba(139,92,246,0.05); }
+      .aid-panel h5 { margin-bottom: 10px; color: var(--text-primary); font-size: var(--font-size-sm); }
+      .aid-checklist { display: grid; gap: 6px; font-size: var(--font-size-xs); color: var(--text-secondary); }
+      .culture-tactic { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); }
+      .culture-tactic:first-of-type { border-top: 0; padding-top: 0; }
+      .culture-tactic ul { margin: 6px 0 0 18px; color: var(--text-secondary); font-size: var(--font-size-xs); }
+      .culture-tactic li { margin: 3px 0; }
       @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
     `;
     document.head.appendChild(style);
@@ -704,7 +727,7 @@ export function renderProcessExplorer(container) {
   container.querySelectorAll('.process-list-card').forEach(card => {
     card.addEventListener('click', () => {
       activeProcess = parseInt(card.dataset.pid, 10);
-      activeLevel = 'basic';
+      activeLevel = getCurrentProcessLevel(getState(), activeProcess);
       renderProcessExplorer(container);
     });
     // Keyboard accessibility: Enter/Space to select
@@ -712,7 +735,7 @@ export function renderProcessExplorer(container) {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         activeProcess = parseInt(card.dataset.pid, 10);
-        activeLevel = 'basic';
+        activeLevel = getCurrentProcessLevel(getState(), activeProcess);
         renderProcessExplorer(container);
       }
     });
@@ -743,69 +766,52 @@ function renderProcessDetail(processId, state) {
   const details = PROCESS_DETAILS[processId];
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const map = matrixMap[processId] || {};
-  const level = state.levels[processId];
+  const level = getCurrentProcessLevel(state, processId);
   const miniCard = MINI_CARDS[p.slug];
   const basicChecklist = MINIMAL_BASIC_CHECKLISTS[processId];
   const cultureTactics = CULTURE_TACTICS[processId];
+  const viewLevel = activeLevel || level || 'basic';
 
-  const activities = details?.activities?.[activeLevel] || [];
-  const deliverables = details?.deliverables?.[activeLevel] || [];
+  const activities = details?.activities?.[viewLevel] || [];
+  const deliverables = details?.deliverables?.[viewLevel] || [];
   const outputs = details?.outputs || [];
 
   return `
     <div class="card animate-fade-in">
-      <div class="flex justify-between items-center mb-lg">
+      <div class="flex justify-between process-detail-header mb-lg">
         <div>
           <h3>${p.name}</h3>
           <p class="text-sm text-secondary mt-sm">${p.purpose}</p>
+          <div class="process-meta-row">
+            <span class="process-meta-pill">P${p.id}</span>
+            <span class="process-meta-pill">${PROCESS_GROUPS[p.group.toUpperCase()]?.name || p.group}</span>
+            <span class="process-meta-pill">${activities.length} activities · ${deliverables.length} deliverables at ${FRAMEWORK_META.levelLabels[viewLevel]}</span>
+          </div>
         </div>
-        ${level ? `<span class="level-badge ${level}">${FRAMEWORK_META.levelLabels[level]}</span>` : ''}
+        ${level ? `<span class="level-badge ${level}" title="Current tailoring level">${FRAMEWORK_META.levelLabels[level]}</span>` : ''}
       </div>
 
-      ${miniCard ? renderMiniCard(miniCard, level) : ''}
-
-      ${basicChecklist ? `
-      <div class="detail-section" style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-        <h4 style="color: var(--level-basic); margin-bottom: 12px;">📋 ${basicChecklist.title}</h4>
-        <div style="font-size: 13px;">
-          ${basicChecklist.items.map(item => `<div style="padding: 4px 0; color: var(--text-secondary);">${item}</div>`).join('')}
+      <div class="level-selector-bar">
+        <div>
+          <div class="text-xs text-secondary">Viewing process content at</div>
+          <div class="text-sm">Defaults to the current tailoring assignment. Switch levels for comparison.</div>
         </div>
-      </div>` : ''}
-
-      ${cultureTactics ? `
-      <div class="detail-section" style="background: rgba(139,92,246,0.06); border: 1px solid rgba(139,92,246,0.2); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-        <h4 style="color: #a78bfa; margin-bottom: 12px;">🎯 ${cultureTactics.title}</h4>
-        <div style="display: grid; gap: 12px;">
-          ${cultureTactics.cultures.map(c => `
-            <div style="background: var(--bg-card); border-radius: 8px; padding: 12px;">
-              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="font-size: 16px;">${c.icon}</span>
-                <span style="font-weight: 600; font-size: 13px;">${c.type}</span>
-                <span style="font-size: 11px; color: var(--text-tertiary);">— ${c.description}</span>
-              </div>
-              <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: var(--text-secondary);">
-                ${c.tactics.map(t => `<li style="margin: 3px 0;">${t}</li>`).join('')}
-              </ul>
-            </div>
+        <div class="level-tabs" role="tablist" aria-label="Tailoring level detail selector">
+          ${LEVEL_KEYS.map(l => `
+            <button class="level-tab ${viewLevel === l ? 'active-' + l : ''}" data-level="${l}" role="tab" aria-selected="${viewLevel === l}" aria-label="View ${FRAMEWORK_META.levelLabels[l]} level content">${FRAMEWORK_META.levelLabels[l]}</button>
           `).join('')}
         </div>
-      </div>` : ''}
+      </div>
 
       ${p.definition ? `
       <div class="detail-section">
-        <h4>Definition at ${FRAMEWORK_META.levelLabels[activeLevel]}</h4>
-        <p class="text-sm text-secondary">${p.definition[activeLevel] || '—'}</p>
+        <h4>Definition at ${FRAMEWORK_META.levelLabels[viewLevel]}</h4>
+        <p class="text-sm text-secondary">${p.definition[viewLevel] || '—'}</p>
       </div>` : ''}
-
-      <div class="level-tabs" role="tablist">
-        ${['basic', 'standard', 'comprehensive'].map(l => `
-          <button class="level-tab ${activeLevel === l ? 'active-' + l : ''}" data-level="${l}" role="tab" aria-selected="${activeLevel === l}" aria-label="View ${FRAMEWORK_META.levelLabels[l]} level activities">${FRAMEWORK_META.levelLabels[l]}</button>
-        `).join('')}
-      </div>
 
       <div class="detail-section">
         <h4>Activities (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(⭐ = Essential core activity)</span></h4>
-        ${activities.map(a => {
+        ${activities.length ? activities.map(a => {
     let isEssential = a.startsWith('(*)');
     let text = isEssential ? a.slice(4) : a;
     let disabled = false; let reason = '';
@@ -817,12 +823,12 @@ function renderProcessDetail(processId, state) {
             ${isEssential ? '⭐ ' : '• '} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${text}</span>
             ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
           </div>`;
-  }).join('')}
+  }).join('') : '<div class="detail-empty-line">No activity detail is defined for this process level yet.</div>'}
       </div>
 
       <div class="detail-section">
         <h4>Deliverables (${deliverables.length})</h4>
-        ${deliverables.map(d => {
+        ${deliverables.length ? deliverables.map(d => {
     let text = d;
     let disabled = false; let reason = '';
     const m5Score = state.scores?.M5 || 3;
@@ -833,13 +839,21 @@ function renderProcessDetail(processId, state) {
             📄 <span style="${disabled ? 'text-decoration: line-through;' : ''}">${text}</span>
             ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
           </div>`;
-  }).join('')}
+  }).join('') : '<div class="detail-empty-line">No deliverable detail is defined for this process level yet.</div>'}
       </div>
 
       <div class="detail-section">
         <h4>Outputs & Feeds Into</h4>
-        ${outputs.map(o => `<div class="output-item"><strong>${o.name}</strong> → ${o.feedsInto}</div>`).join('')}
+        ${outputs.length ? outputs.map(o => `<div class="output-item"><strong>${o.name}</strong> → ${o.feedsInto}</div>`).join('') : '<div class="detail-empty-line">No output flow detail is defined for this process yet.</div>'}
       </div>
+
+      ${miniCard ? `
+      <div class="detail-section">
+        <h4>Tailoring Dependencies</h4>
+        ${renderMiniCard(miniCard, level)}
+      </div>` : ''}
+
+      ${renderImplementationAids(basicChecklist, cultureTactics)}
 
       <div class="detail-section">
         <h4>Metric Applicability</h4>
@@ -857,6 +871,47 @@ function renderProcessDetail(processId, state) {
         <p class="text-sm text-secondary">${p.whenToElevate}</p>
       </div>` : ''}
     </div>
+  `;
+}
+
+function getCurrentProcessLevel(state, processId) {
+  const activeNodeId = state.assessmentTree?.activeId;
+  const activeNodeLevel = activeNodeId ? state.assessmentTree?.nodes?.[activeNodeId]?.levels?.[processId] : null;
+  return activeNodeLevel || state.levels?.[processId] || 'basic';
+}
+
+function renderImplementationAids(basicChecklist, cultureTactics) {
+  if (!basicChecklist && !cultureTactics) return '';
+
+  return `
+      <div class="detail-section implementation-aids">
+        <h4>Implementation Aids</h4>
+        <div class="aid-grid">
+          ${basicChecklist ? `
+          <div class="aid-panel basic">
+            <h5>${basicChecklist.title}</h5>
+            <div class="aid-checklist">
+              ${basicChecklist.items.map(item => `<div>${item}</div>`).join('')}
+            </div>
+          </div>` : ''}
+          ${cultureTactics ? `
+          <div class="aid-panel culture">
+            <h5>${cultureTactics.title}</h5>
+            ${cultureTactics.cultures.map(c => `
+              <div class="culture-tactic">
+                <div class="flex items-center gap-sm">
+                  <span>${c.icon}</span>
+                  <span class="font-bold text-sm">${c.type}</span>
+                  <span class="text-xs text-secondary">${c.description}</span>
+                </div>
+                <ul>
+                  ${c.tactics.map(t => `<li>${t}</li>`).join('')}
+                </ul>
+              </div>
+            `).join('')}
+          </div>` : ''}
+        </div>
+      </div>
   `;
 }
 
