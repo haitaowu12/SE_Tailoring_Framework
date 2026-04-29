@@ -421,7 +421,7 @@ function renderResults(content) {
   └──▶ Assess 16 metrics (1-5 scale), document rationale
 
   Step 2: Derive Process Levels (§3.4)
-  └──▶ For each process: identify metrics → map to tiers → conditional derivation
+  └──▶ For each process: identify metrics → map to tiers → corroboration check
        (Comprehensive requires corroboration; single high trigger may cap at Standard)
 
   Step 3: Check Overrides (§3.4.4)
@@ -537,9 +537,12 @@ function renderResults(content) {
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
       : '—';
-    const weightedRef = typeof detail.weightedReferenceScore === 'number'
-      ? `${detail.weightedReferenceScore} (${detail.weightedReferenceLevel || '—'})`
-      : '—';
+    const confidence = result.confidence?.[p.id] || detail.confidence || 'high';
+    const confidenceLabel = confidence === 'corroborated'
+      ? 'Corroborated'
+      : confidence === 'available-with-justification'
+        ? 'Available with justification'
+        : 'High';
     return `
           <div class="result-card" style="border-left: 3px solid var(--level-${level})">
             <div class="result-card-header">
@@ -549,9 +552,9 @@ function renderResults(content) {
             ${basicExcluded.excluded ? `<div class="text-xs" style="color:var(--accent-danger)">🚫 B excluded (${basicExcluded.reason})</div>` : ''}
             ${wasOverridden ? '<div class="text-xs" style="color:var(--accent-warning)">⚠ Override applied</div>' : ''}
             ${wasFixed ? '<div class="text-xs" style="color:var(--accent-success)">✓ Consistency fix</div>' : ''}
-            ${detail.conditionalRuleApplied ? `<div class="text-xs" style="color:var(--accent-warning)">⚠ Conditional cap applied (trigger ${detail.triggerLevel} → derived ${detail.level})</div>` : ''}
+            ${confidence === 'available-with-justification' ? `<div class="text-xs" style="color:var(--accent-warning)">⚠ Comprehensive available with explicit justification</div>` : ''}
             <div class="text-xs text-secondary mt-sm">Trigger metric(s): <strong>${triggerMetrics}</strong>${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</div>
-            <div class="text-xs text-secondary">Weighted reference (advisory): <strong>${weightedRef}</strong></div>
+            <div class="text-xs text-secondary">Confidence: <strong>${confidenceLabel}</strong></div>
             <div class="drivers-list mt-sm">
               ${drivers.slice(0, 3).map(d => `
                 <div class="driver-item">

@@ -325,7 +325,7 @@ export function renderReport(container) {
       <h4 class="mb-md">Process Levels & Drivers</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Confidence</th><th>Trigger Metric(s)</th><th>Conditional Cap</th><th>Weighted Ref (Advisory)</th><th>Top Drivers</th></tr></thead>
+          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Confidence</th><th>Trigger Metric(s)</th><th>Top Drivers</th></tr></thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
     const derived = state.derived[p.id] || 'basic';
@@ -336,9 +336,6 @@ export function renderReport(container) {
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
       : '—';
-    const weightedRef = typeof detail.weightedReferenceScore === 'number'
-      ? `${detail.weightedReferenceScore} (${detail.weightedReferenceLevel || '—'})`
-      : '—';
     const drivers = getDriverAttribution(p.id, state.scores, state.matrixMap);
     const changed = derived !== final_;
     return `<tr>
@@ -347,8 +344,6 @@ export function renderReport(container) {
                 <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
                 <td class="text-xs">${confLabel}</td>
                 <td class="text-xs">${triggerMetrics}${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</td>
-                <td class="text-xs text-secondary">${detail.conditionalRuleApplied ? `${detail.triggerLevel} → ${detail.level}` : 'No'}</td>
-                <td class="text-xs text-secondary">${weightedRef}</td>
                 <td class="text-xs text-secondary">${drivers.slice(0, 3).map(d => `${d.metric}=${d.value}(${d.role})`).join(', ')}</td>
               </tr>`;
   }).join('')}

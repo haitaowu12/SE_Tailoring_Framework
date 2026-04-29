@@ -1,18 +1,18 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _VERSION: 4.0 | _LAST_UPDATED: 2026-02-28
+ * _VERSION: 3.5.1 | _LAST_UPDATED: 2026-04-29
  * _SOURCE: 01-PAPER/03-Methodology.md, 02-PRACTICAL/Assessment-Worksheet.md
  * _SYNC_CONTRACT:
- *   - Canonical algorithm: 01-PAPER/03-Methodology.md §3.4 (v4.0 Simplified)
- *   - Canonical process/metric map: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
+ *   - Canonical algorithm: 01-PAPER/03-Methodology.md §3.4
+ *   - Canonical process/metric map: 01-PAPER/03-Methodology.md §3.3
  *   - Canonical overrides: 01-PAPER/06-Interdependencies.md §6.4
  * 
- * V4.0 CHANGES:
+ * CURRENT LOGIC:
  *   - Removed weighted score calculations (no P=2/S=1 weighting)
- *   - Replaced conditional derivation with "highest tier wins" algorithm
- *   - Simplified override conditions (process-specific, not blanket exclusions)
- *   - Added SA floor conditions as explicit overrides
- *   - Enhanced guided questions with clear decision trees
+ *   - Uses max-tier derivation with Comprehensive corroboration
+ *   - Excludes M9/M10 from direct process-level inflation; uses them in CSI
+ *   - Uses process-specific override floors from Chapter 6
+ *   - Supports right-sizing through PSI/CSI/CRI governance
  */
 
 export const DIMENSIONS = [
@@ -417,7 +417,7 @@ export const METRICS = [
     {
         id: 'M16', name: 'Organizational Culture', dimension: 'stakeholder',
         anchors: { 1: 'Resistant (SE = overhead)', 3: 'Tolerant (show value)', 5: 'Supportive (actively invests)' },
-        note: 'Primarily shapes adoption strategy; contributes weakly to derived levels per v4.0.',
+        note: 'Primarily shapes adoption strategy; contributes weakly to derived levels.',
         guidedQuestions: [
             {
                 text: "Does the EXECUTIVE TEAM MANDATE and ACTIVELY INVEST HEAVILY in rigorous SE practices across the organization with dedicated funding and headcount?",
@@ -446,74 +446,75 @@ export const METRICS = [
 // Process-Metric Applicability Matrix: P = Primary, S = Secondary
 // Key: processId -> { metricId: 'P' | 'S' }
 // 
-// V4.0 NOTE: P/S designations are for REFERENCE and DOCUMENTATION ONLY.
-// The algorithm treats ALL applicable metrics (P+S) equally using "highest tier wins".
-// There is NO weighted scoring (no P=2, S=1 weighting) in v4.0.
+// P/S designations are retained for traceability and corroboration logic.
+// The trigger tier uses all applicable metrics (P+S); a Comprehensive result
+// still requires corroboration before it becomes the default recommendation.
 // Source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
 // V4.1 NOTE: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
 // from process-level driving. High constraint scores mean "less budget/time available"
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
 // Index) which governs right-sizing caps and priority-based reduction instead.
 export const METRIC_PROCESS_MAP = {
-    9: { M1: 'P', M4: 'P', M12: 'S', M13: 'S' },
+    9: { M1: 'P', M4: 'P', M12: 'P', M13: 'S' },
     10: { M1: 'P', M4: 'P', M13: 'S', M15: 'S' },
     11: { M1: 'P', M3: 'P', M6: 'P', M13: 'P', M15: 'P', M8: 'S', M12: 'S' },
     12: { M5: 'P', M6: 'P', M8: 'P', M1: 'S', M2: 'S' },
-    13: { M2: 'P', M8: 'P', M12: 'S', M14: 'S' },
-    14: { M8: 'P', M12: 'P', M13: 'S', M15: 'S' },
+    13: { M2: 'P', M4: 'P', M8: 'P', M1: 'S', M14: 'S' },
+    14: { M8: 'P', M12: 'P', M2: 'S', M13: 'S' },
     15: { M6: 'P', M8: 'P', M14: 'S' },
-    16: { M5: 'P', M8: 'P', M11: 'S', M13: 'S', M15: 'S' },
-    17: { M6: 'P', M13: 'P', M8: 'S', M15: 'S' },
-    18: { M13: 'P', M14: 'P', M15: 'S' },
-    19: { M1: 'P', M2: 'P', M5: 'S', M8: 'S', M14: 'S' },
-    20: { M1: 'P', M2: 'P', M3: 'P', M6: 'S', M5: 'S', M11: 'S' },
-    21: { M1: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
+    16: { M5: 'P', M8: 'P', M6: 'P', M11: 'S', M3: 'S' },
+    17: { M6: 'P', M13: 'P', M15: 'P', M3: 'S', M8: 'S' },
+    18: { M13: 'P', M14: 'P', M15: 'P', M5: 'S', M6: 'S' },
+    19: { M1: 'P', M2: 'P', M5: 'P', M14: 'S', M3: 'S', M8: 'S' },
+    20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M5: 'S', M6: 'S', M11: 'S' },
+    21: { M1: 'P', M2: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
     22: { M1: 'P', M3: 'P', M6: 'S', M2: 'S', M4: 'S', M5: 'S' },
-    23: { M1: 'P', M4: 'P', M11: 'P', M3: 'S' },
-    24: { M2: 'P', M4: 'P', M12: 'P', M5: 'S', M11: 'S' },
-    25: { M2: 'P', M4: 'P', M5: 'P', M8: 'S' },
-    26: { M6: 'P', M12: 'P', M4: 'S', M13: 'S', M15: 'S', M16: 'S' },
+    23: { M1: 'P', M4: 'P', M11: 'P', M2: 'S' },
+    24: { M2: 'P', M4: 'P', M12: 'P', M1: 'S', M5: 'S', M11: 'S' },
+    25: { M2: 'P', M4: 'P', M5: 'P', M1: 'S', M8: 'S' },
+    26: { M6: 'P', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
     27: { M5: 'P', M6: 'P', M13: 'P', M8: 'S', M14: 'S', M15: 'S' },
     28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
-    29: { M5: 'P', M7: 'P', M4: 'S', M11: 'S' },
-    30: { M7: 'P', M8: 'P', M15: 'S', M16: 'S' }
+    29: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M4: 'S' },
+    30: { M7: 'P', M8: 'P', M6: 'S', M15: 'S', M16: 'S' }
 };
 
-// Level thresholds per process (v4.0 Simplified - "Highest Tier Wins")
+// Level thresholds per process.
 // Algorithm: Trigger Tier = MAX(Tier(M₁), Tier(M₂), ...) where Tier(score): 1-2→Basic, 3-4→Standard, 5→Comprehensive
-// These thresholds are provided for REFERENCE ONLY. The actual derivation uses the simple highest-tier-wins rule.
+// These thresholds are provided for REFERENCE ONLY. The actual derivation also applies
+// Comprehensive corroboration, override floors, right-sizing, and consistency rules.
 // V4.1: M9/M10 removed from all thresholds — they are constraint metrics that feed CSI only
 export const LEVEL_THRESHOLDS = {
-    9: { standard: 'M1≥3 or M4≥3', comprehensive: 'M1≥4 or M4≥4', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M12', 'M13'] },
-    10: { standard: 'M1≥3 or M4≥3', comprehensive: 'M1≥4 or M4≥4', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M13', 'M15'] },
-    11: { standard: 'M1≥3 or M6≥3 or M13≥3 or M15≥3', comprehensive: 'M1≥4 or M6≥4 or M13≥4 or M15≥4', primaryMetrics: ['M1', 'M3', 'M6', 'M13', 'M15'], secondaryMetrics: ['M8', 'M12'] },
-    12: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6', 'M8'], secondaryMetrics: ['M1', 'M2'] },
-    13: { standard: 'M2≥3 or M8≥3', comprehensive: 'M2≥4 or M8≥4', primaryMetrics: ['M2', 'M8'], secondaryMetrics: ['M12', 'M14'] },
-    14: { standard: 'M8≥3 or M12≥3', comprehensive: 'M8≥4 or M12≥4', primaryMetrics: ['M8', 'M12'], secondaryMetrics: ['M13', 'M15'] },
-    15: { standard: 'M6≥3 or M8≥3', comprehensive: 'M6≥4 or M8≥4', primaryMetrics: ['M6', 'M8'], secondaryMetrics: ['M14'] },
-    16: { standard: 'M5≥3 or M8≥3', comprehensive: 'M5≥4 or M8≥4', primaryMetrics: ['M5', 'M8'], secondaryMetrics: ['M11', 'M13', 'M15'] },
-    17: { standard: 'M6≥3 or M13≥3', comprehensive: 'M6≥4 or M13≥4', primaryMetrics: ['M6', 'M13'], secondaryMetrics: ['M8', 'M15'] },
-    18: { standard: 'M13≥3 or M14≥3', comprehensive: 'M13≥4 or M14≥4', primaryMetrics: ['M13', 'M14'], secondaryMetrics: ['M15'] },
-    19: { standard: 'M5≥3 or M2≥3', comprehensive: 'M5≥4 or M2≥4', primaryMetrics: ['M5', 'M2'], secondaryMetrics: ['M8', 'M14'] },
-    20: { standard: 'M1≥3 or M6≥3', comprehensive: 'M1≥4 or M6≥4', primaryMetrics: ['M1', 'M6'], secondaryMetrics: ['M2', 'M3', 'M5', 'M11'] },
-    21: { standard: 'M1≥3 or M3≥3', comprehensive: 'M1≥4 or M3≥4', primaryMetrics: ['M1', 'M3'], secondaryMetrics: ['M5', 'M8', 'M11'] },
-    22: { standard: 'M1≥3 or M6≥3', comprehensive: 'M1≥4 or M6≥4', primaryMetrics: ['M1', 'M6'], secondaryMetrics: ['M2', 'M3', 'M4', 'M5'] },
-    23: { standard: 'M1≥3 or M4≥3', comprehensive: 'M1≥4 or M4≥4', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M3', 'M11'] },
-    24: { standard: 'M2≥3 or M4≥3', comprehensive: 'M2≥4 or M4≥4', primaryMetrics: ['M2', 'M4'], secondaryMetrics: ['M5', 'M11', 'M12'] },
-    25: { standard: 'M5≥3 or M2≥3', comprehensive: 'M5≥4 or M2≥4', primaryMetrics: ['M5', 'M2'], secondaryMetrics: ['M8'] },
-    26: { standard: 'M6≥3 or M12≥3', comprehensive: 'M6≥4 or M12≥4', primaryMetrics: ['M6', 'M12'], secondaryMetrics: ['M4', 'M13', 'M15', 'M16'] },
-    27: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6'], secondaryMetrics: ['M8', 'M13', 'M14', 'M15'] },
-    28: { standard: 'M5≥3 or M6≥3', comprehensive: 'M5≥4 or M6≥4', primaryMetrics: ['M5', 'M6', 'M7'], secondaryMetrics: ['M11', 'M12', 'M16'] },
-    29: { standard: 'M5≥3 or M7≥3', comprehensive: 'M5≥4 or M7≥4', primaryMetrics: ['M5', 'M7'], secondaryMetrics: ['M4', 'M11'] },
-    30: { standard: 'M7≥3 or M8≥3', comprehensive: 'M7≥4 or M8≥4', primaryMetrics: ['M7', 'M8'], secondaryMetrics: ['M15', 'M16'] }
+    9: { standard: 'M1≥3 or M4≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4', 'M12'], secondaryMetrics: ['M13'] },
+    10: { standard: 'M1≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M13', 'M15'] },
+    11: { standard: 'M1≥3 or M3≥3 or M6≥3 or M13≥3 or M15≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M3', 'M6', 'M13', 'M15'], secondaryMetrics: ['M8', 'M12'] },
+    12: { standard: 'M5≥3 or M6≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M8'], secondaryMetrics: ['M1', 'M2'] },
+    13: { standard: 'M2≥3 or M4≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M2', 'M4', 'M8'], secondaryMetrics: ['M1', 'M14'] },
+    14: { standard: 'M8≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M8', 'M12'], secondaryMetrics: ['M2', 'M13'] },
+    15: { standard: 'M6≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M8'], secondaryMetrics: ['M14'] },
+    16: { standard: 'M5≥3 or M8≥3 or M6≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M8', 'M6'], secondaryMetrics: ['M11', 'M3'] },
+    17: { standard: 'M6≥3 or M13≥3 or M15≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M13', 'M15'], secondaryMetrics: ['M3', 'M8'] },
+    18: { standard: 'M13≥3 or M14≥3 or M15≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M13', 'M14', 'M15'], secondaryMetrics: ['M5', 'M6'] },
+    19: { standard: 'M1≥3 or M2≥3 or M5≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M2', 'M5'], secondaryMetrics: ['M14', 'M3', 'M8'] },
+    20: { standard: 'M1≥3 or M2≥3 or M3≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M2', 'M3', 'M4'], secondaryMetrics: ['M5', 'M6', 'M11'] },
+    21: { standard: 'M1≥3 or M2≥3 or M3≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M2', 'M3'], secondaryMetrics: ['M5', 'M8', 'M11'] },
+    22: { standard: 'M1≥3 or M3≥3 or M6≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M3', 'M6'], secondaryMetrics: ['M2', 'M4', 'M5'] },
+    23: { standard: 'M1≥3 or M4≥3 or M11≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4', 'M11'], secondaryMetrics: ['M2'] },
+    24: { standard: 'M2≥3 or M4≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M2', 'M4', 'M12'], secondaryMetrics: ['M1', 'M5', 'M11'] },
+    25: { standard: 'M5≥3 or M2≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M2', 'M4'], secondaryMetrics: ['M1', 'M8'] },
+    26: { standard: 'M6≥3 or M12≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M12', 'M13'], secondaryMetrics: ['M15', 'M16'] },
+    27: { standard: 'M5≥3 or M6≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M13'], secondaryMetrics: ['M8', 'M14', 'M15'] },
+    28: { standard: 'M6≥3 or M5≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M5', 'M7'], secondaryMetrics: ['M11', 'M12', 'M16'] },
+    29: { standard: 'M5≥3 or M6≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M7'], secondaryMetrics: ['M11', 'M4'] },
+    30: { standard: 'M7≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M7', 'M8'], secondaryMetrics: ['M6', 'M15', 'M16'] }
 };
 
 /**
- * Override Conditions (v4.0 - Process-Specific)
+ * Override Conditions (Process-Specific)
  * _SOURCE: 01-PAPER/06-Interdependencies.md §6.4, 02-PRACTICAL/Assessment-Worksheet.md
  * _SYNC_CONTRACT: Authoritative override baseline (10 conditions including SA floors).
  * 
- * V4.0 CHANGES:
+ * CURRENT LOGIC:
  *   - Removed blanket exclusions (no longer "Basic excluded for X processes")
  *   - Made overrides process-specific with explicit minimum levels
  *   - Added SA floor conditions as explicit overrides (M5-derived)
@@ -536,7 +537,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: System Requirements Definition',
         description: 'M5=5 (fatality potential) requires comprehensive requirements rigor with formal hazard analysis integration',
         processes: [19],
-        minLevel: 'standard',
+        minLevel: 'comprehensive',
         source: 'EN 50126/50129; IEC 61508; 01-PAPER/03-Methodology.md §3.4.4'
     },
     {
@@ -546,7 +547,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: System Architecture Definition',
         description: 'M5=5 requires comprehensive architecture with SIL allocation and safety integrity verification',
         processes: [20],
-        minLevel: 'standard',
+        minLevel: 'comprehensive',
         source: 'EN 50129; IEC 61508-2'
     },
     {
@@ -556,7 +557,7 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: Verification',
         description: 'M5=5 requires comprehensive verification with independent safety testing and evidence',
         processes: [25],
-        minLevel: 'standard',
+        minLevel: 'comprehensive',
         source: 'IEC 61508-3; DO-178C'
     },
     {
@@ -566,8 +567,28 @@ export const OVERRIDE_CONDITIONS = [
         label: 'Life-Safety: Validation',
         description: 'M5=5 requires comprehensive validation with safety acceptance and operational hazard assessment',
         processes: [27],
-        minLevel: 'standard',
+        minLevel: 'comprehensive',
         source: 'EN 50126; IEC 61508-7'
+    },
+    {
+        id: 'life_safety_risk',
+        condition: 'M5 = 5 → Process 12 ≥ Comprehensive',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 5 },
+        label: 'Life-Safety: Risk Management',
+        description: 'M5=5 requires comprehensive hazard identification, treatment, and safety evidence control',
+        processes: [12],
+        minLevel: 'comprehensive',
+        source: 'EN 50126; IEC 61508'
+    },
+    {
+        id: 'life_safety_qa',
+        condition: 'M5 = 5 → Process 16 ≥ Comprehensive',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 5 },
+        label: 'Life-Safety: Quality Assurance',
+        description: 'M5=5 requires comprehensive independent assurance and safety audit evidence',
+        processes: [16],
+        minLevel: 'comprehensive',
+        source: 'EN 50126/50129; IEC 61508'
     },
     {
         id: 'safety_critical_risk',
@@ -588,6 +609,46 @@ export const OVERRIDE_CONDITIONS = [
         processes: [16],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.12'
+    },
+    {
+        id: 'safety_critical_requirements',
+        condition: 'M5 = 4 → Process 19 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 4 },
+        label: 'Safety-Critical: System Requirements Definition',
+        description: 'M5=4 requires explicit, traceable safety requirements and acceptance bases',
+        processes: [19],
+        minLevel: 'standard',
+        source: 'EN 50126/50129; IEC 61508'
+    },
+    {
+        id: 'safety_critical_architecture',
+        condition: 'M5 = 4 → Process 20 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 4 },
+        label: 'Safety-Critical: System Architecture Definition',
+        description: 'M5=4 requires architectural representation of safety constraints and mitigations',
+        processes: [20],
+        minLevel: 'standard',
+        source: 'EN 50129; IEC 61508'
+    },
+    {
+        id: 'safety_critical_verification',
+        condition: 'M5 = 4 → Process 25 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 4 },
+        label: 'Safety-Critical: Verification',
+        description: 'M5=4 requires structured verification evidence for safety-related requirements',
+        processes: [25],
+        minLevel: 'standard',
+        source: 'EN 50126/50129; IEC 61508'
+    },
+    {
+        id: 'safety_critical_validation',
+        condition: 'M5 = 4 → Process 27 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M5', op: '=', value: 4 },
+        label: 'Safety-Critical: Validation',
+        description: 'M5=4 requires structured operational validation of safety-related stakeholder needs',
+        processes: [27],
+        minLevel: 'standard',
+        source: 'EN 50126/50129; IEC 61508'
     },
     // =====================================================================
     // MISSION & SECURITY CRITICAL OVERRIDES (M6-based)
@@ -764,11 +825,11 @@ export const OVERRIDE_CONDITIONS = [
 ];
 
 /**
- * External Standard Mapping (v4.0)
+ * External Standard Mapping
  * Maps external safety/security standards to metric thresholds.
  * 
- * V4.0 NOTE: These are provided for REFERENCE ONLY. The actual tailoring
- * algorithm uses the simplified highest-tier-wins approach with explicit overrides.
+ * NOTE: These are provided for REFERENCE ONLY. The actual tailoring
+ * algorithm uses max-tier derivation, corroboration, and explicit overrides.
  * External standards trigger overrides via the OVERRIDE_CONDITIONS mechanism.
  */
 export const EXTERNAL_STANDARD_MAPPING = [
@@ -895,16 +956,16 @@ export const DEPENDENCY_CHAINS = [
 ];
 
 // =====================================================================
-// DEPRECATED IN v4.0
+// DEPRECATED LEGACY SA RULES
 // =====================================================================
-// SA_CRITICALITY_TIERS and SA_FLOOR_RULE have been DEPRECATED in v4.0.
+// SA_CRITICALITY_TIERS and SA_FLOOR_RULE have been deprecated.
 // SA floors are now integrated into OVERRIDE_CONDITIONS as process-specific overrides.
 // This provides explicit, auditable traceability for each SA floor application.
 //
-// For reference, the v4.0 SA floor logic is:
-//   - M5 = 1-2: No SA floor (Tier I – Negligible)
-//   - M5 = 3: SA floor = Standard for safety-relevant processes (Tier II – Safety Relevant)
-//   - M5 = 4-5: SA floor = Comprehensive for safety-critical processes (Tier III – Safety Critical)
+// For reference, the active SA floor logic is:
+//   - M5 = 1-3: No SA floor (Tier I – Negligible)
+//   - M5 = 4: SA floor = Standard for safety-critical processes (Tier II – Safety Relevant)
+//   - M5 = 5: SA floor = Comprehensive for life-safety processes (Tier III – Safety Critical)
 //
 // See OVERRIDE_CONDITIONS for explicit SA floor implementations:
 //   - life_safety_* overrides (M5=5 → Comprehensive)

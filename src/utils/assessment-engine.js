@@ -1,12 +1,12 @@
 /**
- * Assessment Engine — v4.1 Right-Sized Scoring Algorithm
+ * Assessment Engine — Framework v3.5 executable algorithm
  * 
  * Algorithm Steps:
  * 1. Get applicable metrics for each process
- * 2. Convert metric scores to tiers (highest score wins)
- * 3. Find MAX tier across all applicable metrics
+ * 2. Remove M9/M10 direct constraint inflation from process-level derivation
+ * 3. Convert metric scores to tiers and find MAX tier across applicable metrics
  * 4. Apply overrides (safety, regulatory, project-context)
- * 5. Apply SA floor (Safety Assurance minimum levels)
+ * 5. Apply SA display/floor logic (Safety Assurance minimum levels)
  * 6. RIGHT-SIZE: Compute PSI/CSI/CRI → apply capability ceilings → enforce rigor budget
  * 7. Apply interdependencies (consistency rules)
  * 8. CORROBORATION: Compute confidence for Comprehensive processes
@@ -23,17 +23,18 @@ const SA_TIERS = [
     { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'standard' }
 ];
 
-const SA_PROCESSES = [12, 16, 19, 25, 27, 28, 29];
+const SA_PROCESSES = [12, 16, 19, 20, 25, 27];
 
 /**
  * Derive SA Criticality Tier from M5 (Safety Impact) score.
- * M5=1-3 → Tier I (Negligible), M5=4 → Tier II (Safety Relevant), M5=5 → Tier III (Safety Critical)
+ * M5=1-3 → Tier I (Negligible), M5=4 → Tier II (Safety Relevant, Standard floor),
+ * M5=5 → Tier III (Safety Critical, Comprehensive floor)
  */
 export function calculateSATier(scores) {
     const m5 = scores?.M5 || 3;
 
-    if (m5 === 5) return { ...SA_TIERS[2], score: m5 };
-    if (m5 >= 4) return { ...SA_TIERS[1], score: m5 };
+    if (m5 === 5) return { ...SA_TIERS[2], floor: 'comprehensive', score: m5 };
+    if (m5 >= 4) return { ...SA_TIERS[1], floor: 'standard', score: m5 };
     return { ...SA_TIERS[0], score: m5 };
 }
 
@@ -76,15 +77,15 @@ function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
 }
 
 /**
- * Calculate process derivation details using v4.0 simplified algorithm.
+ * Calculate process derivation details using the canonical max-tier plus
+ * corroboration algorithm.
  * 
  * Algorithm:
  * 1. Get all applicable metrics for the process (Primary and Secondary drivers)
- * 2. Find the MAX score across all applicable metrics (highest tier wins)
+ * 2. Find the MAX score across all applicable metrics after matrix-level M9/M10 exclusion
  * 3. Convert max score to level: 1-2=basic, 3-4=standard, 5=comprehensive
- * 4. Track which metrics drove the decision (all metrics with max score)
- * 
- * No weighted averaging. No conditional derivation. Simple highest-score-wins.
+ * 4. Downgrade thin Comprehensive triggers to Standard unless corroborated
+ * 5. Track which metrics drove the decision (all metrics with max score)
  */
 export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     const map = matrixMap[processId];
@@ -136,7 +137,7 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
             return role === 'S' && scoreOrDefault(scores, m) >= 3;
         }).length;
 
-        // Corroboration check per Critical Review §5.3 / CHANGELOG v3.3.0:
+        // Corroboration check per paper §3.4.4:
         // Requires 2+ Primary drivers at Comprehensive, OR
         // 1 Primary at Comprehensive + ≥1 Secondary at Standard+
         const corroborated = (
@@ -175,7 +176,7 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
     };
 }
 
-/** Calculate individual process level from metric scores using highest-tier-wins */
+/** Calculate individual process level from metric scores using max-tier plus corroboration */
 export function calculateProcessLevel(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
     return calculateProcessDerivation(processId, scores, matrixMap).level;
 }
@@ -457,19 +458,38 @@ function getProcessPriority(processId) {
     return 2;
 }
 
+function maxLevel(lhs, rhs) {
+    return levelIndex(lhs) >= levelIndex(rhs) ? lhs : rhs;
+}
+
 /**
- * Check if a process was elevated by a safety/regulatory override.
- * Such processes are exempt from right-sizing downgrades.
+ * Return the active minimum floor for a process. This checks both recorded
+ * overrides and active override conditions because a process may already meet
+ * the floor before applyOverrides records a visible elevation.
  */
-function isOverrideProtected(processId, overridesApplied) {
-    return overridesApplied.some(o => o.processId === processId);
+function getActiveOverrideFloor(processId, overridesApplied = [], scores = {}, context = {}) {
+    let floor = null;
+
+    for (const override of overridesApplied) {
+        if (override.processId === processId && override.to) {
+            floor = floor ? maxLevel(floor, override.to) : override.to;
+        }
+    }
+
+    for (const overrideCondition of OVERRIDE_CONDITIONS) {
+        if (overrideCondition.processes?.includes(processId) && isOverrideTriggered(overrideCondition, scores, context)) {
+            floor = floor ? maxLevel(floor, overrideCondition.minLevel) : overrideCondition.minLevel;
+        }
+    }
+
+    return floor;
 }
 
 /**
  * Apply right-sizing: capability ceilings + rigor budget enforcement.
  * Returns adjusted levels and a log of all right-sizing actions taken.
  */
-export function applyRightSizing(levels, scores, overridesApplied = []) {
+export function applyRightSizing(levels, scores, overridesApplied = [], context = {}) {
     const psi = computePSI(scores);
     const csi = computeCSI(scores);
     const cri = computeCRI(scores);
@@ -480,13 +500,16 @@ export function applyRightSizing(levels, scores, overridesApplied = []) {
     const ceiling = CAPABILITY_CEILINGS.find(c => c.cri === cri);
     if (ceiling && cri <= 2) {
         for (const p of CORE_PROCESSES) {
-            if (isOverrideProtected(p.id, overridesApplied)) continue;
-
             let maxAllowed = ceiling.maxLevel;
+            const overrideFloor = getActiveOverrideFloor(p.id, overridesApplied, scores, context);
 
             // CRI=2: data-intensive processes have special cap
             if (cri === 2 && ceiling.dataIntensiveProcesses?.includes(p.id) && psi < ceiling.psiExemptionThreshold) {
                 maxAllowed = ceiling.dataIntensiveCap;
+            }
+
+            if (overrideFloor && levelIndex(maxAllowed) < levelIndex(overrideFloor)) {
+                maxAllowed = overrideFloor;
             }
 
             if (levelIndex(adjusted[p.id] || 'basic') > levelIndex(maxAllowed)) {
@@ -514,7 +537,10 @@ export function applyRightSizing(levels, scores, overridesApplied = []) {
         if (compProcesses.length > budget.maxComprehensive) {
             // Sort by priority (secondary first = downgrade first), then by lowest driving metric
             const downgradeCandidates = compProcesses
-                .filter(pid => !isOverrideProtected(pid, overridesApplied))
+                .filter(pid => {
+                    const overrideFloor = getActiveOverrideFloor(pid, overridesApplied, scores, context);
+                    return !overrideFloor || levelIndex(overrideFloor) < levelIndex('comprehensive');
+                })
                 .map(pid => ({
                     pid,
                     priority: getProcessPriority(pid),
@@ -530,11 +556,16 @@ export function applyRightSizing(levels, scores, overridesApplied = []) {
             let excess = compProcesses.length - budget.maxComprehensive;
             for (const candidate of downgradeCandidates) {
                 if (excess <= 0) break;
-                adjusted[candidate.pid] = 'standard';
+                const overrideFloor = getActiveOverrideFloor(candidate.pid, overridesApplied, scores, context);
+                const targetLevel = overrideFloor && levelIndex(overrideFloor) > levelIndex('standard')
+                    ? overrideFloor
+                    : 'standard';
+                if (adjusted[candidate.pid] === targetLevel) continue;
+                adjusted[candidate.pid] = targetLevel;
                 actions.push({
                     processId: candidate.pid,
                     from: 'comprehensive',
-                    to: 'standard',
+                    to: targetLevel,
                     type: 'rigor_budget',
                     reason: `PSI=${psi} (${budget.label}) limits Comprehensive to ${budget.maxComprehensive}`
                 });
@@ -551,7 +582,10 @@ export function applyRightSizing(levels, scores, overridesApplied = []) {
 
             if (stdProcesses.length > maxStd) {
                 const stdCandidates = stdProcesses
-                    .filter(pid => !isOverrideProtected(pid, overridesApplied))
+                    .filter(pid => {
+                        const overrideFloor = getActiveOverrideFloor(pid, overridesApplied, scores, context);
+                        return !overrideFloor || levelIndex(overrideFloor) < levelIndex('standard');
+                    })
                     .map(pid => ({
                         pid,
                         priority: getProcessPriority(pid),
@@ -565,11 +599,16 @@ export function applyRightSizing(levels, scores, overridesApplied = []) {
                 let stdExcess = stdProcesses.length - maxStd;
                 for (const candidate of stdCandidates) {
                     if (stdExcess <= 0) break;
-                    adjusted[candidate.pid] = 'basic';
+                    const overrideFloor = getActiveOverrideFloor(candidate.pid, overridesApplied, scores, context);
+                    const targetLevel = overrideFloor && levelIndex(overrideFloor) > levelIndex('basic')
+                        ? overrideFloor
+                        : 'basic';
+                    if (adjusted[candidate.pid] === targetLevel) continue;
+                    adjusted[candidate.pid] = targetLevel;
                     actions.push({
                         processId: candidate.pid,
                         from: 'standard',
-                        to: 'basic',
+                        to: targetLevel,
                         type: 'rigor_budget',
                         reason: `PSI=${psi} (${budget.label}) limits Standard to ${maxStd}`
                     });
@@ -590,10 +629,10 @@ function getMaxDrivingMetric(processId, scores) {
 }
 
 /**
- * Full assessment pipeline implementing v4.1 right-sized algorithm.
+ * Full assessment pipeline implementing the framework v3.5 executable algorithm.
  * 
  * Execution Steps:
- * 1. Derive initial levels from metrics (highest tier wins for each process)
+ * 1. Derive initial levels from metrics (max-tier with Comprehensive corroboration)
  * 2. Apply override conditions (safety, regulatory, project-context)
  * 3. Apply SA floor (Safety Assurance minimum levels based on M5)
  * 4. Apply interdependencies (consistency rules with auto-fix)
@@ -601,7 +640,7 @@ function getMaxDrivingMetric(processId, scores) {
  * Returns complete assessment with derivation details, overrides, and violations.
  */
 export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
-    // Step 1: Derive initial levels using highest-tier-wins algorithm
+    // Step 1: Derive initial levels using max-tier plus corroboration
     const derivationDetails = calculateAllProcessDerivations(scores, matrixMap);
     const derived = {};
     for (const [pid, detail] of Object.entries(derivationDetails)) {
@@ -637,7 +676,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
     const allOverrides = [...overrides, ...saOverrides];
 
     // Step 4: RIGHT-SIZE — apply capability ceilings (CRI) and rigor budget (PSI)
-    const { levels: afterRightSizing, rightSizingActions, indices } = applyRightSizing(final, scores, allOverrides);
+    const { levels: afterRightSizing, rightSizingActions, indices } = applyRightSizing(final, scores, allOverrides, context);
 
     // Step 5: Apply interdependencies (consistency rules with auto-fix)
     final = { ...afterRightSizing };

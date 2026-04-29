@@ -55,6 +55,11 @@ const AUTOSAVE_KEY = 'se-tailoring-autosave';
 const AUTOSAVE_DEBOUNCE_MS = 5000;
 let autosaveTimer = null;
 
+function notifyStateChanged() {
+    listeners.forEach(fn => fn(state));
+    debounceAutosave();
+}
+
 function debounceAutosave() {
     if (autosaveTimer) clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
@@ -90,8 +95,7 @@ export function getState() { return state; }
 
 export function setState(updates) {
     Object.assign(state, updates);
-    listeners.forEach(fn => fn(state));
-    debounceAutosave();
+    notifyStateChanged();
 }
 
 export function loadAutosave() {
@@ -181,7 +185,7 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         manualAdjustments: {}
     };
     parent.childIds.push(id);
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
     return id;
 }
 
@@ -218,7 +222,7 @@ export function removeElement(elementId) {
         tree.activeId = tree.rootId;
     }
 
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
     return true;
 }
 
@@ -229,7 +233,7 @@ export function setActiveElement(elementId) {
     const tree = state.assessmentTree;
     if (!tree.nodes[elementId]) return false;
     tree.activeId = elementId;
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
     return true;
 }
 
@@ -256,7 +260,7 @@ export function setElementScores(elementId, scores) {
     const node = state.assessmentTree.nodes[elementId];
     if (!node) return;
     node.scores = { ...scores };
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
 }
 
 /**
@@ -268,7 +272,7 @@ export function setElementAssessmentResult(elementId, result) {
     node.assessmentResult = result;
     node.levels = result.levels || {};
     node.status = 'under_review';
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
 }
 
 /**
@@ -280,6 +284,7 @@ export function markMetricManual(elementId, metricId) {
     if (!node) return;
     if (!node.manualMetrics.includes(metricId)) {
         node.manualMetrics.push(metricId);
+        notifyStateChanged();
     }
 }
 
@@ -290,7 +295,7 @@ export function renameElement(elementId, newName) {
     const node = state.assessmentTree.nodes[elementId];
     if (!node) return;
     node.name = newName;
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
 }
 
 /**
@@ -346,6 +351,5 @@ export function setElementProcessAdjustment(elementId, processId, level, justifi
     } else {
         node.manualAdjustments[processId] = { level, justification: justification || '' };
     }
-    listeners.forEach(fn => fn(state));
+    notifyStateChanged();
 }
-

@@ -12,6 +12,7 @@ import {
 } from '../state.js';
 import { propagateDownstream, suggestUpstream } from '../utils/inheritance-engine.js';
 import { navigateTo } from '../router.js';
+import { exportSystemBreakdownCSV } from '../utils/export-import.js';
 
 export function renderSystemElements(container) {
   const state = getState();
@@ -420,16 +421,7 @@ export function renderSystemElements(container) {
 
   // Export CSV
   container.querySelector('#btn-export-breakdown')?.addEventListener('click', () => {
-    import('../utils/export-import.js').then(module => {
-      if (module.exportSystemBreakdownCSV) {
-        module.exportSystemBreakdownCSV(getState(), CORE_PROCESSES);
-      } else {
-        showToast('Export function not available', 'warning');
-      }
-    }).catch(err => {
-      console.error('Failed to load export module', err);
-      showToast('Failed to load export module', 'error');
-    });
+    exportSystemBreakdownCSV(getState(), CORE_PROCESSES);
   });
 }
 

@@ -1,6 +1,6 @@
 /**
- * SE Tailoring Framework v4.1 Test Suite
- * Tests the "highest tier wins" algorithm + right-sizing
+ * SE Tailoring Framework Test Suite
+ * Tests the max-tier + corroboration algorithm and right-sizing.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -37,121 +37,110 @@ function makeCoreLevels(defaultLevel = 'basic') {
   return levels;
 }
 
-// v4.0 Tests: Highest Tier Wins Algorithm
-
-test('v4.0: single high metric triggers that level (no conditional capping)', () => {
+test('single uncorroborated high metric caps default recommendation at Standard', () => {
   const scores = makeScores(1);
   Object.assign(scores, {
-    M9: 5,  // Single Comprehensive trigger
-    M10: 1,
-    M11: 1
+    M1: 5,
+    M4: 1,
+    M11: 1,
+    M2: 1
   });
 
   const detail = calculateProcessDerivation(23, scores);
 
-  assert.equal(detail.level, 'comprehensive', 'v4.0: Single high metric should trigger Comprehensive');
-  assert.equal(detail.triggerLevel, 'comprehensive');
-  assert.equal(detail.conditionalRuleApplied, undefined, 'v4.0: Conditional derivation removed');
+  assert.equal(detail.level, 'standard', 'Thin Comprehensive trigger should default to Standard');
+  assert.equal(detail.triggerScore, 5);
+  assert.equal(detail.confidence, 'available-with-justification');
 });
 
-test('v4.0: highest tier wins regardless of Primary/Secondary', () => {
+test('primary Comprehensive plus secondary Standard corroborates Comprehensive', () => {
   const scores = makeScores(1);
   Object.assign(scores, {
-    M5: 3,  // Primary at Standard
-    M1: 5   // Secondary at Comprehensive
+    M1: 5,
+    M2: 3
+  });
+
+  const detail = calculateProcessDerivation(23, scores);
+
+  assert.equal(detail.level, 'comprehensive');
+  assert.equal(detail.confidence, 'corroborated');
+});
+
+test('secondary-only Comprehensive trigger does not bypass corroboration', () => {
+  const scores = makeScores(1);
+  Object.assign(scores, {
+    M1: 5
   });
 
   const detail = calculateProcessDerivation(12, scores);
 
-  assert.equal(detail.level, 'comprehensive', 'Secondary metric at 5 should trigger Comprehensive');
-  assert.equal(detail.weightedScore, undefined, 'v4.0: Weighted score removed');
+  assert.equal(detail.level, 'standard');
+  assert.equal(detail.weightedReferenceLevel, undefined, 'Weighted reference removed');
 });
 
-test('v4.0: no weighted reference calculations', () => {
+test('trigger metric ties are deterministic across applicable metrics', () => {
   const scores = makeScores(1);
-  Object.assign(scores, {
-    M9: 5,
-    M10: 1,
-    M11: 1
-  });
-
-  const detail = calculateProcessDerivation(23, scores);
-
-  assert.equal(detail.level, 'comprehensive', 'Highest tier wins');
-  assert.equal(detail.weightedReferenceLevel, undefined, 'v4.0: Weighted reference removed');
-});
-
-test('v4.0: trigger metric ties are deterministic', () => {
-  const scores = makeScores(1);
-  Object.assign(scores, { M9: 5, M10: 5, M12: 1 });
+  Object.assign(scores, { M1: 5, M4: 5, M12: 1 });
 
   const detail = calculateProcessDerivation(9, scores);
 
-  assert.ok(detail.triggerMetrics.includes('M9'));
-  assert.ok(detail.triggerMetrics.includes('M10'));
+  assert.deepEqual(detail.triggerMetrics, ['M1', 'M4']);
 });
 
-test('v4.0: process-specific overrides (not blanket)', () => {
+test('process-specific safety overrides apply M5=4 floors', () => {
   const levels = makeCoreLevels('basic');
   const scores = makeScores(1);
   scores.M5 = 4;  // Safety-Critical
 
   const result = applyOverrides(levels, scores, {});
 
-  // Verify specific processes are affected
-  assert.ok(
-    result.levels[25] === 'standard' || result.overrides.some(o => o.processId === 25),
-    'Verification should be affected by M5=4'
-  );
-  assert.ok(
-    result.levels[27] === 'standard' || result.overrides.some(o => o.processId === 27),
-    'Validation should be affected by M5=4'
-  );
-});
-
-test('v4.0: SA floor integration', () => {
-  const scores = makeScores(1);
-  scores.M5 = 3;  // Safety Relevant
-
-  const result = runFullAssessment(scores);
-
-  assert.ok(['II', 'III'].includes(result.saTier?.tier) || result.saFloorApplied);
-
-  // Verify safety processes elevated
-  for (const pid of [12, 16, 19, 25, 27, 28, 29]) {
-    const level = result.levels[pid];
-    assert.ok(
-      level === 'standard' || level === 'comprehensive',
-      `Safety process P${pid} should be ≥ Standard for M5=3`
-    );
+  for (const pid of [12, 16, 19, 20, 25, 27]) {
+    assert.equal(result.levels[pid], 'standard', `Process ${pid} should be Standard for M5=4`);
   }
 });
 
-test('consistency baseline is 17 rules and Rule 12 HC fix elevates planning conservatively', () => {
+test('SA floor integration makes M5=5 safety processes Comprehensive', () => {
   const scores = makeScores(1);
   scores.M5 = 5;
 
   const result = runFullAssessment(scores);
 
-  assert.equal(CONSISTENCY_RULES.length, 17);
-  assert.ok(result.fixes.some(f => f.processId === 9 && f.to === 'standard' && f.ruleId === 12));
-  assert.equal(result.levels[9], 'standard');
+  assert.equal(result.saTier?.tier, 'III');
+  assert.equal(result.saTier?.floor, 'comprehensive');
+
+  for (const pid of [12, 16, 19, 20, 25, 27]) {
+    assert.equal(result.levels[pid], 'comprehensive', `Safety process P${pid} should be Comprehensive for M5=5`);
+  }
+});
+
+test('consistency baseline matches canonical rule catalog and Rule 12 HC fix elevates planning conservatively', () => {
+  const scores = makeScores(1);
+  scores.M5 = 5;
+
+  const result = runFullAssessment(scores);
+
+  assert.equal(CONSISTENCY_RULES.length, 21);
+  assert.ok(result.fixes.some(f => f.processId === 9 && f.to === 'standard' && f.ruleId === '8a'));
+  assert.ok(['standard', 'comprehensive'].includes(result.levels[9]));
   assert.equal(result.violations.filter(v => v.type === 'HC').length, 0);
 });
 
-test('canonical propagation catalog contains P1..P18', () => {
-  assert.equal(PROPAGATION_RULES.length, 18);
+test('canonical propagation catalog contains P1..P21 including split rules', () => {
+  assert.equal(PROPAGATION_RULES.length, 22);
   assert.ok(PROPAGATION_RULES.some(r => r.id === 'P1'));
-  assert.ok(PROPAGATION_RULES.some(r => r.id === 'P18'));
+  assert.ok(PROPAGATION_RULES.some(r => r.id === 'P8a'));
+  assert.ok(PROPAGATION_RULES.some(r => r.id === 'P8b'));
+  assert.ok(PROPAGATION_RULES.some(r => r.id === 'P21'));
 });
 
-test('corrected process-metric mappings match canonical matrix rows (v4.1 M9/M10 removed)', () => {
+test('process-metric mappings match canonical paper matrix with M9/M10 direct inflation removed', () => {
   const scores = makeScores(3);
 
-  // Project Planning (9): M1, M4 (P), M12 (P); M13 (S) — M9/M10 removed
+  // Project Planning (9): M1, M4, M12 (P); M13 (S) — M9/M10 removed
   const d9 = Object.fromEntries(getDriverAttribution(9, scores).map(d => [d.metric, d.role]));
   assert.equal(d9.M1, 'P', 'M1 should be Primary for Project Planning');
   assert.equal(d9.M4, 'P', 'M4 should be Primary for Project Planning');
+  assert.equal(d9.M12, 'P', 'M12 should be Primary for Project Planning');
   assert.equal(d9.M9, undefined, 'M9 should NOT drive Project Planning');
   assert.equal(d9.M10, undefined, 'M10 should NOT drive Project Planning');
 
@@ -173,8 +162,21 @@ test('corrected process-metric mappings match canonical matrix rows (v4.1 M9/M10
   assert.equal(d12.M7, undefined);
   assert.equal(d12.M9, undefined, 'M9 should NOT drive Risk Management');
 
+  const d13 = Object.fromEntries(getDriverAttribution(13, scores).map(d => [d.metric, d.role]));
+  assert.equal(d13.M4, 'P', 'M4 should be Primary for Configuration Management');
+  assert.equal(d13.M1, 'S', 'M1 should be Secondary for Configuration Management');
+
   const d14 = Object.fromEntries(getDriverAttribution(14, scores).map(d => [d.metric, d.role]));
-  assert.equal(d14.M1, undefined);
+  assert.equal(d14.M2, 'S', 'M2 should be Secondary for Information Management');
+  assert.equal(d14.M15, undefined);
+
+  const d16 = Object.fromEntries(getDriverAttribution(16, scores).map(d => [d.metric, d.role]));
+  assert.equal(d16.M6, 'P', 'M6 should be Primary for Quality Assurance');
+  assert.equal(d16.M3, 'S', 'M3 should be Secondary for Quality Assurance');
+
+  const d18 = Object.fromEntries(getDriverAttribution(18, scores).map(d => [d.metric, d.role]));
+  assert.equal(d18.M15, 'P', 'M15 should be Primary for Stakeholder Needs');
+  assert.equal(d18.M5, 'S', 'M5 should be Secondary for Stakeholder Needs');
 
   // Measurement (15): M6, M8 (P); M14 (S) — M9/M10/M15 removed
   const d15 = Object.fromEntries(getDriverAttribution(15, scores).map(d => [d.metric, d.role]));
@@ -183,20 +185,40 @@ test('corrected process-metric mappings match canonical matrix rows (v4.1 M9/M10
   assert.equal(d15.M9, undefined, 'M9 should NOT drive Measurement');
   assert.equal(d15.M10, undefined, 'M10 should NOT drive Measurement');
 
-  // Implementation (23): M1, M4 (P), M11 (P); M3 (S) — M9/M10 removed
+  const d19 = Object.fromEntries(getDriverAttribution(19, scores).map(d => [d.metric, d.role]));
+  assert.equal(d19.M5, 'P', 'M5 should be Primary for System Requirements');
+  assert.equal(d19.M3, 'S', 'M3 should be Secondary for System Requirements');
+
+  const d20 = Object.fromEntries(getDriverAttribution(20, scores).map(d => [d.metric, d.role]));
+  assert.equal(d20.M4, 'P', 'M4 should be Primary for Architecture');
+
+  const d21 = Object.fromEntries(getDriverAttribution(21, scores).map(d => [d.metric, d.role]));
+  assert.equal(d21.M2, 'P', 'M2 should be Primary for Design');
+
+  // Implementation (23): M1, M4, M11 (P); M2 (S) — M9/M10 removed
   const d23 = Object.fromEntries(getDriverAttribution(23, scores).map(d => [d.metric, d.role]));
   assert.equal(d23.M5, undefined);
   assert.equal(d23.M8, undefined);
+  assert.equal(d23.M2, 'S', 'M2 should be Secondary for Implementation');
   assert.equal(d23.M9, undefined, 'M9 should NOT drive Implementation');
   assert.equal(d23.M10, undefined, 'M10 should NOT drive Implementation');
 
-  // Transition (26): M6, M12, M13 (P); M4, M15, M16 (S) — M9 removed
+  const d24 = Object.fromEntries(getDriverAttribution(24, scores).map(d => [d.metric, d.role]));
+  assert.equal(d24.M1, 'S', 'M1 should be Secondary for Integration');
+
+  const d25 = Object.fromEntries(getDriverAttribution(25, scores).map(d => [d.metric, d.role]));
+  assert.equal(d25.M1, 'S', 'M1 should be Secondary for Verification');
+
+  // Transition (26): M6, M12, M13 (P); M15, M16 (S) — M9 removed
   const d26 = Object.fromEntries(getDriverAttribution(26, scores).map(d => [d.metric, d.role]));
   assert.equal(d26.M5, undefined);
+  assert.equal(d26.M13, 'P', 'M13 should be Primary for Transition');
+  assert.equal(d26.M4, undefined);
   assert.equal(d26.M9, undefined, 'M9 should NOT drive Transition');
 
   // Maintenance (29): M5, M6, M7 (P); M4, M11 (S) — M10 removed
   const d29 = Object.fromEntries(getDriverAttribution(29, scores).map(d => [d.metric, d.role]));
+  assert.equal(d29.M6, 'P');
   assert.equal(d29.M7, 'P');
   assert.equal(d29.M10, undefined, 'M10 should NOT drive Maintenance');
 
@@ -276,6 +298,7 @@ test('Small project (PSI=1) enforces rigor budget on Comprehensive count', () =>
   const scores = makeScores(5); // All 5s → everything Comprehensive
   scores.M1 = 1; scores.M2 = 1; scores.M4 = 1; // PSI=1 (small)
   scores.M11 = 1; scores.M12 = 1;
+  scores.M5 = 1; scores.M6 = 1; scores.M7 = 1; scores.M8 = 1; // no criticality floors
   scores.M16 = 5; // CRI=3 (no capability cap)
   const result = runFullAssessment(scores);
   assert.ok(result.indices.psi <= 2, 'PSI should be small');
