@@ -352,6 +352,11 @@ export function renderReport(container) {
       </div>
     </div>
 
+    <div class="report-author-note mb-md">
+      <span>Built by Tony Wu.</span>
+      <a href="https://haitaowu12.github.io/tony-wu-home/" aria-label="Know the author: Tony Wu">Know the author</a>
+    </div>
+
     <div class="card mb-xl">
       <h4 class="mb-md">Metric Scores Detail</h4>
       <div style="overflow-x:auto">
