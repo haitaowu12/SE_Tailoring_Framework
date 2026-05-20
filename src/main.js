@@ -18,6 +18,8 @@ import { renderDeliverables } from './views/deliverables.js';
 import { renderReport } from './views/report.js';
 import { renderSystemElements } from './views/system-elements.js';
 
+const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
+
 // Register all routes
 registerRoute('dashboard', renderDashboard);
 registerRoute('elements', renderSystemElements);
@@ -61,6 +63,11 @@ function buildNavbar() {
       </div>
     </div>
     <div class="nav-actions">
+      <a
+        class="author-link"
+        href="${AUTHOR_URL}"
+        aria-label="Know the author: Tony Wu, systems engineer and builder of this project"
+      >TW · About</a>
       <button class="btn btn-ghost btn-sm" id="btn-import" title="Import Config">📥</button>
       <button class="btn btn-ghost btn-sm" id="btn-export" title="Export Config">📤</button>
     </div>
