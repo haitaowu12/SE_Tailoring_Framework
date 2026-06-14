@@ -62,14 +62,27 @@ function buildNavbar() {
         </div>
       </div>
     </div>
+    <label class="mobile-route-select-label" for="mobile-route-select">Route</label>
+    <select class="mobile-route-select" id="mobile-route-select" aria-label="Navigate app section">
+      <option value="dashboard">Dashboard</option>
+      <option value="elements">Elements</option>
+      <option value="assessment">Assessment</option>
+      <option value="processes">Process Explorer</option>
+      <option value="vee-model">Vee Model</option>
+      <option value="interdependency">Dependencies</option>
+      <option value="matrix">Matrix View</option>
+      <option value="adjust">Manual Adjust</option>
+      <option value="deliverables">Deliverables</option>
+      <option value="report">Report</option>
+    </select>
     <div class="nav-actions">
       <a
         class="author-link"
         href="${AUTHOR_URL}"
         aria-label="Know the author: Tony Wu, systems engineer and builder of this project"
       >TW · About</a>
-      <button class="btn btn-ghost btn-sm" id="btn-import" title="Import Config">📥</button>
-      <button class="btn btn-ghost btn-sm" id="btn-export" title="Export Config">📤</button>
+      <button class="btn btn-ghost btn-sm" id="btn-import" title="Import Config">Import</button>
+      <button class="btn btn-ghost btn-sm" id="btn-export" title="Export Config">Export</button>
     </div>
   `;
 
@@ -77,6 +90,9 @@ function buildNavbar() {
     navbar.querySelectorAll('.nav-link').forEach(btn => {
         btn.addEventListener('click', () => navigateTo(btn.dataset.route));
     });
+
+    const mobileRouteSelect = navbar.querySelector('#mobile-route-select');
+    mobileRouteSelect.addEventListener('change', () => navigateTo(mobileRouteSelect.value));
 
     // Import button
     navbar.querySelector('#btn-import').addEventListener('click', () => {
@@ -129,6 +145,10 @@ function buildNavbar() {
             const trigger = dropdown.querySelector('.nav-dropdown-trigger');
             trigger.classList.toggle('has-active', !!hasActive);
         });
+        const currentRoute = window.location.hash.replace('#', '') || 'dashboard';
+        if (mobileRouteSelect.value !== currentRoute) {
+            mobileRouteSelect.value = currentRoute;
+        }
     }
     window.addEventListener('hashchange', () => setTimeout(updateDropdownHighlights, 50));
     setTimeout(updateDropdownHighlights, 50);
