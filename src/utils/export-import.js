@@ -1,6 +1,7 @@
 /**
  * Export/Import — Configuration management (JSON)
  */
+import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from './report-visuals.js';
 
 /** Export current state as JSON */
 export function exportConfig(state) {
@@ -103,12 +104,38 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 .override{background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;margin:5px 0;font-size:13px}
 .violation{background:#fee2e2;border-left:3px solid #ef4444;padding:8px 12px;margin:5px 0;font-size:13px}
 .info{background:#f0f9ff;border-left:3px solid #3b82f6;padding:8px 12px;margin:10px 0;font-size:13px}
+.report-overview-panel{border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:24px 0;background:#f8fafc}
+.spiderweb-figure{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:center;margin:0}
+.spiderweb-copy h4{margin:0 0 6px;color:#1e293b}
+.spiderweb-copy p,.spiderweb-figure figcaption{font-size:12px;color:#64748b;margin:0}
+.spiderweb-chart{width:100%;max-width:460px}
+.spiderweb-quadrant{fill:#ffffff}
+.spiderweb-quadrant.q1{fill:#fff1f2}.spiderweb-quadrant.q2{fill:#fffbeb}.spiderweb-quadrant.q3{fill:#f0fdfa}.spiderweb-quadrant.q4{fill:#faf5ff}
+.spiderweb-quadrant-line,.spiderweb-axis{stroke:#cbd5e1;stroke-width:1}
+.spiderweb-ring{fill:none;stroke:#cbd5e1;stroke-width:1}.spiderweb-ring-mid{stroke:#64748b;stroke-width:1.4}
+.spiderweb-profile{fill:rgba(14,165,233,.16);stroke:#0f766e;stroke-width:2}
+.spiderweb-point{fill:#0f766e;stroke:#fff;stroke-width:2}.spiderweb-metric-label,.spiderweb-scale-label{fill:#475569;font-size:11px;font-weight:700}.spiderweb-dimension-label{fill:#334155;font-size:12px;font-weight:800}
+.dimension-pattern-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.dimension-pattern-card{border-top:3px solid var(--dimension-color);background:#fff;border-radius:8px;padding:10px}
+.dimension-pattern-heading{font-size:12px;font-weight:700;color:#334155}.dimension-pattern-range{font-size:24px;font-weight:900;color:var(--dimension-color);line-height:1.1}.dimension-pattern-meta,.dimension-pattern-drivers{font-size:11px;color:#64748b}.dimension-pattern-drivers{display:flex;flex-direction:column;margin-top:5px}
 @media print{body{padding:20px}h1{font-size:24px}}
+@media (max-width:720px){.spiderweb-figure{grid-template-columns:1fr}.dimension-pattern-grid{grid-template-columns:1fr 1fr}}
 </style></head><body>
 <h1>SE Process Tailoring Report</h1>
 <div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} (ISO/IEC/IEEE 15288:2023)</div>
 <table><tr><td><strong>Project</strong>: ${projectInfo.name || '—'}</td><td><strong>Date</strong>: ${projectInfo.date || now}</td></tr>
 <tr><td><strong>Team</strong>: ${projectInfo.team || '—'}</td><td><strong>Phase</strong>: ${projectInfo.phase || '—'}</td></tr></table>
+
+<h2>Assessment Overview</h2>
+<div class="report-overview-panel">
+${renderMetricSpiderwebSvg(scores, data.METRICS, data.DIMENSIONS, {
+    title: 'Assessment overview',
+    description: 'Sixteen metric scores plotted across four framework dimensions.'
+})}
+<div class="dimension-pattern-grid">
+${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
+</div>
+</div>
 
 <h2>Metric Scores</h2><table><tr><th>Metric</th><th>Score</th><th>Description</th></tr>`;
 

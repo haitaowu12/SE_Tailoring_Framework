@@ -4,9 +4,138 @@
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
 import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig } from '../utils/export-import.js';
+import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, showToast, getElementsFlat } from '../state.js';
 import { navigateTo } from '../router.js';
+
+function findDirectReportCard(container, titleText) {
+  return [...container.querySelectorAll(':scope > .card.mb-xl')]
+    .find(section => section.querySelector('h4')?.textContent?.includes(titleText));
+}
+
+function makeReportSectionCollapsible(container, section, title, description, open = true) {
+  if (!section) return;
+
+  const details = document.createElement('details');
+  details.className = 'report-section';
+  if (open) details.open = true;
+
+  const summary = document.createElement('summary');
+  summary.innerHTML = `
+    <span class="report-section-labels">
+      <span class="report-section-title">${title}</span>
+      <span class="report-section-description">${description}</span>
+    </span>
+  `;
+
+  const body = document.createElement('div');
+  body.className = 'report-section-body';
+
+  section.replaceWith(details);
+  details.append(summary, body);
+  body.appendChild(section);
+}
+
+function enhanceReportSections(container) {
+  const summaryPanel = container.querySelector('.report-summary-panel');
+  if (!summaryPanel) return;
+
+  summaryPanel.insertAdjacentHTML('afterend', `
+    <div class="report-section-toolbar" aria-label="Report section controls">
+      <span>Report sections</span>
+      <button class="btn btn-secondary btn-sm" id="btn-expand-report-sections">Expand all</button>
+      <button class="btn btn-secondary btn-sm" id="btn-collapse-report-sections">Collapse all</button>
+    </div>
+  `);
+
+  const sectionConfigs = [
+    {
+      section: container.querySelector(':scope > .grid-2.mb-xl'),
+      title: 'Project and Level Distribution',
+      description: 'Project metadata and final profile count.',
+      open: true
+    },
+    {
+      section: findDirectReportCard(container, 'System Element Tailoring Overview'),
+      title: 'System Element Tailoring Overview',
+      description: 'Hierarchy and element-level assessment status.',
+      open: true
+    },
+    {
+      section: findDirectReportCard(container, 'Right-Sizing Analysis'),
+      title: 'Right-Sizing Analysis',
+      description: 'PSI, CSI, CRI, and any right-sizing adjustments.',
+      open: true
+    },
+    {
+      section: findDirectReportCard(container, 'Safety Assurance Criticality'),
+      title: 'Safety Assurance Criticality',
+      description: 'Safety tier and rigor floor.',
+      open: true
+    },
+    {
+      section: container.querySelector(':scope > .report-overview-panel'),
+      title: 'Assessment Overview Graphic',
+      description: 'Spiderweb view and dimension score ranges.',
+      open: true
+    },
+    {
+      section: findDirectReportCard(container, 'Override Conditions'),
+      title: 'Override Conditions',
+      description: 'Process floors triggered by metric thresholds.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Consistency Warnings'),
+      title: 'Consistency Warnings',
+      description: 'Rules that need review or follow-up.',
+      open: true
+    },
+    {
+      section: findDirectReportCard(container, 'Full Process Tailoring Profile'),
+      title: 'Full Process Tailoring Profile',
+      description: 'Derived, final, override, fix, and confidence columns.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Override Chain Documentation'),
+      title: 'Override Chain Documentation',
+      description: 'Traceability from thresholds to process floors.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Propagation Chain Documentation'),
+      title: 'Propagation Chain Documentation',
+      description: 'Consistency rule enforcement and dependency resolution.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Process Levels & Drivers'),
+      title: 'Process Levels & Drivers',
+      description: 'Trigger metrics and top driver attribution.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Metric Scores Detail'),
+      title: 'Metric Scores Detail',
+      description: 'All metric scores with dimension and anchor text.',
+      open: false
+    }
+  ];
+
+  sectionConfigs.forEach(config => {
+    makeReportSectionCollapsible(container, config.section, config.title, config.description, config.open);
+  });
+
+  container.querySelector('#btn-expand-report-sections')?.addEventListener('click', () => {
+    container.querySelectorAll('.report-section').forEach(section => { section.open = true; });
+  });
+
+  container.querySelector('#btn-collapse-report-sections')?.addEventListener('click', () => {
+    container.querySelectorAll('.report-section').forEach(section => { section.open = false; });
+  });
+}
 
 export function renderReport(container) {
   const state = getState();
@@ -23,12 +152,19 @@ export function renderReport(container) {
   const stdCount = Object.values(state.levels).filter(l => l === 'standard').length;
   const compCount = Object.values(state.levels).filter(l => l === 'comprehensive').length;
 
-  // Dimension averages
-  const dimAvgs = DIMENSIONS.map(d => {
-    const mets = METRICS.filter(m => m.dimension === d.id);
-    const avg = mets.reduce((s, m) => s + (state.scores[m.id] || 1), 0) / mets.length;
-    return { ...d, avg: avg.toFixed(1) };
+  const spiderwebOverview = renderMetricSpiderwebSvg(state.scores, METRICS, DIMENSIONS, {
+    title: 'Assessment overview',
+    description: 'Sixteen metric scores plotted across four framework dimensions.'
   });
+  const dimensionPatternCards = renderDimensionPatternCards(state.scores, METRICS, DIMENSIONS);
+  const overrideCount = state.overrides?.length || 0;
+  const warningCount = state.violations?.length || 0;
+  const fixCount = state.fixes?.length || 0;
+  const justificationCount = Object.values(state.confidence || {}).filter(value => value === 'available-with-justification').length;
+  const highPressureMetrics = METRICS
+    .filter(metric => (state.scores[metric.id] ?? 3) >= 4)
+    .map(metric => metric.id);
+  const reportReadiness = warningCount === 0 && justificationCount === 0 ? 'Ready for review' : 'Review required';
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
   const processRefName = (ref) => {
@@ -45,8 +181,38 @@ export function renderReport(container) {
         <p class="text-secondary text-sm mt-sm">${state.projectInfo.name || 'Project'} · ${state.projectInfo.date || new Date().toLocaleDateString()}</p>
       </div>
       <div class="flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-export-json">📥 Export JSON</button>
-        <button class="btn btn-primary btn-sm" id="btn-export-html">📄 Export HTML Report</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-json">Export JSON</button>
+        <button class="btn btn-primary btn-sm" id="btn-export-html">Export HTML Report</button>
+      </div>
+    </div>
+
+    <div class="card mb-xl report-summary-panel">
+      <div>
+        <h4 class="mb-md">Executive Summary</h4>
+        <p class="text-secondary text-sm">Top-level report state before reviewing detailed process evidence.</p>
+      </div>
+      <div class="report-summary-grid">
+        <div class="report-summary-item">
+          <span class="summary-value">${reportReadiness}</span>
+          <span class="summary-label">Report readiness</span>
+        </div>
+        <div class="report-summary-item">
+          <span class="summary-value">${overrideCount}</span>
+          <span class="summary-label">Override floors</span>
+        </div>
+        <div class="report-summary-item">
+          <span class="summary-value">${warningCount}</span>
+          <span class="summary-label">Warnings</span>
+        </div>
+        <div class="report-summary-item">
+          <span class="summary-value">${justificationCount}</span>
+          <span class="summary-label">Justifications needed</span>
+        </div>
+      </div>
+      <div class="report-summary-notes">
+        <span><strong>Final profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
+        <span><strong>High-pressure metrics:</strong> ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None at 4 or 5'}.</span>
+        <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
       </div>
     </div>
 
@@ -172,15 +338,10 @@ export function renderReport(container) {
       </div>
     </div>` : ''}
 
-    <div class="card mb-xl">
-      <h4 class="mb-md">Dimension Scores</h4>
-      <div class="grid-4">
-        ${dimAvgs.map(d => `
-          <div class="dim-score-card" style="border-top: 3px solid ${d.color}">
-            <div class="dim-score-value" style="color: ${d.color}">${d.avg}</div>
-            <div class="dim-score-label">${d.name}</div>
-          </div>
-        `).join('')}
+    <div class="card mb-xl report-overview-panel">
+      ${spiderwebOverview}
+      <div class="dimension-pattern-grid">
+        ${dimensionPatternCards}
       </div>
     </div>
 
@@ -388,9 +549,6 @@ export function renderReport(container) {
     .basic-bar { background: rgba(59,130,246,0.3); }
     .standard-bar { background: rgba(245,158,11,0.3); }
     .comp-bar { background: rgba(239,68,68,0.3); }
-    .dim-score-card { text-align: center; padding: 16px; }
-    .dim-score-value { font-size: 2rem; font-weight: 900; }
-    .dim-score-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
     .se-type-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
     .se-type-badge.full { background: rgba(99,102,241,0.15); color: var(--accent-primary-light); }
     .se-type-badge.quick { background: rgba(245,158,11,0.15); color: #f59e0b; }
@@ -406,6 +564,7 @@ export function renderReport(container) {
     .justification-flag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.15); color: #f59e0b; font-weight: 600; margin-left: 4px; cursor: help; }
   `;
   container.appendChild(style);
+  enhanceReportSections(container);
 
   // Export handlers
   container.querySelector('#btn-export-json').addEventListener('click', () => {
