@@ -5,7 +5,7 @@ import './styles/index.css';
 import './styles/animations.css';
 import { registerRoute, initRouter, navigateTo } from './router.js';
 import { getState, setState, loadAutosave, clearAutosave } from './state.js';
-import { importConfig, exportConfig } from './utils/export-import.js';
+import { importConfig, exportConfig, normalizeImportedConfig } from './utils/export-import.js';
 import { showToast } from './state.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderAssessment } from './views/assessment.js';
@@ -17,6 +17,7 @@ import { renderManualAdjust } from './views/manual-adjust.js';
 import { renderDeliverables } from './views/deliverables.js';
 import { renderReport } from './views/report.js';
 import { renderSystemElements } from './views/system-elements.js';
+import { escapeHtml, safeText } from './utils/safe-text.js';
 
 const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
 
@@ -36,10 +37,10 @@ registerRoute('report', renderReport);
 function buildNavbar() {
     const navbar = document.getElementById('navbar');
     navbar.innerHTML = `
-    <div class="nav-brand" onclick="location.hash='dashboard'">
+    <button class="nav-brand nav-brand-button" id="btn-nav-home" type="button" aria-label="Go to dashboard">
       <div class="brand-icon">SE</div>
       <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v3.5.1</small></span>
-    </div>
+    </button>
     <div class="nav-links">
       <button class="nav-link" data-route="dashboard">Dashboard</button>
       <button class="nav-link" data-route="elements">Elements</button>
@@ -91,6 +92,8 @@ function buildNavbar() {
         btn.addEventListener('click', () => navigateTo(btn.dataset.route));
     });
 
+    navbar.querySelector('#btn-nav-home')?.addEventListener('click', () => navigateTo('dashboard'));
+
     const mobileRouteSelect = navbar.querySelector('#mobile-route-select');
     mobileRouteSelect.addEventListener('change', () => navigateTo(mobileRouteSelect.value));
 
@@ -102,22 +105,7 @@ function buildNavbar() {
         input.onchange = async (e) => {
             try {
                 const config = await importConfig(e.target.files[0]);
-                setState({
-                    projectInfo: { ...(config.projectInfo || {}) },
-                    scores: config.metricScores || {},
-                    levels: config.processLevels || {},
-                    derived: config.derivedLevels || {},
-                    derivationDetails: config.derivationDetails || {},
-                    overrides: config.overrides || [],
-                    manualAdjustments: config.manualAdjustments || {},
-                    tradeoffs: config.tradeoffs || [],
-                    matrixMap: config.matrixMap || null,
-                    assessmentTree: config.assessmentTree || getState().assessmentTree,
-                    cultureType: config.cultureType || null,
-                    notes: config.notes || '',
-                    confidence: config.confidence || {},
-                    assessmentComplete: Object.keys(config.metricScores || {}).length > 0
-                });
+                setState(normalizeImportedConfig(config, getState().assessmentTree));
                 showToast('Configuration imported successfully!', 'success');
                 navigateTo('dashboard');
             } catch (err) {
@@ -138,20 +126,12 @@ function buildNavbar() {
         navbar.classList.toggle('scrolled', window.scrollY > 10);
     });
 
-    // Highlight dropdown trigger when a child route is active
-    function updateDropdownHighlights() {
-        navbar.querySelectorAll('.nav-dropdown').forEach(dropdown => {
-            const hasActive = dropdown.querySelector('.nav-link.active');
-            const trigger = dropdown.querySelector('.nav-dropdown-trigger');
-            trigger.classList.toggle('has-active', !!hasActive);
-        });
-        const currentRoute = window.location.hash.replace('#', '') || 'dashboard';
-        if (mobileRouteSelect.value !== currentRoute) {
-            mobileRouteSelect.value = currentRoute;
+    window.addEventListener('app:route-rendered', (event) => {
+        const route = event.detail?.route || 'dashboard';
+        if (mobileRouteSelect.value !== route) {
+            mobileRouteSelect.value = route;
         }
-    }
-    window.addEventListener('hashchange', () => setTimeout(updateDropdownHighlights, 50));
-    setTimeout(updateDropdownHighlights, 50);
+    });
 }
 
 // Initialize app
@@ -162,6 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const saved = loadAutosave();
     if (saved && saved.assessmentComplete) {
         const savedDate = saved.savedAt ? new Date(saved.savedAt).toLocaleString() : 'unknown time';
+        const savedProject = safeText(saved.projectInfo?.name, 'Untitled');
         const overlay = document.createElement('div');
         overlay.id = 'autosave-restore-overlay';
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
@@ -169,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="background:var(--bg-card);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
                 <div style="font-size:2rem;margin-bottom:12px;">💾</div>
                 <h3 style="margin-bottom:8px;">Saved Assessment Found</h3>
-                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">An auto-saved assessment from <strong>${savedDate}</strong> was found for project "<strong>${saved.projectInfo?.name || 'Untitled'}</strong>".</p>
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">An auto-saved assessment from <strong>${escapeHtml(savedDate)}</strong> was found for project "<strong>${escapeHtml(savedProject)}</strong>".</p>
                 <div style="display:flex;gap:10px;justify-content:center;">
                     <button class="btn btn-primary" id="btn-restore-yes">Restore</button>
                     <button class="btn btn-secondary" id="btn-restore-no">Start Fresh</button>
@@ -190,13 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 overrides: saved.overrides || [],
                 violations: saved.violations || [],
                 fixes: saved.fixes || [],
+                rightSizingActions: saved.rightSizingActions || [],
+                adoptionRisks: saved.adoptionRisks || [],
                 manualAdjustments: saved.manualAdjustments || {},
                 tradeoffs: saved.tradeoffs || [],
                 cultureType: saved.cultureType || null,
                 notes: saved.notes || '',
                 assessmentComplete: saved.assessmentComplete || false,
                 confidence: saved.confidence || {},
-                assessmentTree: saved.assessmentTree || getState().assessmentTree
+                assessmentTree: saved.assessmentTree || getState().assessmentTree,
+                deliverablesChecked: saved.deliverablesChecked || []
             });
             overlay.remove();
             showToast('Assessment restored from auto-save!', 'success');

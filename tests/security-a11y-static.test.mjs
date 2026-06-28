@@ -1,0 +1,104 @@
+/**
+ * Static security/accessibility guardrails for rendered UI templates.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, relative } from 'node:path';
+
+import { escapeHtml, safeText } from '../src/utils/safe-text.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const srcRoot = join(__dirname, '..', 'src');
+const appRoot = join(__dirname, '..');
+
+function listJavaScriptFiles(dir) {
+  const entries = readdirSync(dir);
+  const files = [];
+
+  for (const entry of entries) {
+    const path = join(dir, entry);
+    const stat = statSync(path);
+    if (stat.isDirectory()) {
+      files.push(...listJavaScriptFiles(path));
+    } else if (path.endsWith('.js')) {
+      files.push(path);
+    }
+  }
+
+  return files;
+}
+
+test('escapeHtml neutralizes markup, attributes, and quoted text', () => {
+  const dangerous = `"><img src=x onerror="alert('x')">&`;
+  assert.equal(
+    escapeHtml(dangerous),
+    '&quot;&gt;&lt;img src=x onerror=&quot;alert(&#39;x&#39;)&quot;&gt;&amp;'
+  );
+  assert.equal(safeText('   ', 'fallback'), 'fallback');
+});
+
+test('source templates avoid inline event handlers and javascript pseudo-links', () => {
+  const offenders = [];
+  const inlineEventPattern = /(?<!\.)\bon(?:click|error|load|mouseover|mouseenter|mouseleave)\s*=/i;
+  const javascriptLinkPattern = /href\s*=\s*["']javascript:/i;
+
+  for (const file of listJavaScriptFiles(srcRoot)) {
+    const text = readFileSync(file, 'utf8');
+    if (inlineEventPattern.test(text)) {
+      offenders.push(`${relative(srcRoot, file)}: inline event attribute`);
+    }
+    if (javascriptLinkPattern.test(text)) {
+      offenders.push(`${relative(srcRoot, file)}: javascript pseudo-link`);
+    }
+  }
+
+  assert.deepEqual(offenders, []);
+});
+
+test('assessment form controls expose explicit accessible names and button semantics', () => {
+  const text = readFileSync(join(srcRoot, 'views', 'assessment.js'), 'utf8');
+
+  for (const id of ['proj-name', 'proj-date', 'proj-team', 'proj-phase']) {
+    assert.match(text, new RegExp(`<label[^>]+for="${id}"`), `${id} must have an associated label`);
+  }
+
+  assert.match(text, /<button class="step-dot[^"]*"/, 'step navigation controls should be real buttons');
+  assert.doesNotMatch(text, /<div class="step-dot/, 'step navigation should not use clickable divs');
+  assert.match(text, /aria-label="Score \$\{m\.id\}: \$\{escapeHtml\(m\.name\)\}"/, 'metric sliders need accessible labels');
+  assert.match(text, /aria-describedby="desc-\$\{m\.id\}"/, 'metric sliders should reference the current score description');
+});
+
+test('vee lifecycle view provides non-visual table fallback', () => {
+  const text = readFileSync(join(srcRoot, 'views', 'vee-model.js'), 'utf8');
+
+  assert.match(text, /<table[^>]+class="[^"]*vee-fallback-table/, 'Vee view should render a table fallback');
+  assert.match(text, /<caption>Vee lifecycle process table<\/caption>/, 'fallback table should identify its purpose');
+  assert.match(text, /Open \$\{escapeHtml\(processName\(n\.processId\)\)\}/, 'fallback rows should expose process navigation actions');
+});
+
+test('README verification wording distinguishes automated checks from manual browser smoke', () => {
+  const text = readFileSync(join(appRoot, 'README.md'), 'utf8');
+
+  assert.match(text, /Manual browser smoke:/, 'README should label browser smoke as manual evidence unless automated e2e exists');
+  assert.match(text, /Manual mobile viewport smoke \(390px\):/, 'README should record mobile-width rendered smoke as manual evidence unless automated e2e exists');
+  assert.doesNotMatch(text, /Mobile Playwright smoke/, 'README should not imply mobile smoke is automated without a Playwright test script');
+  assert.doesNotMatch(text, /Browser smoke:/, 'README should not imply browser smoke is an automated verification gate');
+  assert.doesNotMatch(text, /expert-reviewed and case-demonstrated decision aid/, 'README should not overstate validation evidence');
+});
+
+test('stakeholder-facing copy does not present evidence status as calibrated confidence', () => {
+  const checkedFiles = [
+    join(srcRoot, 'views', 'assessment.js'),
+    join(srcRoot, 'views', 'report.js'),
+    join(srcRoot, 'utils', 'export-import.js'),
+    join(srcRoot, 'styles', 'index.css')
+  ];
+
+  for (const file of checkedFiles) {
+    const text = readFileSync(file, 'utf8');
+    assert.doesNotMatch(text, /high confidence/i, `${relative(appRoot, file)} should not display high-confidence wording`);
+    assert.doesNotMatch(text, /confidence badges/i, `${relative(appRoot, file)} should label UI badges as evidence status`);
+  }
+});

@@ -8,6 +8,7 @@ import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from '../utils/
 import * as data from '../data/se-tailoring-data.js';
 import { getState, showToast, getElementsFlat } from '../state.js';
 import { navigateTo } from '../router.js';
+import { escapeHtml, safeText } from '../utils/safe-text.js';
 
 function findDirectReportCard(container, titleText) {
   return [...container.querySelectorAll(':scope > .card.mb-xl')]
@@ -35,6 +36,23 @@ function makeReportSectionCollapsible(container, section, title, description, op
   section.replaceWith(details);
   details.append(summary, body);
   body.appendChild(section);
+}
+
+export function getReportReadiness(state = {}) {
+  const nodes = Object.values(state.assessmentTree?.nodes || {});
+  const incompleteElementCount = nodes.filter(node => !node.assessmentResult).length;
+  const warningCount = state.violations?.length || 0;
+  const adoptionRiskCount = state.adoptionRisks?.length || 0;
+  const justificationCount = Object.values(state.confidence || {})
+    .filter(value => value === 'available-with-justification').length;
+
+  if (!state.assessmentComplete || incompleteElementCount > 0) {
+    return 'Draft / incomplete';
+  }
+
+  return warningCount === 0 && adoptionRiskCount === 0 && justificationCount === 0
+    ? 'Ready for review'
+    : 'Review required';
 }
 
 function enhanceReportSections(container) {
@@ -95,7 +113,7 @@ function enhanceReportSections(container) {
     {
       section: findDirectReportCard(container, 'Full Process Tailoring Profile'),
       title: 'Full Process Tailoring Profile',
-      description: 'Derived, final, override, fix, and confidence columns.',
+      description: 'Derived, final, override, fix, and evidence-status columns.',
       open: false
     },
     {
@@ -147,24 +165,35 @@ export function renderReport(container) {
 
   const elements = getElementsFlat();
   const tree = state.assessmentTree;
+  const scores = state.scores || {};
+  const levels = state.levels || {};
+  const derivedLevels = state.derived || {};
+  const derivationDetails = state.derivationDetails || {};
+  const confidence = state.confidence || {};
+  const projectName = escapeHtml(safeText(state.projectInfo.name, 'Project'));
+  const projectDate = escapeHtml(safeText(state.projectInfo.date, new Date().toLocaleDateString()));
+  const projectTeam = escapeHtml(safeText(state.projectInfo.team, '—'));
+  const projectPhase = escapeHtml(safeText(state.projectInfo.phase, 'N/A'));
 
-  const basicCount = Object.values(state.levels).filter(l => l === 'basic').length;
-  const stdCount = Object.values(state.levels).filter(l => l === 'standard').length;
-  const compCount = Object.values(state.levels).filter(l => l === 'comprehensive').length;
+  const basicCount = Object.values(levels).filter(l => l === 'basic').length;
+  const stdCount = Object.values(levels).filter(l => l === 'standard').length;
+  const compCount = Object.values(levels).filter(l => l === 'comprehensive').length;
 
-  const spiderwebOverview = renderMetricSpiderwebSvg(state.scores, METRICS, DIMENSIONS, {
+  const spiderwebOverview = renderMetricSpiderwebSvg(scores, METRICS, DIMENSIONS, {
     title: 'Assessment overview',
     description: 'Sixteen metric scores plotted across four framework dimensions.'
   });
-  const dimensionPatternCards = renderDimensionPatternCards(state.scores, METRICS, DIMENSIONS);
+  const dimensionPatternCards = renderDimensionPatternCards(scores, METRICS, DIMENSIONS);
   const overrideCount = state.overrides?.length || 0;
   const warningCount = state.violations?.length || 0;
   const fixCount = state.fixes?.length || 0;
-  const justificationCount = Object.values(state.confidence || {}).filter(value => value === 'available-with-justification').length;
+  const adoptionRiskCount = state.adoptionRisks?.length || 0;
+  const justificationCount = Object.values(confidence).filter(value => value === 'available-with-justification').length;
+  const floorAppliedCount = Object.values(confidence).filter(value => value === 'floor-applied').length;
   const highPressureMetrics = METRICS
-    .filter(metric => (state.scores[metric.id] ?? 3) >= 4)
+    .filter(metric => (scores[metric.id] ?? 3) >= 4)
     .map(metric => metric.id);
-  const reportReadiness = warningCount === 0 && justificationCount === 0 ? 'Ready for review' : 'Review required';
+  const reportReadiness = getReportReadiness(state);
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
   const processRefName = (ref) => {
@@ -178,7 +207,7 @@ export function renderReport(container) {
     <div class="flex justify-between items-center mb-lg">
       <div>
         <h2>📄 Tailoring Report</h2>
-        <p class="text-secondary text-sm mt-sm">${state.projectInfo.name || 'Project'} · ${state.projectInfo.date || new Date().toLocaleDateString()}</p>
+        <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
       </div>
       <div class="flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Export JSON</button>
@@ -208,11 +237,22 @@ export function renderReport(container) {
           <span class="summary-value">${justificationCount}</span>
           <span class="summary-label">Justifications needed</span>
         </div>
+        <div class="report-summary-item">
+          <span class="summary-value">${floorAppliedCount}</span>
+          <span class="summary-label">Rule floors</span>
+        </div>
+        <div class="report-summary-item">
+          <span class="summary-value">${adoptionRiskCount}</span>
+          <span class="summary-label">Adoption gaps</span>
+        </div>
       </div>
       <div class="report-summary-notes">
         <span><strong>Final profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
         <span><strong>High-pressure metrics:</strong> ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None at 4 or 5'}.</span>
         <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
+      </div>
+      <div class="report-scope-note">
+        <strong>Scope and evidence maturity:</strong> This executable assessment covers 22 project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.
       </div>
     </div>
 
@@ -220,10 +260,10 @@ export function renderReport(container) {
       <div class="card">
         <h4 class="mb-md">Project Details</h4>
         <table class="data-table">
-          <tr><td class="text-secondary">Name</td><td>${state.projectInfo.name || '—'}</td></tr>
-          <tr><td class="text-secondary">Date</td><td>${state.projectInfo.date || '—'}</td></tr>
-          <tr><td class="text-secondary">Team</td><td>${state.projectInfo.team || '—'}</td></tr>
-          <tr><td class="text-secondary">Phase</td><td>${state.projectInfo.phase || 'N/A'}</td></tr>
+          <tr><td class="text-secondary">Name</td><td>${projectName}</td></tr>
+          <tr><td class="text-secondary">Date</td><td>${projectDate}</td></tr>
+          <tr><td class="text-secondary">Team</td><td>${projectTeam}</td></tr>
+          <tr><td class="text-secondary">Phase</td><td>${projectPhase}</td></tr>
         </table>
       </div>
       <div class="card">
@@ -267,6 +307,9 @@ export function renderReport(container) {
               const hasResult = e.assessmentResult != null;
               const indent = e.depth * 20;
               const icon = e.childIds?.length > 0 ? '📂' : '📄';
+              const elementName = escapeHtml(e.name);
+              const assessmentType = ['full', 'quick', 'inherited'].includes(e.assessmentType) ? e.assessmentType : 'full';
+              const status = ['draft', 'under_review', 'approved', 'baselined'].includes(e.status) ? e.status : 'draft';
               
               const levelsBadgeHtml = hasResult 
                 ? '<div class="se-level-counts text-xs" style="display: flex; gap: 4px;">' +
@@ -280,10 +323,10 @@ export function renderReport(container) {
                 <tr>
                   <td style="padding-left: ${indent + 12}px">
                     <span style="opacity:0.7; font-size:12px; margin-right:4px;">${icon}</span>
-                    <strong style="${e.id === tree.rootId ? 'color: var(--accent-primary-light);' : ''}">${e.name}</strong>
+                    <strong style="${e.id === tree.rootId ? 'color: var(--accent-primary-light);' : ''}">${elementName}</strong>
                   </td>
-                  <td><span class="se-type-badge ${e.assessmentType}">${e.assessmentType}</span></td>
-                  <td><span class="se-status-badge ${e.status}">${e.status}</span></td>
+                  <td><span class="se-type-badge ${assessmentType}">${assessmentType}</span></td>
+                  <td><span class="se-status-badge ${status}">${status}</span></td>
                   <td>${levelsBadgeHtml}</td>
                 </tr>
               `;
@@ -308,7 +351,7 @@ export function renderReport(container) {
         </div>
         <div style="text-align: center; padding: 12px;">
           <div style="font-size: 28px; font-weight: 900; color: #22d3ee;">${state.indices?.cri || '—'}</div>
-          <div class="text-xs text-secondary">CRI (Capability)</div>
+          <div class="text-xs text-secondary">CRI (Adoption Readiness)</div>
           <div class="text-xs" style="color: #888;">${(state.indices?.cri || 2) <= 1 ? 'Resistant' : (state.indices?.cri || 2) <= 2 ? 'Tolerant' : 'Supportive'}</div>
         </div>
       </div>
@@ -318,9 +361,16 @@ export function renderReport(container) {
       ${state.rightSizingActions?.length > 0 ? `
       <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">📐 ${state.rightSizingActions.length} Right-Sizing Adjustments Applied</div>
-        ${state.rightSizingActions.map(a => `<div class="text-sm mb-sm">• <strong>${processName(a.processId)}</strong>: ${a.from} → ${a.to} <span class="text-xs text-secondary">(${a.reason})</span></div>`).join('')}
+        ${state.rightSizingActions.map(a => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → ${escapeHtml(a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>`).join('')}
       </div>` : `
-      <div class="text-sm" style="color: #34d399;">✓ Profile is within right-sizing bounds. No adjustments needed.</div>`}
+      <div class="text-sm" style="color: #34d399;">✓ Profile is within rigor-budget bounds. No right-sizing adjustments needed.</div>`}
+      ${state.adoptionRisks?.length > 0 ? `
+      <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
+        <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 6px;">🧭 ${state.adoptionRisks.length} Adoption Readiness Gap${state.adoptionRisks.length === 1 ? '' : 's'}</div>
+        <div class="text-xs text-secondary mb-sm">Required rigor is preserved. These gaps identify support needed to execute the selected profile.</div>
+        ${state.adoptionRisks.slice(0, 10).map(r => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(r.processId))}</strong>: ${escapeHtml(r.level)} <span class="text-xs text-secondary">(${escapeHtml(r.guidance || r.reason)})</span></div>`).join('')}
+        ${state.adoptionRisks.length > 10 ? `<div class="text-xs text-secondary">+ ${state.adoptionRisks.length - 10} more readiness gaps.</div>` : ''}
+      </div>` : ''}
     </div>
 
     ${state.saTier ? `
@@ -331,9 +381,9 @@ export function renderReport(container) {
           ${state.saTier.tier}
         </div>
         <div>
-          <div class="font-bold">${state.saTier.name}</div>
-          <div class="text-sm text-secondary">${state.saTier.description}</div>
-          <div class="text-sm mt-sm"><strong>Minimum Rigor Floor:</strong> ${state.saTier.floor || 'None'}</div>
+          <div class="font-bold">${escapeHtml(state.saTier.name)}</div>
+          <div class="text-sm text-secondary">${escapeHtml(state.saTier.description)}</div>
+          <div class="text-sm mt-sm"><strong>Minimum Rigor Floor:</strong> ${escapeHtml(state.saTier.floor || 'None')}</div>
         </div>
       </div>
     </div>` : ''}
@@ -348,13 +398,13 @@ export function renderReport(container) {
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
       <h4 class="mb-md">⚠️ Override Conditions (${state.overrides.length})</h4>
-      ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${processName(o.processId)}</strong>: ${o.from} → ${o.to} — ${o.reason}${o.condition ? ` (${o.condition})` : ''}</div>`).join('')}
+      ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${escapeHtml(processName(o.processId))}</strong>: ${escapeHtml(o.from)} → ${escapeHtml(o.to)} — ${escapeHtml(o.reason)}${o.condition ? ` (${escapeHtml(o.condition)})` : ''}</div>`).join('')}
     </div>` : ''}
 
     ${state.violations.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-error)">
       <h4 class="mb-md">⚠ Consistency Warnings (${state.violations.length})</h4>
-      ${state.violations.map(v => `<div class="text-sm mb-sm"><strong>[${v.type}] Rule ${v.ruleId}</strong>: ${v.label}</div>`).join('')}
+      ${state.violations.map(v => `<div class="text-sm mb-sm"><strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}</div>`).join('')}
     </div>` : ''}
 
     <div class="card mb-xl">
@@ -371,28 +421,30 @@ export function renderReport(container) {
               <th>Override</th>
               <th>Fix</th>
               <th>Final</th>
-              <th>Confidence</th>
+              <th>Evidence Status</th>
             </tr>
           </thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
-    const derived = state.derived[p.id] || 'basic';
-    const final_ = state.levels[p.id] || 'basic';
+    const derived = derivedLevels[p.id] || 'basic';
+    const final_ = levels[p.id] || 'basic';
     const override = state.overrides?.find(o => o.processId === p.id);
     const fix = state.fixes?.find(f => f.processId === p.id);
     const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
-    const conf = state.confidence?.[p.id] || 'high';
+    const conf = confidence[p.id] || 'high';
     const confBadge = conf === 'corroborated'
       ? '<span class="confidence-badge-inline corroborated" title="Corroborated by multiple metrics">✅</span>'
       : conf === 'available-with-justification'
         ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">⚠️</span>'
-        : '<span class="confidence-badge-inline high" title="High confidence">—</span>';
+        : conf === 'floor-applied'
+          ? '<span class="confidence-badge-inline floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">↥</span>'
+          : '<span class="confidence-badge-inline high" title="Supported by drivers/rules">—</span>';
     const justificationFlag = conf === 'available-with-justification'
       ? ' <span class="justification-flag" title="Justification required for Comprehensive level">📋 Justification Required</span>'
       : '';
     return `<tr>
                 <td><span class="process-id">${p.id}</span></td>
-                <td>${p.name}${justificationFlag}</td>
+                <td>${escapeHtml(p.name)}${justificationFlag}</td>
                 <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
@@ -426,11 +478,11 @@ export function renderReport(container) {
     const overrideDef = OVERRIDE_CONDITIONS.find(oc => oc.id === o.overrideId || oc.label === o.reason);
     const triggerText = o.condition || overrideDef?.condition || '—';
     return `<tr>
-                <td><strong>${o.reason}</strong></td>
-                <td><code style="font-size:11px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${triggerText}</code></td>
-                <td>${processName(o.processId)}</td>
-                <td><span class="level-badge ${o.from}" style="opacity:0.6;">${o.from[0].toUpperCase()}</span> → <span class="level-badge ${o.to}">${o.to[0].toUpperCase()}</span></td>
-                <td class="text-xs text-secondary">${overrideDef?.source || '—'}</td>
+                <td><strong>${escapeHtml(o.reason)}</strong></td>
+                <td><code style="font-size:11px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${escapeHtml(triggerText)}</code></td>
+                <td>${escapeHtml(processName(o.processId))}</td>
+                <td><span class="level-badge ${o.from}" style="opacity:0.6;">${escapeHtml(o.from?.[0]?.toUpperCase() || '')}</span> → <span class="level-badge ${o.to}">${escapeHtml(o.to?.[0]?.toUpperCase() || '')}</span></td>
+                <td class="text-xs text-secondary">${escapeHtml(overrideDef?.source || '—')}</td>
               </tr>`;
   }).join('')}
           </tbody>
@@ -460,10 +512,10 @@ export function renderReport(container) {
     return `<tr style="background: rgba(52,211,153,0.05);">
                 <td><strong>Rule ${rule?.id || '—'}</strong></td>
                 <td><span style="background: rgba(239,68,68,0.15); color:#ef4444; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">HC</span></td>
-                <td>${rule?.trigger?.process ? processRefName(rule.trigger.process) : '—'}</td>
-                <td>${processName(f.processId)}</td>
-                <td><span class="level-badge ${f.from}" style="opacity:0.6;">${f.from[0].toUpperCase()}</span> → <span class="level-badge ${f.to}">${f.to[0].toUpperCase()}</span></td>
-                <td class="text-xs text-secondary">${rule?.rationale?.substring(0, 80) || '—'}...</td>
+                <td>${escapeHtml(rule?.trigger?.process ? processRefName(rule.trigger.process) : '—')}</td>
+                <td>${escapeHtml(processName(f.processId))}</td>
+                <td><span class="level-badge ${f.from}" style="opacity:0.6;">${escapeHtml(f.from?.[0]?.toUpperCase() || '')}</span> → <span class="level-badge ${f.to}">${escapeHtml(f.to?.[0]?.toUpperCase() || '')}</span></td>
+                <td class="text-xs text-secondary">${escapeHtml(rule?.rationale?.substring(0, 80) || '—')}...</td>
               </tr>`;
   }).join('') || ''}
             ${state.violations?.filter(v => v.type === 'WN').map(v => {
@@ -471,10 +523,10 @@ export function renderReport(container) {
     return `<tr style="background: rgba(251,191,36,0.05);">
                 <td><strong>Rule ${v.ruleId}</strong></td>
                 <td><span style="background: rgba(251,191,36,0.15); color:#f59e0b; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">WN</span></td>
-                <td>${rule?.trigger?.process ? processRefName(rule.trigger.process) : '—'}</td>
-                <td>${processName(v.affectedProcess)}</td>
+                <td>${escapeHtml(rule?.trigger?.process ? processRefName(rule.trigger.process) : '—')}</td>
+                <td>${escapeHtml(processName(v.affectedProcess))}</td>
                 <td><span style="color:var(--accent-warning); font-size:11px;">Review recommended</span></td>
-                <td class="text-xs text-secondary">${v.rationale?.substring(0, 80) || v.label}...</td>
+                <td class="text-xs text-secondary">${escapeHtml(v.rationale?.substring(0, 80) || v.label)}...</td>
               </tr>`;
   }).join('') || ''}
           </tbody>
@@ -486,21 +538,27 @@ export function renderReport(container) {
       <h4 class="mb-md">Process Levels & Drivers</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Confidence</th><th>Trigger Metric(s)</th><th>Top Drivers</th></tr></thead>
+          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Evidence Status</th><th>Trigger Metric(s)</th><th>Top Drivers</th></tr></thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
-    const derived = state.derived[p.id] || 'basic';
-    const final_ = state.levels[p.id] || 'basic';
-    const detail = state.derivationDetails?.[p.id] || {};
-    const conf = state.confidence?.[p.id] || 'high';
-    const confLabel = conf === 'corroborated' ? '✅ Corroborated' : conf === 'available-with-justification' ? '⚠️ Needs Justification' : 'High';
+    const derived = derivedLevels[p.id] || 'basic';
+    const final_ = levels[p.id] || 'basic';
+    const detail = derivationDetails[p.id] || {};
+    const conf = confidence[p.id] || 'high';
+    const confLabel = conf === 'corroborated'
+      ? '✅ Corroborated'
+      : conf === 'available-with-justification'
+        ? '⚠️ Needs Justification'
+        : conf === 'floor-applied'
+          ? '↥ Floor Applied'
+          : 'Supported by drivers/rules';
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
       : '—';
-    const drivers = getDriverAttribution(p.id, state.scores, state.matrixMap);
+    const drivers = getDriverAttribution(p.id, scores, state.matrixMap);
     const changed = derived !== final_;
     return `<tr>
-                <td><span class="process-id">${p.id}</span> ${p.name}</td>
+                <td><span class="process-id">${p.id}</span> ${escapeHtml(p.name)}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
                 <td class="text-xs">${confLabel}</td>
@@ -525,7 +583,7 @@ export function renderReport(container) {
           <thead><tr><th>Metric</th><th>Dimension</th><th>Score</th><th>Description</th></tr></thead>
           <tbody>
             ${METRICS.map(m => {
-    const s = state.scores[m.id] || '—';
+    const s = scores[m.id] || '—';
     const dim = DIMENSIONS.find(d => d.id === m.dimension);
     return `<tr>
                 <td><strong>${m.id}</strong> ${m.name}</td>
@@ -560,8 +618,10 @@ export function renderReport(container) {
     .confidence-badge-inline { font-size: 14px; cursor: help; }
     .confidence-badge-inline.corroborated { color: #22c55e; }
     .confidence-badge-inline.available-with-justification { color: #f59e0b; }
+    .confidence-badge-inline.floor-applied { color: #60a5fa; }
     .confidence-badge-inline.high { color: var(--text-tertiary); }
     .justification-flag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.15); color: #f59e0b; font-weight: 600; margin-left: 4px; cursor: help; }
+    .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
   `;
   container.appendChild(style);
   enhanceReportSections(container);

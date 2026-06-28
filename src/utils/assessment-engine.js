@@ -7,11 +7,11 @@
  * 3. Convert metric scores to tiers and find MAX tier across applicable metrics
  * 4. Apply overrides (safety, regulatory, project-context)
  * 5. Apply SA display/floor logic (Safety Assurance minimum levels)
- * 6. RIGHT-SIZE: Compute PSI/CSI/CRI → apply capability ceilings → enforce rigor budget
+ * 6. RIGHT-SIZE: Compute PSI/CSI/CRI → enforce rigor budget and flag adoption-readiness gaps
  * 7. Apply interdependencies (consistency rules)
  * 8. CORROBORATION: Compute confidence for Comprehensive processes
  */
-import { METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, CONSISTENCY_RULES, PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, CAPABILITY_CEILINGS, PROCESS_PRIORITY_CLASSES } from '../data/se-tailoring-data.js';
+import { METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, CONSISTENCY_RULES, PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES } from '../data/se-tailoring-data.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
@@ -56,6 +56,12 @@ function compareScore(lhs, op, rhs) {
     return false;
 }
 
+function isCriticalEvidenceContext(scores = {}) {
+    return scoreOrDefault(scores, 'M5') >= 4 ||
+        scoreOrDefault(scores, 'M6') >= 4 ||
+        scoreOrDefault(scores, 'M8') >= 4;
+}
+
 function getTechnicalProcessIds() {
     return CORE_PROCESSES.filter(p => p.group === 'technical').map(p => p.id);
 }
@@ -88,7 +94,8 @@ function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
  * 5. Track which metrics drove the decision (all metrics with max score)
  */
 export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
-    const map = matrixMap[processId];
+    const activeMatrixMap = matrixMap || METRIC_PROCESS_MAP;
+    const map = activeMatrixMap[processId];
     if (!map || Object.keys(map).length === 0) {
         return {
             level: 'basic',
@@ -125,7 +132,7 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
     let confidence = 'high';
 
     if (derivedLevel === 'comprehensive') {
-        const applicableMetrics = Object.entries(matrixMap[processId] || {});
+        const applicableMetrics = Object.entries(activeMatrixMap[processId] || {});
 
         // Count Primary drivers at Comprehensive (score=5)
         const primaryAtComprehensive = applicableMetrics.filter(([m, role]) => {
@@ -235,7 +242,8 @@ export function applyOverrides(levels, scores, context = {}) {
  * Returns all metrics (Primary and Secondary) that influence the process level.
  */
 export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
-    const map = matrixMap[processId];
+    const activeMatrixMap = matrixMap || METRIC_PROCESS_MAP;
+    const map = activeMatrixMap[processId];
     if (!map) return [];
 
     const drivers = [];
@@ -293,6 +301,9 @@ export function checkConsistency(levels, scores = {}) {
         }
 
         if (triggered) {
+            const effectiveType = (
+                (rule.id === 16 || rule.id === 17) && isCriticalEvidenceContext(scores)
+            ) ? 'HC' : rule.type;
             const reqProcess = rule.required.process;
             let violated = false;
             let affectedProcess = reqProcess;
@@ -325,10 +336,10 @@ export function checkConsistency(levels, scores = {}) {
             if (violated) {
                 violations.push({
                     ruleId: rule.id,
-                    type: rule.type,
+                    type: effectiveType,
                     label: rule.label,
                     rationale: rule.rationale,
-                    severity: rule.type === 'HC' ? 'error' : 'warning',
+                    severity: effectiveType === 'HC' ? 'error' : 'warning',
                     affectedProcess,
                     currentLevel,
                     requiredLevel: rule.required.level,
@@ -434,7 +445,7 @@ export function computeCSI(scores) {
 }
 
 /**
- * Compute Capability/Readiness Index (CRI) from culture metric.
+ * Compute Adoption Readiness Index (CRI) from culture metric.
  * CRI is derived by rule-based mapping from M16 categories
  * (Resistant/Tolerant/Supportive) into three readiness classes;
  * no arithmetic aggregation across metrics is performed.
@@ -486,8 +497,36 @@ function getActiveOverrideFloor(processId, overridesApplied = [], scores = {}, c
 }
 
 /**
- * Apply right-sizing: capability ceilings + rigor budget enforcement.
- * Returns adjusted levels and a log of all right-sizing actions taken.
+ * Flag adoption-readiness gaps without lowering required rigor.
+ */
+export function assessAdoptionReadiness(levels, scores) {
+    const cri = computeCRI(scores);
+    const guidance = ADOPTION_READINESS_GUIDANCE.find(g => g.cri === cri);
+    if (!guidance?.triggerLevel) return [];
+
+    const triggerIdx = levelIndex(guidance.triggerLevel);
+    return CORE_PROCESSES
+        .filter(p => levelIndex(levels[p.id] || 'basic') >= triggerIdx)
+        .map(p => {
+            const level = levels[p.id] || 'basic';
+            const severity = level === 'comprehensive'
+                ? guidance.comprehensiveSeverity
+                : guidance.standardSeverity || guidance.comprehensiveSeverity;
+            return {
+                processId: p.id,
+                level,
+                cri,
+                severity,
+                type: 'adoption_readiness_gap',
+                reason: `CRI=${cri} (${guidance.label}) requires implementation support for ${level} rigor`,
+                guidance: guidance.notes
+            };
+        });
+}
+
+/**
+ * Apply right-sizing: rigor budget enforcement plus readiness-gap reporting.
+ * Returns adjusted levels and a log of any rigor-budget actions taken.
  */
 export function applyRightSizing(levels, scores, overridesApplied = [], context = {}) {
     const psi = computePSI(scores);
@@ -496,37 +535,8 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
     const adjusted = { ...levels };
     const actions = [];
 
-    // --- Step 1: Apply capability ceilings based on CRI ---
-    const ceiling = CAPABILITY_CEILINGS.find(c => c.cri === cri);
-    if (ceiling && cri <= 2) {
-        for (const p of CORE_PROCESSES) {
-            let maxAllowed = ceiling.maxLevel;
-            const overrideFloor = getActiveOverrideFloor(p.id, overridesApplied, scores, context);
-
-            // CRI=2: data-intensive processes have special cap
-            if (cri === 2 && ceiling.dataIntensiveProcesses?.includes(p.id) && psi < ceiling.psiExemptionThreshold) {
-                maxAllowed = ceiling.dataIntensiveCap;
-            }
-
-            if (overrideFloor && levelIndex(maxAllowed) < levelIndex(overrideFloor)) {
-                maxAllowed = overrideFloor;
-            }
-
-            if (levelIndex(adjusted[p.id] || 'basic') > levelIndex(maxAllowed)) {
-                const prev = adjusted[p.id];
-                adjusted[p.id] = maxAllowed;
-                actions.push({
-                    processId: p.id,
-                    from: prev,
-                    to: maxAllowed,
-                    type: 'capability_ceiling',
-                    reason: `CRI=${cri} caps at ${maxAllowed} (${ceiling.label})`
-                });
-            }
-        }
-    }
-
-    // --- Step 2: Enforce rigor budget based on PSI ---
+    // Enforce rigor budget based on PSI. CRI is intentionally not a ceiling;
+    // low readiness creates adoption risks, not permission to under-tailor.
     const budget = RIGOR_BUDGET.find(b => psi >= b.psiMin && psi <= b.psiMax);
     if (budget) {
         // Count current Comprehensive processes (excluding override-protected)
@@ -618,7 +628,8 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
         }
     }
 
-    return { levels: adjusted, rightSizingActions: actions, indices: { psi, csi, cri } };
+    const adoptionRisks = assessAdoptionReadiness(adjusted, scores);
+    return { levels: adjusted, rightSizingActions: actions, adoptionRisks, indices: { psi, csi, cri } };
 }
 
 /** Helper: get the max driving metric score for a process */
@@ -675,8 +686,8 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
 
     const allOverrides = [...overrides, ...saOverrides];
 
-    // Step 4: RIGHT-SIZE — apply capability ceilings (CRI) and rigor budget (PSI)
-    const { levels: afterRightSizing, rightSizingActions, indices } = applyRightSizing(final, scores, allOverrides, context);
+    // Step 4: RIGHT-SIZE — apply rigor budget (PSI) and flag adoption gaps (CRI)
+    const { levels: afterRightSizing, rightSizingActions, adoptionRisks, indices } = applyRightSizing(final, scores, allOverrides, context);
 
     // Step 5: Apply interdependencies (consistency rules with auto-fix)
     final = { ...afterRightSizing };
@@ -725,28 +736,24 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         iterations += 1;
     }
 
-    // Step 6: Compute confidence for each process based on final levels
+    // Step 6: Compute evidence status for each process based on final levels.
+    // Metric corroboration, safety/regulatory floors, and explicit-justification
+    // cases are separate evidence states; do not collapse them into one label.
     const confidence = {};
     for (const p of CORE_PROCESSES) {
         const finalLevel = final[p.id];
         if (finalLevel === 'comprehensive') {
-            const applicableMetrics = Object.entries(METRIC_PROCESS_MAP[p.id] || {});
-            const metricsAtStandardOrAbove = applicableMetrics.filter(([m]) => {
-                const score = scoreOrDefault(scores, m);
-                return score >= 3;
-            }).length;
-            const metricsAtComprehensive = applicableMetrics.filter(([m]) => {
-                const score = scoreOrDefault(scores, m);
-                return score === 5;
-            }).length;
-            const soleCIsCriticality = metricsAtComprehensive === 1 && applicableMetrics.filter(([m]) => {
-                const score = scoreOrDefault(scores, m);
-                return score === 5;
-            }).every(([m]) => m === 'M5' || m === 'M7');
+            const derivationConfidence = derivationDetails[p.id]?.confidence || 'high';
+            const activeFloor = getActiveOverrideFloor(p.id, allOverrides, scores, context);
+            const comprehensiveFloorApplied = (
+                activeFloor && levelIndex(activeFloor) >= levelIndex('comprehensive')
+            ) || fixes.some(f =>
+                f.processId === p.id && levelIndex(f.to) >= levelIndex('comprehensive')
+            );
 
-            if (metricsAtStandardOrAbove >= 2 || metricsAtComprehensive >= 1) {
-                confidence[p.id] = 'corroborated';
-            } else if (soleCIsCriticality) {
+            if (comprehensiveFloorApplied) {
+                confidence[p.id] = 'floor-applied';
+            } else if (derivationConfidence === 'corroborated') {
                 confidence[p.id] = 'corroborated';
             } else {
                 confidence[p.id] = 'available-with-justification';
@@ -761,6 +768,7 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         derivationDetails,
         overrides: allOverrides,
         rightSizingActions: rightSizingActions || [],
+        adoptionRisks: adoptionRisks || [],
         indices: indices || {},
         fixes,
         levels: final,

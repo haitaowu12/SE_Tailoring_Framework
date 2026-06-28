@@ -4,11 +4,13 @@
 import { CORE_PROCESSES, METRICS, DIMENSIONS, METRIC_PROCESS_MAP, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { runFullAssessment } from '../utils/assessment-engine.js';
 import { getState, setState } from '../state.js';
-import { exportMatrixExcel, exportMatrixPDF } from '../utils/export-import.js';
+import { applyManualAdjustmentsToLevels, exportMatrixCSV, exportMatrixPDF } from '../utils/export-import.js';
+import { escapeHtml } from '../utils/safe-text.js';
 
 export function renderMatrixView(container) {
   const state = getState();
   const matrixMap = state.matrixMap || JSON.parse(JSON.stringify(METRIC_PROCESS_MAP));
+  const roleLabel = role => role === 'P' ? 'Primary' : role === 'S' ? 'Secondary' : 'None';
 
   container.innerHTML = `
     <div class="flex justify-between items-center mb-md">
@@ -17,7 +19,7 @@ export function renderMatrixView(container) {
         <p class="text-secondary text-sm">Shows which metrics (columns) drive which processes (rows). <strong class="text-accent">P</strong> = Primary driver, <strong class="text-secondary">S</strong> = Secondary driver. <strong style="color:var(--text-primary)">Click any cell to toggle.</strong></p>
       </div>
       <div class="flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-export-matrix-excel">📥 Export Excel</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-matrix-csv">📥 Export CSV</button>
         <button class="btn btn-primary btn-sm" id="btn-export-matrix-pdf">📄 Export PDF</button>
       </div>
     </div>
@@ -44,12 +46,13 @@ export function renderMatrixView(container) {
     return `<tr class="matrix-row" data-pid="${p.id}">
                 <td class="matrix-process-cell">
                   <span class="process-id">${p.id}</span>
-                  <span>${p.name}</span>
+                  <span>${escapeHtml(p.name)}</span>
                 </td>
                 ${METRICS.map(m => {
       const role = map[m.id];
       const cellClass = role ? role : 'empty';
-      return `<td class="matrix-cell ${cellClass} clickable-cell" data-pid="${p.id}" data-mid="${m.id}" title="Click to toggle (Primary/Secondary/None)" style="cursor:pointer">${role || ''}</td>`;
+      const label = `Toggle ${p.name} / ${m.id} applicability. Current: ${roleLabel(role)}.`;
+      return `<td class="matrix-cell ${cellClass} clickable-cell" data-pid="${p.id}" data-mid="${m.id}" role="button" tabindex="0" aria-label="${escapeHtml(label)}" title="Click or press Enter/Space to toggle (Primary/Secondary/None)" style="cursor:pointer">${role || ''}</td>`;
     }).join('')}
                 <td class="matrix-level-cell">${lvl ? `<span class="level-badge ${lvl}">${lvl[0].toUpperCase()}</span>` : '—'}</td>
               </tr>`;
@@ -90,6 +93,7 @@ export function renderMatrixView(container) {
     .matrix-cell.S { background: rgba(148,163,184,0.1); color: var(--text-secondary); }
     .matrix-cell.empty { background: transparent; }
     .matrix-cell:hover { transform: scale(1.5); border-color: var(--accent-primary); z-index: 5; position: relative; }
+    .matrix-cell:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
     .matrix-row:hover td { background: rgba(99,102,241,0.04); }
     .matrix-level-cell { min-width: 50px; }
     .matrix-cell-example { width: 24px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 700; }
@@ -99,13 +103,13 @@ export function renderMatrixView(container) {
   container.appendChild(style);
 
   const wrapper = container.querySelector('#matrix-wrapper');
-  wrapper.addEventListener('click', (e) => {
-    if (e.target.classList.contains('clickable-cell')) {
+  const toggleMatrixCell = (cell) => {
+    if (!cell?.classList.contains('clickable-cell')) return;
       const currentState = getState();
       const currentMatrixMap = currentState.matrixMap || JSON.parse(JSON.stringify(METRIC_PROCESS_MAP));
 
-      const pid = parseInt(e.target.dataset.pid);
-      const mid = e.target.dataset.mid;
+      const pid = parseInt(cell.dataset.pid);
+      const mid = cell.dataset.mid;
       const currentRole = currentMatrixMap[pid]?.[mid];
       const nextRole = currentRole === 'P' ? 'S' : currentRole === 'S' ? null : 'P';
 
@@ -122,12 +126,13 @@ export function renderMatrixView(container) {
           currentMatrixMap,
           currentState.projectInfo || {}
         );
-        const finalLevels = { ...result.levels };
-        if (currentState.manualAdjustments) {
-          for (const [mpid, adj] of Object.entries(currentState.manualAdjustments)) {
-            finalLevels[mpid] = adj.to;
-          }
-        }
+        const activeNodeId = currentState.assessmentTree?.activeId || currentState.assessmentTree?.rootId;
+        const activeNodeAdjustments = currentState.assessmentTree?.nodes?.[activeNodeId]?.manualAdjustments || {};
+        const finalLevels = applyManualAdjustmentsToLevels(
+          result.levels,
+          currentState.manualAdjustments,
+          activeNodeAdjustments
+        );
         setState({
           matrixMap: currentMatrixMap,
           derived: result.derived,
@@ -152,11 +157,21 @@ export function renderMatrixView(container) {
         newScrollContainer.scrollLeft = scrollLeft;
         newScrollContainer.scrollTop = scrollTop;
       }
-    }
+  };
+
+  wrapper.addEventListener('click', (e) => {
+    toggleMatrixCell(e.target);
   });
 
-  container.querySelector('#btn-export-matrix-excel').addEventListener('click', async () => {
-    await exportMatrixExcel(getState(), METRICS, CORE_PROCESSES, METRIC_PROCESS_MAP);
+  wrapper.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (!e.target.classList.contains('clickable-cell')) return;
+    e.preventDefault();
+    toggleMatrixCell(e.target);
+  });
+
+  container.querySelector('#btn-export-matrix-csv').addEventListener('click', () => {
+    exportMatrixCSV(getState(), METRICS, CORE_PROCESSES, METRIC_PROCESS_MAP);
   });
 
   container.querySelector('#btn-export-matrix-pdf').addEventListener('click', async () => {

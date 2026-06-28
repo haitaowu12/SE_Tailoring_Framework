@@ -13,6 +13,18 @@ import {
 import { propagateDownstream, suggestUpstream } from '../utils/inheritance-engine.js';
 import { navigateTo } from '../router.js';
 import { exportSystemBreakdownCSV } from '../utils/export-import.js';
+import { escapeHtml } from '../utils/safe-text.js';
+
+const VALID_ASSESSMENT_TYPES = new Set(['full', 'quick', 'inherited']);
+const VALID_ELEMENT_STATUSES = new Set(['draft', 'under_review', 'approved', 'baselined']);
+
+function safeAssessmentType(value) {
+  return VALID_ASSESSMENT_TYPES.has(value) ? value : 'full';
+}
+
+function safeElementStatus(value) {
+  return VALID_ELEMENT_STATUSES.has(value) ? value : 'draft';
+}
 
 export function renderSystemElements(container) {
   const state = getState();
@@ -21,6 +33,9 @@ export function renderSystemElements(container) {
   const activeNode = getActiveNode();
   const crumbs = getElementBreadcrumbs(tree.activeId);
   const elementCount = getElementCount();
+  const activeName = escapeHtml(activeNode.name);
+  const activeType = safeAssessmentType(activeNode.assessmentType);
+  const activeStatus = safeElementStatus(activeNode.status);
 
   // Collect pending conflicts for active node
   const parentNode = activeNode.parentId ? tree.nodes[activeNode.parentId] : null;
@@ -37,7 +52,7 @@ export function renderSystemElements(container) {
       <!-- Breadcrumbs -->
       <div class="se-breadcrumbs mb-lg">
         ${crumbs.map((c, i) => `
-          <span class="se-crumb ${c.id === tree.activeId ? 'active' : ''}" data-id="${c.id}">${c.name}</span>
+          <span class="se-crumb ${c.id === tree.activeId ? 'active' : ''}" data-id="${escapeHtml(c.id)}">${escapeHtml(c.name)}</span>
           ${i < crumbs.length - 1 ? '<span class="se-crumb-sep">›</span>' : ''}
         `).join('')}
       </div>
@@ -60,7 +75,7 @@ export function renderSystemElements(container) {
               <option value="full">Full Assessment (all metrics)</option>
               <option value="inherited">Inherited (all from parent)</option>
             </select>
-            <button class="btn btn-primary btn-sm" id="btn-add-element">+ Add to ${activeNode.name}</button>
+            <button class="btn btn-primary btn-sm" id="btn-add-element">+ Add to ${activeName}</button>
           </div>
         </div>
 
@@ -68,10 +83,10 @@ export function renderSystemElements(container) {
         <div class="se-detail-panel">
           <div class="se-detail-header">
             <div>
-              <h3>${activeNode.name}</h3>
-              <span class="se-type-badge ${activeNode.assessmentType}">${activeNode.assessmentType}</span>
-              <span class="se-status-badge ${activeNode.status}">${activeNode.status}</span>
-              ${activeNode.parentId ? `<span class="text-xs text-secondary">Parent: ${tree.nodes[activeNode.parentId]?.name || '—'}</span>` : '<span class="text-xs text-secondary">Root element</span>'}
+              <h3>${activeName}</h3>
+              <span class="se-type-badge ${activeType}">${activeType}</span>
+              <span class="se-status-badge ${activeStatus}">${activeStatus}</span>
+              ${activeNode.parentId ? `<span class="text-xs text-secondary">Parent: ${escapeHtml(tree.nodes[activeNode.parentId]?.name || '—')}</span>` : '<span class="text-xs text-secondary">Root element</span>'}
             </div>
             <div class="se-detail-actions">
               <button class="btn btn-primary btn-sm" id="btn-assess-element">🎯 Assess This Element</button>
@@ -134,7 +149,7 @@ export function renderSystemElements(container) {
                     <tr>
                       <td>
                         <span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> 
-                        <a href="javascript:void(0)" class="process-name-link" data-id="${p.id}" style="color: var(--accent-primary-light); text-decoration: underline; cursor: pointer;" title="View in Process Explorer">${p.name}</a>
+                        <button type="button" class="process-name-link" data-id="${p.id}" title="View in Process Explorer">${escapeHtml(p.name)}</button>
                       </td>
                       <td>
                         <span class="level-badge ${finalLevel}" style="font-size: 10px; padding: 2px 6px;">
@@ -176,14 +191,14 @@ export function renderSystemElements(container) {
             <h4>Child Elements (${childNodes.length})</h4>
             <div class="se-children-list">
               ${childNodes.map(child => `
-              <div class="se-child-card" data-id="${child.id}">
+              <div class="se-child-card" data-id="${escapeHtml(child.id)}">
                 <div class="se-child-info">
-                  <span class="se-child-name">${child.name}</span>
-                  <span class="se-type-badge ${child.assessmentType}">${child.assessmentType}</span>
-                  <span class="se-status-badge ${child.status}">${child.status}</span>
+                  <span class="se-child-name">${escapeHtml(child.name)}</span>
+                  <span class="se-type-badge ${safeAssessmentType(child.assessmentType)}">${safeAssessmentType(child.assessmentType)}</span>
+                  <span class="se-status-badge ${safeElementStatus(child.status)}">${safeElementStatus(child.status)}</span>
                 </div>
                 <div class="se-child-actions">
-                  <button class="btn btn-ghost btn-sm se-nav-child" data-id="${child.id}">Navigate →</button>
+                  <button class="btn btn-ghost btn-sm se-nav-child" data-id="${escapeHtml(child.id)}">Navigate →</button>
                 </div>
               </div>`).join('')}
             </div>
@@ -256,6 +271,8 @@ export function renderSystemElements(container) {
       .se-result-summary-title { display: flex; align-items: center; justify-content: space-between; width: 100%; }
       .se-result-summary-title h4 { font-size: 14px; margin: 0; padding: 0; color: var(--text-primary); }
       .se-result-summary-content { padding: 0 14px 14px 14px; }
+      .process-name-link { border: 0; background: transparent; padding: 0; color: var(--accent-primary-light); text-decoration: underline; cursor: pointer; font: inherit; text-align: left; }
+      .process-name-link:focus-visible { outline: 2px solid var(--accent-primary-light); outline-offset: 2px; border-radius: 3px; }
       details[open] .se-result-summary-header { border-bottom: 1px dashed rgba(99,102,241,0.2); margin-bottom: 8px; }
       .se-level-counts { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
       .se-no-result { padding: 20px; text-align: center; background: rgba(148,163,184,0.05); border-radius: 8px; margin-bottom: 20px; }
@@ -413,7 +430,7 @@ export function renderSystemElements(container) {
   container.querySelectorAll('.process-name-link').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      const processId = e.target.dataset.id;
+      const processId = e.currentTarget.dataset.id;
       setState({ activeProcessExplorerId: processId });
       navigateTo('processes');
     });
@@ -436,12 +453,13 @@ function renderTreeNodes(nodes, nodeId, activeId, depth) {
   const isActive = nodeId === activeId;
   const hasChildren = node.childIds && node.childIds.length > 0;
   const icon = hasChildren ? '📂' : '📄';
+  const status = safeElementStatus(node.status);
 
   let html = `
-    <div class="se-tree-node ${isActive ? 'active' : ''}" data-id="${nodeId}" style="padding-left: ${indent + 8}px">
+    <div class="se-tree-node ${isActive ? 'active' : ''}" data-id="${escapeHtml(nodeId)}" style="padding-left: ${indent + 8}px">
       <span class="node-icon">${icon}</span>
-      <span class="node-name">${node.name}</span>
-      <span class="node-status ${node.status}" title="${node.status}"></span>
+      <span class="node-name">${escapeHtml(node.name)}</span>
+      <span class="node-status ${status}" title="${status}"></span>
     </div>`;
 
   if (hasChildren) {
@@ -469,9 +487,9 @@ function showConflictBanner(container, conflicts, direction) {
       ${conflicts.map((c, i) => `
       <div class="se-conflict-item" id="conflict-${i}">
         <div>
-          <strong>${c.metric}</strong>: Current manual value = <strong>${c.childValue ?? c.parentValue}</strong>,
-          Proposed = <strong>${c.parentValue ?? c.childValue}</strong>
-          ${c.childName ? `(${c.childName})` : ''}
+          <strong>${escapeHtml(c.metric)}</strong>: Current manual value = <strong>${escapeHtml(c.childValue ?? c.parentValue)}</strong>,
+          Proposed = <strong>${escapeHtml(c.parentValue ?? c.childValue)}</strong>
+          ${c.childName ? `(${escapeHtml(c.childName)})` : ''}
         </div>
         <div class="se-conflict-actions">
           <button class="btn-accept" data-idx="${i}" data-action="accept">Accept</button>

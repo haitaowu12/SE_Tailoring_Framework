@@ -6,6 +6,7 @@ import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META } from '../data/se-tailo
 import { checkConsistency } from '../utils/assessment-engine.js';
 import { getState, showToast, getElementsFlat, setElementProcessAdjustment } from '../state.js';
 import { navigateTo } from '../router.js';
+import { escapeHtml } from '../utils/safe-text.js';
 
 let localLevels = {};
 let selectedElementId = null;
@@ -42,6 +43,7 @@ export function renderManualAdjust(container) {
   CORE_PROCESSES.forEach(p => { if (!groupByGroup[p.group]) groupByGroup[p.group] = []; groupByGroup[p.group].push(p); });
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
+  const selectedElementName = escapeHtml(selectedElement.name);
 
   container.dataset.elementId = selectedElementId;
   container.innerHTML = `
@@ -56,22 +58,22 @@ export function renderManualAdjust(container) {
     <div class="mb-lg mt-md p-md bg-card" style="border-radius: 8px; border: 1px solid var(--border-subtle);">
       <label class="form-label text-sm text-secondary" style="display:block; margin-bottom: 4px;">Target System Element</label>
       <select class="select element-select" style="min-width:300px; max-width:100%;">
-        ${elements.map(el => `<option value="${el.id}" ${el.id === selectedElementId ? 'selected' : ''}>${'─'.repeat(el.depth)} ${el.name}</option>`).join('')}
+        ${elements.map(el => `<option value="${escapeHtml(el.id)}" ${el.id === selectedElementId ? 'selected' : ''}>${'─'.repeat(el.depth)} ${escapeHtml(el.name)}</option>`).join('')}
       </select>
     </div>
 
     ${violations.length > 0 ? `
     <div class="card mb-lg" style="border-left: 3px solid ${violations.some(v => v.type === 'HC') ? 'var(--accent-error)' : 'var(--accent-warning)'}; background: ${violations.some(v => v.type === 'HC') ? 'rgba(239,68,68,0.06)' : 'rgba(251,191,36,0.06)'}">
       <div class="flex items-center gap-sm mb-sm">
-        <strong>${violations.some(v => v.type === 'HC') ? '🚫' : '⚠️'} ${violations.length} Consistency Issue${violations.length > 1 ? 's' : ''} for ${selectedElement.name}</strong>
+        <strong>${violations.some(v => v.type === 'HC') ? '🚫' : '⚠️'} ${violations.length} Consistency Issue${violations.length > 1 ? 's' : ''} for ${selectedElementName}</strong>
       </div>
       ${violations.map(v => `
         <div class="text-sm mb-sm" style="color: ${v.type === 'HC' ? 'var(--accent-error)' : 'var(--accent-warning)'}">
-          <strong>[${v.type}] Rule ${v.ruleId}</strong>: ${v.label}<br>
-          <span class="text-xs text-secondary">${processName(v.affectedProcess)} is ${v.currentLevel}, needs ${v.requiredOp} ${v.requiredLevel}</span>
+          <strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}<br>
+          <span class="text-xs text-secondary">${escapeHtml(processName(v.affectedProcess))} is ${escapeHtml(v.currentLevel)}, needs ${escapeHtml(v.requiredOp)} ${escapeHtml(v.requiredLevel)}</span>
         </div>
       `).join('')}
-    </div>` : `<div class="card mb-lg" style="border-left:3px solid var(--accent-success);background:rgba(52,211,153,0.06)"><strong>✓ All consistency rules satisfied for ${selectedElement.name}</strong></div>`}
+    </div>` : `<div class="card mb-lg" style="border-left:3px solid var(--accent-success);background:rgba(52,211,153,0.06)"><strong>✓ All consistency rules satisfied for ${selectedElementName}</strong></div>`}
 
     ${Object.entries(groupByGroup).map(([group, procs]) => `
       <div class="mb-xl">
@@ -86,7 +88,7 @@ export function renderManualAdjust(container) {
     const changed = derived !== current;
     const existingJust = selectedElement.manualAdjustments?.[p.id]?.justification || '';
     return `<tr>
-                  <td><span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> ${p.name}</td>
+                  <td><span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> ${escapeHtml(p.name)}</td>
                   <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                   <td>
                     <select class="form-control form-control-sm adjust-select" data-pid="${p.id}" style="min-width:130px; font-size:12px;">
@@ -94,7 +96,7 @@ export function renderManualAdjust(container) {
                     </select>
                   </td>
                   <td>
-                    <input type="text" class="input adjust-justification" data-pid="${p.id}" style="width:100%; font-size:12px;" placeholder="${changed ? 'Provide justification...' : 'Optional...'}" value="${existingJust}" ${!changed ? 'disabled style="opacity:0.5; width:100%; font-size:12px;"' : ''}>
+                    <input type="text" class="input adjust-justification" data-pid="${p.id}" style="width:100%; font-size:12px;" placeholder="${changed ? 'Provide justification...' : 'Optional...'}" value="${escapeHtml(existingJust)}" ${!changed ? 'disabled style="opacity:0.5; width:100%; font-size:12px;"' : ''}>
                   </td>
                   <td>${changed ? '<span class="text-xs" style="color:var(--accent-warning); font-weight:bold;">Modified</span>' : '<span class="text-xs text-secondary">—</span>'}</td>
                 </tr>`;

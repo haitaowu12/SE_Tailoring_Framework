@@ -4,6 +4,7 @@
 import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRIC_PROCESS_MAP, METRICS } from '../data/se-tailoring-data.js';
 import { PROCESS_DETAILS } from '../data/process-details.js';
 import { getState, setState } from '../state.js';
+import { escapeHtml } from '../utils/safe-text.js';
 
 let activeProcess = null;
 let activeLevel = null;
@@ -636,7 +637,7 @@ export function renderProcessExplorer(container) {
   container.innerHTML = `
     <h2 class="mb-lg">🔍 Process Explorer</h2>
     <div class="explorer-controls mb-lg">
-      <input class="input" id="process-search" placeholder="Search processes..." value="${searchQuery}" style="max-width:300px" aria-label="Search processes" role="searchbox">
+      <input class="input" id="process-search" placeholder="Search processes..." value="${escapeHtml(searchQuery)}" style="max-width:300px" aria-label="Search processes" role="searchbox">
       <div class="tabs" id="group-tabs" role="tablist" aria-label="Process group filter">
         <button class="tab ${filterGroup === 'all' ? 'active' : ''}" data-group="all" role="tab" aria-selected="${filterGroup === 'all'}">All (${CORE_PROCESSES.length})</button>
         <button class="tab ${filterGroup === 'tech_mgmt' ? 'active' : ''}" data-group="tech_mgmt" role="tab" aria-selected="${filterGroup === 'tech_mgmt'}">Tech Management</button>
@@ -648,15 +649,15 @@ export function renderProcessExplorer(container) {
         ${filtered.map(p => {
     const level = state.levels[p.id];
     return `
-          <div class="process-list-card ${activeProcess === p.id ? 'selected' : ''} hover-lift" data-pid="${p.id}" role="option" tabindex="0" aria-selected="${activeProcess === p.id}" aria-label="${p.name} – ${p.purpose}">
+          <div class="process-list-card ${activeProcess === p.id ? 'selected' : ''} hover-lift" data-pid="${p.id}" role="option" tabindex="0" aria-selected="${activeProcess === p.id}" aria-label="${escapeHtml(p.name)} - ${escapeHtml(p.purpose)}">
             <div class="flex justify-between items-center">
               <div class="flex items-center gap-sm">
                 <span class="process-id">${p.id}</span>
-                <span class="font-bold">${p.name}</span>
+                <span class="font-bold">${escapeHtml(p.name)}</span>
               </div>
               ${level ? `<span class="level-badge ${level}">${level[0].toUpperCase()}</span>` : ''}
             </div>
-            <div class="text-xs text-secondary mt-sm">${p.purpose}</div>
+            <div class="text-xs text-secondary mt-sm">${escapeHtml(p.purpose)}</div>
           </div>`;
   }).join('')}
       </div>
@@ -775,20 +776,25 @@ function renderProcessDetail(processId, state) {
   const activities = details?.activities?.[viewLevel] || [];
   const deliverables = details?.deliverables?.[viewLevel] || [];
   const outputs = details?.outputs || [];
+  const levelLabel = FRAMEWORK_META.levelLabels[level] || level;
+  const viewLevelLabel = FRAMEWORK_META.levelLabels[viewLevel] || viewLevel;
+  const groupLabel = PROCESS_GROUPS[p.group.toUpperCase()]?.name || p.group;
+  const scopeLabel = p.iso?.scope === 'executable-core' ? 'Executable core' : 'Reference scope';
 
   return `
     <div class="card animate-fade-in">
       <div class="flex justify-between process-detail-header mb-lg">
         <div>
-          <h3>${p.name}</h3>
-          <p class="text-sm text-secondary mt-sm">${p.purpose}</p>
+          <h3>${escapeHtml(p.name)}</h3>
+          <p class="text-sm text-secondary mt-sm">${escapeHtml(p.purpose)}</p>
           <div class="process-meta-row">
             <span class="process-meta-pill">P${p.id}</span>
-            <span class="process-meta-pill">${PROCESS_GROUPS[p.group.toUpperCase()]?.name || p.group}</span>
-            <span class="process-meta-pill">${activities.length} activities · ${deliverables.length} deliverables at ${FRAMEWORK_META.levelLabels[viewLevel]}</span>
+            <span class="process-meta-pill">${escapeHtml(groupLabel)}</span>
+            <span class="process-meta-pill">${escapeHtml(scopeLabel)}</span>
+            <span class="process-meta-pill">${activities.length} activities · ${deliverables.length} deliverables at ${escapeHtml(viewLevelLabel)}</span>
           </div>
         </div>
-        ${level ? `<span class="level-badge ${level}" title="Current tailoring level">${FRAMEWORK_META.levelLabels[level]}</span>` : ''}
+        ${level ? `<span class="level-badge ${escapeHtml(level)}" title="Current tailoring level">${escapeHtml(levelLabel)}</span>` : ''}
       </div>
 
       <div class="level-selector-bar">
@@ -798,15 +804,15 @@ function renderProcessDetail(processId, state) {
         </div>
         <div class="level-tabs" role="tablist" aria-label="Tailoring level detail selector">
           ${LEVEL_KEYS.map(l => `
-            <button class="level-tab ${viewLevel === l ? 'active-' + l : ''}" data-level="${l}" role="tab" aria-selected="${viewLevel === l}" aria-label="View ${FRAMEWORK_META.levelLabels[l]} level content">${FRAMEWORK_META.levelLabels[l]}</button>
+            <button class="level-tab ${viewLevel === l ? 'active-' + escapeHtml(l) : ''}" data-level="${escapeHtml(l)}" role="tab" aria-selected="${viewLevel === l}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[l])} level content">${escapeHtml(FRAMEWORK_META.levelLabels[l])}</button>
           `).join('')}
         </div>
       </div>
 
       ${p.definition ? `
       <div class="detail-section">
-        <h4>Definition at ${FRAMEWORK_META.levelLabels[viewLevel]}</h4>
-        <p class="text-sm text-secondary">${p.definition[viewLevel] || '—'}</p>
+        <h4>Definition at ${escapeHtml(viewLevelLabel)}</h4>
+        <p class="text-sm text-secondary">${escapeHtml(p.definition[viewLevel] || '—')}</p>
       </div>` : ''}
 
       <div class="detail-section">
@@ -820,7 +826,7 @@ function renderProcessDetail(processId, state) {
     if (text.includes('[Safety]') && m5Score < 3) { disabled = true; reason = '(M5 < 3)'; }
     if (text.includes('[RAM]') && m6Score < 3) { disabled = true; reason = '(M6 < 3)'; }
     return `<div class="activity-item ${isEssential ? 'essential' : ''}" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
-            ${isEssential ? '⭐ ' : '• '} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${text}</span>
+            ${isEssential ? '⭐ ' : '• '} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
             ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No activity detail is defined for this process level yet.</div>'}
@@ -836,7 +842,7 @@ function renderProcessDetail(processId, state) {
     if (text.includes('[Safety]') && m5Score < 3) { disabled = true; reason = '(M5 < 3)'; }
     if (text.includes('[RAM]') && m6Score < 3) { disabled = true; reason = '(M6 < 3)'; }
     return `<div class="deliverable-item" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
-            📄 <span style="${disabled ? 'text-decoration: line-through;' : ''}">${text}</span>
+            📄 <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
             ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No deliverable detail is defined for this process level yet.</div>'}
@@ -844,7 +850,7 @@ function renderProcessDetail(processId, state) {
 
       <div class="detail-section">
         <h4>Outputs & Feeds Into</h4>
-        ${outputs.length ? outputs.map(o => `<div class="output-item"><strong>${o.name}</strong> → ${o.feedsInto}</div>`).join('') : '<div class="detail-empty-line">No output flow detail is defined for this process yet.</div>'}
+        ${outputs.length ? outputs.map(o => `<div class="output-item"><strong>${escapeHtml(o.name)}</strong> → ${escapeHtml(o.feedsInto)}</div>`).join('') : '<div class="detail-empty-line">No output flow detail is defined for this process yet.</div>'}
       </div>
 
       ${miniCard ? `
@@ -860,7 +866,7 @@ function renderProcessDetail(processId, state) {
         <div class="flex" style="flex-wrap:wrap">
           ${Object.entries(map).map(([mid, role]) => {
     const m = METRICS.find(x => x.id === mid);
-    return `<span class="metric-tag ${role}">${role} ${mid}: ${m?.name || mid}</span>`;
+    return `<span class="metric-tag ${escapeHtml(role)}">${escapeHtml(role)} ${escapeHtml(mid)}: ${escapeHtml(m?.name || mid)}</span>`;
   }).join('')}
         </div>
       </div>
@@ -868,7 +874,7 @@ function renderProcessDetail(processId, state) {
       ${p.whenToElevate ? `
       <div class="detail-section">
         <h4>When to Elevate</h4>
-        <p class="text-sm text-secondary">${p.whenToElevate}</p>
+        <p class="text-sm text-secondary">${escapeHtml(p.whenToElevate)}</p>
       </div>` : ''}
     </div>
   `;
@@ -889,23 +895,23 @@ function renderImplementationAids(basicChecklist, cultureTactics) {
         <div class="aid-grid">
           ${basicChecklist ? `
           <div class="aid-panel basic">
-            <h5>${basicChecklist.title}</h5>
+            <h5>${escapeHtml(basicChecklist.title)}</h5>
             <div class="aid-checklist">
-              ${basicChecklist.items.map(item => `<div>${item}</div>`).join('')}
+              ${basicChecklist.items.map(item => `<div>${escapeHtml(item)}</div>`).join('')}
             </div>
           </div>` : ''}
           ${cultureTactics ? `
           <div class="aid-panel culture">
-            <h5>${cultureTactics.title}</h5>
+            <h5>${escapeHtml(cultureTactics.title)}</h5>
             ${cultureTactics.cultures.map(c => `
               <div class="culture-tactic">
                 <div class="flex items-center gap-sm">
-                  <span>${c.icon}</span>
-                  <span class="font-bold text-sm">${c.type}</span>
-                  <span class="text-xs text-secondary">${c.description}</span>
+                  <span>${escapeHtml(c.icon)}</span>
+                  <span class="font-bold text-sm">${escapeHtml(c.type)}</span>
+                  <span class="text-xs text-secondary">${escapeHtml(c.description)}</span>
                 </div>
                 <ul>
-                  ${c.tactics.map(t => `<li>${t}</li>`).join('')}
+                  ${c.tactics.map(t => `<li>${escapeHtml(t)}</li>`).join('')}
                 </ul>
               </div>
             `).join('')}
@@ -918,28 +924,28 @@ function renderImplementationAids(basicChecklist, cultureTactics) {
 function renderMiniCard(card, currentLevel) {
   const getLevelBadge = (lvl) => {
     const colors = { Basic: 'var(--level-basic)', Standard: 'var(--level-standard)', Comprehensive: 'var(--level-comprehensive)' };
-    return `<span style="background:${colors[lvl] || 'var(--bg-tertiary)'}; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">${lvl}</span>`;
+    return `<span style="background:${colors[lvl] || 'var(--bg-tertiary)'}; color:white; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:600;">${escapeHtml(lvl)}</span>`;
   };
   const getTypeBadge = (type) => {
     if (!type) return '';
     const isHC = type === 'HC';
-    return `<span style="background:${isHC ? 'rgba(239,68,68,0.15)' : 'rgba(251,191,36,0.15)'}; color:${isHC ? '#ef4444' : '#f59e0b'}; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">${type}</span>`;
+    return `<span style="background:${isHC ? 'rgba(239,68,68,0.15)' : 'rgba(251,191,36,0.15)'}; color:${isHC ? '#ef4444' : '#f59e0b'}; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;">${escapeHtml(type)}</span>`;
   };
 
   const downstreamItems = [];
   if (card.downstream.basic) {
     card.downstream.basic.forEach(d => {
-      downstreamItems.push(`<div class="mini-card-item">${getLevelBadge('Basic')} → ${d.process} <span class="text-secondary">${d.constraint}</span></div>`);
+      downstreamItems.push(`<div class="mini-card-item">${getLevelBadge('Basic')} → ${escapeHtml(d.process)} <span class="text-secondary">${escapeHtml(d.constraint)}</span></div>`);
     });
   }
   if (card.downstream.standard) {
     card.downstream.standard.forEach(d => {
-      downstreamItems.push(`<div class="mini-card-item">${getLevelBadge('Standard')} → ${d.process} ${d.level ? getLevelBadge(d.level) : ''} ${getTypeBadge(d.type)} <span class="text-secondary">${d.constraint || ''}</span></div>`);
+      downstreamItems.push(`<div class="mini-card-item">${getLevelBadge('Standard')} → ${escapeHtml(d.process)} ${d.level ? getLevelBadge(d.level) : ''} ${getTypeBadge(d.type)} <span class="text-secondary">${escapeHtml(d.constraint || '')}</span></div>`);
     });
   }
   if (card.downstream.comprehensive) {
     card.downstream.comprehensive.forEach(d => {
-      downstreamItems.push(`<div class="mini-card-item">${getLevelBadge('Comprehensive')} → ${d.process} ${d.level ? getLevelBadge(d.level) : ''} ${getTypeBadge(d.type)} <span class="text-secondary">${d.constraint || ''}</span></div>`);
+      downstreamItems.push(`<div class="mini-card-item">${getLevelBadge('Comprehensive')} → ${escapeHtml(d.process)} ${d.level ? getLevelBadge(d.level) : ''} ${getTypeBadge(d.type)} <span class="text-secondary">${escapeHtml(d.constraint || '')}</span></div>`);
     });
   }
 
@@ -950,7 +956,7 @@ function renderMiniCard(card, currentLevel) {
           <h5 style="color:var(--accent-primary-light); margin-bottom:10px; font-size:13px;">⬆️ Upstream Must Be At Least</h5>
           ${card.upstream.map(u => `
             <div class="mini-card-item" style="padding:4px 0; font-size:12px;">
-              ${getLevelBadge(u.level)} ${u.process} ${u.note ? `<span class="text-secondary">(${u.note})</span>` : ''}
+              ${getLevelBadge(u.level)} ${escapeHtml(u.process)} ${u.note ? `<span class="text-secondary">(${escapeHtml(u.note)})</span>` : ''}
             </div>
           `).join('')}
         </div>
@@ -963,11 +969,11 @@ function renderMiniCard(card, currentLevel) {
         <div class="flex gap-lg" style="flex-wrap:wrap;">
           <div style="flex:1;">
             <span style="font-size:11px; color:var(--text-secondary);">🛡️ Criticality Override:</span>
-            <span style="font-size:12px; margin-left:6px;">${card.override}</span>
+            <span style="font-size:12px; margin-left:6px;">${escapeHtml(card.override)}</span>
           </div>
           <div style="flex:1;">
             <span style="font-size:11px; color:var(--text-secondary);">📤 Key Outputs:</span>
-            <span style="font-size:12px; margin-left:6px;">${card.outputs.join(', ')}</span>
+            <span style="font-size:12px; margin-left:6px;">${escapeHtml(card.outputs.join(', '))}</span>
           </div>
         </div>
       </div>

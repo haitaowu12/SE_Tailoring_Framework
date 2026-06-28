@@ -13,10 +13,12 @@ import {
   computePSI,
   computeCSI,
   computeCRI,
-  applyRightSizing
+  applyRightSizing,
+  checkConsistency
 } from '../src/utils/assessment-engine.js';
-import { CONSISTENCY_RULES, PROPAGATION_RULES } from '../src/data/se-tailoring-data.js';
-import { validateConfig } from '../src/utils/export-import.js';
+import { CONSISTENCY_RULES, PROPAGATION_RULES, METRIC_PROCESS_MAP } from '../src/data/se-tailoring-data.js';
+import { buildExportConfig, validateConfig, normalizeImportedConfig } from '../src/utils/export-import.js';
+import { getReportReadiness } from '../src/views/report.js';
 
 const METRIC_IDS = [
   'M1', 'M2', 'M3', 'M4',
@@ -110,7 +112,24 @@ test('SA floor integration makes M5=5 safety processes Comprehensive', () => {
 
   for (const pid of [12, 16, 19, 20, 25, 27]) {
     assert.equal(result.levels[pid], 'comprehensive', `Safety process P${pid} should be Comprehensive for M5=5`);
+    assert.equal(result.confidence[pid], 'floor-applied', `Process ${pid} should show floor-applied evidence status`);
   }
+});
+
+test('metric-corroborated Comprehensive keeps corroborated evidence status', () => {
+  const scores = makeScores(1);
+  Object.assign(scores, {
+    M1: 5,
+    M2: 3,
+    M4: 5,
+    M11: 3,
+    M16: 5
+  });
+
+  const result = runFullAssessment(scores);
+
+  assert.equal(result.levels[23], 'comprehensive');
+  assert.equal(result.confidence[23], 'corroborated');
 });
 
 test('consistency baseline matches canonical rule catalog and Rule 12 HC fix elevates planning conservatively', () => {
@@ -209,12 +228,17 @@ test('process-metric mappings match canonical paper matrix with M9/M10 direct in
   const d25 = Object.fromEntries(getDriverAttribution(25, scores).map(d => [d.metric, d.role]));
   assert.equal(d25.M1, 'S', 'M1 should be Secondary for Verification');
 
-  // Transition (26): M6, M12, M13 (P); M15, M16 (S) — M9 removed
+  // Transition (26): M6, M12, M13 (P); M15 (S) — M9/M10/M16 removed
   const d26 = Object.fromEntries(getDriverAttribution(26, scores).map(d => [d.metric, d.role]));
   assert.equal(d26.M5, undefined);
   assert.equal(d26.M13, 'P', 'M13 should be Primary for Transition');
   assert.equal(d26.M4, undefined);
   assert.equal(d26.M9, undefined, 'M9 should NOT drive Transition');
+  assert.equal(d26.M16, undefined, 'M16 should NOT drive Transition');
+
+  for (const [processId, mapping] of Object.entries(METRIC_PROCESS_MAP)) {
+    assert.equal(mapping.M16, undefined, `M16 should not directly drive process ${processId}`);
+  }
 
   // Maintenance (29): M5, M6, M7 (P); M4, M11 (S) — M10 removed
   const d29 = Object.fromEntries(getDriverAttribution(29, scores).map(d => [d.metric, d.role]));
@@ -255,6 +279,279 @@ test('config validation accepts old and new schema variants', () => {
   assert.equal(validateConfig(newConfig).valid, true);
 });
 
+test('config validation rejects unknown metrics, unknown processes, and malformed fields', () => {
+  const maliciousConfig = {
+    _format: 'se-tailoring-config',
+    projectInfo: [],
+    metricScores: { M1: 3, M99: 5 },
+    processLevels: { 9: 'basic', 999: 'comprehensive' },
+    overrides: {}
+  };
+
+  const validation = validateConfig(maliciousConfig);
+
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.includes('projectInfo must be an object'));
+  assert.ok(validation.errors.includes('Unknown metric id: M99'));
+  assert.ok(validation.errors.includes('Unknown process id: 999'));
+  assert.ok(validation.errors.includes('overrides must be an array'));
+});
+
+test('export config preserves report-critical assessment state for round trip', () => {
+  const config = buildExportConfig({
+    projectInfo: { name: 'Stakeholder demo' },
+    scores: { M1: 3 },
+    saResponses: { safetyCaseRequired: true },
+    levels: { 9: 'basic' },
+    derived: { 9: 'standard' },
+    derivationDetails: { 9: { triggerMetrics: ['M1'] } },
+    overrides: [{ processId: 9, from: 'basic', to: 'standard', reason: 'demo floor' }],
+    violations: [{ ruleId: 16, affectedProcess: 15, currentLevel: 'basic', requiredLevel: 'standard' }],
+    fixes: [{ processId: 15, from: 'basic', to: 'standard' }],
+    rightSizingActions: [{ processId: 9, from: 'comprehensive', to: 'standard' }],
+    adoptionRisks: [{ processId: 25, level: 'comprehensive', severity: 'high' }],
+    manualAdjustments: {},
+    tradeoffs: [],
+    matrixMap: null,
+    assessmentTree: null,
+    cultureType: 'balanced',
+    saTier: { tier: 'II', floor: 'standard' },
+    indices: { psi: 3, csi: 4, cri: 2 },
+    confidence: { 9: 'floor-applied' },
+    assessmentComplete: true,
+    deliverablesChecked: ['9-basic-0'],
+    notes: 'demo'
+  });
+
+  assert.equal(config._version, '1.1');
+  assert.equal(config.saResponses.safetyCaseRequired, true);
+  assert.equal(config.violations.length, 1);
+  assert.equal(config.fixes.length, 1);
+  assert.equal(config.rightSizingActions.length, 1);
+  assert.equal(config.adoptionRisks.length, 1);
+  assert.equal(config.saTier.tier, 'II');
+  assert.equal(config.indices.csi, 4);
+  assert.equal(config.confidence[9], 'floor-applied');
+  assert.deepEqual(config.deliverablesChecked, ['9-basic-0']);
+  assert.equal(config.assessmentComplete, true);
+  assert.equal(validateConfig(config).valid, true);
+});
+
+test('legacy imports hydrate the default element so complete reports stay reviewable', () => {
+  const config = {
+    _format: 'se-tailoring-config',
+    projectInfo: { name: 'Legacy import' },
+    metricScores: makeScores(3),
+    processLevels: Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'standard'])),
+    derivedLevels: Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'standard'])),
+    assessmentComplete: true
+  };
+
+  const state = normalizeImportedConfig(config);
+
+  assert.equal(state.assessmentTree.nodes.default.assessmentResult.levels[9], 'standard');
+  assert.equal(state.assessmentTree.nodes.default.status, 'under_review');
+  assert.deepEqual(state.assessmentTree.nodes.default.scores, config.metricScores);
+  assert.equal(getReportReadiness(state), 'Ready for review');
+});
+
+test('legacy top-level manual adjustments migrate into the default element and final levels', () => {
+  const config = {
+    _format: 'se-tailoring-config',
+    metricScores: makeScores(3),
+    processLevels: { 9: 'standard' },
+    manualAdjustments: {
+      9: { level: 'comprehensive', justification: 'Stakeholder-directed rigor' },
+      10: { to: 'basic', justification: 'Legacy schema' }
+    },
+    assessmentComplete: true
+  };
+
+  const state = normalizeImportedConfig(config);
+
+  assert.equal(state.levels[9], 'comprehensive');
+  assert.equal(state.levels[10], 'basic');
+  assert.equal(state.assessmentTree.nodes.default.manualAdjustments[9].level, 'comprehensive');
+  assert.equal(state.assessmentTree.nodes.default.manualAdjustments[10].level, 'basic');
+  assert.equal(state.assessmentTree.nodes.default.manualAdjustments[9].justification, 'Stakeholder-directed rigor');
+});
+
+test('config validation rejects malformed nested assessment tree and review records', () => {
+  const config = {
+    _format: 'se-tailoring-config',
+    metricScores: { M1: 3 },
+    processLevels: { 9: 'basic' },
+    overrides: [{ processId: 999, from: 'basic', to: 'unsafe' }],
+    fixes: [{ processId: 15, from: 'bad', to: 'standard' }],
+    violations: [{ affectedProcess: 15, currentLevel: 'basic', requiredLevel: 'bad' }],
+    deliverablesChecked: [{ bad: true }],
+    assessmentTree: {
+      rootId: 'root',
+      activeId: 'missing',
+      nodes: {
+        root: {
+          id: 'root',
+          name: '<script>',
+          childIds: ['child'],
+          assessmentType: 'unknown',
+          status: 'draft',
+          scores: { M99: 4 }
+        }
+      }
+    }
+  };
+
+  const validation = validateConfig(config);
+
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.includes('assessmentTree activeId must reference an existing node'));
+  assert.ok(validation.errors.includes('assessmentTree node root has invalid assessmentType'));
+  assert.ok(validation.errors.includes('assessmentTree node root has unknown metric M99'));
+  assert.ok(validation.errors.includes('overrides[0] has invalid processId'));
+  assert.ok(validation.errors.includes('overrides[0] has invalid to level'));
+  assert.ok(validation.errors.includes('deliverablesChecked must contain short string keys'));
+});
+
+test('config validation rejects import payloads that could poison rendered classes or element state', () => {
+  const config = {
+    _format: 'se-tailoring-config',
+    metricScores: { M1: 3 },
+    processLevels: { 9: 'basic' },
+    matrixMap: {
+      9: {
+        M1: 'P onmouseover=alert(1)',
+        M99: 'P'
+      }
+    },
+    saTier: {
+      tier: 'III onclick=alert(1)',
+      name: 'Safety',
+      description: 'Bad tier class injection',
+      floor: 'unsafe',
+      score: 6
+    },
+    manualAdjustments: {
+      9: {
+        level: 'unsafe',
+        justification: 123
+      }
+    },
+    assessmentTree: {
+      rootId: 'root',
+      activeId: 'root',
+      nodes: {
+        root: {
+          id: 'root',
+          name: 'Root',
+          childIds: ['missing'],
+          assessmentType: 'full',
+          status: 'draft',
+          scores: { M1: 3 },
+          levels: { 9: 'basic' },
+          manualAdjustments: {
+            9: { level: 'bad', justification: [] }
+          }
+        }
+      }
+    }
+  };
+
+  const validation = validateConfig(config);
+
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.includes('matrixMap[9][M1] must be P or S'));
+  assert.ok(validation.errors.includes('matrixMap[9] has unknown metric id: M99'));
+  assert.ok(validation.errors.includes('saTier has invalid tier'));
+  assert.ok(validation.errors.includes('saTier has invalid floor'));
+  assert.ok(validation.errors.includes('saTier has invalid score'));
+  assert.ok(validation.errors.includes('manualAdjustments[9] has invalid level'));
+  assert.ok(validation.errors.includes('manualAdjustments[9] justification must be a string'));
+  assert.ok(validation.errors.includes('assessmentTree node root references missing child missing'));
+  assert.ok(validation.errors.includes('assessmentTree node root manualAdjustments[9] has invalid level'));
+});
+
+test('report readiness requires adoption gaps and weak evidence statuses to be reviewed', () => {
+  assert.equal(getReportReadiness({
+    assessmentComplete: true,
+    assessmentTree: {
+      nodes: {
+        default: { assessmentResult: {} }
+      }
+    },
+    violations: [],
+    adoptionRisks: [],
+    confidence: { 9: 'high' }
+  }), 'Ready for review');
+
+  assert.equal(getReportReadiness({
+    assessmentComplete: true,
+    assessmentTree: {
+      nodes: {
+        default: { assessmentResult: {} },
+        child: { assessmentResult: null }
+      }
+    },
+    violations: [],
+    adoptionRisks: [],
+    confidence: { 9: 'high' }
+  }), 'Draft / incomplete');
+
+  assert.equal(getReportReadiness({
+    assessmentComplete: true,
+    assessmentTree: {
+      nodes: {
+        default: { assessmentResult: {} }
+      }
+    },
+    violations: [],
+    adoptionRisks: [{ processId: 25, level: 'comprehensive' }],
+    confidence: { 9: 'high' }
+  }), 'Review required');
+
+  assert.equal(getReportReadiness({
+    assessmentComplete: true,
+    assessmentTree: {
+      nodes: {
+        default: { assessmentResult: {} }
+      }
+    },
+    violations: [],
+    adoptionRisks: [],
+    confidence: { 9: 'available-with-justification' }
+  }), 'Review required');
+});
+
+test('override baseline includes paper O14/O16/O18/O21/O23-O26 floors', () => {
+  const levels = makeCoreLevels('basic');
+
+  const m8Result = applyOverrides(levels, { ...makeScores(1), M8: 4 }, {});
+  assert.equal(m8Result.levels[16], 'standard', 'M8>=4 should floor QA to Standard');
+
+  const m3Result = applyOverrides(levels, { ...makeScores(1), M3: 4 }, {});
+  assert.equal(m3Result.levels[11], 'standard', 'M3>=4 should floor Decision Management to Standard');
+  assert.equal(m3Result.levels[25], 'standard', 'M3>=4 should floor Verification to Standard');
+
+  const m7Result = applyOverrides(levels, { ...makeScores(1), M7: 5 }, {});
+  for (const pid of [13, 14, 21, 28, 29, 30]) {
+    assert.equal(m7Result.levels[pid], 'standard', `M7=5 should floor process ${pid} to Standard`);
+  }
+});
+
+test('Rules 16 and 17 become hard constraints in critical evidence contexts', () => {
+  const levels = makeCoreLevels('basic');
+  levels[20] = 'comprehensive';
+  levels[15] = 'basic';
+  levels[16] = 'basic';
+
+  const warnings = checkConsistency(levels, { ...makeScores(1), M5: 1, M6: 1, M8: 1 });
+  assert.equal(warnings.find(v => v.ruleId === 16)?.type, 'WN');
+  assert.equal(warnings.find(v => v.ruleId === 17)?.type, 'WN');
+
+  const hardConstraints = checkConsistency(levels, { ...makeScores(1), M5: 4 });
+  assert.equal(hardConstraints.find(v => v.ruleId === 16)?.type, 'HC');
+  assert.equal(hardConstraints.find(v => v.ruleId === 17)?.type, 'HC');
+});
+
 // ====== Right-Sizing Tests ======
 
 test('PSI computation uses max(M1, M2, M4)', () => {
@@ -284,14 +581,26 @@ test('CRI computation maps M16 to 1-3', () => {
   assert.equal(computeCRI({ M16: 5 }), 3, 'M16=5 → CRI=3');
 });
 
-test('CRI=1 caps non-override processes at Standard', () => {
+test('CRI=1 preserves required rigor and flags adoption readiness gaps', () => {
   const scores = makeScores(5);
   scores.M16 = 1; // Resistant org
   scores.M5 = 1;  // No safety override
   const result = runFullAssessment(scores);
-  // With CRI=1, no process should be Comprehensive unless safety-overridden
-  assert.ok(result.rightSizingActions.length > 0, 'Right-sizing should apply actions');
+
   assert.ok(result.indices.cri === 1, 'CRI should be 1');
+  assert.ok(
+    Object.values(result.levels).some(level => level === 'comprehensive'),
+    'Low readiness must not downgrade technically required Comprehensive rigor'
+  );
+  assert.ok(
+    result.rightSizingActions.every(action => action.type !== 'capability_ceiling'),
+    'CRI should not create capability-ceiling downgrades'
+  );
+  assert.ok(result.adoptionRisks.length > 0, 'Low readiness should flag adoption support needs');
+  assert.ok(
+    result.adoptionRisks.some(risk => risk.level === 'comprehensive' && risk.severity === 'high'),
+    'Comprehensive rigor in resistant cultures should be a high-severity adoption gap'
+  );
 });
 
 test('Small project (PSI=1) enforces rigor budget on Comprehensive count', () => {
@@ -299,7 +608,7 @@ test('Small project (PSI=1) enforces rigor budget on Comprehensive count', () =>
   scores.M1 = 1; scores.M2 = 1; scores.M4 = 1; // PSI=1 (small)
   scores.M11 = 1; scores.M12 = 1;
   scores.M5 = 1; scores.M6 = 1; scores.M7 = 1; scores.M8 = 1; // no criticality floors
-  scores.M16 = 5; // CRI=3 (no capability cap)
+  scores.M16 = 5; // CRI=3 (supportive adoption posture)
   const result = runFullAssessment(scores);
   assert.ok(result.indices.psi <= 2, 'PSI should be small');
   // Max 3 Comprehensive for small projects
@@ -311,6 +620,7 @@ test('runFullAssessment returns rightSizingActions and indices', () => {
   const scores = makeScores(3);
   const result = runFullAssessment(scores);
   assert.ok(Array.isArray(result.rightSizingActions), 'rightSizingActions should be array');
+  assert.ok(Array.isArray(result.adoptionRisks), 'adoptionRisks should be array');
   assert.ok(typeof result.indices === 'object', 'indices should be object');
   assert.ok('psi' in result.indices, 'indices should have psi');
   assert.ok('csi' in result.indices, 'indices should have csi');

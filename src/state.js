@@ -6,6 +6,8 @@
  * down-tailoring log, and parent/child relationships.
  * The 'default' root node is always a Full assessment.
  */
+import { escapeHtml } from './utils/safe-text.js';
+
 const state = {
     // Hierarchical assessment tree (v3.3)
     assessmentTree: {
@@ -41,12 +43,15 @@ const state = {
     overrides: [],
     violations: [],
     fixes: [],
+    rightSizingActions: [],
+    adoptionRisks: [],
     manualAdjustments: {},
     tradeoffs: [],
     cultureType: null,
     notes: '',
     assessmentComplete: false,
-    confidence: {}
+    confidence: {},
+    deliverablesChecked: []
 };
 
 const listeners = [];
@@ -75,6 +80,8 @@ function debounceAutosave() {
                 overrides: state.overrides,
                 violations: state.violations,
                 fixes: state.fixes,
+                rightSizingActions: state.rightSizingActions,
+                adoptionRisks: state.adoptionRisks,
                 manualAdjustments: state.manualAdjustments,
                 tradeoffs: state.tradeoffs,
                 cultureType: state.cultureType,
@@ -82,6 +89,7 @@ function debounceAutosave() {
                 assessmentComplete: state.assessmentComplete,
                 confidence: state.confidence,
                 assessmentTree: state.assessmentTree,
+                deliverablesChecked: state.deliverablesChecked,
                 savedAt: new Date().toISOString()
             });
             localStorage.setItem(AUTOSAVE_KEY, data);
@@ -127,7 +135,7 @@ export function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span> ${message}`;
+    toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span> ${escapeHtml(message)}`;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }

@@ -6,6 +6,7 @@ import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, ME
 import { runFullAssessment, getDriverAttribution } from '../utils/assessment-engine.js';
 import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, setElementAssessmentResult, markMetricManual } from '../state.js';
 import { navigateTo } from '../router.js';
+import { escapeHtml } from '../utils/safe-text.js';
 
 const STEPS = [
   { id: 'info', title: 'Project Info', icon: '📋' },
@@ -68,23 +69,25 @@ export function renderAssessment(container) {
   const activeNode = getActiveNode();
   const isHierarchical = activeNode && activeNode.id !== 'default';
   const crumbs = isHierarchical ? getElementBreadcrumbs(activeNode.id) : [];
+  const activeNodeName = escapeHtml(activeNode?.name || '');
+  const activeAssessmentType = ['full', 'quick', 'inherited'].includes(activeNode?.assessmentType) ? activeNode.assessmentType : 'full';
 
   container.innerHTML = `
     <div class="assessment-container">
       ${isHierarchical ? `
       <div class="hierarchy-context-bar">
         <div class="hierarchy-crumbs">
-          ${crumbs.map((c, i) => `<span class="h-crumb${c.id === activeNode.id ? ' active' : ''}">${c.name}</span>${i < crumbs.length - 1 ? ' <span class="h-sep">›</span> ' : ''}`).join('')}
+          ${crumbs.map((c, i) => `<span class="h-crumb${c.id === activeNode.id ? ' active' : ''}">${escapeHtml(c.name)}</span>${i < crumbs.length - 1 ? ' <span class="h-sep">›</span> ' : ''}`).join('')}
         </div>
         <div class="hierarchy-badges">
-          <span class="se-type-badge ${activeNode.assessmentType}">${activeNode.assessmentType}</span>
+          <span class="se-type-badge ${activeAssessmentType}">${activeAssessmentType}</span>
           <button class="btn btn-ghost btn-sm" id="btn-back-to-tree">← Back to Elements</button>
         </div>
       </div>` : ''}
       <div class="assessment-header">
-        <h2>🎯 ${isHierarchical ? activeNode.name + ' — ' : ''}Assessment</h2>
+        <h2>🎯 ${isHierarchical ? activeNodeName + ' — ' : ''}Assessment</h2>
         <p class="text-secondary">${isHierarchical
-          ? `Scoring metrics for system element: ${activeNode.name} (${activeNode.assessmentType} assessment)`
+          ? `Scoring metrics for system element: ${activeNodeName} (${activeAssessmentType} assessment)`
           : 'Score 16 metrics to get process-specific tailoring recommendations'}</p>
       </div>
       <div class="ordinal-warning mb-lg" style="background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); border-radius: 10px; padding: 14px 18px;">
@@ -98,10 +101,10 @@ export function renderAssessment(container) {
       </div>
       <div class="step-progress">
         ${STEPS.map((s, i) => `
-          <div class="step-dot ${i <= currentStep ? 'active' : ''} ${i === currentStep ? 'current' : ''}" data-step="${i}">
+          <button class="step-dot ${i <= currentStep ? 'active' : ''} ${i === currentStep ? 'current' : ''}" type="button" data-step="${i}" aria-label="Go to ${escapeHtml(s.title)} step" ${i === currentStep ? 'aria-current="step"' : ''}>
             <span class="step-icon">${s.icon}</span>
             <span class="step-label">${s.title}</span>
-          </div>
+          </button>
         `).join('<div class="step-line"></div>')}
       </div>
       <div class="progress-bar mb-xl"><div class="progress-bar-fill" style="width:${((currentStep + 1) / STEPS.length) * 100}%"></div></div>
@@ -119,7 +122,7 @@ export function renderAssessment(container) {
     .assessment-container { max-width: 900px; margin: 0 auto; }
     .assessment-header { text-align: center; margin-bottom: 32px; }
     .step-progress { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 16px; flex-wrap: wrap; }
-    .step-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; cursor: pointer; opacity: 0.4; transition: all 0.3s; }
+    .step-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; cursor: pointer; opacity: 0.4; transition: all 0.3s; border: 0; background: transparent; color: inherit; font: inherit; }
     .step-dot.active { opacity: 1; }
     .step-dot.current .step-icon { background: var(--accent-primary); transform: scale(1.15); }
     .step-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-tertiary); font-size: 16px; transition: all 0.3s; }
@@ -196,19 +199,19 @@ function renderStep(container) {
       <h3 class="mb-lg">Project Information</h3>
       <div class="info-form">
         <div class="form-group">
-          <label class="form-label">Project Name</label>
-          <input class="input" id="proj-name" placeholder="e.g., State of Good Repair Program" value="${localProject.name || ''}">
+          <label class="form-label" for="proj-name">Project Name</label>
+          <input class="input" id="proj-name" placeholder="e.g., State of Good Repair Program" value="${escapeHtml(localProject.name || '')}">
         </div>
         <div class="form-group">
-          <label class="form-label">Date</label>
-          <input class="input" id="proj-date" type="date" value="${localProject.date || new Date().toISOString().slice(0, 10)}">
+          <label class="form-label" for="proj-date">Date</label>
+          <input class="input" id="proj-date" type="date" value="${escapeHtml(localProject.date || new Date().toISOString().slice(0, 10))}">
         </div>
         <div class="form-group">
-          <label class="form-label">Team / Organization</label>
-          <input class="input" id="proj-team" placeholder="e.g., Systems Engineering Team" value="${localProject.team || ''}">
+          <label class="form-label" for="proj-team">Team / Organization</label>
+          <input class="input" id="proj-team" placeholder="e.g., Systems Engineering Team" value="${escapeHtml(localProject.team || '')}">
         </div>
         <div class="form-group">
-          <label class="form-label">Project Phase</label>
+          <label class="form-label" for="proj-phase">Project Phase</label>
           <select class="select" id="proj-phase">
             <option value="">Select phase...</option>
             <option value="concept" ${localProject.phase === 'concept' ? 'selected' : ''}>Concept / Pre-project</option>
@@ -261,7 +264,7 @@ function renderStep(container) {
               <div class="metric-score-display" id="score-${m.id}" style="color:${scoreColor}">${val}</div>
             </div>
           </div>
-          <input type="range" class="range-slider" id="slider-${m.id}" min="1" max="5" step="1" value="${val}">
+          <input type="range" class="range-slider" id="slider-${m.id}" min="1" max="5" step="1" value="${val}" aria-label="Score ${m.id}: ${escapeHtml(m.name)}" aria-describedby="desc-${m.id}">
           <div class="metric-anchors">
             <span>${m.anchors[1]}</span>
             <span>${m.anchors[5]}</span>
@@ -492,12 +495,20 @@ function renderResults(content) {
     ${result.rightSizingActions?.length ? `
       <div class="override-banner" style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);">
         <strong>📐 Right-Sizing Applied (${result.rightSizingActions.length} adjustments)</strong>
-        <div class="text-xs text-secondary mt-sm mb-sm">PSI=${result.indices?.psi || '—'} (Scale) · CSI=${result.indices?.csi || '—'} (Constraints) · CRI=${result.indices?.cri || '—'} (Capability)</div>
-        ${result.rightSizingActions.map(a => `<div class="text-sm mt-sm">• <strong>${processName(a.processId)}</strong>: ${a.from} → ${a.to} <span class="text-xs text-secondary">(${a.reason})</span></div>`).join('')}
+        <div class="text-xs text-secondary mt-sm mb-sm">PSI=${result.indices?.psi || '—'} (Scale) · CSI=${result.indices?.csi || '—'} (Constraints) · CRI=${result.indices?.cri || '—'} (Adoption Readiness)</div>
+        ${result.rightSizingActions.map(a => `<div class="text-sm mt-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → ${escapeHtml(a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>`).join('')}
       </div>` : result.indices ? `
       <div style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
         <div class="text-xs text-secondary" style="font-weight: 600;">📐 Right-Sizing Indices</div>
-        <div class="text-sm mt-sm">PSI=${result.indices.psi} (Scale) · CSI=${result.indices.csi} (Constraints) · CRI=${result.indices.cri} (Capability) — <span style="color: var(--accent-success);">No adjustments needed</span></div>
+        <div class="text-sm mt-sm">PSI=${result.indices.psi} (Scale) · CSI=${result.indices.csi} (Constraints) · CRI=${result.indices.cri} (Adoption Readiness) — <span style="color: var(--accent-success);">No rigor-budget adjustments needed</span></div>
+      </div>` : ''}
+
+    ${result.adoptionRisks?.length ? `
+      <div class="override-banner" style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35);">
+        <strong>🧭 Adoption Readiness Gaps (${result.adoptionRisks.length})</strong>
+        <div class="text-xs text-secondary mt-sm mb-sm">Required rigor is preserved. CRI identifies implementation support needed for the organization to absorb the selected processes.</div>
+        ${result.adoptionRisks.slice(0, 8).map(r => `<div class="text-sm mt-sm">• <strong>${escapeHtml(processName(r.processId))}</strong>: ${escapeHtml(r.level)} <span class="text-xs text-secondary">(${escapeHtml(r.guidance)})</span></div>`).join('')}
+        ${result.adoptionRisks.length > 8 ? `<div class="text-xs text-secondary mt-sm">+ ${result.adoptionRisks.length - 8} more readiness gaps in the report.</div>` : ''}
       </div>` : ''}
 
     ${result.overrides.length ? `
@@ -542,7 +553,9 @@ function renderResults(content) {
       ? 'Corroborated'
       : confidence === 'available-with-justification'
         ? 'Available with justification'
-        : 'High';
+        : confidence === 'floor-applied'
+          ? 'Floor applied'
+          : 'Supported by drivers/rules';
     return `
           <div class="result-card" style="border-left: 3px solid var(--level-${level})">
             <div class="result-card-header">
@@ -552,9 +565,10 @@ function renderResults(content) {
             ${basicExcluded.excluded ? `<div class="text-xs" style="color:var(--accent-danger)">🚫 B excluded (${basicExcluded.reason})</div>` : ''}
             ${wasOverridden ? '<div class="text-xs" style="color:var(--accent-warning)">⚠ Override applied</div>' : ''}
             ${wasFixed ? '<div class="text-xs" style="color:var(--accent-success)">✓ Consistency fix</div>' : ''}
+            ${confidence === 'floor-applied' ? `<div class="text-xs" style="color:var(--accent-info)">Rule-driven floor applied</div>` : ''}
             ${confidence === 'available-with-justification' ? `<div class="text-xs" style="color:var(--accent-warning)">⚠ Comprehensive available with explicit justification</div>` : ''}
             <div class="text-xs text-secondary mt-sm">Trigger metric(s): <strong>${triggerMetrics}</strong>${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</div>
-            <div class="text-xs text-secondary">Confidence: <strong>${confidenceLabel}</strong></div>
+            <div class="text-xs text-secondary">Evidence status: <strong>${confidenceLabel}</strong></div>
             <div class="drivers-list mt-sm">
               ${drivers.slice(0, 3).map(d => `
                 <div class="driver-item">
@@ -584,6 +598,7 @@ function finalizeAssessment() {
     levels: result.levels,
     overrides: result.overrides,
     rightSizingActions: result.rightSizingActions || [],
+    adoptionRisks: result.adoptionRisks || [],
     indices: result.indices || {},
     violations: result.violations,
     fixes: result.fixes,

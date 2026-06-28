@@ -211,6 +211,13 @@ h4 { font-size: var(--font-size-lg); }
   white-space: nowrap;
 }
 
+.nav-brand-button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  padding: 0;
+}
+
 .nav-brand .brand-icon {
   width: 32px;
   height: 32px;
@@ -504,7 +511,7 @@ h4 { font-size: var(--font-size-lg); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- Confidence Badges --- */
+/* --- Evidence-Status Badges --- */
 .confidence-badge {
   display: inline-flex;
   align-items: center;
