@@ -145,12 +145,12 @@ export const METRICS = [
             {
                 text: "Could a failure result in MINOR INJURY requiring first aid or medical treatment (e.g., cuts, bruises, minor burns) but not life-threatening?",
                 yesScore: 3,
-                rationale: 'Safety-Relevant (Tier 2) – Requires safety engineer separate from design'
+                rationale: 'Safety consideration (Tier I, no SA floor) – Drives applicable process rigor and risk review without triggering safety-critical floors'
             },
             {
                 text: "Are there only INDIRECT safety implications (e.g., situational awareness, minor ergonomic issues) with no direct injury potential?",
                 yesScore: 2,
-                rationale: 'Negligible (Tier 1) – No specific SA independence requirements'
+                rationale: 'Baseline safety assurance (Tier I) – No specific SA independence requirements'
             }
         ]
     },
@@ -1036,7 +1036,7 @@ export const DEPENDENCY_CHAINS = [
 // This provides explicit, auditable traceability for each SA floor application.
 //
 // For reference, the active SA floor logic is:
-//   - M5 = 1-3: No SA floor (Tier I – Negligible)
+//   - M5 = 1-3: No SA floor (Tier I – Baseline Safety Assurance)
 //   - M5 = 4: SA floor = Standard for safety-critical processes (Tier II – Safety Relevant)
 //   - M5 = 5: SA floor = Comprehensive for life-safety processes (Tier III – Safety Critical)
 //

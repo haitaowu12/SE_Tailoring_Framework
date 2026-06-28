@@ -18,7 +18,7 @@ const levelIndex = l => LEVELS.indexOf(l);
 const metricSort = (a, b) => Number(a.replace('M', '')) - Number(b.replace('M', ''));
 
 const SA_TIERS = [
-    { tier: 'I', name: 'Negligible', description: 'Standard SE processes sufficient', floor: null },
+    { tier: 'I', name: 'Baseline Safety Assurance', description: 'No safety assurance floor; manage safety considerations through process-level drivers and risk review', floor: null },
     { tier: 'II', name: 'Safety Relevant', description: 'Additional safety assurance activities needed', floor: 'basic' },
     { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'standard' }
 ];
@@ -27,7 +27,7 @@ const SA_PROCESSES = [12, 16, 19, 20, 25, 27];
 
 /**
  * Derive SA Criticality Tier from M5 (Safety Impact) score.
- * M5=1-3 → Tier I (Negligible), M5=4 → Tier II (Safety Relevant, Standard floor),
+ * M5=1-3 → Tier I (Baseline Safety Assurance, no floor), M5=4 → Tier II (Safety Relevant, Standard floor),
  * M5=5 → Tier III (Safety Critical, Comprehensive floor)
  */
 export function calculateSATier(scores) {

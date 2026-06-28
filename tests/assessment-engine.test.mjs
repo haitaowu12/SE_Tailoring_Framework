@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   runFullAssessment,
+  calculateSATier,
   calculateProcessDerivation,
   getDriverAttribution,
   applyOverrides,
@@ -114,6 +115,18 @@ test('SA floor integration makes M5=5 safety processes Comprehensive', () => {
     assert.equal(result.levels[pid], 'comprehensive', `Safety process P${pid} should be Comprehensive for M5=5`);
     assert.equal(result.confidence[pid], 'floor-applied', `Process ${pid} should show floor-applied evidence status`);
   }
+});
+
+test('M5=3 safety tier names the safety consideration without implying negligible impact', () => {
+  const scores = makeScores(1);
+  scores.M5 = 3;
+
+  const tier = calculateSATier(scores);
+
+  assert.equal(tier.tier, 'I');
+  assert.equal(tier.floor, null);
+  assert.doesNotMatch(tier.name, /negligible/i);
+  assert.match(tier.description, /no safety assurance floor/i);
 });
 
 test('metric-corroborated Comprehensive keeps corroborated evidence status', () => {
