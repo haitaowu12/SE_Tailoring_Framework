@@ -417,7 +417,7 @@ export const METRICS = [
     {
         id: 'M16', name: 'Organizational Culture', dimension: 'stakeholder',
         anchors: { 1: 'Resistant (SE = overhead)', 3: 'Tolerant (show value)', 5: 'Supportive (actively invests)' },
-        note: 'Primarily shapes adoption strategy; contributes weakly to derived levels.',
+        note: 'Shapes adoption strategy only; does not directly raise or lower process-level rigor.',
         guidedQuestions: [
             {
                 text: "Does the EXECUTIVE TEAM MANDATE and ACTIVELY INVEST HEAVILY in rigorous SE practices across the organization with dedicated funding and headcount?",
@@ -453,7 +453,10 @@ export const METRICS = [
 // V4.1 NOTE: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
 // from process-level driving. High constraint scores mean "less budget/time available"
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
-// Index) which governs right-sizing caps and priority-based reduction instead.
+// Index) which governs right-sizing review and priority-based reduction instead.
+// M16 (Organizational Culture) is also excluded from process-level driving.
+// Culture identifies adoption-readiness gaps; it does not raise or lower
+// technically required rigor.
 export const METRIC_PROCESS_MAP = {
     9: { M1: 'P', M4: 'P', M12: 'P', M13: 'S' },
     10: { M1: 'P', M4: 'P', M13: 'S', M15: 'S' },
@@ -472,11 +475,11 @@ export const METRIC_PROCESS_MAP = {
     23: { M1: 'P', M4: 'P', M11: 'P', M2: 'S' },
     24: { M2: 'P', M4: 'P', M12: 'P', M1: 'S', M5: 'S', M11: 'S' },
     25: { M2: 'P', M4: 'P', M5: 'P', M1: 'S', M8: 'S' },
-    26: { M6: 'P', M12: 'P', M13: 'P', M15: 'S', M16: 'S' },
+    26: { M6: 'P', M12: 'P', M13: 'P', M15: 'S' },
     27: { M5: 'P', M6: 'P', M13: 'P', M8: 'S', M14: 'S', M15: 'S' },
-    28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S', M16: 'S' },
+    28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S' },
     29: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M4: 'S' },
-    30: { M7: 'P', M8: 'P', M6: 'S', M15: 'S', M16: 'S' }
+    30: { M7: 'P', M8: 'P', M6: 'S', M15: 'S' }
 };
 
 // Level thresholds per process.
@@ -502,17 +505,17 @@ export const LEVEL_THRESHOLDS = {
     23: { standard: 'M1≥3 or M4≥3 or M11≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4', 'M11'], secondaryMetrics: ['M2'] },
     24: { standard: 'M2≥3 or M4≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M2', 'M4', 'M12'], secondaryMetrics: ['M1', 'M5', 'M11'] },
     25: { standard: 'M5≥3 or M2≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M2', 'M4'], secondaryMetrics: ['M1', 'M8'] },
-    26: { standard: 'M6≥3 or M12≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M12', 'M13'], secondaryMetrics: ['M15', 'M16'] },
+    26: { standard: 'M6≥3 or M12≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M12', 'M13'], secondaryMetrics: ['M15'] },
     27: { standard: 'M5≥3 or M6≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M13'], secondaryMetrics: ['M8', 'M14', 'M15'] },
-    28: { standard: 'M6≥3 or M5≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M5', 'M7'], secondaryMetrics: ['M11', 'M12', 'M16'] },
+    28: { standard: 'M6≥3 or M5≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M5', 'M7'], secondaryMetrics: ['M11', 'M12'] },
     29: { standard: 'M5≥3 or M6≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M7'], secondaryMetrics: ['M11', 'M4'] },
-    30: { standard: 'M7≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M7', 'M8'], secondaryMetrics: ['M6', 'M15', 'M16'] }
+    30: { standard: 'M7≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M7', 'M8'], secondaryMetrics: ['M6', 'M15'] }
 };
 
 /**
  * Override Conditions (Process-Specific)
- * _SOURCE: 01-PAPER/06-Interdependencies.md §6.4, 02-PRACTICAL/Assessment-Worksheet.md
- * _SYNC_CONTRACT: Authoritative override baseline (10 conditions including SA floors).
+ * _SOURCE: 01-PAPER/06-Interdependencies.md §6.5, 02-PRACTICAL/Assessment-Worksheet.md
+ * _SYNC_CONTRACT: Authoritative override baseline O1-O29, represented as process-specific floors.
  * 
  * CURRENT LOGIC:
  *   - Removed blanket exclusions (no longer "Basic excluded for X processes")
@@ -757,6 +760,16 @@ export const OVERRIDE_CONDITIONS = [
         source: 'FDA 21 CFR Part 820; DO-178C'
     },
     {
+        id: 'high_regulatory_qa',
+        condition: 'M8 >= 4 → Process 16 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
+        label: 'High Regulatory: Quality Assurance',
+        description: 'M8≥4 requires standard QA with independent assurance evidence for regulatory confidence',
+        processes: [16],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O14'
+    },
+    {
         id: 'high_regulatory_verification',
         condition: 'M8 >= 4 → Process 25 ≥ Standard',
         trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
@@ -790,6 +803,16 @@ export const OVERRIDE_CONDITIONS = [
         source: 'ISO 15288 §6.3.5'
     },
     {
+        id: 'novel_tech_decision',
+        condition: 'M3 >= 4 → Process 11 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M3', op: '>=', value: 4 },
+        label: 'Novel Technology: Decision Management',
+        description: 'M3≥4 requires traceable decisions for novel-technology trade-offs and uncertainty handling',
+        processes: [11],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O16'
+    },
+    {
         id: 'novel_tech_analysis',
         condition: 'M3 >= 4 → Process 22 ≥ Standard',
         trigger: { type: 'metric', metric: 'M3', op: '>=', value: 4 },
@@ -799,9 +822,29 @@ export const OVERRIDE_CONDITIONS = [
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.6; NASA NPR 7123.1'
     },
+    {
+        id: 'novel_tech_verification',
+        condition: 'M3 >= 4 → Process 25 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M3', op: '>=', value: 4 },
+        label: 'Novel Technology: Verification',
+        description: 'M3≥4 requires stronger confirmation evidence for novel or unproven technology behavior',
+        processes: [25],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O18'
+    },
     // =====================================================================
     // ENVIRONMENTAL OVERRIDES (M7-based)
     // =====================================================================
+    {
+        id: 'env_critical_design',
+        condition: 'M7 = 5 → Process 21 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M7', op: '=', value: 5 },
+        label: 'Environmental Criticality: Design Definition',
+        description: 'M7=5 requires design choices to explicitly address environmental constraints',
+        processes: [21],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O21'
+    },
     {
         id: 'env_critical_operation',
         condition: 'M7 = 5 → Process 28 ≥ Standard',
@@ -813,14 +856,44 @@ export const OVERRIDE_CONDITIONS = [
         source: 'ISO 14001; ISO 15288 §6.4.13'
     },
     {
+        id: 'env_critical_maintenance',
+        condition: 'M7 = 5 → Process 29 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M7', op: '=', value: 5 },
+        label: 'Environmental Criticality: Maintenance',
+        description: 'M7=5 requires maintenance discipline that preserves environmental compliance controls',
+        processes: [29],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O23'
+    },
+    {
         id: 'env_critical_disposal',
-        condition: 'M7 >= 4 → Process 30 ≥ Standard',
-        trigger: { type: 'metric', metric: 'M7', op: '>=', value: 4 },
+        condition: 'M7 = 5 → Process 30 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M7', op: '=', value: 5 },
         label: 'Environmental Criticality: Disposal',
-        description: 'M7≥4 requires standard disposal with environmental impact mitigation and regulatory compliance',
+        description: 'M7=5 requires standard disposal with environmental impact mitigation and regulatory compliance',
         processes: [30],
         minLevel: 'standard',
         source: 'ISO 14001; EPA regulations'
+    },
+    {
+        id: 'env_critical_cm',
+        condition: 'M7 = 5 → Process 13 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M7', op: '=', value: 5 },
+        label: 'Environmental Criticality: Configuration Management',
+        description: 'M7=5 requires traceable baselines for environmental obligations and constraints',
+        processes: [13],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O25'
+    },
+    {
+        id: 'env_critical_info',
+        condition: 'M7 = 5 → Process 14 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M7', op: '=', value: 5 },
+        label: 'Environmental Criticality: Information Management',
+        description: 'M7=5 requires complete and retrievable environmental records',
+        processes: [14],
+        minLevel: 'standard',
+        source: '01-PAPER/06-Interdependencies.md §6.5 O26'
     }
 ];
 
@@ -859,7 +932,7 @@ export const CONSISTENCY_RULES = [
     { id: 9, type: 'HC', trigger: { process: [25, 27], level: 'comprehensive', op: '>=' }, required: { process: 19, level: 'standard', op: '>=' }, label: 'Verification or Validation ≥ Comprehensive → System Requirements Definition ≥ Standard (Floor)', rationale: 'Comprehensive V&V must be backed by structured requirements baselines. This is a floor constraint: requirements rigor cannot be lower than V&V rigor demands.' },
     { id: 10, type: 'HC', trigger: { process: 24, level: 'comprehensive', op: '>=' }, required: { process: 25, level: 'standard', op: '>=' }, label: 'Integration ≥ Comprehensive → Verification ≥ Standard', rationale: 'Comprehensive integration requires corresponding verification maturity.' },
     { id: 11, type: 'HC', trigger: { process: 25, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'Verification ≥ Comprehensive → Validation ≥ Standard', rationale: 'High-rigor verification requires at least standard validation to confirm stakeholder intent is met.' },
-    { id: 12, type: 'HC', trigger: { process: 9, level: 'basic', op: '=' }, required: { process: 'all_technical', level: 'basic', op: '<=' }, label: 'Project Planning = Basic → All Technical Processes ≤ Basic (Strengthened)', rationale: 'Basic planning cannot sustain higher-rigor technical execution. If any technical process exceeds Basic, Project Planning must be elevated to at least Standard.' },
+    { id: 12, type: 'HC', trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 9, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Standard → Project Planning ≥ Standard', rationale: 'Basic planning cannot sustain higher-rigor technical execution. If any technical process exceeds Basic, Project Planning must be elevated to at least Standard; do not downgrade technical processes to satisfy this rule.' },
     { id: 13, type: 'WN', trigger: { process: 12, level: 'basic', op: '=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management = Basic → Decision Management ≥ Standard', rationale: 'Basic risk inputs require structured decision-making as a compensating control. This is a floor, not a cap.' },
     { id: 14, type: 'WN', trigger: { process: 12, level: 'comprehensive', op: '>=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management ≥ Comprehensive → Decision Management ≥ Standard', rationale: 'Comprehensive risk outputs should inform at least standard decision management.' },
     { id: 15, type: 'WN', trigger: { process: 28, level: 'comprehensive', op: '>=' }, required: { process: 29, level: 'standard', op: '>=' }, label: 'Operation ≥ Comprehensive → Maintenance ≥ Standard', rationale: 'Comprehensive operations produce data and workload requiring structured maintenance.' },
@@ -888,7 +961,7 @@ export const PROPAGATION_RULES = [
     { id: 'P10', source: 27, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive validation requires structured requirements baselines.' },
     { id: 'P11', source: 24, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 10, rationale: 'Comprehensive integration should be matched by at least standard verification.' },
     { id: 'P12', source: 25, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'recommended', depth: 2, ruleId: 11, rationale: 'Comprehensive verification typically supports standard-or-higher validation.' },
-    { id: 'P13', source: 9, sourceLevel: 'basic', target: 'all_technical', minLevel: 'basic', type: 'mandatory', depth: 1, ruleId: 12, rationale: 'Basic planning cannot sustain technical processes above basic.' },
+    { id: 'P13', source: 'any_technical', sourceLevel: 'standard', target: 9, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 12, rationale: 'Any technical process above basic requires at least standard project planning.' },
     { id: 'P14', source: 12, sourceLevel: 'basic', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 13, rationale: 'Basic risk inputs require structured decision-making as compensating control (floor, not cap).' },
     { id: 'P15', source: 12, sourceLevel: 'comprehensive', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 14, rationale: 'Comprehensive risk outputs should be reflected in decision-management rigor.' },
     { id: 'P16', source: 28, sourceLevel: 'comprehensive', target: 29, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 15, rationale: 'Comprehensive operations should be paired with structured maintenance.' },
@@ -995,15 +1068,33 @@ export const RIGOR_BUDGET = [
 ];
 
 /**
- * Capability ceilings by CRI.
- * CRI=1: cap at Standard except safety/regulatory overrides.
- * CRI=2: data-intensive processes capped at Standard unless PSI>=3.
- * CRI=3: no caps.
+ * Adoption-readiness guidance by CRI.
+ * CRI never lowers technically required rigor; it flags implementation support
+ * needed to execute the required profile in resistant or mixed cultures.
  */
-export const CAPABILITY_CEILINGS = [
-    { cri: 1, maxLevel: 'standard', label: 'Resistant / Low Capability', exemptMetrics: ['M5', 'M6', 'M7', 'M8'], notes: 'Override-exempt processes may still reach Comprehensive' },
-    { cri: 2, maxLevel: 'comprehensive', label: 'Mixed / Moderate', dataIntensiveCap: 'standard', dataIntensiveProcesses: [14, 15, 16], psiExemptionThreshold: 3, notes: 'Data-intensive processes capped at Standard unless PSI>=3' },
-    { cri: 3, maxLevel: 'comprehensive', label: 'Supportive / High Capability', notes: 'No capability caps' }
+export const ADOPTION_READINESS_GUIDANCE = [
+    {
+        cri: 1,
+        label: 'Resistant / Low Capability',
+        triggerLevel: 'standard',
+        comprehensiveSeverity: 'high',
+        standardSeverity: 'medium',
+        notes: 'Use common-sense language, staged rollout, sponsor protection, and independent SE or assurance support for high-rigor processes.'
+    },
+    {
+        cri: 2,
+        label: 'Tolerant / Moderate Capability',
+        triggerLevel: 'comprehensive',
+        comprehensiveSeverity: 'medium',
+        notes: 'Use champion-led implementation, explicit ROI framing, and focused coaching for Comprehensive processes.'
+    },
+    {
+        cri: 3,
+        label: 'Supportive / High Capability',
+        triggerLevel: null,
+        comprehensiveSeverity: 'low',
+        notes: 'No readiness gap flag; execute normal governance and continuous improvement.'
+    }
 ];
 
 /**

@@ -18,7 +18,30 @@ export const PROCESS_GROUPS = {
     ORG_ENABLING: { id: 'org_enabling', name: 'Organizational Project-Enabling', color: '#a78bfa', icon: '🏢' }
 };
 
-export const PROCESSES = [
+const ISO_GROUP_TRACE = {
+    agreement: {
+        canonicalGroup: 'Agreement',
+        scope: 'reference',
+        traceBasis: 'ISO/IEC/IEEE 15288:2023 Agreement process group; retained as acquisition/supply constraint context.'
+    },
+    org_enabling: {
+        canonicalGroup: 'Organizational Project-Enabling',
+        scope: 'reference',
+        traceBasis: 'ISO/IEC/IEEE 15288:2023 Organizational Project-Enabling process group; retained as enterprise governance/capability context.'
+    },
+    tech_mgmt: {
+        canonicalGroup: 'Technical Management',
+        scope: 'executable-core',
+        traceBasis: 'ISO/IEC/IEEE 15288:2023 Technical Management process group; executable in the app scoring and reporting flow.'
+    },
+    technical: {
+        canonicalGroup: 'Technical',
+        scope: 'executable-core',
+        traceBasis: 'ISO/IEC/IEEE 15288:2023 Technical process group; executable in the app scoring and reporting flow.'
+    }
+};
+
+const BASE_PROCESSES = [
     // --- Agreement Processes ---
     { id: 1, name: 'Acquisition', group: 'agreement', purpose: 'Procurement and supplier management', extended: true },
     { id: 2, name: 'Supply', group: 'agreement', purpose: 'Proposal development and delivery', extended: true },
@@ -165,6 +188,24 @@ export const PROCESSES = [
         whenToElevate: 'Elevate to Standard for environmental or regulatory requirements.'
     }
 ];
+
+function buildIsoTrace(process) {
+    const groupTrace = ISO_GROUP_TRACE[process.group];
+    return {
+        standard: 'ISO/IEC/IEEE 15288:2023',
+        processNumber: process.id,
+        processName: process.name,
+        processGroup: groupTrace.canonicalGroup,
+        scope: groupTrace.scope,
+        traceBasis: groupTrace.traceBasis,
+        conformanceNote: 'Decision-support traceability only; not a standalone ISO compliance or certification claim.'
+    };
+}
+
+export const PROCESSES = BASE_PROCESSES.map(process => ({
+    ...process,
+    iso: buildIsoTrace(process)
+}));
 
 export const CORE_PROCESSES = PROCESSES.filter(p => !p.extended);
 export const EXTENDED_PROCESSES = PROCESSES.filter(p => p.extended);

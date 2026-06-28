@@ -23,7 +23,19 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Install Playwright browser dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Run unit and static tests
+        run: npm test
+
+      - name: Run browser e2e smoke
+        run: npm run test:e2e
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
 
       - name: Build
         run: npm run build

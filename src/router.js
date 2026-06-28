@@ -17,9 +17,27 @@ export function getCurrentRoute() {
 }
 
 export function initRouter(container) {
+    function updateNavState(route) {
+        document.querySelectorAll('.nav-link').forEach(el => {
+            el.classList.toggle('active', el.dataset.route === route);
+        });
+
+        document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+            const hasActive = dropdown.querySelector('.nav-link.active');
+            const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+            trigger?.classList.toggle('has-active', !!hasActive);
+        });
+
+        const mobileRouteSelect = document.querySelector('#mobile-route-select');
+        if (mobileRouteSelect && mobileRouteSelect.value !== route) {
+            mobileRouteSelect.value = route;
+        }
+    }
+
     async function handleRoute() {
-        const route = getCurrentRoute();
-        const handler = routes[route] || routes['dashboard'];
+        const requestedRoute = getCurrentRoute();
+        const route = routes[requestedRoute] ? requestedRoute : 'dashboard';
+        const handler = routes[route];
         if (!handler) return;
 
         // Animate out
@@ -36,10 +54,10 @@ export function initRouter(container) {
 
         setTimeout(() => container.classList.remove('view-enter'), 400);
 
-        // Update nav active state
-        document.querySelectorAll('.nav-link').forEach(el => {
-            el.classList.toggle('active', el.dataset.route === route);
-        });
+        updateNavState(route);
+        window.dispatchEvent(new CustomEvent('app:route-rendered', {
+            detail: { route, requestedRoute }
+        }));
 
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }

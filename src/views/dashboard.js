@@ -4,17 +4,19 @@
 import { FRAMEWORK_META, CORE_PROCESSES, PROCESS_GROUPS, METRICS, DIMENSIONS, CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
 import { getState, getElementCount } from '../state.js';
 import { navigateTo } from '../router.js';
+import { escapeHtml, safeText } from '../utils/safe-text.js';
 
 export function renderDashboard(container) {
     const state = getState();
     const techMgmt = CORE_PROCESSES.filter(p => p.group === 'tech_mgmt');
     const technical = CORE_PROCESSES.filter(p => p.group === 'technical');
+    const projectName = escapeHtml(safeText(state.projectInfo.name, 'Project'));
 
     container.innerHTML = `
     <section class="hero animate-fade-in-up">
       <div class="hero-badge">v${FRAMEWORK_META.version} · ${FRAMEWORK_META.standard}</div>
       <h1 class="hero-title">SE Process<br><span class="gradient-text">Tailoring Framework</span></h1>
-      <p class="hero-subtitle">Metrics-driven process tailoring for systems engineering projects. Score 16 metrics once, get tailored recommendations for 22 core processes now, with a 30-process roadmap.</p>
+      <p class="hero-subtitle">Metrics-driven process tailoring for systems engineering projects. Score 16 metrics once, get tailored recommendations for 22 project-facing core processes, with Agreement and Organizational Project-Enabling processes retained as reference scope.</p>
       <div class="hero-actions">
         <button class="btn btn-primary btn-lg" id="btn-start-assessment">🎯 Start Assessment</button>
         <button class="btn btn-secondary btn-lg" id="btn-explore">🔍 Explore Processes</button>
@@ -25,7 +27,7 @@ export function renderDashboard(container) {
       <div class="grid-4">
         <div class="card stat-card hover-lift">
           <div class="stat-value">${FRAMEWORK_META.coreProcessCount}</div>
-          <div class="stat-label">Core Processes</div>
+          <div class="stat-label">Executable Core Processes</div>
         </div>
         <div class="card stat-card hover-lift">
           <div class="stat-value">${FRAMEWORK_META.metricCount}</div>
@@ -45,7 +47,7 @@ export function renderDashboard(container) {
     ${state.assessmentComplete ? `
     <section class="assessment-summary card animate-fade-in-up stagger-3 mb-xl">
       <div class="card-header">
-        <h3 class="card-title">📊 Current Assessment: ${state.projectInfo.name || 'Project'}</h3>
+        <h3 class="card-title">📊 Current Assessment: ${projectName}</h3>
         <button class="btn btn-secondary btn-sm" id="btn-view-report">View Report →</button>
       </div>
       <div class="grid-3">
@@ -69,6 +71,9 @@ export function renderDashboard(container) {
         ` : ''}
         ${Object.entries(state.confidence).filter(([, c]) => c === 'available-with-justification').length > 0 ? `
         <span class="confidence-badge available-with-justification" title="Comprehensive available with documented justification">⚠️ ${Object.entries(state.confidence).filter(([, c]) => c === 'available-with-justification').length} Need Justification</span>
+        ` : ''}
+        ${Object.entries(state.confidence).filter(([, c]) => c === 'floor-applied').length > 0 ? `
+        <span class="confidence-badge floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">↥ ${Object.entries(state.confidence).filter(([, c]) => c === 'floor-applied').length} Floor Applied</span>
         ` : ''}
       </div>` : ''}
     </section>` : ''}
@@ -203,7 +208,7 @@ export function renderDashboard(container) {
               </td>
               <td>
                 <span class="level-badge comprehensive">Comprehensive Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">All 30 processes with phased rollout</p>
+                <p class="text-xs text-secondary mt-sm">22 core processes plus reference review of Agreement/OPE processes</p>
                 <p class="text-xs mt-xs"><em>Champions critical for adoption success</em></p>
               </td>
             </tr>
@@ -211,12 +216,12 @@ export function renderDashboard(container) {
               <td><span class="culture-badge supportive">Supportive</span></td>
               <td>
                 <span class="level-badge standard">Standard Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">10 processes — expand to 30 if desired</p>
+                <p class="text-xs text-secondary mt-sm">10 processes — expand with reference review if desired</p>
                 <p class="text-xs mt-xs"><em>Full SE terminology, formal training supported</em></p>
               </td>
               <td>
                 <span class="level-badge comprehensive">Comprehensive Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">All 30 processes</p>
+                <p class="text-xs text-secondary mt-sm">22 core processes plus reference review of Agreement/OPE processes</p>
                 <p class="text-xs mt-xs"><em>Leverage training, certification, MBSE capabilities</em></p>
               </td>
             </tr>
@@ -227,7 +232,7 @@ export function renderDashboard(container) {
       <div class="matrix-note mt-md">
         <div class="callout callout-warning">
           <strong>⚠️ Culture shapes rollout, not rigor</strong>
-          <p class="text-xs mt-xs">This matrix provides a starting point. Actual tailoring levels are determined by metric scores and overrides. A resistant organization with a safety-critical project (M5 ≥ 4) still needs Comprehensive-level V&V — culture determines <em>how</em> you implement it, not <em>whether</em> it's required.</p>
+          <p class="text-xs mt-xs">This matrix provides a starting point. Actual tailoring levels are determined by metric scores and overrides. A resistant organization with a safety-relevant project still needs the required V&V rigor: Standard floor at M5=4 and Comprehensive floor at M5=5. Culture determines <em>how</em> you implement it, not <em>whether</em> it is required.</p>
         </div>
       </div>
     </section>
@@ -263,6 +268,7 @@ export function renderDashboard(container) {
     .confidence-badge { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: help; }
     .confidence-badge.corroborated { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
     .confidence-badge.available-with-justification { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .confidence-badge.floor-applied { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
     .culture-type-card { padding: 16px; background: var(--bg-card); border-radius: 8px; text-align: center; }
     .culture-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
     .culture-badge.resistant { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }

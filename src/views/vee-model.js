@@ -2,8 +2,9 @@
  * Vee Model View — SVG lifecycle diagram with process nodes
  */
 import { VEE_PROCESS_MAP, VEE_HORIZONTAL_LINKS, VEE_MGMT_PROCESSES, VEE_PHASES, CORE_PROCESSES, FRAMEWORK_META } from '../data/se-tailoring-data.js';
-import { getState } from '../state.js';
+import { getState, setState } from '../state.js';
 import { navigateTo } from '../router.js';
+import { escapeHtml } from '../utils/safe-text.js';
 
 export function renderVeeModel(container) {
   const state = getState();
@@ -15,6 +16,17 @@ export function renderVeeModel(container) {
     if (lvl) return FRAMEWORK_META.levelColors[lvl];
     const p = CORE_PROCESSES.find(x => x.id === pid);
     return p?.group === 'tech_mgmt' ? '#6366f1' : '#22d3ee';
+  }
+
+  function processName(pid) {
+    return CORE_PROCESSES.find(p => p.id === pid)?.name || `Process ${pid}`;
+  }
+
+  function processLevel(pid) {
+    const level = state.levels[pid];
+    return ['basic', 'standard', 'comprehensive'].includes(level)
+      ? FRAMEWORK_META.levelLabels[level]
+      : 'Not assessed';
   }
 
   // Build Vee path points
@@ -45,7 +57,7 @@ export function renderVeeModel(container) {
     const to = veePoints.find(p => p.processId === link.to);
     if (!from || !to) return '';
     return `<line x1="${from.cx}" y1="${from.cy}" x2="${to.cx}" y2="${to.cy}" stroke="rgba(244,114,182,0.3)" stroke-width="1.5" stroke-dasharray="6 4" class="flow-arrow">
-      <title>${link.label}</title>
+      <title>${escapeHtml(link.label)}</title>
     </line>`;
   }).join('');
 
@@ -57,7 +69,7 @@ export function renderVeeModel(container) {
         ${Object.entries(FRAMEWORK_META.levelLabels).map(([k, v]) => `
           <div class="flex items-center gap-sm text-sm">
             <div style="width:12px;height:12px;border-radius:50%;background:${FRAMEWORK_META.levelColors[k]}"></div>
-            <span>${v}</span>
+            <span>${escapeHtml(v)}</span>
           </div>`).join('')}
         <div class="flex items-center gap-sm text-sm">
           <div style="width:12px;height:12px;border-radius:50%;background:#6366f1;opacity:0.5"></div>
@@ -76,11 +88,11 @@ export function renderVeeModel(container) {
         <text x="50" y="30" fill="rgba(99,102,241,0.4)" font-size="11" font-weight="600">TECHNICAL MANAGEMENT</text>
         <!-- Management process nodes -->
         ${mgmtNodes.map(n => `
-          <g class="vee-node" data-pid="${n.processId}" style="cursor:pointer">
+          <g class="vee-node" data-pid="${n.processId}" role="button" tabindex="0" aria-label="Open ${escapeHtml(n.label)} process details" style="cursor:pointer">
             <circle cx="${n.cx}" cy="${n.cy}" r="16" fill="${nodeColor(n.processId)}" opacity="0.2" stroke="${nodeColor(n.processId)}" stroke-width="1.5"/>
             <circle cx="${n.cx}" cy="${n.cy}" r="11" fill="${nodeColor(n.processId)}" opacity="0.8"/>
             <text x="${n.cx}" y="${n.cy + 4}" text-anchor="middle" fill="white" font-size="9" font-weight="700">${n.processId}</text>
-            <text x="${n.cx}" y="${n.cy + (n.row === 1 ? 28 : -22)}" text-anchor="middle" fill="var(--text-secondary)" font-size="9">${n.label}</text>
+            <text x="${n.cx}" y="${n.cy + (n.row === 1 ? 28 : -22)}" text-anchor="middle" fill="var(--text-secondary)" font-size="9">${escapeHtml(n.label)}</text>
           </g>
         `).join('')}
         <!-- Phase labels -->
@@ -89,11 +101,11 @@ export function renderVeeModel(container) {
         <text x="${W * 0.5}" y="${H - 10}" fill="var(--text-secondary)" font-size="14" font-weight="600" text-anchor="middle">Implementation</text>
         <!-- Technical process nodes -->
         ${veePoints.map(n => `
-          <g class="vee-node" data-pid="${n.processId}" style="cursor:pointer">
+          <g class="vee-node" data-pid="${n.processId}" role="button" tabindex="0" aria-label="Open ${escapeHtml(n.label)} process details" style="cursor:pointer">
             <circle cx="${n.cx}" cy="${n.cy}" r="22" fill="${nodeColor(n.processId)}" opacity="0.15" stroke="${nodeColor(n.processId)}" stroke-width="2"/>
             <circle cx="${n.cx}" cy="${n.cy}" r="15" fill="${nodeColor(n.processId)}" opacity="0.9"/>
             <text x="${n.cx}" y="${n.cy + 4}" text-anchor="middle" fill="white" font-size="10" font-weight="700">${n.processId}</text>
-            <text x="${n.cx}" y="${n.cy - 28}" text-anchor="middle" fill="var(--text-primary)" font-size="10" font-weight="500">${n.label}</text>
+            <text x="${n.cx}" y="${n.cy - 28}" text-anchor="middle" fill="var(--text-primary)" font-size="10" font-weight="500">${escapeHtml(n.label)}</text>
           </g>
         `).join('')}
         <!-- Vee arrows along path segments -->
@@ -104,6 +116,36 @@ export function renderVeeModel(container) {
   }).join('')}
       </svg>
     </div>
+    <div class="card mt-lg vee-fallback-wrapper">
+      <h3 class="mb-sm">Lifecycle Process Table</h3>
+      <p class="text-secondary text-sm mb-md">Non-visual fallback for the Vee diagram. Use the action buttons to open the same process details.</p>
+      <div style="overflow-x:auto">
+        <table class="data-table vee-fallback-table">
+          <caption>Vee lifecycle process table</caption>
+          <thead>
+            <tr>
+              <th>Lifecycle Area</th>
+              <th>Process</th>
+              <th>Current Level</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${[
+    ...mgmtNodes.map(n => ({ ...n, area: 'Technical Management' })),
+    ...veePoints.map(n => ({ ...n, area: n.x < 50 ? 'Definition and Decomposition' : n.x > 50 ? 'Integration and Verification' : 'Implementation' }))
+  ].map(n => `
+              <tr>
+                <td>${escapeHtml(n.area)}</td>
+                <td><span class="process-id">${n.processId}</span> ${escapeHtml(processName(n.processId))}</td>
+                <td>${escapeHtml(processLevel(n.processId))}</td>
+                <td><button class="btn btn-secondary btn-sm vee-table-process" type="button" data-pid="${n.processId}" aria-label="Open ${escapeHtml(processName(n.processId))} process details">Open</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
     <div id="vee-tooltip" class="vee-tooltip" style="display:none"></div>
   `;
 
@@ -113,18 +155,27 @@ export function renderVeeModel(container) {
     .vee-legend { justify-content: center; flex-wrap: wrap; }
     .vee-svg-container { padding: 24px; overflow: auto; }
     .vee-svg { width: 100%; max-height: 70vh; }
+    .vee-fallback-table caption { text-align: left; color: var(--text-secondary); font-size: 12px; padding: 6px 0 10px; }
     .vee-node:hover circle { filter: brightness(1.3); }
     .vee-node:hover text { fill: white !important; }
+    .vee-node:focus-visible circle { stroke-width: 4; filter: brightness(1.35); }
     .vee-tooltip { position: fixed; background: var(--bg-secondary); border: 1px solid var(--border-medium); border-radius: 10px; padding: 12px 16px; font-size: 13px; box-shadow: var(--shadow-lg); z-index: 100; pointer-events: none; max-width: 280px; }
   `;
   container.appendChild(style);
 
   // Click to navigate to process detail
   container.querySelectorAll('.vee-node').forEach(node => {
-    node.addEventListener('click', () => {
+    const openProcess = () => {
       const pid = parseInt(node.dataset.pid);
+      setState({ activeProcessExplorerId: pid });
       navigateTo('processes');
-      setTimeout(() => document.dispatchEvent(new CustomEvent('selectProcess', { detail: pid })), 100);
+    };
+    node.addEventListener('click', openProcess);
+    node.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openProcess();
+      }
     });
     // Tooltip
     node.addEventListener('mouseenter', (e) => {
@@ -132,13 +183,35 @@ export function renderVeeModel(container) {
       const p = CORE_PROCESSES.find(x => x.id === pid);
       const lvl = state.levels[pid];
       const tip = document.getElementById('vee-tooltip');
-      tip.innerHTML = `<strong>${p?.name}</strong><br><span class="text-secondary">${p?.purpose || ''}</span>${lvl ? `<br><span class="level-badge ${lvl}" style="margin-top:6px">${FRAMEWORK_META.levelLabels[lvl]}</span>` : ''}`;
+      tip.replaceChildren();
+      const title = document.createElement('strong');
+      title.textContent = p?.name || '';
+      const purpose = document.createElement('span');
+      purpose.className = 'text-secondary';
+      purpose.textContent = p?.purpose || '';
+      tip.append(title, document.createElement('br'), purpose);
+      const safeLevel = ['basic', 'standard', 'comprehensive'].includes(lvl) ? lvl : null;
+      if (safeLevel) {
+        const badge = document.createElement('span');
+        badge.className = `level-badge ${safeLevel}`;
+        badge.style.marginTop = '6px';
+        badge.textContent = FRAMEWORK_META.levelLabels[safeLevel];
+        tip.append(document.createElement('br'), badge);
+      }
       tip.style.display = 'block';
       tip.style.left = e.clientX + 16 + 'px';
       tip.style.top = e.clientY + 16 + 'px';
     });
     node.addEventListener('mouseleave', () => {
       document.getElementById('vee-tooltip').style.display = 'none';
+    });
+  });
+
+  container.querySelectorAll('.vee-table-process').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = parseInt(btn.dataset.pid);
+      setState({ activeProcessExplorerId: pid });
+      navigateTo('processes');
     });
   });
 }

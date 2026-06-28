@@ -20,7 +20,7 @@
  *   - Methodology narrative source: 01-PAPER/03-Methodology.md
  *   - Derivation model: max-tier with corroborated Comprehensive
  *   - Rule baseline: 21 consistency rules including split 8a/8b and advisory rules
- *   - Override baseline: 28 process-specific override conditions
+ *   - Override baseline: 29 process-specific override conditions
  */
 
 export * from './processes.js';
@@ -43,9 +43,9 @@ export const FRAMEWORK_META = {
     levelLabels: { basic: 'Basic', standard: 'Standard', comprehensive: 'Comprehensive' },
     levelColors: { basic: '#3b82f6', standard: '#f59e0b', comprehensive: '#ef4444' },
     levelDescriptions: {
-        basic: 'Essential activities only; informal documentation; reactive approach. Achieves 15288 process purpose and core outcomes in a lightweight form consistent with VSE profiles.',
+        basic: 'Essential activities only; lightweight documentation; reactive approach. Supports review against the 15288 process purpose without implying standalone compliance.',
         standard: 'Structured activities with formal documentation; proactive planning',
-        comprehensive: 'Full rigor with model-based approaches; predictive analytics. Aligns with SIL-driven expectations under EN 50716 for safety-critical rail systems.'
+        comprehensive: 'High-rigor execution with stronger traceability, assurance evidence, and model-based support where useful. Safety-integrity claims still require domain-standard review.'
     },
     saTierCount: 3,
     saMethodCount: 13
