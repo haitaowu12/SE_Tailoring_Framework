@@ -1,11 +1,13 @@
 /**
  * SE Tailoring Model — Process Activities & Deliverables
- * _VERSION: 4.0 | _LAST_UPDATED: 2026-02
+ * _VERSION: 4.0 | _LAST_UPDATED: 2026-07
  * _SOURCE: 02-PRACTICAL/Process-Tailoring-Tables.md
  * 
  * Structure: { processId: { activities: {basic:[], standard:[], comprehensive:[]}, deliverables: {...}, outputs: [...] } }
  * Activities prefixed with (*) are essential/core even at Basic level.
- * Tags: [Safety] = gated by M5 ≥ 3; [RAM] = gated by M6 ≥ 3
+ * Tags: [Safety] = gated by M5 ≥ 3; [RAM] = gated by M6 ≥ 3.
+ * Conditional M8/M15 guidance is kept in PROCESS_CONTEXT_OVERLAYS so it does
+ * not silently change the three base tailoring levels or add mapping edges.
  */
 
 export const PROCESS_DETAILS = {
@@ -400,5 +402,78 @@ export const PROCESS_DETAILS = {
             { name: 'Environmental assessment', feedsInto: 'Risk Management (Standard), Quality Assurance (Standard)' }
         ],
         useInTailoring: 'In tailoring, the main levers are the disposal planning formality, environmental compliance depth, and data retention requirements.'
+    }
+};
+
+/**
+ * Advisory content overlays for already-mapped Security (M8) and scoped
+ * External Governance & Assurance (M15) contexts. These prompts describe what
+ * practitioners should make visible when an existing mapping is active. They
+ * do not change a process level, create a floor, or expand the mapping matrix.
+ */
+export const PROCESS_CONTEXT_OVERLAYS = {
+    12: {
+        security: {
+            activities: ['Identify security-origin risk scenarios and affected assets', 'Trace security risk treatments to owners and verification evidence'],
+            evidence: ['Security risk register entries', 'Security risk treatment and acceptance records']
+        },
+        assurance: {
+            activities: ['Trace obligation-driven risks to the applicable source and decision authority'],
+            evidence: ['Obligation-to-risk trace and disposition record']
+        }
+    },
+    13: {
+        security: {
+            activities: ['Place security-relevant items, configurations, dependencies, and changes under controlled baselines'],
+            evidence: ['Security-relevant configuration index', 'Authorized change and component-provenance records']
+        },
+        assurance: {
+            activities: ['Identify assurance evidence as controlled configuration items with retention and approval status'],
+            evidence: ['Assurance evidence configuration index', 'Auditable baseline and change history']
+        }
+    },
+    14: {
+        security: {
+            activities: ['Apply classification, access, integrity, retention, and recovery controls to security-relevant information'],
+            evidence: ['Security information handling plan', 'Access, integrity, backup, and recovery evidence']
+        },
+        assurance: {
+            activities: ['Maintain a retrievable evidence repository linked to obligation sources, owners, and approvals'],
+            evidence: ['Assurance evidence index', 'Retention, access, and submission records']
+        }
+    },
+    16: {
+        assurance: {
+            activities: ['Audit the process and evidence obligations within the confirmed assurance scope'],
+            evidence: ['Obligation-scoped audit plan', 'Findings, corrective actions, and closure evidence']
+        }
+    },
+    20: {
+        security: {
+            activities: ['Define security-relevant trust boundaries, protection responsibilities, and architecture decisions', 'Evaluate security consequences and treatments in architecture trade studies'],
+            evidence: ['Security architecture views and decision records', 'Threat-informed architecture evaluation evidence']
+        }
+    },
+    25: {
+        security: {
+            activities: ['Define and execute verification methods for allocated security requirements and treatments'],
+            evidence: ['Security verification trace', 'Security test, analysis, inspection, or demonstration records']
+        },
+        assurance: {
+            activities: ['Map required assurance evidence and acceptance criteria to verification results'],
+            evidence: ['Obligation-to-verification evidence matrix', 'Independent review or acceptance record where required']
+        }
+    },
+    27: {
+        assurance: {
+            activities: ['Validate obligation-relevant outcomes and acceptance criteria with the designated authority or stakeholder'],
+            evidence: ['Obligation-scoped validation and acceptance record']
+        }
+    },
+    30: {
+        assurance: {
+            activities: ['Close or transfer applicable obligations, approvals, records, and retained liabilities before disposal completion'],
+            evidence: ['Assurance closeout or transfer record', 'Required archive and authority acceptance evidence']
+        }
     }
 };

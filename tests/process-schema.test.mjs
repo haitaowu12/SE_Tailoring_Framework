@@ -10,6 +10,7 @@ import {
   PROCESS_GROUPS,
   PROCESSES
 } from '../src/data/se-tailoring-data.js';
+import { PROCESS_CONTEXT_OVERLAYS, PROCESS_DETAILS } from '../src/data/process-details.js';
 
 test('process catalog preserves 30-process ISO 15288 reference shape and 22-process executable core', () => {
   assert.equal(PROCESSES.length, 30);
@@ -53,6 +54,28 @@ test('core process definitions are complete for all tailoring levels', () => {
     assert.ok(process.whenToElevate?.length > 20, `${process.name} must have tailoring guidance`);
     for (const level of levels) {
       assert.ok(process.definition?.[level]?.length > 15, `${process.name} missing ${level} definition`);
+    }
+  }
+});
+
+
+test('security and assurance overlays are populated and limited to existing mapped roles', () => {
+  const securityProcesses = new Set([12, 13, 14, 20, 25]);
+  const assuranceProcesses = new Set([12, 13, 14, 16, 25, 27, 30]);
+
+  for (const [processIdText, overlays] of Object.entries(PROCESS_CONTEXT_OVERLAYS)) {
+    const processId = Number(processIdText);
+    assert.ok(PROCESS_DETAILS[processId], `overlay process ${processId} must have process details`);
+
+    if (overlays.security) {
+      assert.ok(securityProcesses.has(processId), `security overlay ${processId} must already have an executable M8 role`);
+      assert.ok(overlays.security.activities.length > 0);
+      assert.ok(overlays.security.evidence.length > 0);
+    }
+    if (overlays.assurance) {
+      assert.ok(assuranceProcesses.has(processId), `assurance overlay ${processId} must already have a conditional M15 role`);
+      assert.ok(overlays.assurance.activities.length > 0);
+      assert.ok(overlays.assurance.evidence.length > 0);
     }
   }
 });

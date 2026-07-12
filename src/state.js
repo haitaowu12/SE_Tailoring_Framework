@@ -7,6 +7,12 @@
  * The 'default' root node is always a Full assessment.
  */
 import { escapeHtml } from './utils/safe-text.js';
+import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION } from './data/metrics.js';
+import { assessMetricCompleteness, getAssessmentDisposition } from './utils/assessment-integrity.js';
+import { assessWarningDispositions } from './utils/rule-dispositions.js';
+import { assessCsiResponse } from './utils/csi-response.js';
+import { assessOutputSufficiency, normalizeArtifactHandoffs } from './utils/output-sufficiency.js';
+import { assessCorrelatedEvidence } from './utils/correlated-evidence.js';
 
 const state = {
     // Hierarchical assessment tree (v3.3)
@@ -25,33 +31,66 @@ const state = {
                 downTailoringLog: [],          // [{ processId, parentLevel, childLevel, justification, outputSufficiency, approver }]
                 status: 'draft',              // 'draft' | 'under_review' | 'approved' | 'baselined'
                 scores: {},                   // per-node metric scores
+                metricAssessments: {},        // per-metric status, qualifiers, rationale, and evidence references
+                assuranceObligations: [],      // confirmed/scoped binding assurance records for M15
+                ruleDispositions: {},          // governed dispositions for triggered, unsatisfied warning rules
+                csiResponse: {},               // governed response to CSI 4-5 schedule/budget stress
+                correlatedEvidenceWarnings: [], // warning-only M5/M6/M8 evidence correlation review
+                rightSizingApprovalRecords: [], // role-based, snapshot-bound reduction decisions
                 levels: {},                   // per-node process levels (after assessment)
                 manualMetrics: [],            // metric IDs manually set by user (never auto-overwritten)
                 assessmentResult: null,       // full assessment result object
                 hasIndependentSafetyAnalysis: false,
+                safetyAllocationDecision: null,
+                securityHierarchyDisposition: null,
+                assuranceHierarchyDisposition: null,
+                // Retained for visible migration only; booleans cannot authorize lowering.
+                hasIndependentSecurityAnalysis: false,
+                hasScopedAssuranceDecision: false,
                 manualAdjustments: {}         // { processId: { level: 'comprehensive', justification: '...' } }
             }
         }
     },
     projectInfo: { name: '', date: '', team: '', phase: '' },
     scores: {},
+    metricAssessments: {},
+    assuranceObligations: [],
+    ruleDispositions: {},
+    csiResponse: {},
+    correlatedEvidenceWarnings: [],
+    semanticMigration: null,
     saResponses: {},
     saTier: null,
     derived: {},
     derivationDetails: {},
     levels: {},
     overrides: [],
+    activeFloors: [],
     violations: [],
     fixes: [],
+    rightSizingProposals: [],
+    blockedRightSizingCandidates: [],
+    proposedRightSizedLevels: {},
+    proposalClosureFixes: [],
+    proposalBudgetStatus: null,
+    rightSizingApprovalRecords: [],
+    rightSizingApprovalEvaluations: [],
+    approvedRightSizedLevels: {},
+    normativeLevels: {},
+    effectiveRightSizingApprovalCount: 0,
+    // Historical import-only records from pre-governance engine versions.
     rightSizingActions: [],
+    budgetStatus: null,
     adoptionRisks: [],
     manualAdjustments: {},
     tradeoffs: [],
     cultureType: null,
     notes: '',
     assessmentComplete: false,
+    assessmentDisposition: 'work-in-progress',
     confidence: {},
-    deliverablesChecked: []
+    deliverablesChecked: [],
+    artifactHandoffs: normalizeArtifactHandoffs([], 'default')
 };
 
 const listeners = [];
@@ -69,27 +108,50 @@ function debounceAutosave() {
     if (autosaveTimer) clearTimeout(autosaveTimer);
     autosaveTimer = setTimeout(() => {
         try {
+            const integrity = getAssessmentDisposition(state);
             const data = JSON.stringify({
+                semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION },
                 projectInfo: state.projectInfo,
                 scores: state.scores,
+                metricAssessments: state.metricAssessments,
+                assuranceObligations: state.assuranceObligations,
+                ruleDispositions: state.ruleDispositions,
+                csiResponse: state.csiResponse,
+                correlatedEvidenceWarnings: assessCorrelatedEvidence(state.metricAssessments).warnings,
+                semanticMigration: state.semanticMigration,
                 saResponses: state.saResponses,
                 saTier: state.saTier,
                 derived: state.derived,
                 derivationDetails: state.derivationDetails,
                 levels: state.levels,
                 overrides: state.overrides,
+                activeFloors: state.activeFloors,
                 violations: state.violations,
                 fixes: state.fixes,
+                rightSizingProposals: state.rightSizingProposals,
+                blockedRightSizingCandidates: state.blockedRightSizingCandidates,
+                proposedRightSizedLevels: state.proposedRightSizedLevels,
+                proposalClosureFixes: state.proposalClosureFixes,
+                proposalBudgetStatus: state.proposalBudgetStatus,
+                rightSizingApprovalRecords: state.rightSizingApprovalRecords,
+                rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations,
+                approvedRightSizedLevels: state.approvedRightSizedLevels,
+                normativeLevels: state.normativeLevels,
+                effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount,
                 rightSizingActions: state.rightSizingActions,
+                budgetStatus: state.budgetStatus,
                 adoptionRisks: state.adoptionRisks,
                 manualAdjustments: state.manualAdjustments,
                 tradeoffs: state.tradeoffs,
                 cultureType: state.cultureType,
                 notes: state.notes,
-                assessmentComplete: state.assessmentComplete,
+                assessmentComplete: integrity.complete,
+                assessmentDisposition: integrity.disposition,
+                assessmentIntegrity: integrity,
                 confidence: state.confidence,
                 assessmentTree: state.assessmentTree,
                 deliverablesChecked: state.deliverablesChecked,
+                artifactHandoffs: state.artifactHandoffs,
                 savedAt: new Date().toISOString()
             });
             localStorage.setItem(AUTOSAVE_KEY, data);
@@ -102,7 +164,18 @@ function debounceAutosave() {
 export function getState() { return state; }
 
 export function setState(updates) {
-    Object.assign(state, updates);
+    const next = { ...state, ...updates };
+    if (updates.assessmentComplete === true) {
+        const completeness = assessMetricCompleteness(next.scores, next.metricAssessments);
+        const warningDispositions = assessWarningDispositions(next.violations, next.ruleDispositions, next.levels);
+        const csiResponse = assessCsiResponse(next.scores, next.csiResponse);
+        const migrationBlocked = next.semanticMigration?.status === 'review-required';
+        const outputSufficiency = assessOutputSufficiency(next.artifactHandoffs, [next.assessmentTree?.rootId || 'default']);
+        next.assessmentComplete = completeness.complete && warningDispositions.complete && csiResponse.complete && outputSufficiency.complete && !migrationBlocked && next.assessmentDisposition !== 'demo';
+        if (!next.assessmentComplete) next.assessmentDisposition = next.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
+        else next.assessmentDisposition = 'complete-baseline';
+    }
+    Object.assign(state, next);
     notifyStateChanged();
 }
 
@@ -119,6 +192,10 @@ export function loadAutosave() {
 }
 
 export function clearAutosave() {
+    if (autosaveTimer) {
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+    }
     try {
         localStorage.removeItem(AUTOSAVE_KEY);
     } catch (e) {
@@ -142,7 +219,7 @@ export function showToast(message, type = 'info') {
 
 // ===== Tree Manipulation Helpers (v3.3) =====
 
-const QUICK_OVERRIDE_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'];
+const QUICK_OVERRIDE_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M8', 'M15'];
 const ALL_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16'];
 
 function generateId() {
@@ -163,6 +240,7 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
     // Build inherited flags based on assessment type
     const inheritedMetrics = {};
     const scores = {};
+    const metricAssessments = {};
     for (const m of ALL_METRICS) {
         if (assessmentType === 'inherited') {
             inheritedMetrics[m] = true;
@@ -173,6 +251,18 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         }
         // Start with parent score as default
         scores[m] = parentScores[m] ?? 3;
+        if (inheritedMetrics[m]) {
+            const parentAssessment = parent.metricAssessments?.[m];
+            const parentConfirmed = ['assessed', 'inherited-confirmed'].includes(parentAssessment?.status);
+            metricAssessments[m] = {
+                ...(parentAssessment || {}),
+                score: scores[m],
+                status: parentConfirmed ? 'inherited-confirmed' : 'unknown',
+                definitionVersion: 2,
+                qualifiers: parentAssessment?.qualifiers || [],
+                evidenceRefs: parentAssessment?.evidenceRefs || []
+            };
+        }
     }
 
     tree.nodes[id] = {
@@ -186,10 +276,22 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         downTailoringLog: [],
         status: 'draft',
         scores,
+        metricAssessments,
+        assuranceObligations: [],
+        ruleDispositions: {},
+        csiResponse: {},
+        correlatedEvidenceWarnings: [],
+        rightSizingApprovalRecords: [],
         levels: {},
         manualMetrics: [],
         assessmentResult: null,
         hasIndependentSafetyAnalysis: false,
+        safetyAllocationDecision: null,
+        securityHierarchyDisposition: null,
+        assuranceHierarchyDisposition: null,
+        // Retained for visible migration only; booleans cannot authorize lowering.
+        hasIndependentSecurityAnalysis: false,
+        hasScopedAssuranceDecision: false,
         manualAdjustments: {}
     };
     parent.childIds.push(id);
@@ -279,7 +381,12 @@ export function setElementAssessmentResult(elementId, result) {
     if (!node) return;
     node.assessmentResult = result;
     node.levels = result.levels || {};
-    node.status = 'under_review';
+    const completeness = assessMetricCompleteness(node.scores, node.metricAssessments);
+    const warningDispositions = assessWarningDispositions(result.violations, node.ruleDispositions, node.levels);
+    const csiResponse = assessCsiResponse(node.scores, node.csiResponse);
+    const baselineReady = completeness.complete && warningDispositions.complete && csiResponse.complete;
+    node.status = baselineReady ? 'under_review' : 'draft';
+    node.assessmentDisposition = baselineReady ? 'complete-baseline' : 'work-in-progress';
     notifyStateChanged();
 }
 

@@ -1,8 +1,8 @@
 /**
  * Process Explorer View — Searchable/filterable process detail browser
  */
-import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRIC_PROCESS_MAP, METRICS } from '../data/se-tailoring-data.js';
-import { PROCESS_DETAILS } from '../data/process-details.js';
+import { BINDING_ASSURANCE_QUALIFIERS, CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRIC_PROCESS_MAP, METRICS } from '../data/se-tailoring-data.js';
+import { PROCESS_DETAILS, PROCESS_CONTEXT_OVERLAYS } from '../data/process-details.js';
 import { getState, setState } from '../state.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
@@ -98,7 +98,7 @@ const MINI_CARDS = {
         { process: 'Validation', level: 'Standard', type: 'WN' }
       ]
     },
-    override: 'M5 ≥ 4 → Standard; M5 = 5 → Comprehensive; M8 ≥ 4 → Standard',
+    override: 'M5 ≥ 4 → Standard; M5 = 5 → Comprehensive; M8 ≥ 4 → Standard; scoped binding M15 ≥ 4 → Standard',
     outputs: ['Verification results', 'Test reports', 'Traceability to requirements']
   },
   'validation': {
@@ -124,7 +124,7 @@ const MINI_CARDS = {
       standard: [],
       comprehensive: []
     },
-    override: 'M8 ≥ 4 → Standard; M7 = 5 → Standard',
+    override: 'M8 ≥ 4 → Standard; M7 = 5 → Standard; scoped binding M15 ≥ 4 → Standard',
     outputs: ['Configuration baselines', 'Change control records', 'Version history']
   },
   'project-planning': {
@@ -150,7 +150,7 @@ const MINI_CARDS = {
       standard: [],
       comprehensive: []
     },
-    override: 'M5 ≥ 4 → Standard; M5 = 5 → Comprehensive; M8 ≥ 4 → Standard',
+    override: 'M5 ≥ 4 → Standard; M5 = 5 → Comprehensive; scoped binding M15 ≥ 4 → Standard',
     outputs: ['QA audit reports', 'Process compliance records', 'Non-conformance reports']
   }
 };
@@ -776,6 +776,20 @@ function renderProcessDetail(processId, state) {
   const activities = details?.activities?.[viewLevel] || [];
   const deliverables = details?.deliverables?.[viewLevel] || [];
   const outputs = details?.outputs || [];
+  const contextOverlays = PROCESS_CONTEXT_OVERLAYS[processId] || {};
+  const securityOverlay = Number(state.scores?.M8) >= 3 ? contextOverlays.security : null;
+  const assuranceOverlay = (state.assuranceObligations || []).some(obligation =>
+    obligation?.bindingStatus === 'confirmed'
+      && BINDING_ASSURANCE_QUALIFIERS.includes(obligation.type)
+      && String(obligation.authority || '').trim()
+      && String(obligation.sourceRef || '').trim()
+      && Array.isArray(obligation.processScope)
+      && obligation.processScope.map(Number).includes(Number(processId))
+  ) ? contextOverlays.assurance : null;
+  const activeContextOverlays = [
+    securityOverlay ? { label: 'Security evidence overlay', metric: 'M8', ...securityOverlay } : null,
+    assuranceOverlay ? { label: 'Binding assurance overlay', metric: 'M15', ...assuranceOverlay } : null
+  ].filter(Boolean);
   const levelLabel = FRAMEWORK_META.levelLabels[level] || level;
   const viewLevelLabel = FRAMEWORK_META.levelLabels[viewLevel] || viewLevel;
   const groupLabel = PROCESS_GROUPS[p.group.toUpperCase()]?.name || p.group;
@@ -852,6 +866,19 @@ function renderProcessDetail(processId, state) {
         <h4>Outputs & Feeds Into</h4>
         ${outputs.length ? outputs.map(o => `<div class="output-item"><strong>${escapeHtml(o.name)}</strong> → ${escapeHtml(o.feedsInto)}</div>`).join('') : '<div class="detail-empty-line">No output flow detail is defined for this process yet.</div>'}
       </div>
+
+      ${activeContextOverlays.length ? `
+      <div class="detail-section" style="border-left: 3px solid var(--accent-warning); padding-left: 14px;">
+        <h4>Conditional Context Evidence</h4>
+        <p class="text-xs text-secondary mb-md">These prompts operationalize an existing mapped context. They do not change the assigned process level or create a new metric-to-process relationship.</p>
+        ${activeContextOverlays.map(overlay => `
+          <div class="mb-md">
+            <div class="text-sm font-bold">${escapeHtml(overlay.label)} <span class="metric-tag secondary">${escapeHtml(overlay.metric)}</span></div>
+            ${(overlay.activities || []).map(activity => `<div class="activity-item">• ${escapeHtml(activity)}</div>`).join('')}
+            ${(overlay.evidence || []).map(item => `<div class="deliverable-item">📄 ${escapeHtml(item)}</div>`).join('')}
+          </div>
+        `).join('')}
+      </div>` : ''}
 
       ${miniCard ? `
       <div class="detail-section">

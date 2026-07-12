@@ -14,6 +14,7 @@ import {
     detectDownTailoring,
     validateDownTailoring,
     checkOutputSufficiency,
+    assessSafetyAllocationDecision,
     propagateSafetyOverrides,
     checkPeerInterfaceConsistency,
     assessNeedForSeparateAssessment,
@@ -22,6 +23,7 @@ import {
 } from '../src/utils/inheritance-engine.js';
 
 import { runFullAssessment } from '../src/utils/assessment-engine.js';
+import { assessHierarchyDisposition } from '../src/utils/hierarchy-dispositions.js';
 
 const METRIC_IDS = [
     'M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8',
@@ -30,6 +32,35 @@ const METRIC_IDS = [
 
 function makeScores(defaultValue = 3) {
     return Object.fromEntries(METRIC_IDS.map(id => [id, defaultValue]));
+}
+
+function makeSafetyAllocationDecision(overrides = {}) {
+    return {
+        status: 'confirmed',
+        allocationDisposition: 'not-allocated-to-child',
+        retainedResponsibility: 'parent',
+        authority: 'System Safety Authority',
+        evidenceRef: 'SAF-ALLOC-001',
+        interfaceAssumptionsRef: 'IF-SAF-001',
+        rationale: 'Hazard-control responsibility and verification evidence remain at the parent boundary.',
+        reviewDate: '2026-07-10',
+        ...overrides
+    };
+}
+
+function makeHierarchyDisposition(metricId, overrides = {}) {
+    return {
+        status: 'confirmed',
+        outcome: metricId === 'M8' ? 'lower-consequence-justified' : 'responsibility-retained-elsewhere',
+        rationale: metricId === 'M8'
+            ? 'The child boundary has a lower credible security consequence.'
+            : 'The parent retains the external assurance obligation.',
+        ownerApprover: metricId === 'M8' ? 'Security Authority' : 'Assurance Authority',
+        reviewDate: '2026-07-11',
+        decisionBasisRef: '',
+        evidenceRef: '',
+        ...overrides
+    };
 }
 
 // ========== Metric Inheritance Tests ==========
@@ -55,16 +86,15 @@ test('createChildAssessment — Full type: no metrics inherited', () => {
     assert.equal(child.scores.M1, 4, 'Scores start with parent defaults');
 });
 
-test('createChildAssessment — Quick type: M7-M16 inherited, M1-M6 overridable', () => {
+test('createChildAssessment — Quick type explicitly reviews M8 security and M15 assurance', () => {
     const parent = makeScores(4);
     const child = createChildAssessment('root', 'Fare Collection', 'quick', parent);
     assert.equal(child.assessmentType, 'quick');
-    // M1-M6 should NOT be inherited (overridable)
-    for (const m of ['M1', 'M2', 'M3', 'M4', 'M5', 'M6']) {
+    // M1-M6 plus M8/M15 should NOT be inherited (overridable)
+    for (const m of ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M8', 'M15']) {
         assert.equal(child.inheritedMetrics[m], false, `Quick: ${m} should be overridable`);
     }
-    // M7-M16 should be inherited
-    for (const m of ['M7', 'M8', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16']) {
+    for (const m of ['M7', 'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M16']) {
         assert.equal(child.inheritedMetrics[m], true, `Quick: ${m} should be inherited`);
     }
 });
@@ -154,6 +184,30 @@ test('validateDownTailoring accepts complete justifications', () => {
     assert.equal(result.valid, true, 'All justifications complete');
 });
 
+test('P19/P20 down-tailoring validation requires a confirmed safety-allocation decision at a safety-relevant parent boundary', () => {
+    const downTailored = [
+        { processId: 19, delta: 1, requiresSponsor: false },
+        { processId: 20, delta: 1, requiresSponsor: false }
+    ];
+    const justifications = downTailored.map(({ processId }) => ({
+        processId,
+        justification: 'Element boundary is narrower',
+        outputSufficiency: 'Confirmed',
+        approver: 'Safety Authority'
+    }));
+
+    const blocked = validateDownTailoring(downTailored, justifications, { parentM5: 4 });
+    assert.equal(blocked.valid, false);
+    assert.deepEqual(blocked.safetyAllocationBlocked, [19, 20]);
+
+    const allowed = validateDownTailoring(downTailored, justifications, {
+        parentM5: 4,
+        safetyAllocationDecision: makeSafetyAllocationDecision()
+    });
+    assert.equal(allowed.valid, true);
+    assert.deepEqual(allowed.safetyAllocationBlocked, []);
+});
+
 // ========== Safety Override Propagation Tests ==========
 
 test('Safety override propagates when parent M5>=4 and child M5<4 without analysis', () => {
@@ -166,14 +220,132 @@ test('Safety override propagates when parent M5>=4 and child M5<4 without analys
     assert.ok(result.warnings.some(w => w.type === 'error' && w.metric === 'M5'));
 });
 
-test('Safety override accepted when child has independent safety analysis', () => {
+test('Legacy independent-safety-analysis boolean is visible but cannot authorize lower inherited M5', () => {
     const parent = makeScores(3);
     parent.M5 = 5;
     const child = makeScores(3);
     child.M5 = 1;
     const result = propagateSafetyOverrides(parent, child, true);
-    assert.equal(result.propagated, false, 'Should not propagate with independent analysis');
+    assert.equal(result.propagated, true);
+    assert.equal(result.safetyAllocationDecision.status, 'legacy-unconfirmed');
+    assert.equal(result.safetyAllocationDecision.legacyMigrationInput, true);
+    assert.ok(result.warnings.some(w => w.type === 'error' && /legacy/i.test(w.message)));
+});
+
+test('Confirmed structured safety allocation permits lower inherited M5', () => {
+    const parent = makeScores(3);
+    parent.M5 = 5;
+    const child = makeScores(3);
+    child.M5 = 1;
+    const result = propagateSafetyOverrides(parent, child, makeSafetyAllocationDecision());
+    assert.equal(result.propagated, false);
+    assert.equal(result.safetyAllocationDecision.valid, true);
     assert.ok(result.warnings.some(w => w.type === 'info' && w.metric === 'M5'));
+});
+
+test('Safety allocation validation requires exact disposition, retained responsibility, evidence, interfaces, rationale, and real review date', () => {
+    assert.equal(assessSafetyAllocationDecision(makeSafetyAllocationDecision()).valid, true);
+    const incomplete = assessSafetyAllocationDecision(makeSafetyAllocationDecision({
+        allocationDisposition: 'allocated-to-child',
+        evidenceRef: '',
+        interfaceAssumptionsRef: '',
+        reviewDate: '2026-02-30'
+    }));
+    assert.equal(incomplete.valid, false);
+    assert.ok(incomplete.missingFields.includes('allocationDisposition'));
+    assert.ok(incomplete.missingFields.includes('evidenceRef'));
+    assert.ok(incomplete.missingFields.includes('interfaceAssumptionsRef'));
+    assert.ok(incomplete.missingFields.includes('reviewDate'));
+});
+
+test('Legacy security boolean remains visible but never approves a lower child security score', () => {
+    const parent = makeScores(3);
+    parent.M8 = 5;
+    const child = makeScores(3);
+    child.M8 = 2;
+    const result = propagateSafetyOverrides(parent, child, null, true);
+    assert.ok(result.warnings.some(w =>
+        w.type === 'error' &&
+        w.metric === 'M8' &&
+        /legacy/i.test(w.message)
+    ));
+    assert.deepEqual(result.blockedMetrics, ['M8']);
+    assert.equal(result.securityHierarchyDisposition.status, 'legacy-unconfirmed');
+});
+
+test('Lower child M8 requires a complete confirmed disposition and optional references are not required', () => {
+    assert.equal(assessHierarchyDisposition('M8', makeHierarchyDisposition('M8')).valid, true);
+    const incomplete = assessHierarchyDisposition('M8', makeHierarchyDisposition('M8', {
+        status: 'draft', rationale: '', reviewDate: '2026-02-30'
+    }));
+    assert.equal(incomplete.valid, false);
+    assert.ok(incomplete.missingFields.includes('status'));
+    assert.ok(incomplete.missingFields.includes('rationale'));
+    assert.ok(incomplete.missingFields.includes('reviewDate'));
+
+    const parent = makeScores(3);
+    parent.M8 = 5;
+    const child = makeScores(3);
+    child.M8 = 2;
+    const blocked = propagateSafetyOverrides(parent, child, null, incomplete);
+    assert.deepEqual(blocked.blockedMetrics, ['M8']);
+    const allowed = propagateSafetyOverrides(parent, child, null, makeHierarchyDisposition('M8'));
+    assert.deepEqual(allowed.blockedMetrics, []);
+    assert.ok(allowed.warnings.some(w => w.metric === 'M8' && w.type === 'info' && /does not verify/i.test(w.message)));
+});
+
+test('Lower child M15 requires a complete confirmed disposition and legacy boolean cannot authorize it', () => {
+    const parent = makeScores(3);
+    parent.M15 = 5;
+    const child = makeScores(3);
+    child.M15 = 2;
+    const unresolved = propagateSafetyOverrides(parent, child, null, null, true);
+    assert.ok(unresolved.warnings.some(w => w.metric === 'M15' && w.type === 'error' && /legacy/i.test(w.message)));
+    assert.deepEqual(unresolved.blockedMetrics, ['M15']);
+    const resolved = propagateSafetyOverrides(parent, child, null, null, makeHierarchyDisposition('M15'));
+    assert.ok(resolved.warnings.some(w => w.metric === 'M15' && w.type === 'info'));
+    assert.deepEqual(resolved.blockedMetrics, []);
+});
+
+test('M8 and M15 dispositions govern every lower child judgment, not only critical parent scores', () => {
+    const parent = makeScores(3);
+    const child = makeScores(3);
+    child.M8 = 2;
+    child.M15 = 2;
+
+    const blocked = propagateSafetyOverrides(parent, child);
+    assert.deepEqual(blocked.blockedMetrics.sort(), ['M15', 'M8']);
+
+    const allowed = propagateSafetyOverrides(
+        parent,
+        child,
+        null,
+        makeHierarchyDisposition('M8'),
+        makeHierarchyDisposition('M15')
+    );
+    assert.deepEqual(allowed.blockedMetrics, []);
+});
+
+test('runChildAssessment fails closed to parent M8/M15 unless dispositions are confirmed', () => {
+    const parentScores = makeScores(3);
+    parentScores.M8 = 5;
+    parentScores.M15 = 5;
+    const parentLevels = Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'standard']));
+    const child = createChildAssessment('root', 'Child', 'full', parentScores);
+    child.scores.M8 = 2;
+    child.scores.M15 = 2;
+
+    const blocked = runChildAssessment(child, parentScores, parentLevels);
+    assert.equal(blocked.effectiveScores.M8, 5);
+    assert.equal(blocked.effectiveScores.M15, 5);
+    assert.deepEqual(blocked.safetyCheck.blockedMetrics.sort(), ['M15', 'M8']);
+
+    child.securityHierarchyDisposition = makeHierarchyDisposition('M8');
+    child.assuranceHierarchyDisposition = makeHierarchyDisposition('M15');
+    const allowed = runChildAssessment(child, parentScores, parentLevels);
+    assert.equal(allowed.effectiveScores.M8, 2);
+    assert.equal(allowed.effectiveScores.M15, 2);
+    assert.deepEqual(allowed.safetyCheck.blockedMetrics, []);
 });
 
 test('No safety propagation when parent M5 < 4', () => {
@@ -262,13 +434,63 @@ test('runChildAssessment produces complete hierarchical assessment', () => {
     // Should have down-tailored processes
     assert.ok(childResult.downTailored.length > 0, 'Should detect down-tailored processes');
 
-    // Inheritance summary should show 10 inherited, 6 overridden
-    assert.equal(childResult.inheritanceSummary.inherited, 10, '10 metrics inherited (Quick)');
-    assert.equal(childResult.inheritanceSummary.overridden, 6, '6 metrics overridden');
+    assert.equal(childResult.inheritanceSummary.inherited, 8, '8 metrics inherited (Quick)');
+    assert.equal(childResult.inheritanceSummary.overridden, 8, '8 metrics explicitly reviewed');
 
     // Should have valid levels
     assert.ok(childResult.levels, 'Should have process levels');
     assert.ok(Object.keys(childResult.levels).length > 0, 'Should have at least one level');
+});
+
+test('runChildAssessment blocks P19/P20 down-tailoring and reruns closure without a confirmed safety allocation', () => {
+    const parentScores = makeScores(1);
+    parentScores.M5 = 4;
+    const parentLevels = Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'basic']));
+    parentLevels[19] = 'comprehensive';
+    parentLevels[20] = 'comprehensive';
+
+    const child = createChildAssessment('root', 'Safety-related child', 'quick', parentScores);
+    child.scores.M5 = 2;
+    child.hasIndependentSafetyAnalysis = true; // legacy-only migration input
+    const result = runChildAssessment(child, parentScores, parentLevels);
+
+    assert.equal(result.effectiveScores.M5, 4, 'Invalid legacy input must retain the parent M5');
+    assert.equal(result.levels[19], 'comprehensive');
+    assert.equal(result.levels[20], 'comprehensive');
+    assert.deepEqual(result.safetyAllocationBlocks.map(block => block.processId), [19, 20]);
+    assert.deepEqual(
+        result.activeFloors.filter(floor => floor.overrideId === 'parent_safety_allocation_boundary').map(floor => floor.processId),
+        [19, 20]
+    );
+    assert.ok(result.fixes.some(fix => [13, 25, 27].includes(fix.processId)), 'Restored P19 Comprehensive must rerun mandatory closure');
+    assert.ok(!result.downTailored.some(item => [19, 20].includes(item.processId)));
+    assert.ok(!result.rightSizingProposals.some(proposal => [19, 20].includes(proposal.processId)), 'Restored hierarchy floors must not be reviewable reductions');
+    assert.ok(!result.blockedRightSizingCandidates.some(proposal => [19, 20].includes(proposal.processId)), 'Hierarchy-blocked processes use safety allocation records, not stale budget candidates');
+    assert.equal(result.proposedRightSizedLevels[19], 'comprehensive');
+    assert.equal(result.proposedRightSizedLevels[20], 'comprehensive');
+    assert.equal(
+        result.proposalBudgetStatus.comprehensiveCount,
+        Object.values(result.proposedRightSizedLevels).filter(level => level === 'comprehensive').length,
+        'Proposal budget metadata must describe the recomputed restored profile'
+    );
+});
+
+test('runChildAssessment permits proposed P19/P20 down-tailoring with a confirmed safety allocation decision', () => {
+    const parentScores = makeScores(1);
+    parentScores.M5 = 4;
+    const parentLevels = Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'basic']));
+    parentLevels[19] = 'comprehensive';
+    parentLevels[20] = 'comprehensive';
+
+    const child = createChildAssessment('root', 'Allocated child', 'quick', parentScores);
+    child.scores.M5 = 2;
+    child.safetyAllocationDecision = makeSafetyAllocationDecision();
+    const result = runChildAssessment(child, parentScores, parentLevels);
+
+    assert.equal(result.effectiveScores.M5, 2);
+    assert.deepEqual(result.safetyAllocationBlocks, []);
+    assert.ok(result.downTailored.some(item => item.processId === 19));
+    assert.ok(result.downTailored.some(item => item.processId === 20));
 });
 
 // ========== COTS Justification Tests ==========
@@ -313,9 +535,8 @@ test('Multi-level hierarchy: grandparent → parent → child inheritance works'
     assert.equal(childResult.safetyCheck.propagated, false,
         'No safety propagation needed (parent M5=3 < 4)');
 
-    // Inheritance summary: Quick assessment = 10 inherited, 6 overridden
-    assert.equal(childResult.inheritanceSummary.inherited, 10, '10 metrics inherited (Quick)');
-    assert.equal(childResult.inheritanceSummary.overridden, 6, '6 metrics overridden');
+    assert.equal(childResult.inheritanceSummary.inherited, 8, '8 metrics inherited (Quick)');
+    assert.equal(childResult.inheritanceSummary.overridden, 8, '8 metrics explicitly reviewed');
 
     // Effective scores should reflect child overrides merged with inherited parent values
     assert.equal(childResult.effectiveScores.M1, 1, 'Child M1 override applied');

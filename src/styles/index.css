@@ -314,12 +314,34 @@ h4 { font-size: var(--font-size-lg); }
 
 /* --- Main Content Area --- */
 #main-content {
-  margin-top: var(--navbar-height);
+  margin-top: 0;
   min-height: calc(100vh - var(--navbar-height));
   padding: var(--space-2xl);
   max-width: var(--content-max-width);
   margin-left: auto;
   margin-right: auto;
+}
+
+#pilot-notice {
+  margin-top: var(--navbar-height);
+  padding: var(--space-sm) var(--space-xl);
+  border-bottom: 1px solid oklch(75% 0.15 70 / 0.45);
+  background: oklch(75% 0.15 70 / 0.09);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.pilot-notice-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  display: flex;
+  gap: var(--space-sm);
+  align-items: baseline;
+}
+
+.pilot-notice-inner strong {
+  color: var(--accent-warning);
+  white-space: nowrap;
 }
 
 /* --- Generic Card --- */
@@ -398,6 +420,17 @@ h4 { font-size: var(--font-size-lg); }
   color: var(--text-primary);
   border-color: var(--accent-primary);
   background: rgba(99, 102, 241, 0.1);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--accent-error);
+  border-color: oklch(60% 0.20 20 / 0.65);
+}
+.btn-danger:hover {
+  color: var(--text-primary);
+  background: oklch(60% 0.20 20 / 0.2);
+  border-color: var(--accent-error);
 }
 
 .btn-outline {
@@ -1028,6 +1061,13 @@ h4 { font-size: var(--font-size-lg); }
   animation: scaleIn 0.25s var(--transition-spring);
 }
 
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
 /* --- Progress Bar --- */
 .progress-bar {
   height: 4px;
@@ -1103,6 +1143,9 @@ h4 { font-size: var(--font-size-lg); }
 }
 @media (max-width: 768px) {
   #main-content { padding: var(--space-lg); }
+  #pilot-notice { padding-inline: var(--space-lg); }
+  .pilot-notice-inner { display: block; }
+  .pilot-notice-inner strong { display: block; white-space: normal; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .report-summary-grid {
     grid-template-columns: 1fr 1fr;
@@ -1154,7 +1197,9 @@ h4 { font-size: var(--font-size-lg); }
   }
   .nav-actions .btn {
     padding-inline: var(--space-sm);
+    font-size: 11px;
   }
+  .author-link { display: none; }
   h1 { font-size: var(--font-size-2xl); }
   h2 { font-size: var(--font-size-xl); }
 }

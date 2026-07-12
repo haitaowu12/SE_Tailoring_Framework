@@ -10,13 +10,53 @@ import {
   setActiveElement, getActiveNode, getElementBreadcrumbs,
   getElementCount, getElementsFlat, renameElement
 } from '../state.js';
-import { propagateDownstream, suggestUpstream } from '../utils/inheritance-engine.js';
+import { assessSafetyAllocationDecision, propagateDownstream, suggestUpstream } from '../utils/inheritance-engine.js';
+import {
+  assessHierarchyDisposition,
+  HIERARCHY_DISPOSITION_CONSIDERATIONS,
+  HIERARCHY_DISPOSITION_OUTCOMES
+} from '../utils/hierarchy-dispositions.js';
 import { navigateTo } from '../router.js';
 import { exportSystemBreakdownCSV } from '../utils/export-import.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
 const VALID_ASSESSMENT_TYPES = new Set(['full', 'quick', 'inherited']);
 const VALID_ELEMENT_STATUSES = new Set(['draft', 'under_review', 'approved', 'baselined']);
+
+function renderHierarchyDisposition(metricId, disposition, assessment, legacyMigrationInput) {
+  const key = metricId.toLowerCase();
+  const subject = metricId === 'M8' ? 'security consequence' : 'external assurance demand';
+  const title = metricId === 'M8' ? 'Child M8 security disposition' : 'Child M15 assurance disposition';
+  return `
+    <fieldset class="mb-lg" style="border:1px solid ${assessment.valid ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
+      <legend style="font-weight:700;padding:0 6px;">${title} ${assessment.valid ? '✓' : 'incomplete'}</legend>
+      <div class="text-xs text-secondary mb-sm">Required only to confirm a child score below a critical parent score. This record governs the decision; the framework does not prescribe artifacts or verify technical evidence adequacy.</div>
+      ${legacyMigrationInput ? `<div class="text-xs mb-sm" style="color:var(--accent-warning);">A legacy boolean is retained as unconfirmed migration input. It is visible but cannot authorize a lower child ${metricId} score.</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <select class="select" id="${key}-hierarchy-status" aria-label="${metricId} hierarchy disposition status">
+          <option value="draft" ${disposition.status !== 'confirmed' ? 'selected' : ''}>Draft</option>
+          <option value="confirmed" ${disposition.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+        </select>
+        <select class="select" id="${key}-hierarchy-outcome" aria-label="${metricId} hierarchy disposition outcome">
+          <option value="">Select disposition outcome…</option>
+          ${HIERARCHY_DISPOSITION_OUTCOMES[metricId].map(item => `<option value="${item.id}" ${disposition.outcome === item.id ? 'selected' : ''}>${item.label}</option>`).join('')}
+        </select>
+        <input class="input" id="${key}-hierarchy-owner" placeholder="Accountable reviewer / approver" value="${escapeHtml(disposition.ownerApprover || '')}">
+        <input class="input" id="${key}-hierarchy-date" aria-label="${metricId} hierarchy review date" type="date" value="${escapeHtml(disposition.reviewDate || '')}">
+        <input class="input" id="${key}-hierarchy-basis" placeholder="Decision-basis reference (optional)" value="${escapeHtml(disposition.decisionBasisRef || '')}">
+        <input class="input" id="${key}-hierarchy-evidence" placeholder="Evidence reference (optional)" value="${escapeHtml(disposition.evidenceRef || '')}">
+      </div>
+      <textarea class="input mt-sm" id="${key}-hierarchy-rationale" rows="2" placeholder="Concise rationale for the lower child ${subject}">${escapeHtml(disposition.rationale || '')}</textarea>
+      <details class="mt-sm">
+        <summary class="text-xs">Recommended considerations before confirmation</summary>
+        <ul class="text-xs text-secondary">${HIERARCHY_DISPOSITION_CONSIDERATIONS[metricId].map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+      </details>
+      <div class="flex items-center gap-sm mt-sm">
+        <button class="btn btn-secondary btn-sm" id="btn-save-${key}-hierarchy">Save ${metricId} disposition</button>
+        <span class="text-xs" style="color:${assessment.valid ? 'var(--accent-success)' : 'var(--accent-warning)'};">${assessment.valid ? 'Confirmed for hierarchy governance; evidence adequacy not verified.' : `Missing: ${escapeHtml(assessment.missingFields.join(', ') || assessment.status)}`}</span>
+      </div>
+    </fieldset>`;
+}
 
 function safeAssessmentType(value) {
   return VALID_ASSESSMENT_TYPES.has(value) ? value : 'full';
@@ -41,6 +81,20 @@ export function renderSystemElements(container) {
   const parentNode = activeNode.parentId ? tree.nodes[activeNode.parentId] : null;
   const childNodes = activeNode.childIds.map(id => tree.nodes[id]).filter(Boolean);
   const hasChildren = childNodes.length > 0;
+  const safetyAllocationAssessment = assessSafetyAllocationDecision(
+    activeNode.safetyAllocationDecision ?? (activeNode.hasIndependentSafetyAnalysis === true ? true : null)
+  );
+  const safetyAllocationDecision = activeNode.safetyAllocationDecision || {};
+  const securityHierarchyDisposition = activeNode.securityHierarchyDisposition || {};
+  const assuranceHierarchyDisposition = activeNode.assuranceHierarchyDisposition || {};
+  const securityHierarchyAssessment = assessHierarchyDisposition(
+    'M8',
+    activeNode.securityHierarchyDisposition ?? (activeNode.hasIndependentSecurityAnalysis === true ? true : null)
+  );
+  const assuranceHierarchyAssessment = assessHierarchyDisposition(
+    'M15',
+    activeNode.assuranceHierarchyDisposition ?? (activeNode.hasScopedAssuranceDecision === true ? true : null)
+  );
 
   container.innerHTML = `
     <div class="se-elements-container">
@@ -62,7 +116,7 @@ export function renderSystemElements(container) {
         <div class="se-tree-panel">
           <div class="se-panel-header">
             <h3>System Tree <span class="badge-count">${elementCount}</span></h3>
-            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown to CSV">📥 Export CSV</button>
+            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown without element display names">📥 Safe Export CSV</button>
           </div>
           <div class="se-tree" id="se-tree">
             ${renderTreeNodes(tree.nodes, tree.rootId, tree.activeId, 0)}
@@ -71,7 +125,7 @@ export function renderSystemElements(container) {
             <h4>Add Element</h4>
             <input class="input" id="new-element-name" placeholder="Element name..." type="text" />
             <select class="select" id="new-element-type">
-              <option value="quick">Quick Assessment (M1-M6 override)</option>
+              <option value="quick">Quick Assessment (M1-M6, M8, M15 review)</option>
               <option value="full">Full Assessment (all metrics)</option>
               <option value="inherited">Inherited (all from parent)</option>
             </select>
@@ -96,6 +150,28 @@ export function renderSystemElements(container) {
 
           <!-- Conflict Banner -->
           <div id="se-conflict-banner"></div>
+
+          ${parentNode ? `
+          <fieldset class="mb-lg" style="border:1px solid ${safetyAllocationAssessment.valid ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
+            <legend style="font-weight:700;padding:0 6px;">Child safety-allocation decision ${safetyAllocationAssessment.valid ? '✓' : 'incomplete'}</legend>
+            <div class="text-xs text-secondary mb-sm">Use this record only when safety responsibility is demonstrably retained by the parent and not allocated to this child. It does not lower M5 by itself; normal down-tailoring justification still applies.</div>
+            ${safetyAllocationAssessment.legacyMigrationInput ? '<div class="text-xs mb-sm" style="color:var(--accent-warning);">Legacy independent-safety-analysis evidence was imported but is unconfirmed and cannot authorize a lower child safety allocation.</div>' : ''}
+            <div class="text-xs mb-sm"><strong>Disposition:</strong> not allocated to child · <strong>Responsibility retained by:</strong> parent</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <input class="input" id="safety-allocation-authority" placeholder="Decision authority" value="${escapeHtml(safetyAllocationDecision.authority || '')}">
+              <input class="input" id="safety-allocation-evidence" placeholder="Allocation evidence reference" value="${escapeHtml(safetyAllocationDecision.evidenceRef || '')}">
+              <input class="input" id="safety-allocation-interface" placeholder="Interface assumptions reference" value="${escapeHtml(safetyAllocationDecision.interfaceAssumptionsRef || '')}">
+              <input class="input" id="safety-allocation-date" aria-label="Safety allocation review date" type="date" value="${escapeHtml(safetyAllocationDecision.reviewDate || '')}">
+            </div>
+            <textarea class="input mt-sm" id="safety-allocation-rationale" rows="2" placeholder="Rationale for retaining responsibility at the parent">${escapeHtml(safetyAllocationDecision.rationale || '')}</textarea>
+            <div class="flex items-center gap-sm mt-sm">
+              <button class="btn btn-secondary btn-sm" id="btn-save-safety-allocation">Save safety-allocation decision</button>
+              <span class="text-xs" style="color:${safetyAllocationAssessment.valid ? 'var(--accent-success)' : 'var(--accent-warning)'};">${safetyAllocationAssessment.valid ? 'Confirmed and evidence-backed.' : `Missing: ${escapeHtml(safetyAllocationAssessment.missingFields.join(', ') || safetyAllocationAssessment.status)}`}</span>
+            </div>
+          </fieldset>` : ''}
+
+          ${parentNode ? renderHierarchyDisposition('M8', securityHierarchyDisposition, securityHierarchyAssessment, activeNode.hasIndependentSecurityAnalysis === true) : ''}
+          ${parentNode ? renderHierarchyDisposition('M15', assuranceHierarchyDisposition, assuranceHierarchyAssessment, activeNode.hasScopedAssuranceDecision === true) : ''}
 
           <!-- Metric Summary -->
           <div class="se-metric-summary">
@@ -351,6 +427,50 @@ export function renderSystemElements(container) {
     setActiveElement(activeNode.id);
     navigateTo('assessment');
   });
+
+  container.querySelector('#btn-save-safety-allocation')?.addEventListener('click', () => {
+    const decision = {
+      status: 'confirmed',
+      allocationDisposition: 'not-allocated-to-child',
+      retainedResponsibility: 'parent',
+      authority: container.querySelector('#safety-allocation-authority')?.value.trim() || '',
+      evidenceRef: container.querySelector('#safety-allocation-evidence')?.value.trim() || '',
+      interfaceAssumptionsRef: container.querySelector('#safety-allocation-interface')?.value.trim() || '',
+      rationale: container.querySelector('#safety-allocation-rationale')?.value.trim() || '',
+      reviewDate: container.querySelector('#safety-allocation-date')?.value || ''
+    };
+    const assessment = assessSafetyAllocationDecision(decision);
+    activeNode.safetyAllocationDecision = decision;
+    setState({ assessmentTree: tree });
+    showToast(assessment.valid ? 'Safety-allocation decision confirmed.' : `Safety-allocation decision saved as incomplete: ${assessment.missingFields.join(', ')}`, assessment.valid ? 'success' : 'warning');
+    renderSystemElements(container);
+  });
+
+  for (const metricId of ['M8', 'M15']) {
+    const key = metricId.toLowerCase();
+    container.querySelector(`#btn-save-${key}-hierarchy`)?.addEventListener('click', () => {
+      const disposition = {
+        status: container.querySelector(`#${key}-hierarchy-status`)?.value || 'draft',
+        outcome: container.querySelector(`#${key}-hierarchy-outcome`)?.value || '',
+        rationale: container.querySelector(`#${key}-hierarchy-rationale`)?.value.trim() || '',
+        ownerApprover: container.querySelector(`#${key}-hierarchy-owner`)?.value.trim() || '',
+        reviewDate: container.querySelector(`#${key}-hierarchy-date`)?.value || '',
+        decisionBasisRef: container.querySelector(`#${key}-hierarchy-basis`)?.value.trim() || '',
+        evidenceRef: container.querySelector(`#${key}-hierarchy-evidence`)?.value.trim() || ''
+      };
+      const assessment = assessHierarchyDisposition(metricId, disposition);
+      if (metricId === 'M8') activeNode.securityHierarchyDisposition = disposition;
+      else activeNode.assuranceHierarchyDisposition = disposition;
+      setState({ assessmentTree: tree });
+      showToast(
+        assessment.valid
+          ? `${metricId} hierarchy disposition confirmed; technical evidence adequacy was not verified.`
+          : `${metricId} hierarchy disposition saved as incomplete: ${assessment.missingFields.join(', ')}`,
+        assessment.valid ? 'success' : 'warning'
+      );
+      renderSystemElements(container);
+    });
+  }
 
   // Navigate to child
   container.querySelectorAll('.se-nav-child').forEach(btn => {

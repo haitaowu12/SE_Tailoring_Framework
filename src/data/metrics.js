@@ -1,6 +1,6 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _VERSION: 3.5.1 | _LAST_UPDATED: 2026-04-29
+ * _SEMANTIC_VERSION: 4.0.0 | _LAST_UPDATED: 2026-07-10
  * _SOURCE: 01-PAPER/03-Methodology.md, 02-PRACTICAL/Assessment-Worksheet.md
  * _SYNC_CONTRACT:
  *   - Canonical algorithm: 01-PAPER/03-Methodology.md §3.4
@@ -19,8 +19,51 @@ export const DIMENSIONS = [
     { id: 'complexity', name: 'System Complexity', color: '#8b5cf6', metrics: ['M1', 'M2', 'M3', 'M4'] },
     { id: 'safety', name: 'Safety & Criticality', color: '#ef4444', metrics: ['M5', 'M6', 'M7', 'M8'] },
     { id: 'constraints', name: 'Project Constraints', color: '#f59e0b', metrics: ['M9', 'M10', 'M11', 'M12'] },
-    { id: 'stakeholder', name: 'Stakeholder Context', color: '#22d3ee', metrics: ['M13', 'M14', 'M15', 'M16'] }
+    { id: 'stakeholder', name: 'Stakeholder, Governance & Adoption Context', color: '#22d3ee', metrics: ['M13', 'M14', 'M15', 'M16'] }
 ];
+
+export const FRAMEWORK_SEMANTIC_VERSION = '4.0.0';
+export const METRIC_DEFINITION_SET_ID = 'se-tailoring-m1-m16-v2';
+export const QUALIFIER_SCHEMA_VERSION = '1.0';
+
+export const METRIC_QUALIFIER_DEFINITIONS = {
+    M8: [
+        { id: 'confidentiality', label: 'Confidentiality consequence' },
+        { id: 'integrity', label: 'Integrity consequence' },
+        { id: 'availability', label: 'Availability consequence' },
+        { id: 'privacy', label: 'Privacy consequence' },
+        { id: 'cyber-physical', label: 'Cyber-physical consequence' }
+    ],
+    M15: [
+        { id: 'regulatory-mandate', label: 'Regulatory mandate', floorEligible: true },
+        { id: 'contractual-assurance', label: 'Contractual assurance', floorEligible: true },
+        { id: 'certification-scheme', label: 'Certification or authorization scheme', floorEligible: true },
+        { id: 'independent-assurance-requirement', label: 'Independent assurance requirement', floorEligible: true },
+        { id: 'executive-board-mandate', label: 'Documented executive or board mandate', floorEligible: true },
+        { id: 'political-visibility', label: 'Political visibility', floorEligible: false },
+        { id: 'public-interest', label: 'Public interest', floorEligible: false },
+        { id: 'media-scrutiny', label: 'Media scrutiny', floorEligible: false },
+        { id: 'reputational-exposure', label: 'Reputational exposure', floorEligible: false }
+    ]
+};
+
+export const BINDING_ASSURANCE_QUALIFIERS = METRIC_QUALIFIER_DEFINITIONS.M15
+    .filter(qualifier => qualifier.floorEligible)
+    .map(qualifier => qualifier.id);
+
+export const METRIC_MIGRATION = {
+    fromDefinitionSet: 'se-tailoring-m1-m16-v1',
+    toDefinitionSet: METRIC_DEFINITION_SET_ID,
+    metrics: {
+        M3: { classification: 'anchor-equivalent-rename', from: 'Technology Maturity', to: 'Technology Novelty / Uncertainty' },
+        M6: { classification: 'reassessment-required', from: 'Mission & Security Criticality', to: 'Mission / Operational Criticality' },
+        M8: { classification: 'not-comparable', from: 'Regulatory Compliance', to: 'Security Criticality / Consequence' },
+        M11: { classification: 'anchor-equivalent-rename', from: 'Team Experience', to: 'Team Capability Gap' },
+        M12: { classification: 'provisional-carry', from: 'Geographic Distribution', to: 'Distributed Delivery Complexity' },
+        M13: { classification: 'provisional-carry', from: 'Stakeholder Count', to: 'Stakeholder Complexity' },
+        M15: { classification: 'reassessment-required', from: 'Political Sensitivity', to: 'External Governance & Assurance Demand' }
+    }
+};
 
 export const METRICS = [
     {
@@ -76,7 +119,7 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M3', name: 'Technology Maturity', dimension: 'complexity',
+        id: 'M3', name: 'Technology Novelty / Uncertainty', dimension: 'complexity',
         anchors: { 1: 'Proven technologies', 3: 'Mix of mature and emerging', 5: 'Novel or unproven' },
         guidedQuestions: [
             {
@@ -155,18 +198,18 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M6', name: 'Mission & Security Criticality', dimension: 'safety',
-        anchors: { 1: 'Low mission impact, isolated network', 3: 'Moderate impact, segmented data', 5: 'Mission-critical, life-safety cyber' },
+        id: 'M6', name: 'Mission / Operational Criticality', dimension: 'safety',
+        anchors: { 1: 'Negligible operational consequence', 3: 'Moderate service or mission degradation', 5: 'Catastrophic mission or operational loss' },
         guidedQuestions: [
             {
-                text: "Would system compromise or failure result in COMPLETE INABILITY to perform primary mission or expose life-safety cyber vectors (e.g., CBTC networks, SCADA)?",
+                text: "Would system failure cause COMPLETE LOSS of a primary mission or essential operational service with no timely workaround?",
                 yesScore: 5,
-                rationale: 'Catastrophic mission impact or life-safety cyber risk'
+                rationale: 'Catastrophic mission or operational consequence'
             },
             {
-                text: "Would failure/compromise SEVERELY DEGRADE mission performance or expose critical operational data, requiring immediate emergency response?",
+                text: "Would failure SEVERELY DEGRADE mission performance or essential operations and require emergency workarounds or sustained degraded-mode operation?",
                 yesScore: 4,
-                rationale: 'Major mission/security degradation requiring emergency workarounds'
+                rationale: 'Major mission or operational degradation requiring emergency response'
             },
             {
                 text: "Would failure cause MODERATE DISRUPTION that can be managed with standard operational backups or redundancies?",
@@ -207,28 +250,29 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M8', name: 'Regulatory Compliance', dimension: 'safety',
-        anchors: { 1: 'Minimal requirements', 3: 'Standard compliance', 5: 'Extensive regulatory framework' },
+        id: 'M8', name: 'Security Criticality / Consequence', dimension: 'safety',
+        anchors: { 1: 'Negligible security consequence', 3: 'Moderate service, information, or control consequence', 5: 'Catastrophic or systemic security consequence' },
+        note: 'Score credible consequence from loss of confidentiality, integrity, availability, privacy, or control authority. Record likelihood, vulnerability, and control maturity separately.',
         guidedQuestions: [
             {
-                text: "Is the system subject to an EXTENSIVE, COMPLEX web of strict federal/international regulations requiring rigorous independent certification (e.g., DO-178C DAL A, ISO 26262 ASIL D)?",
+                text: "Could compromise cause CATASTROPHIC mission loss, systemic critical-infrastructure disruption, physical harm, or irreversible highly sensitive information loss?",
                 yesScore: 5,
-                rationale: 'Highest regulatory burden with independent certification required'
+                rationale: 'Catastrophic security-origin consequence within the stated system boundary'
             },
             {
-                text: "Are there SIGNIFICANT, SPECIFIC regulatory standards that mandate formal auditing, traceability, and compliance reporting (e.g., FDA 21 CFR Part 820, EN 50129)?",
+                text: "Could compromise cause MAJOR or sustained operational disruption, significant protected-data or control compromise, or propagation across critical interfaces?",
                 yesScore: 4,
-                rationale: 'High regulatory burden with formal compliance evidence required'
+                rationale: 'Major security consequence requiring formal security engineering and recovery planning'
             },
             {
-                text: "Does the system need to comply with STANDARD industry codes and municipal regulations (e.g., building codes, NFPA 130)?",
+                text: "Could compromise cause MODERATE service degradation, sensitive-information exposure, integrity loss, or unauthorized control requiring coordinated recovery?",
                 yesScore: 3,
-                rationale: 'Standard regulatory compliance'
+                rationale: 'Moderate security consequence with formal protection needs'
             },
             {
-                text: "Are there only BASIC internal policies or minor local guidelines to follow with no formal external oversight?",
+                text: "Would compromise be LOCALIZED and REVERSIBLE, with limited non-sensitive information exposure and routine recovery?",
                 yesScore: 2,
-                rationale: 'Minimal regulatory requirements'
+                rationale: 'Minor security consequence'
             }
         ]
     },
@@ -285,7 +329,7 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M11', name: 'Team Experience', dimension: 'constraints',
+        id: 'M11', name: 'Team Capability Gap', dimension: 'constraints',
         anchors: { 1: 'Highly experienced', 3: 'Mixed experience', 5: 'Limited relevant experience' },
         guidedQuestions: [
             {
@@ -311,8 +355,8 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M12', name: 'Geographic Distribution', dimension: 'constraints',
-        anchors: { 1: 'Co-located', 3: 'Partially distributed', 5: 'Globally distributed' },
+        id: 'M12', name: 'Distributed Delivery Complexity', dimension: 'constraints',
+        anchors: { 1: 'Coordinated delivery context', 3: 'Distributed with manageable handoffs', 5: 'Multi-organization, multi-site, or time-zone fragmentation' },
         guidedQuestions: [
             {
                 text: "Is the team GLOBALLY DISTRIBUTED across MULTIPLE incompatible time zones (>8 hour spread) with significant language/cultural barriers?",
@@ -337,7 +381,7 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M13', name: 'Stakeholder Count', dimension: 'stakeholder',
+        id: 'M13', name: 'Stakeholder Complexity', dimension: 'stakeholder',
         anchors: { 1: 'Few, aligned', 3: 'Multiple groups', 5: 'Numerous, diverse communities' },
         guidedQuestions: [
             {
@@ -389,28 +433,29 @@ export const METRICS = [
         ]
     },
     {
-        id: 'M15', name: 'Political Sensitivity', dimension: 'stakeholder',
-        anchors: { 1: 'Low public interest', 3: 'Moderate political factors', 5: 'High-profile, politically sensitive' },
+        id: 'M15', name: 'External Governance & Assurance Demand', dimension: 'stakeholder',
+        anchors: { 1: 'Routine internal governance', 3: 'Formal external gates and auditable evidence', 5: 'Compound critical assurance and authorization regime' },
+        note: 'The numeric score represents binding evidence, review, approval, certification, or authorization burden. Public, political, media, or reputational visibility is recorded as a non-floor qualifier and does not raise this score by itself.',
         guidedQuestions: [
             {
-                text: "Is the project HIGHLY VISIBLE to the GENERAL PUBLIC and MEDIA where FAILURE would cause a MASSIVE POLITICAL SCANDAL or career-ending consequences?",
+                text: "Is release, entry to service, or continued operation dependent on MULTIPLE or highest-authority certifications, licences, authorizations, or assurance cases with continuing evidence obligations?",
                 yesScore: 5,
-                rationale: 'Extreme political visibility with scandal potential'
+                rationale: 'Compound critical assurance regime with consequential approval gates'
             },
             {
-                text: "Does the project attract SIGNIFICANT SCRUTINY from TOP EXECUTIVES, board members, industry regulators, or elected officials?",
+                text: "Is there a DOCUMENTED BINDING requirement for independent review, audit, certification, regulator or owner approval, or board-mandated assurance before release or use?",
                 yesScore: 4,
-                rationale: 'High executive/regulatory scrutiny'
+                rationale: 'Significant binding assurance demand with independent acceptance authority'
             },
             {
-                text: "Are there MODERATE ORGANIZATIONAL POLITICS and cross-departmental turf issues to navigate?",
+                text: "Are there DEFINED BINDING obligations requiring auditable evidence, formal review gates, and a named external or delegated acceptance authority?",
                 yesScore: 3,
-                rationale: 'Moderate internal political factors'
+                rationale: 'Formal external governance plan and scheduled acceptance gates'
             },
             {
-                text: "Is there SOME MINOR INTERNAL VISIBILITY but generally treated as a STANDARD OPERATIONAL PROJECT?",
+                text: "Are obligations LIMITED to a single client or contractual party with routine reporting or self-attestation and no independent approval dependency?",
                 yesScore: 2,
-                rationale: 'Low political sensitivity'
+                rationale: 'Limited external assurance burden'
             }
         ]
     },
@@ -450,7 +495,7 @@ export const METRICS = [
 // The trigger tier uses all applicable metrics (P+S); a Comprehensive result
 // still requires corroboration before it becomes the default recommendation.
 // Source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
-// V4.1 NOTE: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
+// Semantic v4.0 note: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
 // from process-level driving. High constraint scores mean "less budget/time available"
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
 // Index) which governs right-sizing review and priority-based reduction instead.
@@ -460,57 +505,65 @@ export const METRICS = [
 export const METRIC_PROCESS_MAP = {
     9: { M1: 'P', M4: 'P', M12: 'P', M13: 'S' },
     10: { M1: 'P', M4: 'P', M13: 'S', M15: 'S' },
-    11: { M1: 'P', M3: 'P', M6: 'P', M13: 'P', M15: 'P', M8: 'S', M12: 'S' },
+    11: { M1: 'P', M3: 'P', M6: 'P', M13: 'P', M15: 'P', M12: 'S' },
     12: { M5: 'P', M6: 'P', M8: 'P', M1: 'S', M2: 'S' },
     13: { M2: 'P', M4: 'P', M8: 'P', M1: 'S', M14: 'S' },
     14: { M8: 'P', M12: 'P', M2: 'S', M13: 'S' },
-    15: { M6: 'P', M8: 'P', M14: 'S' },
-    16: { M5: 'P', M8: 'P', M6: 'P', M11: 'S', M3: 'S' },
-    17: { M6: 'P', M13: 'P', M15: 'P', M3: 'S', M8: 'S' },
+    15: { M6: 'P', M14: 'S' },
+    16: { M5: 'P', M11: 'S', M3: 'S' },
+    17: { M6: 'P', M13: 'P', M3: 'S' },
     18: { M13: 'P', M14: 'P', M15: 'P', M5: 'S', M6: 'S' },
     19: { M1: 'P', M2: 'P', M5: 'P', M14: 'S', M3: 'S', M8: 'S' },
-    20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M5: 'S', M6: 'S', M11: 'S' },
+    20: { M1: 'P', M2: 'P', M3: 'P', M4: 'P', M8: 'P', M5: 'S', M6: 'S', M11: 'S' },
     21: { M1: 'P', M2: 'P', M3: 'P', M5: 'S', M8: 'S', M11: 'S' },
-    22: { M1: 'P', M3: 'P', M6: 'S', M2: 'S', M4: 'S', M5: 'S' },
+    22: { M1: 'P', M3: 'P', M6: 'P', M2: 'S', M4: 'S', M5: 'S' },
     23: { M1: 'P', M4: 'P', M11: 'P', M2: 'S' },
     24: { M2: 'P', M4: 'P', M12: 'P', M1: 'S', M5: 'S', M11: 'S' },
-    25: { M2: 'P', M4: 'P', M5: 'P', M1: 'S', M8: 'S' },
-    26: { M6: 'P', M12: 'P', M13: 'P', M15: 'S' },
-    27: { M5: 'P', M6: 'P', M13: 'P', M8: 'S', M14: 'S', M15: 'S' },
+    25: { M2: 'P', M4: 'P', M5: 'P', M8: 'P', M1: 'S' },
+    26: { M6: 'P', M12: 'P', M13: 'P' },
+    27: { M5: 'P', M6: 'P', M13: 'P', M8: 'S', M14: 'S' },
     28: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M12: 'S' },
     29: { M5: 'P', M6: 'P', M7: 'P', M11: 'S', M4: 'S' },
-    30: { M7: 'P', M8: 'P', M6: 'S', M15: 'S' }
+    30: { M7: 'P', M6: 'S' }
 };
+
+// M15 has both a general governance role and binding-assurance roles that are
+// applicable only when a confirmed, source-backed obligation is scoped to the
+// process. These records are evaluated by the engine and intentionally remain
+// separate from the unconditional P/S matrix above.
+export const CONDITIONAL_METRIC_PROCESS_DRIVERS = [
+    { processId: 12, metric: 'M15', role: 'S', predicate: 'binding-assurance' },
+    { processId: 13, metric: 'M15', role: 'P', predicate: 'binding-assurance' },
+    { processId: 14, metric: 'M15', role: 'P', predicate: 'binding-assurance' },
+    { processId: 16, metric: 'M15', role: 'P', predicate: 'binding-assurance' },
+    { processId: 25, metric: 'M15', role: 'P', predicate: 'binding-assurance' },
+    { processId: 27, metric: 'M15', role: 'S', predicate: 'binding-assurance' },
+    { processId: 30, metric: 'M15', role: 'S', predicate: 'binding-assurance' }
+];
+
+// M15 may also change the severity of Rules 16 and 17, without becoming an
+// additional metric-to-process driver. The named process must be present in a
+// confirmed, source-backed obligation's processScope.
+export const M15_SCOPED_RULE_ESCALATIONS = [
+    { ruleId: 16, processId: 15, purpose: 'rule-severity' },
+    { ruleId: 17, processId: 16, purpose: 'rule-severity' }
+];
 
 // Level thresholds per process.
 // Algorithm: Trigger Tier = MAX(Tier(M₁), Tier(M₂), ...) where Tier(score): 1-2→Basic, 3-4→Standard, 5→Comprehensive
 // These thresholds are provided for REFERENCE ONLY. The actual derivation also applies
 // Comprehensive corroboration, override floors, right-sizing, and consistency rules.
 // V4.1: M9/M10 removed from all thresholds — they are constraint metrics that feed CSI only
-export const LEVEL_THRESHOLDS = {
-    9: { standard: 'M1≥3 or M4≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4', 'M12'], secondaryMetrics: ['M13'] },
-    10: { standard: 'M1≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4'], secondaryMetrics: ['M13', 'M15'] },
-    11: { standard: 'M1≥3 or M3≥3 or M6≥3 or M13≥3 or M15≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M3', 'M6', 'M13', 'M15'], secondaryMetrics: ['M8', 'M12'] },
-    12: { standard: 'M5≥3 or M6≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M8'], secondaryMetrics: ['M1', 'M2'] },
-    13: { standard: 'M2≥3 or M4≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M2', 'M4', 'M8'], secondaryMetrics: ['M1', 'M14'] },
-    14: { standard: 'M8≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M8', 'M12'], secondaryMetrics: ['M2', 'M13'] },
-    15: { standard: 'M6≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M8'], secondaryMetrics: ['M14'] },
-    16: { standard: 'M5≥3 or M8≥3 or M6≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M8', 'M6'], secondaryMetrics: ['M11', 'M3'] },
-    17: { standard: 'M6≥3 or M13≥3 or M15≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M13', 'M15'], secondaryMetrics: ['M3', 'M8'] },
-    18: { standard: 'M13≥3 or M14≥3 or M15≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M13', 'M14', 'M15'], secondaryMetrics: ['M5', 'M6'] },
-    19: { standard: 'M1≥3 or M2≥3 or M5≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M2', 'M5'], secondaryMetrics: ['M14', 'M3', 'M8'] },
-    20: { standard: 'M1≥3 or M2≥3 or M3≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M2', 'M3', 'M4'], secondaryMetrics: ['M5', 'M6', 'M11'] },
-    21: { standard: 'M1≥3 or M2≥3 or M3≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M2', 'M3'], secondaryMetrics: ['M5', 'M8', 'M11'] },
-    22: { standard: 'M1≥3 or M3≥3 or M6≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M3', 'M6'], secondaryMetrics: ['M2', 'M4', 'M5'] },
-    23: { standard: 'M1≥3 or M4≥3 or M11≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M1', 'M4', 'M11'], secondaryMetrics: ['M2'] },
-    24: { standard: 'M2≥3 or M4≥3 or M12≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M2', 'M4', 'M12'], secondaryMetrics: ['M1', 'M5', 'M11'] },
-    25: { standard: 'M5≥3 or M2≥3 or M4≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M2', 'M4'], secondaryMetrics: ['M1', 'M8'] },
-    26: { standard: 'M6≥3 or M12≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M12', 'M13'], secondaryMetrics: ['M15'] },
-    27: { standard: 'M5≥3 or M6≥3 or M13≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M13'], secondaryMetrics: ['M8', 'M14', 'M15'] },
-    28: { standard: 'M6≥3 or M5≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M6', 'M5', 'M7'], secondaryMetrics: ['M11', 'M12'] },
-    29: { standard: 'M5≥3 or M6≥3 or M7≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M5', 'M6', 'M7'], secondaryMetrics: ['M11', 'M4'] },
-    30: { standard: 'M7≥3 or M8≥3', comprehensive: 'Any applicable metric = 5, with corroboration', primaryMetrics: ['M7', 'M8'], secondaryMetrics: ['M6', 'M15'] }
-};
+export const LEVEL_THRESHOLDS = Object.fromEntries(Object.entries(METRIC_PROCESS_MAP).map(([processId, metricMap]) => {
+    const primaryMetrics = Object.entries(metricMap).filter(([, role]) => role === 'P').map(([metric]) => metric);
+    const secondaryMetrics = Object.entries(metricMap).filter(([, role]) => role === 'S').map(([metric]) => metric);
+    return [processId, {
+        standard: primaryMetrics.map(metric => `${metric}≥3`).join(' or '),
+        comprehensive: 'Any applicable metric = 5, with corroboration',
+        primaryMetrics,
+        secondaryMetrics
+    }];
+}));
 
 /**
  * Override Conditions (Process-Specific)
@@ -601,7 +654,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M5=4 (severe injury potential) requires standard risk management with formal hazard log',
         processes: [12],
         minLevel: 'standard',
-        source: 'ISO 15288 §6.4.9-10; IEC 61508'
+        source: 'Framework policy informed by ISO 15288 §6.3.4 and IEC 61508'
     },
     {
         id: 'safety_critical_qa',
@@ -611,7 +664,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M5=4 requires standard QA with safety audit trail and compliance verification',
         processes: [16],
         minLevel: 'standard',
-        source: 'ISO 15288 §6.4.12'
+        source: 'Framework policy informed by ISO 15288 §6.3.8'
     },
     {
         id: 'safety_critical_requirements',
@@ -654,44 +707,24 @@ export const OVERRIDE_CONDITIONS = [
         source: 'EN 50126/50129; IEC 61508'
     },
     // =====================================================================
-    // MISSION & SECURITY CRITICAL OVERRIDES (M6-based)
+    // MISSION / OPERATIONAL CRITICAL OVERRIDES (M6-based)
     // =====================================================================
     {
         id: 'mission_critical_risk',
         condition: 'M6 >= 4 → Process 12 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission/Security-Critical: Risk Management',
-        description: 'M6≥4 requires standard risk management with threat modeling and mission failure analysis',
+        label: 'Mission-Critical: Risk Management',
+        description: 'M6≥4 requires standard risk management with mission-failure, continuity, and degraded-mode analysis',
         processes: [12],
         minLevel: 'standard',
-        source: 'ISO 15288 §6.4; IEC 62443'
-    },
-    {
-        id: 'mission_critical_cm',
-        condition: 'M6 >= 4 → Process 13 ≥ Standard',
-        trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission/Security-Critical: Configuration Management',
-        description: 'M6≥4 requires secure baseline control, patch management, and change tracking',
-        processes: [13],
-        minLevel: 'standard',
-        source: 'IEC 62443; NIST 800-82'
-    },
-    {
-        id: 'mission_critical_info',
-        condition: 'M6 >= 4 → Process 14 ≥ Standard',
-        trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission/Security-Critical: Information Management',
-        description: 'M6≥4 requires standard information management with data protection and access control',
-        processes: [14],
-        minLevel: 'standard',
-        source: 'IEC 62443; NIST 800-82'
+        source: 'Framework policy informed by ISO/IEC/IEEE 15288:2023 Risk Management'
     },
     {
         id: 'mission_critical_architecture',
         condition: 'M6 >= 4 → Process 20 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission/Security-Critical: System Architecture Definition',
-        description: 'M6≥4 requires standard architecture with redundancy and secure-by-design concepts',
+        label: 'Mission-Critical: System Architecture Definition',
+        description: 'M6≥4 requires standard architecture with continuity, redundancy, degraded-mode, and recovery concepts',
         processes: [20],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.4'
@@ -700,21 +733,11 @@ export const OVERRIDE_CONDITIONS = [
         id: 'mission_critical_verification',
         condition: 'M6 >= 4 → Process 25 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission/Security-Critical: Verification',
+        label: 'Mission-Critical: Verification',
         description: 'M6≥4 requires standard verification with mission success criteria validation',
         processes: [25],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.9'
-    },
-    {
-        id: 'life_safety_cyber_verification',
-        condition: 'M6 = 5 → Process 25 ≥ Comprehensive',
-        trigger: { type: 'metric', metric: 'M6', op: '=', value: 5 },
-        label: 'Life-Safety Cyber Risk: Verification',
-        description: 'M6=5 requires comprehensive verification including penetration testing and cyber-physical V&V',
-        processes: [25],
-        minLevel: 'comprehensive',
-        source: 'IEC 62443 SL4; NIST 800-82'
     },
     {
         id: 'mission_critical_validation',
@@ -724,60 +747,113 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M6≥4 requires standard validation with operational mission effectiveness assessment',
         processes: [27],
         minLevel: 'standard',
-        source: 'ISO 15288 §6.4.10'
+        source: 'Framework policy informed by ISO 15288 §6.4.11'
     },
     {
         id: 'mission_critical_operation',
         condition: 'M6 >= 4 → Process 28 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
-        label: 'Mission/Security-Critical: Operation',
+        label: 'Mission-Critical: Operation',
         description: 'M6≥4 requires standard operation with contingency procedures and emergency response',
         processes: [28],
         minLevel: 'standard',
-        source: 'ISO 15288 §6.4.11'
+        source: 'Framework policy informed by ISO 15288 §6.4.12'
     },
     // =====================================================================
-    // REGULATORY OVERRIDES (M8-based)
+    // SECURITY CRITICAL OVERRIDES (M8-based)
     // =====================================================================
     {
-        id: 'high_regulatory_cm',
+        id: 'security_critical_risk',
+        condition: 'M8 >= 4 → Process 12 ≥ Standard',
+        trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
+        label: 'Security-Critical: Risk Management',
+        description: 'M8≥4 requires standard risk management with security consequence, threat, vulnerability, and treatment evidence kept distinct',
+        processes: [12],
+        minLevel: 'standard',
+        source: 'Framework policy informed by NIST SP 800-160 Vol. 1 Rev. 1'
+    },
+    {
+        id: 'security_critical_cm',
         condition: 'M8 >= 4 → Process 13 ≥ Standard',
         trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
-        label: 'High Regulatory: Configuration Management',
-        description: 'M8≥4 requires standard CM with formal baseline control and audit trail for regulatory compliance',
+        label: 'Security-Critical: Configuration Management',
+        description: 'M8≥4 requires standard secure baseline control, change authorization, component provenance, and patch governance',
         processes: [13],
         minLevel: 'standard',
-        source: 'DO-178C; ISO 26262; EN 50129'
+        source: 'Framework policy informed by NIST SP 800-160 and NIST SP 800-82 Rev. 3'
     },
     {
-        id: 'high_regulatory_info',
+        id: 'security_critical_info',
         condition: 'M8 >= 4 → Process 14 ≥ Standard',
         trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
-        label: 'High Regulatory: Information Management',
-        description: 'M8≥4 requires standard information management with traceability and compliance documentation',
+        label: 'Security-Critical: Information Management',
+        description: 'M8≥4 requires standard information protection, access control, evidence handling, and recovery records',
         processes: [14],
         minLevel: 'standard',
-        source: 'FDA 21 CFR Part 820; DO-178C'
+        source: 'Framework policy informed by NIST SP 800-160 and NIST SP 800-82 Rev. 3'
     },
     {
-        id: 'high_regulatory_qa',
-        condition: 'M8 >= 4 → Process 16 ≥ Standard',
+        id: 'security_critical_architecture',
+        condition: 'M8 >= 4 → Process 20 ≥ Standard',
         trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
-        label: 'High Regulatory: Quality Assurance',
-        description: 'M8≥4 requires standard QA with independent assurance evidence for regulatory confidence',
-        processes: [16],
+        label: 'Security-Critical: System Architecture Definition',
+        description: 'M8≥4 requires standard security architecture, trust-boundary, protection-needs, and resilience analysis',
+        processes: [20],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O14'
+        source: 'Framework policy informed by NIST SP 800-160 Vol. 1 Rev. 1'
     },
     {
-        id: 'high_regulatory_verification',
+        id: 'security_critical_verification',
         condition: 'M8 >= 4 → Process 25 ≥ Standard',
         trigger: { type: 'metric', metric: 'M8', op: '>=', value: 4 },
-        label: 'High Regulatory: Verification',
-        description: 'M8≥4 requires standard verification with compliance evidence and regulatory audit support',
+        label: 'Security-Critical: Verification',
+        description: 'M8≥4 requires standard verification of security requirements, interfaces, degraded modes, and recovery behavior',
         processes: [25],
         minLevel: 'standard',
-        source: 'DO-178C; ISO 26262'
+        source: 'Framework policy informed by NIST SP 800-160 and NIST SP 800-82 Rev. 3'
+    },
+    // =====================================================================
+    // BINDING EXTERNAL ASSURANCE OVERRIDES (M15 plus scoped evidence)
+    // =====================================================================
+    {
+        id: 'binding_assurance_cm',
+        condition: 'M15 >= 4 + confirmed scoped binding obligation → Process 13 ≥ Standard',
+        trigger: { type: 'binding-assurance', metric: 'M15', op: '>=', value: 4 },
+        label: 'Binding Assurance: Configuration Management',
+        description: 'A confirmed binding obligation requires formal baseline control, traceability, and audit evidence',
+        processes: [13],
+        minLevel: 'standard',
+        source: 'Framework policy; obligation authority and instrument are recorded in the assessment'
+    },
+    {
+        id: 'binding_assurance_info',
+        condition: 'M15 >= 4 + confirmed scoped binding obligation → Process 14 ≥ Standard',
+        trigger: { type: 'binding-assurance', metric: 'M15', op: '>=', value: 4 },
+        label: 'Binding Assurance: Information Management',
+        description: 'A confirmed binding obligation requires retrievable, controlled evidence and decision records',
+        processes: [14],
+        minLevel: 'standard',
+        source: 'Framework policy; obligation authority and instrument are recorded in the assessment'
+    },
+    {
+        id: 'binding_assurance_qa',
+        condition: 'M15 >= 4 + confirmed scoped binding obligation → Process 16 ≥ Standard',
+        trigger: { type: 'binding-assurance', metric: 'M15', op: '>=', value: 4 },
+        label: 'Binding Assurance: Quality Assurance',
+        description: 'A confirmed binding obligation requires planned assurance, auditability, and acceptance evidence',
+        processes: [16],
+        minLevel: 'standard',
+        source: 'Framework policy; obligation authority and instrument are recorded in the assessment'
+    },
+    {
+        id: 'binding_assurance_verification',
+        condition: 'M15 >= 4 + confirmed scoped binding obligation → Process 25 ≥ Standard',
+        trigger: { type: 'binding-assurance', metric: 'M15', op: '>=', value: 4 },
+        label: 'Binding Assurance: Verification',
+        description: 'A confirmed binding obligation requires controlled verification evidence for the named acceptance authority',
+        processes: [25],
+        minLevel: 'standard',
+        source: 'Framework policy; obligation authority and instrument are recorded in the assessment'
     },
     // =====================================================================
     // INTEGRATION & COMPLEXITY OVERRIDES
@@ -853,7 +929,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M7=5 (catastrophic environmental damage) requires standard operation with environmental monitoring and emergency response',
         processes: [28],
         minLevel: 'standard',
-        source: 'ISO 14001; ISO 15288 §6.4.13'
+        source: 'Framework policy informed by ISO 14001 and ISO 15288 §6.4.12'
     },
     {
         id: 'env_critical_maintenance',
@@ -906,17 +982,16 @@ export const OVERRIDE_CONDITIONS = [
  * External standards trigger overrides via the OVERRIDE_CONDITIONS mechanism.
  */
 export const EXTERNAL_STANDARD_MAPPING = [
-    { standard: 'IEC 61508 SIL 2-3', metric: 'M5', threshold: '>= 4', notes: 'Safety-critical; triggers safety_critical_* overrides → Standard minimum for affected processes' },
-    { standard: 'IEC 61508 SIL 4', metric: 'M5', threshold: '= 5', notes: 'Life-safety; triggers life_safety_* overrides → Comprehensive minimum for requirements, architecture, V&V' },
-    { standard: 'DO-178C DAL A-C', metric: 'M5, M8', threshold: '>= 4', notes: 'Aviation software; safety + regulatory overrides apply' },
-    { standard: 'ISO 26262 ASIL C-D', metric: 'M5, M8', threshold: '>= 4', notes: 'Automotive; safety + regulatory overrides apply' },
-    { standard: 'EN 50126/8/9 SIL 3-4', metric: 'M5', threshold: '>= 4', notes: 'Railway; safety-critical overrides apply' },
-    { standard: 'IEC 62443 SL 3-4', metric: 'M6', threshold: '>= 4', notes: 'Industrial cybersecurity; triggers mission_critical_* overrides → Standard min for Risk, CM, Info Mgmt' },
-    { standard: 'NIST 800-82 / 53 High', metric: 'M6', threshold: '= 5', notes: 'US federal security controls; triggers life-safety cyber overrides' }
+    { standard: 'IEC 61508 SIL allocation', metric: 'M5, M15', threshold: 'Evidence only', notes: 'Record allocated integrity and any binding assurance regime separately; do not convert SIL directly to a metric score.' },
+    { standard: 'DO-178C DAL allocation', metric: 'M5, M15', threshold: 'Evidence only', notes: 'DAL and certification evidence may inform safety consequence and binding assurance, but are not direct score equivalents.' },
+    { standard: 'ISO 26262 ASIL allocation', metric: 'M5, M15', threshold: 'Evidence only', notes: 'ASIL and confirmation measures are evidence inputs, not direct five-point conversions.' },
+    { standard: 'EN 50126/50128/50129 assurance obligations', metric: 'M5, M15', threshold: 'Evidence only', notes: 'Record safety consequence and binding lifecycle assurance obligations independently.' },
+    { standard: 'IEC 62443 security requirements', metric: 'M8, M15', threshold: 'Evidence only', notes: 'Security levels describe target/capability requirements, not a direct security-consequence score.' },
+    { standard: 'NIST SP 800-160 / SP 800-82', metric: 'M8', threshold: 'Evidence only', notes: 'Use system-boundary, protection-needs, consequence, architecture, and lifecycle evidence; the publications do not define this framework’s 1-5 scale.' }
 ];
 
 /**
- * Consistency Rules (canonical 20-rule baseline from Paper §6.6, v3.6.0)
+ * Consistency Rules (17 active rules plus retained migration identifiers)
  * HC = Hard Constraint (auto-enforced), WN = Warning (advisory)
  */
 export const CONSISTENCY_RULES = [
@@ -924,27 +999,49 @@ export const CONSISTENCY_RULES = [
     { id: 2, type: 'HC', trigger: { process: 19, level: 'comprehensive', op: '>=' }, required: { process: 25, level: 'standard', op: '>=' }, label: 'System Requirements Definition ≥ Comprehensive → Verification ≥ Standard', rationale: 'High-rigor requirements require formal verification planning and evidence.' },
     { id: 3, type: 'HC', trigger: { process: 19, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'System Requirements Definition ≥ Comprehensive → Validation ≥ Standard', rationale: 'Comprehensive requirements require structured validation against stakeholder intent.' },
     { id: 4, type: 'HC', trigger: { process: 19, level: 'comprehensive', op: '>=' }, required: { process: 13, level: 'standard', op: '>=' }, label: 'System Requirements Definition ≥ Comprehensive → Configuration Management ≥ Standard', rationale: 'Comprehensive requirements require baseline and change control discipline.' },
-    { id: 5, type: 'WN', trigger: { process: 19, level: 'standard', op: '=' }, required: { process: 25, level: 'basic', op: '>=' }, label: 'System Requirements Definition = Standard → Verification ≥ Basic', rationale: 'DEPRECATED (v3.6.0) — trivially satisfied since Basic is the minimum possible level. Retained for ID stability.' },
+    { id: 5, type: 'WN', active: false, deprecated: true, trigger: { process: 19, level: 'standard', op: '=' }, required: { process: 25, level: 'basic', op: '>=' }, label: 'System Requirements Definition = Standard → Verification ≥ Basic', rationale: 'Retired — trivially satisfied since Basic is the minimum possible level. Retained only for migration and ID stability.' },
     { id: 6, type: 'HC', trigger: { process: 20, level: 'comprehensive', op: '>=' }, required: { process: 21, level: 'standard', op: '>=' }, label: 'Architecture Definition ≥ Comprehensive → Design Definition ≥ Standard', rationale: 'Comprehensive architecture should be realized with structured design definition.' },
     { id: 7, type: 'WN', trigger: { process: 20, level: 'comprehensive', op: '>=' }, required: { process: 24, level: 'standard', op: '>=' }, label: 'Architecture Definition ≥ Comprehensive → Integration ≥ Standard', rationale: 'Complex architecture benefits from structured integration rigor.' },
-    { id: '8a', type: 'HC', trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 9, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Standard → Project Planning ≥ Standard', rationale: 'Standard or higher technical work requires structured project planning. Forward direction of Rule 12.' },
+    { id: '8a', type: 'HC', active: false, deprecated: true, aliasOf: 12, trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 9, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Standard → Project Planning ≥ Standard', rationale: 'Retired duplicate — use Rule 12. Retained only as a migration alias.' },
     { id: '8b', type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 9, level: 'comprehensive', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Project Planning ≥ Comprehensive', rationale: 'Comprehensive technical work benefits from comprehensive planning oversight.' },
     { id: 9, type: 'HC', trigger: { process: [25, 27], level: 'comprehensive', op: '>=' }, required: { process: 19, level: 'standard', op: '>=' }, label: 'Verification or Validation ≥ Comprehensive → System Requirements Definition ≥ Standard (Floor)', rationale: 'Comprehensive V&V must be backed by structured requirements baselines. This is a floor constraint: requirements rigor cannot be lower than V&V rigor demands.' },
     { id: 10, type: 'HC', trigger: { process: 24, level: 'comprehensive', op: '>=' }, required: { process: 25, level: 'standard', op: '>=' }, label: 'Integration ≥ Comprehensive → Verification ≥ Standard', rationale: 'Comprehensive integration requires corresponding verification maturity.' },
-    { id: 11, type: 'HC', trigger: { process: 25, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'Verification ≥ Comprehensive → Validation ≥ Standard', rationale: 'High-rigor verification requires at least standard validation to confirm stakeholder intent is met.' },
+    { id: 11, type: 'WN', trigger: { process: 25, level: 'comprehensive', op: '>=' }, required: { process: 27, level: 'standard', op: '>=' }, label: 'Verification ≥ Comprehensive → Validation ≥ Standard', rationale: 'High-rigor verification should prompt review of validation rigor, while verification evidence alone does not prove stakeholder acceptance needs require a mandatory Validation floor.' },
     { id: 12, type: 'HC', trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 9, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Standard → Project Planning ≥ Standard', rationale: 'Basic planning cannot sustain higher-rigor technical execution. If any technical process exceeds Basic, Project Planning must be elevated to at least Standard; do not downgrade technical processes to satisfy this rule.' },
-    { id: 13, type: 'WN', trigger: { process: 12, level: 'basic', op: '=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management = Basic → Decision Management ≥ Standard', rationale: 'Basic risk inputs require structured decision-making as a compensating control. This is a floor, not a cap.' },
+    { id: 13, type: 'WN', active: false, deprecated: true, trigger: { process: 12, level: 'basic', op: '=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management = Basic → Decision Management ≥ Standard', rationale: 'Retired as non-monotone: increasing Risk Management from Basic to Standard removed the advisory Decision Management floor. Preserve the identifier for migration only; assess decision support directly from project evidence.' },
     { id: 14, type: 'WN', trigger: { process: 12, level: 'comprehensive', op: '>=' }, required: { process: 11, level: 'standard', op: '>=' }, label: 'Risk Management ≥ Comprehensive → Decision Management ≥ Standard', rationale: 'Comprehensive risk outputs should inform at least standard decision management.' },
     { id: 15, type: 'WN', trigger: { process: 28, level: 'comprehensive', op: '>=' }, required: { process: 29, level: 'standard', op: '>=' }, label: 'Operation ≥ Comprehensive → Maintenance ≥ Standard', rationale: 'Comprehensive operations produce data and workload requiring structured maintenance.' },
     { id: 16, type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 15, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Measurement ≥ Standard', rationale: 'Comprehensive technical rigor should be supported by structured measurement.' },
     { id: 17, type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 16, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Quality Assurance ≥ Standard', rationale: 'Comprehensive technical rigor should be supported by structured quality assurance.' },
     { id: 18, type: 'HC', trigger: { process: 23, level: 'comprehensive', op: '>=' }, required: { process: 24, level: 'standard', op: '>=' }, label: 'Implementation ≥ Comprehensive → Integration ≥ Standard', rationale: 'Formally-built components cannot be informally assembled without integration failures.' },
     { id: 19, type: 'WN', trigger: { process: 26, level: 'comprehensive', op: '>=' }, required: { process: 28, level: 'standard', op: '>=' }, label: 'Transition ≥ Comprehensive → Operation ≥ Standard', rationale: 'Formal transition planning without structured operations creates a handoff cliff.' },
-    { id: 20, type: 'WN', trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 13, level: 'basic', op: '>=' }, label: 'Any Technical Process ≥ Standard → Configuration Management ≥ Basic', rationale: 'Structured technical work degrades without any baseline control.' }
+    { id: 20, type: 'WN', active: false, deprecated: true, trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 13, level: 'basic', op: '>=' }, label: 'Any Technical Process ≥ Standard → Configuration Management ≥ Basic', rationale: 'Retired — trivially satisfied under the Never Zero model. Retained only for migration and ID stability.' }
+];
+
+/** Active semantic rules. Retired identifiers remain above for import/migration traceability. */
+export const ACTIVE_CONSISTENCY_RULES = CONSISTENCY_RULES
+    .filter(rule => rule.active !== false)
+    .map(rule => ({
+        ...rule,
+        provenance: {
+            evidenceMaturity: 'design-rationale',
+            expertReviewStatus: 'pending-structured-review',
+            severityRationale: rule.rationale,
+            knownExceptions: [],
+            owner: 'framework-governance-owner',
+            lastReviewed: '2026-07-10'
+        }
+    }));
+
+export const CONSISTENCY_RULE_MIGRATION = [
+    { legacyId: 5, disposition: 'retired-vacuous', replacementId: null },
+    { legacyId: '8a', disposition: 'alias', replacementId: 12 },
+    { legacyId: 13, disposition: 'retired-non-monotone', replacementId: null },
+    { legacyId: 20, disposition: 'retired-vacuous', replacementId: null }
 ];
 
 /**
- * Propagation Rules (canonical baseline from Paper §6.7.2, P1..P21, v3.6.0)
+ * Direct-consequence mappings (18 active mappings plus retained migration identifiers)
  * type: 'mandatory' = auto-upgrade candidate, 'recommended' = advisory propagation
  */
 export const PROPAGATION_RULES = [
@@ -952,24 +1049,34 @@ export const PROPAGATION_RULES = [
     { id: 'P2', source: 19, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 2, rationale: 'Comprehensive requirements require formal verification rigor.' },
     { id: 'P3', source: 19, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 3, rationale: 'Comprehensive requirements require validation structure.' },
     { id: 'P4', source: 19, sourceLevel: 'comprehensive', target: 13, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 4, rationale: 'Comprehensive requirements require baseline and change control.' },
-    { id: 'P5', source: 19, sourceLevel: 'standard', target: 25, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 5, rationale: 'DEPRECATED — trivially satisfied. Retained for ID stability.' },
+    { id: 'P5', active: false, deprecated: true, source: 19, sourceLevel: 'standard', sourceOp: '=', target: 25, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 5, rationale: 'Retired as vacuous. Retained for migration and ID stability.' },
     { id: 'P6', source: 20, sourceLevel: 'comprehensive', target: 21, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 6, rationale: 'Comprehensive architecture should flow into at least standard design definition.' },
     { id: 'P7', source: 20, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 7, rationale: 'Comprehensive architecture generally benefits from standard integration rigor.' },
-    { id: 'P8a', source: 'any_technical', sourceLevel: 'standard', target: 9, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: '8a', rationale: 'Standard or higher technical work requires structured project planning.' },
+    { id: 'P8a', active: false, deprecated: true, aliasOf: 'P13', source: 'any_technical', sourceLevel: 'standard', target: 9, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: '8a', rationale: 'Retired duplicate of P13. Retained as a migration alias.' },
     { id: 'P8b', source: 'any_technical', sourceLevel: 'comprehensive', target: 9, minLevel: 'comprehensive', type: 'recommended', depth: 1, ruleId: '8b', rationale: 'Comprehensive technical work benefits from comprehensive planning oversight.' },
     { id: 'P9', source: 25, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive verification requires structured requirements baselines.' },
     { id: 'P10', source: 27, sourceLevel: 'comprehensive', target: 19, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 9, rationale: 'Comprehensive validation requires structured requirements baselines.' },
     { id: 'P11', source: 24, sourceLevel: 'comprehensive', target: 25, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 10, rationale: 'Comprehensive integration should be matched by at least standard verification.' },
     { id: 'P12', source: 25, sourceLevel: 'comprehensive', target: 27, minLevel: 'standard', type: 'recommended', depth: 2, ruleId: 11, rationale: 'Comprehensive verification typically supports standard-or-higher validation.' },
     { id: 'P13', source: 'any_technical', sourceLevel: 'standard', target: 9, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 12, rationale: 'Any technical process above basic requires at least standard project planning.' },
-    { id: 'P14', source: 12, sourceLevel: 'basic', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 13, rationale: 'Basic risk inputs require structured decision-making as compensating control (floor, not cap).' },
+    { id: 'P14', active: false, deprecated: true, source: 12, sourceLevel: 'basic', sourceOp: '=', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 13, rationale: 'Retired with non-monotone Rule 13. Retained only for migration and ID stability.' },
     { id: 'P15', source: 12, sourceLevel: 'comprehensive', target: 11, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 14, rationale: 'Comprehensive risk outputs should be reflected in decision-management rigor.' },
     { id: 'P16', source: 28, sourceLevel: 'comprehensive', target: 29, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 15, rationale: 'Comprehensive operations should be paired with structured maintenance.' },
     { id: 'P17', source: 'any_technical', sourceLevel: 'comprehensive', target: 15, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 16, rationale: 'Comprehensive technical work should be supported by structured measurement.' },
     { id: 'P18', source: 'any_technical', sourceLevel: 'comprehensive', target: 16, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 17, rationale: 'Comprehensive technical work should be supported by structured quality assurance.' },
     { id: 'P19', source: 23, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 18, rationale: 'Formally-built components cannot be informally assembled.' },
     { id: 'P20', source: 26, sourceLevel: 'comprehensive', target: 28, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 19, rationale: 'Formal transition planning requires structured operational handoff.' },
-    { id: 'P21', source: 'any_technical', sourceLevel: 'standard', target: 13, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 20, rationale: 'Structured technical work needs at least basic baseline control.' }
+    { id: 'P21', active: false, deprecated: true, source: 'any_technical', sourceLevel: 'standard', target: 13, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 20, rationale: 'Retired as vacuous. Retained for migration and ID stability.' }
+];
+
+/** Active direct-consequence mappings. Retired entries remain available for migration traceability. */
+export const ACTIVE_PROPAGATION_RULES = PROPAGATION_RULES.filter(rule => rule.active !== false);
+
+export const PROPAGATION_RULE_MIGRATION = [
+    { legacyId: 'P5', disposition: 'retired-vacuous', replacementId: null },
+    { legacyId: 'P8a', disposition: 'alias', replacementId: 'P13' },
+    { legacyId: 'P14', disposition: 'retired-non-monotone', replacementId: null },
+    { legacyId: 'P21', disposition: 'retired-vacuous', replacementId: null }
 ];
 
 /**
@@ -1000,13 +1107,13 @@ export const DEPENDENCY_CHAINS = [
         id: 'mgmt_support',
         name: 'Technical Management Support',
         processes: [9, 10, 12, 11, 15, 16],
-        description: 'Per INCOSE SE Handbook: If any technical process ≥ Standard, planning, assessment, risk, decision, measurement, and QA should be ≥ Standard to provide adequate management oversight.'
+        description: 'Framework advisory chain: higher-rigor technical work should prompt review of planning, assessment, risk, decision, measurement, and QA support. INCOSE process relationships inform the review but do not prescribe identical level floors.'
     },
     {
         id: 'config_backbone',
         name: 'Configuration & Information Backbone',
         processes: [13, 14, 8],
-        description: 'Per ISO 15288 §6.3.5–6.3.6: CM and Information Management are cross-cutting enablers. Their rigor level should match the highest technical process level to maintain baselines and traceability.'
+        description: 'Framework advisory chain: Configuration Management and Information Management are cross-cutting enablers whose evidence burden should be reviewed against technical baseline and traceability needs. ISO 15288 process relationships do not prescribe identical level matching.'
     },
     {
         id: 'operational_feedback',

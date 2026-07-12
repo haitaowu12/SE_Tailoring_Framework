@@ -6,9 +6,53 @@ import { getDriverAttribution, runFullAssessment } from '../utils/assessment-eng
 import { generateReport, exportConfig } from '../utils/export-import.js';
 import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
-import { getState, showToast, getElementsFlat } from '../state.js';
+import { getState, setState, showToast, getElementsFlat } from '../state.js';
 import { navigateTo } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
+import { assessMetricCompleteness } from '../utils/assessment-integrity.js';
+import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
+import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
+import { assessSafetyAllocationDecision } from '../utils/inheritance-engine.js';
+import { assessHierarchyDisposition } from '../utils/hierarchy-dispositions.js';
+import { createRightSizingApprovalSnapshot, getRightSizingApprovalRequirements, RIGHT_SIZING_APPROVAL_ROLES } from '../utils/right-sizing-governance.js';
+
+function renderRightSizingApprovalForm(proposal, state) {
+  const proposalProcessName = CORE_PROCESSES.find(process => process.id === Number(proposal.processId))?.name || `Process ${proposal.processId}`;
+  const target = proposal.proposedTo || proposal.to;
+  const requirements = getRightSizingApprovalRequirements(proposal, state.assessmentTree);
+  const evaluation = (state.rightSizingApprovalEvaluations || []).find(item => Number(item.proposal?.processId) === Number(proposal.processId));
+  const assessedRecord = evaluation?.effective || evaluation?.records?.[0];
+  const record = assessedRecord?.record || (state.rightSizingApprovalRecords || []).find(item => Number(item.processId) === Number(proposal.processId)) || {};
+  const status = assessedRecord?.assessment?.status || 'not-recorded';
+  const reasons = assessedRecord?.assessment?.reasons || [];
+  const roleFields = requirements.requiredRoles.map(role => `
+    <div class="grid-2 mb-sm">
+      <label class="text-xs">${escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])}<input class="input" name="${role}-identity" placeholder="Named approver" value="${escapeHtml(record.approvals?.[role]?.identity || '')}"></label>
+      <label class="text-xs">Authority basis<input class="input" name="${role}-basis" placeholder="Role charter, delegation, or acceptance authority" value="${escapeHtml(record.approvals?.[role]?.authorityBasis || '')}"></label>
+    </div>`).join('');
+  return `
+    <details class="mt-sm" style="border-top:1px solid rgba(99,102,241,.2);padding-top:8px;">
+      <summary class="text-sm"><strong>${escapeHtml(proposalProcessName)}</strong>: ${escapeHtml(proposal.from)} → ${escapeHtml(target)} · approval ${escapeHtml(status)}</summary>
+      <form class="right-sizing-approval-form mt-sm" data-process-id="${proposal.processId}">
+        <div class="text-xs text-secondary mb-sm">Required authorities: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''}</div>
+        ${reasons.length ? `<div class="text-xs mb-sm" style="color:var(--accent-warning);">Current record: ${reasons.map(escapeHtml).join(', ')}</div>` : ''}
+        <label class="text-xs">Rationale<textarea class="input" name="rationale" rows="2">${escapeHtml(record.rationale || '')}</textarea></label>
+        <label class="text-xs">Protected outputs and evidence<textarea class="input" name="protectedOutputs" rows="2">${escapeHtml(record.protectedOutputs || '')}</textarea></label>
+        <div class="grid-2">
+          <label class="text-xs">Residual risks<textarea class="input" name="residualRisks" rows="2">${escapeHtml(record.residualRisks || '')}</textarea></label>
+          <label class="text-xs">Risk acceptance owner<input class="input" name="riskAcceptanceOwner" value="${escapeHtml(record.riskAcceptanceOwner || '')}"></label>
+          <label class="text-xs">Compensating controls<textarea class="input" name="compensatingControls" rows="2">${escapeHtml(record.compensatingControls || '')}</textarea></label>
+          <label class="text-xs">Rejected alternatives<textarea class="input" name="rejectedAlternatives" rows="2">${escapeHtml(record.rejectedAlternatives || '')}</textarea></label>
+          <label class="text-xs">Evidence reference<input class="input" name="evidenceRef" value="${escapeHtml(record.evidenceRef || '')}"></label>
+          <label class="text-xs">Valid through / review date<input class="input" type="date" name="reviewDate" value="${escapeHtml(record.reviewDate || '')}"></label>
+        </div>
+        ${roleFields}
+        <button class="btn btn-primary btn-sm" type="submit">Record approval and re-evaluate</button>
+      </form>
+    </details>`;
+}
+import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
+import { assessOutputSufficiency } from '../utils/output-sufficiency.js';
 
 function findDirectReportCard(container, titleText) {
   return [...container.querySelectorAll(':scope > .card.mb-xl')]
@@ -40,17 +84,28 @@ function makeReportSectionCollapsible(container, section, title, description, op
 
 export function getReportReadiness(state = {}) {
   const nodes = Object.values(state.assessmentTree?.nodes || {});
-  const incompleteElementCount = nodes.filter(node => !node.assessmentResult).length;
+  const incompleteElementCount = nodes.filter(node => {
+    if (!node.assessmentResult) return true;
+    const metrics = assessMetricCompleteness(node.scores, node.metricAssessments);
+    const warnings = assessWarningDispositions(node.assessmentResult.violations, node.ruleDispositions, node.levels);
+    const csi = assessCsiResponse(node.scores, node.csiResponse);
+    return !metrics.complete || !warnings.complete || !csi.complete;
+  }).length;
   const warningCount = state.violations?.length || 0;
   const adoptionRiskCount = state.adoptionRisks?.length || 0;
+  const correlatedEvidenceWarningCount = assessCorrelatedEvidence(state.metricAssessments).warningCount;
   const justificationCount = Object.values(state.confidence || {})
     .filter(value => value === 'available-with-justification').length;
 
-  if (!state.assessmentComplete || incompleteElementCount > 0) {
+  const metricCompleteness = assessMetricCompleteness(state.scores, state.metricAssessments);
+  const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
+  const csiResponse = assessCsiResponse(state.scores, state.csiResponse);
+  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
+  if (!state.assessmentComplete || !metricCompleteness.complete || !warningDispositions.complete || !csiResponse.complete || !outputSufficiency.complete || incompleteElementCount > 0 || state.semanticMigration?.status === 'review-required') {
     return 'Draft / incomplete';
   }
 
-  return warningCount === 0 && adoptionRiskCount === 0 && justificationCount === 0
+  return warningCount === 0 && adoptionRiskCount === 0 && justificationCount === 0 && correlatedEvidenceWarningCount === 0
     ? 'Ready for review'
     : 'Review required';
 }
@@ -69,6 +124,12 @@ function enhanceReportSections(container) {
 
   const sectionConfigs = [
     {
+      section: findDirectReportCard(container, 'Requirements-to-Architecture Output Sufficiency'),
+      title: 'Requirements-to-Architecture Output Sufficiency',
+      description: 'Artifact acceptance gate and governed-review evidence; no process-level effect.',
+      open: true
+    },
+    {
       section: container.querySelector(':scope > .grid-2.mb-xl'),
       title: 'Project and Level Distribution',
       description: 'Project metadata and final profile count.',
@@ -83,7 +144,7 @@ function enhanceReportSections(container) {
     {
       section: findDirectReportCard(container, 'Right-Sizing Analysis'),
       title: 'Right-Sizing Analysis',
-      description: 'PSI, CSI, CRI, and any right-sizing adjustments.',
+      description: 'PSI, CSI, CRI, and non-binding right-sizing proposals.',
       open: true
     },
     {
@@ -99,15 +160,33 @@ function enhanceReportSections(container) {
       open: true
     },
     {
-      section: findDirectReportCard(container, 'Override Conditions'),
-      title: 'Override Conditions',
-      description: 'Process floors triggered by metric thresholds.',
+      section: findDirectReportCard(container, 'Floor Elevations'),
+      title: 'Floor Elevations',
+      description: 'Triggered floors that actually raised a process level.',
       open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Active Mandatory Floors'),
+      title: 'Active Mandatory Floors',
+      description: 'Triggered floors, including those already satisfied by derivation.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Correlated Evidence Review'),
+      title: 'Correlated Evidence Review',
+      description: 'Warning-only review of shared M5, M6, and M8 evidence.',
+      open: true
     },
     {
       section: findDirectReportCard(container, 'Consistency Warnings'),
       title: 'Consistency Warnings',
       description: 'Rules that need review or follow-up.',
+      open: true
+    },
+    {
+      section: findDirectReportCard(container, 'Rule 11 Disposition'),
+      title: 'Rule 11 Disposition',
+      description: 'Recorded outcome, rationale, authority, evidence, and review date.',
       open: true
     },
     {
@@ -157,8 +236,10 @@ function enhanceReportSections(container) {
 
 export function renderReport(container) {
   const state = getState();
-  if (!state.assessmentComplete) {
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>No Assessment Yet</h3><p class="text-secondary mt-md">Complete an assessment first to generate a report.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Start Assessment</button></div>`;
+  const outputSufficiencyGate = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
+  if (!state.assessmentComplete || !outputSufficiencyGate.complete) {
+    const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
+    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${completeness.completeCount}/16 metric judgments are confirmed. Preview values are not a completed baseline and cannot generate a publication report.</p>${completeness.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}</p>` : ''}${!outputSufficiencyGate.complete ? '<p class="text-xs text-secondary mt-sm">The Requirements-to-Architecture artifact handoff is not accepted and has no complete governed review.</p>' : ''}<button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
     container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment'));
     return;
   }
@@ -188,12 +269,23 @@ export function renderReport(container) {
   const warningCount = state.violations?.length || 0;
   const fixCount = state.fixes?.length || 0;
   const adoptionRiskCount = state.adoptionRisks?.length || 0;
+  const rule11Disposition = assessRule11Disposition(state.violations, state.ruleDispositions, state.levels);
+  const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
+  const rule11Record = state.ruleDispositions?.['11'] || state.ruleDispositions?.[11];
+  const rule11Adjustment = state.manualAdjustments?.[27] || state.manualAdjustments?.['27'];
+  const rule11OutcomeLabel = RULE_11_OUTCOMES.find(option => option.id === rule11Record?.outcome)?.label || rule11Record?.outcome || '—';
+  const generalWarningAssessments = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
+  const csiReadiness = assessCsiResponse(scores, state.csiResponse);
+  const csiRecord = csiReadiness.response;
+  const csiActionLabels = new Map(CSI_RESPONSE_ACTIONS.map(action => [action.id, action.label]));
   const justificationCount = Object.values(confidence).filter(value => value === 'available-with-justification').length;
   const floorAppliedCount = Object.values(confidence).filter(value => value === 'floor-applied').length;
   const highPressureMetrics = METRICS
     .filter(metric => (scores[metric.id] ?? 3) >= 4)
     .map(metric => metric.id);
   const reportReadiness = getReportReadiness(state);
+  const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
+  const handoffRecords = state.artifactHandoffs || [];
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
   const processRefName = (ref) => {
@@ -210,8 +302,8 @@ export function renderReport(container) {
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
       </div>
       <div class="flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-export-json">Export JSON</button>
-        <button class="btn btn-primary btn-sm" id="btn-export-html">Export HTML Report</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-json">Safe Export JSON</button>
+        <button class="btn btn-primary btn-sm" id="btn-export-html">Safe Export HTML Report</button>
       </div>
     </div>
 
@@ -285,6 +377,15 @@ export function renderReport(container) {
       </div>
     </div>
 
+    <div class="card mb-xl" style="border-left:3px solid ${outputSufficiencyGate.complete ? 'var(--accent-success)' : 'var(--accent-warning)'}">
+      <h4 class="mb-md">Requirements-to-Architecture Output Sufficiency</h4>
+      <p class="text-xs text-secondary mb-md">Artifact prerequisite and acceptance gate. This result has no process-level effect.</p>
+      <table class="data-table"><thead><tr><th>Artifact</th><th>Provider → consumer</th><th>Status</th><th>Authority</th><th>Review date</th></tr></thead><tbody>
+        ${handoffRecords.map(record => `<tr><td>${escapeHtml(record.artifactId || '—')}</td><td>${escapeHtml(record.providerElementId || '—')} / P19 → ${escapeHtml(record.consumerElementId || '—')} / P20</td><td>${escapeHtml(record.evidenceStatus || 'draft')}</td><td>${escapeHtml(record.acceptanceAuthority || '—')}</td><td>${escapeHtml(record.reviewDate || '—')}</td></tr>`).join('')}
+      </tbody></table>
+      ${outputSufficiencyGate.governedReviewCount ? '<p class="text-xs mt-md">Governed review used: documented gaps and equivalent evidence or compensating controls remain subject to the recorded review date.</p>' : ''}
+    </div>
+
     ${elements.length > 1 ? `
     <div class="card mb-xl">
       <h4 class="mb-md">🏗️ System Element Tailoring Overview</h4>
@@ -296,6 +397,9 @@ export function renderReport(container) {
               <th>Element</th>
               <th>Assessment Type</th>
               <th>Status</th>
+              <th>Safety allocation</th>
+              <th>M8 child disposition</th>
+              <th>M15 child disposition</th>
               <th>Process Levels (B / S / C)</th>
             </tr>
           </thead>
@@ -310,6 +414,20 @@ export function renderReport(container) {
               const elementName = escapeHtml(e.name);
               const assessmentType = ['full', 'quick', 'inherited'].includes(e.assessmentType) ? e.assessmentType : 'full';
               const status = ['draft', 'under_review', 'approved', 'baselined'].includes(e.status) ? e.status : 'draft';
+              const safetyAllocation = e.parentId
+                ? assessSafetyAllocationDecision(e.safetyAllocationDecision ?? (e.hasIndependentSafetyAnalysis === true ? true : null))
+                : null;
+              const securityDisposition = e.parentId
+                ? assessHierarchyDisposition('M8', e.securityHierarchyDisposition ?? (e.hasIndependentSecurityAnalysis === true ? true : null))
+                : null;
+              const assuranceDisposition = e.parentId
+                ? assessHierarchyDisposition('M15', e.assuranceHierarchyDisposition ?? (e.hasScopedAssuranceDecision === true ? true : null))
+                : null;
+              const hierarchyStatus = assessment => !assessment
+                ? '—'
+                : assessment.valid
+                  ? 'Confirmed decision; evidence not verified'
+                  : assessment.legacyMigrationInput ? 'Legacy unconfirmed' : 'Incomplete';
               
               const levelsBadgeHtml = hasResult 
                 ? '<div class="se-level-counts text-xs" style="display: flex; gap: 4px;">' +
@@ -327,6 +445,9 @@ export function renderReport(container) {
                   </td>
                   <td><span class="se-type-badge ${assessmentType}">${assessmentType}</span></td>
                   <td><span class="se-status-badge ${status}">${status}</span></td>
+                  <td>${!safetyAllocation ? '—' : safetyAllocation.valid ? 'Confirmed parent-retained' : safetyAllocation.legacyMigrationInput ? 'Legacy unconfirmed' : 'Incomplete'}</td>
+                  <td>${hierarchyStatus(securityDisposition)}</td>
+                  <td>${hierarchyStatus(assuranceDisposition)}</td>
                   <td>${levelsBadgeHtml}</td>
                 </tr>
               `;
@@ -336,7 +457,21 @@ export function renderReport(container) {
       </div>
     </div>` : ''}
 
-    <div class="card mb-xl" style="border-left: 3px solid ${state.rightSizingActions?.length > 0 ? '#6366f1' : '#34d399'};">
+    ${csiReadiness.required ? `
+    <div class="card mb-xl" style="border-left:3px solid ${csiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)'};">
+      <h4 class="mb-md">CSI ${csiReadiness.csi} Constraint Response — ${csiReadiness.complete ? 'Complete' : 'Incomplete'}</h4>
+      <p class="text-xs text-secondary mb-md">${csiReadiness.expectedResponseType === 'sponsor-escalation' ? 'Sponsor escalation' : 'Feasibility review'} record. It does not change the process profile or approve right-sizing proposals.</p>
+      <table class="data-table"><tbody>
+        <tr><th>Actions</th><td>${escapeHtml((csiRecord.selectedActions || []).map(action => csiActionLabels.get(action) || action).join(', ') || '—')}</td></tr>
+        <tr><th>Protected outputs/evidence</th><td>${escapeHtml(csiRecord.protectedOutputs || '—')}</td></tr>
+        <tr><th>Rationale/decision</th><td>${escapeHtml(csiRecord.rationaleDecision || '—')}</td></tr>
+        <tr><th>Owner/approver</th><td>${escapeHtml(csiRecord.ownerApprover || '—')}</td></tr>
+        <tr><th>Evidence reference</th><td>${escapeHtml(csiRecord.evidenceRef || '—')}</td></tr>
+        <tr><th>Review date</th><td>${escapeHtml(csiRecord.reviewDate || '—')}</td></tr>
+      </tbody></table>
+    </div>` : ''}
+
+    <div class="card mb-xl" style="border-left: 3px solid ${state.rightSizingProposals?.length > 0 ? '#6366f1' : '#34d399'};">
       <h4 class="mb-md">📐 Right-Sizing Analysis</h4>
       <div class="grid-3 mb-md">
         <div style="text-align: center; padding: 12px;">
@@ -358,12 +493,21 @@ export function renderReport(container) {
       <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
         <strong>Level Distribution:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive (${Math.round(compCount / CORE_PROCESSES.length * 100)}% Comprehensive)
       </div>
-      ${state.rightSizingActions?.length > 0 ? `
+      ${state.rightSizingProposals?.length > 0 ? `
       <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">📐 ${state.rightSizingActions.length} Right-Sizing Adjustments Applied</div>
-        ${state.rightSizingActions.map(a => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → ${escapeHtml(a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>`).join('')}
-      </div>` : `
-      <div class="text-sm" style="color: #34d399;">✓ Profile is within rigor-budget bounds. No right-sizing adjustments needed.</div>`}
+        <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">📐 ${state.rightSizingProposals.length} Right-Sizing Proposal${state.rightSizingProposals.length === 1 ? '' : 's'} — Not Applied</div>
+        <div class="text-xs text-secondary mb-sm">The final profile remains normative. Each reduction requires an explicit accept/reject decision, rationale, approver, and residual-risk record.</div>
+        ${state.rightSizingProposals.map(a => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>${renderRightSizingApprovalForm(a, state)}`).join('')}
+      </div>` : ''}
+      ${state.effectiveRightSizingApprovalCount > 0 ? `<div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);border-radius:8px;padding:12px;margin-top:8px;"><strong>${state.effectiveRightSizingApprovalCount} effective governed reduction approval(s)</strong><div class="text-xs text-secondary mt-sm">The displayed final profile includes these snapshot-bound decisions after mandatory closure was re-applied.</div></div>` : ''}
+      ${state.rightSizingActions?.length > 0 ? `<div style="background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.3);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Historical right-sizing actions (${state.rightSizingActions.length})</div><div class="text-xs text-secondary mt-sm">Preserved from a legacy import for audit only; not treated as approved v4 reductions.</div></div>` : ''}
+      ${state.blockedRightSizingCandidates?.length > 0 ? `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Blocked reduction candidates (${state.blockedRightSizingCandidates.length})</div><div class="text-xs text-secondary mt-sm">Mandatory closure would restore these candidate levels, so they are not offered for approval.</div></div>` : ''}
+      ${state.budgetStatus && !state.budgetStatus.withinBudget ? `
+      <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
+        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">⚠ Final Rigor-Budget Exception</div>
+        <div class="text-sm mt-sm">The final protected profile exceeds the configured PSI guidance by ${state.budgetStatus.comprehensiveExcess} Comprehensive and ${state.budgetStatus.standardExcess} Standard process(es). This exception requires governance review; it is not a failed safety or mandatory-rule closure.</div>
+      </div>` : !state.rightSizingProposals?.length ? `
+      <div class="text-sm" style="color: #34d399;">✓ Final profile is within configured rigor-budget guidance; no reduction proposal is needed.</div>` : ''}
       ${state.adoptionRisks?.length > 0 ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 6px;">🧭 ${state.adoptionRisks.length} Adoption Readiness Gap${state.adoptionRisks.length === 1 ? '' : 's'}</div>
@@ -397,14 +541,66 @@ export function renderReport(container) {
 
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
-      <h4 class="mb-md">⚠️ Override Conditions (${state.overrides.length})</h4>
+      <h4 class="mb-md">⚠️ Floor Elevations (${state.overrides.length})</h4>
       ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${escapeHtml(processName(o.processId))}</strong>: ${escapeHtml(o.from)} → ${escapeHtml(o.to)} — ${escapeHtml(o.reason)}${o.condition ? ` (${escapeHtml(o.condition)})` : ''}</div>`).join('')}
+    </div>` : ''}
+
+    ${state.activeFloors?.length > 0 ? `
+    <div class="card mb-xl" style="border-left:3px solid var(--accent-info)">
+      <h4 class="mb-md">↥ Active Mandatory Floors (${state.activeFloors.length})</h4>
+      <p class="text-xs text-secondary mb-md">Every triggered floor is retained for provenance. A floor may already be satisfied and therefore produce no elevation event.</p>
+      ${state.activeFloors.map(floor => {
+        const elevation = state.overrides.find(override => override.processId === floor.processId && (override.overrideId === floor.overrideId || override.reason === floor.reason || override.reason === floor.label));
+        return `<div class="text-sm mb-sm"><strong>${escapeHtml(processName(floor.processId))}</strong>: minimum ${escapeHtml(floor.minLevel || floor.requiredLevel || floor.to || 'active')} — <span style="color:${elevation ? 'var(--accent-warning)' : 'var(--accent-success)'}">${elevation ? 'elevated' : 'already satisfied'}</span> <span class="text-xs text-secondary">(${escapeHtml(floor.label || floor.reason || floor.condition || floor.overrideId || 'mandatory floor')})</span></div>`;
+      }).join('')}
     </div>` : ''}
 
     ${state.violations.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-error)">
       <h4 class="mb-md">⚠ Consistency Warnings (${state.violations.length})</h4>
       ${state.violations.map(v => `<div class="text-sm mb-sm"><strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}</div>`).join('')}
+    </div>` : ''}
+
+    ${correlatedEvidence.warningCount ? `
+    <div class="card mb-xl" style="border-left:3px solid var(--accent-warning)">
+      <h4 class="mb-md">⚠ Correlated Evidence Review (${correlatedEvidence.warningCount})</h4>
+      <p class="text-xs text-secondary mb-md">Shared evidence is permitted, but it is not independent corroboration unless each metric has a distinct documented consequence analysis. This warning does not change scores, recommended levels, or closure.</p>
+      ${correlatedEvidence.warnings.map(warning => `<div class="text-sm mb-sm"><strong>${escapeHtml(warning.metricIds.join(', '))}</strong>: ${escapeHtml(warning.message)}</div>`).join('')}
+    </div>` : ''}
+
+    ${rule11Disposition.required ? `
+    <div class="card mb-xl" style="border-left:3px solid ${rule11Disposition.complete ? 'var(--accent-success)' : 'var(--accent-warning)'}">
+      <h4 class="mb-md">Rule 11 Disposition — ${rule11Disposition.complete ? 'Complete' : 'Incomplete'}</h4>
+      <p class="text-xs text-secondary mb-md">Rule 11 remains a warning and P12 remains recommended; this record does not suppress the warning or create automatic closure.</p>
+      <table class="data-table"><tbody>
+        <tr><th>Outcome</th><td>${escapeHtml(rule11OutcomeLabel)}</td></tr>
+        <tr><th>Rationale / controls</th><td>${escapeHtml(rule11Record?.rationale || '—')}</td></tr>
+        <tr><th>Owner / approver</th><td>${escapeHtml(rule11Record?.ownerApprover || '—')}</td></tr>
+        <tr><th>Evidence</th><td>${escapeHtml(rule11Record?.evidenceRef || '—')}</td></tr>
+        <tr><th>Review date</th><td>${escapeHtml(rule11Record?.reviewDate || '—')}</td></tr>
+        <tr><th>Final Validation level</th><td>${escapeHtml(levels[27] || '—')}</td></tr>
+        <tr><th>Adjustment provenance</th><td>${rule11Adjustment?.source === 'rule-disposition'
+          ? `${escapeHtml(rule11Adjustment.source)} · Rule ${escapeHtml(rule11Adjustment.ruleId)} / ${escapeHtml(rule11Adjustment.propagationId)}`
+          : '—'}</td></tr>
+      </tbody></table>
+    </div>` : ''}
+
+    ${generalWarningAssessments.length ? `
+    <div class="card mb-xl" style="border-left:3px solid ${generalWarningAssessments.every(item => item.complete) ? 'var(--accent-success)' : 'var(--accent-warning)'}">
+      <h4 class="mb-md">Governed Warning Dispositions — ${generalWarningAssessments.every(item => item.complete) ? 'Complete' : 'Incomplete'}</h4>
+      <p class="text-xs text-secondary mb-md">Each triggered, unsatisfied warning is consciously dispositioned before baselining. The records do not suppress warnings or change process levels.</p>
+      ${generalWarningAssessments.map(assessment => {
+        const record = assessment.record || {};
+        const outcome = GENERAL_WARNING_OUTCOMES.find(option => option.id === record.outcome)?.label || record.outcome || '—';
+        return `<details class="mb-sm"><summary class="text-sm"><strong>Rule ${escapeHtml(assessment.ruleId)}</strong> — ${assessment.complete ? 'complete' : `missing ${escapeHtml(assessment.missingFields.join(', '))}`}</summary>
+          <table class="data-table mt-sm"><tbody>
+            <tr><th>Outcome</th><td>${escapeHtml(outcome)}</td></tr>
+            <tr><th>Rationale / controls</th><td>${escapeHtml(record.rationale || '—')}</td></tr>
+            <tr><th>Owner / approver</th><td>${escapeHtml(record.ownerApprover || '—')}</td></tr>
+            <tr><th>Evidence</th><td>${escapeHtml(record.evidenceRef || '—')}</td></tr>
+            <tr><th>Review date</th><td>${escapeHtml(record.reviewDate || '—')}</td></tr>
+          </tbody></table></details>`;
+      }).join('')}
     </div>` : ''}
 
     <div class="card mb-xl">
@@ -546,7 +742,9 @@ export function renderReport(container) {
     const detail = derivationDetails[p.id] || {};
     const conf = confidence[p.id] || 'high';
     const confLabel = conf === 'corroborated'
-      ? '✅ Corroborated'
+      ? (detail.triggerScore === 5 && detail.triggerMetrics?.some(metric => metric === 'M5' || metric === 'M7')
+        ? '✅ Metric-derived: M5/M7 sufficient'
+        : '✅ Corroborated')
       : conf === 'available-with-justification'
         ? '⚠️ Needs Justification'
         : conf === 'floor-applied'
@@ -555,7 +753,11 @@ export function renderReport(container) {
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
       : '—';
-    const drivers = getDriverAttribution(p.id, scores, state.matrixMap);
+    const drivers = getDriverAttribution(p.id, scores, state.matrixMap, {
+      ...state.projectInfo,
+      metricAssessments: state.metricAssessments || {},
+      assuranceObligations: state.assuranceObligations || []
+    });
     const changed = derived !== final_;
     return `<tr>
                 <td><span class="process-id">${p.id}</span> ${escapeHtml(p.name)}</td>
@@ -626,13 +828,97 @@ export function renderReport(container) {
   container.appendChild(style);
   enhanceReportSections(container);
 
+  container.querySelectorAll('.right-sizing-approval-form').forEach(form => {
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const current = getState();
+      const processId = Number(form.dataset.processId);
+      const proposal = (current.rightSizingProposals || []).find(item => Number(item.processId) === processId);
+      if (!proposal) {
+        showToast('This proposal is no longer current. Re-run the assessment.', 'warning');
+        return;
+      }
+      const formData = new FormData(form);
+      const requirements = getRightSizingApprovalRequirements(proposal, current.assessmentTree);
+      const approvals = Object.fromEntries(requirements.requiredRoles.map(role => [role, {
+        identity: String(formData.get(`${role}-identity`) || '').trim(),
+        authorityBasis: String(formData.get(`${role}-basis`) || '').trim()
+      }]));
+      const approvalContext = {
+        assessmentTree: current.assessmentTree,
+        scores: current.scores,
+        assuranceObligations: current.assuranceObligations,
+        activeFloors: current.activeFloors,
+        normativeLevels: current.normativeLevels || current.levels,
+        frameworkVersion: FRAMEWORK_META.version,
+        metricDefinitionSet: FRAMEWORK_META.metricDefinitionSet
+      };
+      const record = {
+        id: `RS-${proposal.elementId || current.assessmentTree?.activeId || 'default'}-${processId}`,
+        decision: 'approved',
+        processId,
+        scopeElementIds: requirements.scopeElementIds,
+        governingBoundaryElementId: requirements.governingBoundaryElementId,
+        from: proposal.from,
+        to: proposal.proposedTo || proposal.to,
+        snapshot: createRightSizingApprovalSnapshot(proposal, approvalContext),
+        rationale: String(formData.get('rationale') || '').trim(),
+        protectedOutputs: String(formData.get('protectedOutputs') || '').trim(),
+        protectedOutputImpact: proposal.protectedOutputImpact === true,
+        residualRisks: String(formData.get('residualRisks') || '').trim(),
+        riskAcceptanceOwner: String(formData.get('riskAcceptanceOwner') || '').trim(),
+        compensatingControls: String(formData.get('compensatingControls') || '').trim(),
+        rejectedAlternatives: String(formData.get('rejectedAlternatives') || '').trim(),
+        evidenceRef: String(formData.get('evidenceRef') || '').trim(),
+        reviewDate: String(formData.get('reviewDate') || ''),
+        approvedAt: new Date().toISOString(),
+        approvals
+      };
+      const records = [...(current.rightSizingApprovalRecords || []).filter(item => item.id !== record.id), record];
+      const activeElementId = current.assessmentTree?.activeId || 'default';
+      const assessmentContext = {
+        ...current.projectInfo,
+        metricAssessments: current.metricAssessments,
+        assuranceObligations: current.assuranceObligations,
+        rightSizingApprovalRecords: records,
+        activeElementId,
+        assessmentTree: current.assessmentTree,
+        frameworkVersion: FRAMEWORK_META.version,
+        metricDefinitionSet: FRAMEWORK_META.metricDefinitionSet
+      };
+      const result = runFullAssessment(current.scores, current.matrixMap, assessmentContext);
+      const activeNode = current.assessmentTree?.nodes?.[activeElementId];
+      if (activeNode) {
+        activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
+        activeNode.assessmentResult = result;
+        activeNode.levels = { ...result.levels };
+      }
+      setState({
+        levels: result.levels,
+        normativeLevels: result.normativeLevels,
+        rightSizingApprovalRecords: records,
+        rightSizingApprovalEvaluations: result.rightSizingApprovalEvaluations,
+        approvedRightSizedLevels: result.approvedRightSizedLevels,
+        effectiveRightSizingApprovalCount: result.effectiveRightSizingApprovalCount,
+        budgetStatus: result.budgetStatus,
+        fixes: result.fixes,
+        violations: result.violations,
+        confidence: result.confidence,
+        assessmentTree: current.assessmentTree
+      });
+      const effective = result.rightSizingApprovalEvaluations?.find(item => Number(item.proposal?.processId) === processId)?.effective;
+      showToast(effective ? 'Governed reduction approved and mandatory closure rechecked.' : 'Approval record saved but remains invalid or incomplete.', effective ? 'success' : 'warning');
+      renderReport(container);
+    });
+  });
+
   // Export handlers
   container.querySelector('#btn-export-json').addEventListener('click', () => {
     exportConfig(state);
-    showToast('JSON configuration exported!', 'success');
+    showToast('Pilot-safe JSON exported. Review free text before sharing.', 'success');
   });
   container.querySelector('#btn-export-html').addEventListener('click', () => {
     generateReport(state, data);
-    showToast('HTML report downloaded!', 'success');
+    showToast('Pilot-safe HTML report downloaded. Review free text before sharing.', 'success');
   });
 }

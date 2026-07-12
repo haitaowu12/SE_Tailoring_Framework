@@ -1,7 +1,7 @@
 /**
  * Dashboard View — Landing page with framework overview
  */
-import { FRAMEWORK_META, CORE_PROCESSES, PROCESS_GROUPS, METRICS, DIMENSIONS, CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
+import { FRAMEWORK_META, CORE_PROCESSES, PROCESS_GROUPS, METRICS, DIMENSIONS, ACTIVE_CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
 import { getState, getElementCount } from '../state.js';
 import { navigateTo } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
@@ -13,6 +13,10 @@ export function renderDashboard(container) {
     const projectName = escapeHtml(safeText(state.projectInfo.name, 'Project'));
 
     container.innerHTML = `
+    ${state.semanticMigration?.status === 'review-required' ? `<section class="card" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.08);margin-bottom:18px;">
+      <strong>⚠ Semantic migration required</strong>
+      <p class="text-sm text-secondary mt-sm">This assessment was created with legacy M6/M8/M15 definitions. Its original result is preserved for audit, but M6 Mission/Operational, M8 Security Consequence, and M15 External Assurance must be reassessed before a version ${FRAMEWORK_META.version} baseline can be approved.</p>
+    </section>` : ''}
     <section class="hero animate-fade-in-up">
       <div class="hero-badge">v${FRAMEWORK_META.version} · ${FRAMEWORK_META.standard}</div>
       <h1 class="hero-title">SE Process<br><span class="gradient-text">Tailoring Framework</span></h1>
@@ -38,8 +42,8 @@ export function renderDashboard(container) {
           <div class="stat-label">Tailoring Levels</div>
         </div>
         <div class="card stat-card hover-lift">
-          <div class="stat-value">${CONSISTENCY_RULES.length}</div>
-          <div class="stat-label">Consistency Rules</div>
+          <div class="stat-value">${ACTIVE_CONSISTENCY_RULES.length}</div>
+          <div class="stat-label">Active Consistency Rules</div>
         </div>
       </div>
     </section>
