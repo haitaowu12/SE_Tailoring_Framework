@@ -5,7 +5,7 @@
 import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { checkConsistency } from '../utils/assessment-engine.js';
 import { getState, showToast, getElementsFlat, setElementProcessAdjustment } from '../state.js';
-import { navigateTo } from '../router.js';
+import { navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
 let localLevels = {};
@@ -48,7 +48,7 @@ export function renderManualAdjust(container) {
   container.dataset.elementId = selectedElementId;
   container.innerHTML = `
     <div class="flex justify-between items-center mb-0">
-      <div><h2>🎛️ Manual Level Adjustment</h2><p class="text-secondary text-sm mt-sm">Override algorithm-derived levels per system element. Consistency rules are validated in real-time.</p></div>
+      <div><h2>🎛️ Manual Level Adjustment</h2><p class="text-secondary text-sm mt-sm">Override algorithm-derived levels per system element. Consistency rules are checked in real time.</p></div>
       <div class="flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-reset">↻ Reset to Derived</button>
         <button class="btn btn-primary btn-sm" id="btn-save">💾 Save Changes</button>
@@ -88,7 +88,7 @@ export function renderManualAdjust(container) {
     const changed = derived !== current;
     const existingJust = selectedElement.manualAdjustments?.[p.id]?.justification || '';
     return `<tr>
-                  <td><span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> ${escapeHtml(p.name)}</td>
+                  <td><span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> <a href="${escapeHtml(processDetailsHref(p.id, current, 'adjust'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[current] || current)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a></td>
                   <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                   <td>
                     <select class="form-control form-control-sm adjust-select" data-pid="${p.id}" style="min-width:130px; font-size:12px;">

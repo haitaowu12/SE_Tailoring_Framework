@@ -25,9 +25,13 @@ test('shared-device restore prompt does not reveal a saved project identifier', 
 
   const restore = page.locator('#autosave-restore-overlay');
   await expect(restore).toBeVisible();
+  await expect(restore).toHaveAttribute('role', 'dialog');
   await expect(restore).toContainText('Restore it only if this is your session.');
   await expect(restore).not.toContainText(SECRET_PROJECT);
   await expect(restore).not.toContainText('CONFIDENTIAL-TEAM');
+  await expect(restore.getByRole('button', { name: 'Restore' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(restore.getByRole('button', { name: 'Start Fresh' })).toBeFocused();
 
   await restore.getByRole('button', { name: 'Start Fresh' }).click();
   await expect(restore).toHaveCount(0);
@@ -54,12 +58,24 @@ test('end session confirmation erases the origin autosave and returns to a blank
 
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
-  await expect(page.getByText('Formative pilot — not a validated decision authority.')).toBeVisible();
+  await expect(page.getByText('Static prototype — not a validated decision authority.')).toBeVisible();
+});
+
+test('end-session critical path is keyboard operable and restores focus on Escape', async ({ page }) => {
+  const endSession = page.getByRole('button', { name: 'End Session' });
+  await endSession.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'End session and erase local assessment?' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Keep working' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(endSession).toBeFocused();
 });
 
 test('pilot notice and non-identifying assessment guidance remain visible', async ({ page }) => {
-  await expect(page.getByText('Formative pilot — not a validated decision authority.')).toBeVisible();
-  await expect(page.getByText(/Safe Export removes project, team, and element names/)).toBeVisible();
+  await expect(page.getByText('Static prototype — not a validated decision authority.')).toBeVisible();
+  await expect(page.getByText(/Minimum-data Export omits project, team, element names/)).toBeVisible();
 
   await page.goto('./#assessment');
   await expect(page.getByText(/use a non-identifying project code/i)).toBeVisible();

@@ -11,7 +11,7 @@
  * 7. Apply interdependencies (consistency rules)
  * 8. CORROBORATION: Compute confidence for Comprehensive processes
  */
-import { METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, BINDING_ASSURANCE_QUALIFIERS, OVERRIDE_CONDITIONS, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES } from '../data/se-tailoring-data.js';
+import { METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, BINDING_ASSURANCE_QUALIFIERS, OVERRIDE_CONDITIONS, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { evaluateRightSizingApprovals, getRightSizingApprovalRequirements } from './right-sizing-governance.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
@@ -874,7 +874,7 @@ function getMaxDrivingMetric(processId, scores) {
  * 
  * Returns complete assessment with derivation details, overrides, and violations.
  */
-export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
+function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     // Step 1: Derive initial levels using max-tier plus corroboration
     const derivationDetails = calculateAllProcessDerivations(scores, matrixMap, context);
     const derived = {};
@@ -902,8 +902,8 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         scores,
         activeFloors,
         normativeLevels,
-        frameworkVersion: context.frameworkVersion || '4.0.0',
-        metricDefinitionSet: context.metricDefinitionSet || 'se-tailoring-m1-m16-v2'
+        frameworkVersion: context.frameworkVersion || FRAMEWORK_META.version,
+        metricDefinitionSet: context.metricDefinitionSet || FRAMEWORK_META.metricDefinitionSet
     };
     const approvalResult = evaluateRightSizingApprovals(
         rightSizingProposals,
@@ -978,4 +978,57 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         budgetStatus,
         closureIterations: closure.iterations + approvedClosure.iterations
     };
+}
+
+const REQUIRED_METRIC_IDS = Object.freeze(Array.from({ length: 16 }, (_, index) => `M${index + 1}`));
+const isValidMetricScore = value => Number.isInteger(value) && value >= 1 && value <= 5;
+
+function describeAssessmentInput(scores = {}) {
+    const incompleteMetricIds = REQUIRED_METRIC_IDS.filter(metricId => !isValidMetricScore(scores?.[metricId]));
+    return {
+        complete: incompleteMetricIds.length === 0,
+        incompleteMetricIds,
+        assessedMetricCount: REQUIRED_METRIC_IDS.length - incompleteMetricIds.length,
+        requiredMetricCount: REQUIRED_METRIC_IDS.length
+    };
+}
+
+function applyAssessmentContract(result, input, forcePreview = false) {
+    const authoritative = input.complete && !forcePreview;
+    const derivationStatus = authoritative ? result.confidence : {};
+    return {
+        ...result,
+        assessmentMode: authoritative ? 'normative' : 'preview',
+        authoritative,
+        inputCompleteness: input,
+        incompleteMetricIds: input.incompleteMetricIds,
+        // Preview levels remain available for interactive exploration but are
+        // explicitly separate from the baselineable normative profile.
+        previewLevels: result.levels,
+        previewNormativeLevels: result.normativeLevels,
+        normativeLevels: authoritative ? result.normativeLevels : {},
+        derivationStatus,
+        previewDerivationStatus: result.confidence,
+        // Compatibility field: populated only for an authoritative result.
+        confidence: derivationStatus
+    };
+}
+
+/**
+ * Interactive what-if assessment. It can display directional process pressure,
+ * but it is never an authoritative or baselineable result.
+ */
+export function runPreviewAssessment(scores = {}, matrixMap = METRIC_PROCESS_MAP, context = {}) {
+    const input = describeAssessmentInput(scores);
+    return applyAssessmentContract(executeAssessment(scores, matrixMap, context), input, true);
+}
+
+/**
+ * Normative assessment contract. All M1-M16 values must be explicit valid
+ * ordinal judgments; otherwise the returned object is unmistakably a preview
+ * and exposes no authoritative normative levels or derivation status.
+ */
+export function runFullAssessment(scores = {}, matrixMap = METRIC_PROCESS_MAP, context = {}) {
+    const input = describeAssessmentInput(scores);
+    return applyAssessmentContract(executeAssessment(scores, matrixMap, context), input, false);
 }

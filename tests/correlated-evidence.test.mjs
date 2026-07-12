@@ -5,7 +5,7 @@ import { runFullAssessment } from '../src/utils/assessment-engine.js';
 import { buildExportConfig, normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
 import { METRIC_PROCESS_MAP } from '../src/data/se-tailoring-data.js';
 
-const assessed = (score, evidenceContext) => ({ score, status: 'assessed', definitionVersion: 2, qualifiers: [], evidenceRefs: [], evidenceContext });
+const assessed = (score, evidenceContext) => ({ score, status: 'assessed', definitionVersion: 3, qualifiers: [], evidenceRefs: [], evidenceContext });
 
 test('warns when M5, M6, and M8 reuse one episode without differentiated consequence analyses', () => {
   const result = assessCorrelatedEvidence({

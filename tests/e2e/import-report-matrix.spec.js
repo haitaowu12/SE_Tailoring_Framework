@@ -13,7 +13,7 @@ const processLevels = Object.fromEntries(
 
 const metricAssessments = Object.fromEntries(
   Object.entries(metricScores).map(([metricId, score]) => [metricId, {
-    score, status: 'assessed', definitionVersion: 2, qualifiers: [], rationale: 'E2E fixture confirmation', evidenceRefs: []
+    score, status: 'assessed', definitionVersion: 3, qualifiers: [], rationale: 'E2E fixture confirmation', evidenceRefs: []
   }])
 );
 
@@ -95,14 +95,14 @@ test('legacy import is preserved but blocked pending M6/M8/M15 reassessment', as
   await expect(page.getByText('Assessment Work in Progress')).toBeVisible();
 });
 
-test('schema 2.0 import remains reportable and matrix recompute preserves manual adjustment', async ({ page }) => {
+test('schema 2.0 import remains reportable and canonical matrix is read-only', async ({ page }) => {
   await importFixture(page, {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.0.0',
-      metricDefinitionSet: 'se-tailoring-m1-m16-v2',
-      qualifierSchemaVersion: '1.0'
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
     },
     projectInfo: { name: 'Current Semantic Import Smoke', team: 'Stakeholder Review' },
     metricScores,
@@ -123,7 +123,15 @@ test('schema 2.0 import remains reportable and matrix recompute preserves manual
 
   await page.goto('./#matrix');
   await expect(page).toHaveURL(/#matrix$/);
-  await page.locator('.matrix-cell[data-pid="9"][data-mid="M1"]').click();
+  await expect(page.getByText(/Read-only canonical 102-cell process–metric map/)).toBeVisible();
+  const canonicalCell = page.locator('.matrix-cell[data-pid="9"][data-mid="M1"]');
+  await expect(canonicalCell).not.toHaveAttribute('role', 'button');
+  await expect(page.locator('.clickable-cell')).toHaveCount(0);
+  const canonicalValue = await canonicalCell.textContent();
+  await canonicalCell.click();
+  await expect(canonicalCell).toHaveText(canonicalValue || '');
+  await expect(page.getByRole('link', { name: 'View Comprehensive details for Project Planning' }))
+    .toHaveAttribute('href', '#processes?process=9&level=comprehensive&source=matrix');
 
   await page.goto('./#report');
   await expect(page.locator('tr', { hasText: 'Project Planning' })).toContainText('C');
@@ -155,7 +163,7 @@ test('Rule 11 warning remains visible and can be dispositioned before baselining
   rule11Scores.M2 = 5;
   rule11Scores.M4 = 5;
   const rule11Assessments = Object.fromEntries(Object.entries(rule11Scores).map(([metricId, score]) => [metricId, {
-    score, status: 'assessed', definitionVersion: 2, qualifiers: [], rationale: 'Rule 11 E2E fixture', evidenceRefs: []
+    score, status: 'assessed', definitionVersion: 3, qualifiers: [], rationale: 'Rule 11 E2E fixture', evidenceRefs: []
   }]));
   const rule11Levels = { ...Object.fromEntries(Array.from({ length: 22 }, (_, index) => [String(index + 9), 'basic'])), 25: 'comprehensive', 27: 'basic' };
 
@@ -163,9 +171,9 @@ test('Rule 11 warning remains visible and can be dispositioned before baselining
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.0.0',
-      metricDefinitionSet: 'se-tailoring-m1-m16-v2',
-      qualifierSchemaVersion: '1.0'
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
     },
     projectInfo: { name: 'Rule 11 Disposition Smoke' },
     metricScores: rule11Scores,
@@ -201,16 +209,16 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   scores.M2 = 5;
   scores.M4 = 5;
   const assessments = Object.fromEntries(Object.entries(scores).map(([metricId, score]) => [metricId, {
-    score, status: 'assessed', definitionVersion: 2, qualifiers: [], rationale: 'Rule 11 elevation fixture', evidenceRefs: []
+    score, status: 'assessed', definitionVersion: 3, qualifiers: [], rationale: 'Rule 11 elevation fixture', evidenceRefs: []
   }]));
 
   await importFixture(page, {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.0.0',
-      metricDefinitionSet: 'se-tailoring-m1-m16-v2',
-      qualifierSchemaVersion: '1.0'
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
     },
     projectInfo: { name: 'Rule 11 Elevation Smoke' },
     metricScores: scores,
@@ -247,11 +255,11 @@ for (const scenario of [
   test(`CSI ${scenario.csi} gates baseline until the ${scenario.responseLabel} is complete`, async ({ page }) => {
     const scores = { ...metricScores, M9: scenario.csi };
     const assessments = Object.fromEntries(Object.entries(scores).map(([metricId, score]) => [metricId, {
-      score, status: 'assessed', definitionVersion: 2, qualifiers: [], rationale: 'CSI E2E fixture', evidenceRefs: []
+      score, status: 'assessed', definitionVersion: 3, qualifiers: [], rationale: 'CSI E2E fixture', evidenceRefs: []
     }]));
     await importFixture(page, {
       _format: 'se-tailoring-config', _version: '2.0',
-      semantics: { frameworkVersion: '4.0.0', metricDefinitionSet: 'se-tailoring-m1-m16-v2', qualifierSchemaVersion: '1.0' },
+      semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
       projectInfo: { name: `CSI ${scenario.csi} Smoke` },
       metricScores: scores, metricAssessments: assessments, processLevels,
       artifactHandoffs: [acceptedRequirementsArchitectureHandoff()],
@@ -281,7 +289,7 @@ test('Requirements-to-Architecture handoff blocks baseline until accepted eviden
   await importFixture(page, {
     _format: 'se-tailoring-config',
     _version: '2.0',
-    semantics: { frameworkVersion: '4.0.0', metricDefinitionSet: 'se-tailoring-m1-m16-v2', qualifierSchemaVersion: '1.0' },
+    semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
     projectInfo: { name: 'Output Sufficiency Gate Smoke' },
     metricScores,
     metricAssessments,
@@ -329,10 +337,10 @@ test('metric UI distinguishes explicit Unknown, unanswered preview, and imported
   await expect(m1State).toHaveValue('unknown');
 
   const scores = { ...metricScores };
-  const assessments = { ...metricAssessments, M7: { score: null, status: 'not-applicable', definitionVersion: 2, qualifiers: [], rationale: 'Legacy N/A', evidenceRefs: [] } };
+  const assessments = { ...metricAssessments, M7: { score: null, status: 'not-applicable', definitionVersion: 3, qualifiers: [], rationale: 'Legacy N/A', evidenceRefs: [] } };
   await importFixture(page, {
     _format: 'se-tailoring-config', _version: '2.0',
-    semantics: { frameworkVersion: '4.0.0', metricDefinitionSet: 'se-tailoring-m1-m16-v2', qualifierSchemaVersion: '1.0' },
+    semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
     projectInfo: { name: 'Imported N-A Smoke' }, metricScores: scores, metricAssessments: assessments,
     processLevels, assessmentComplete: true
   }, 'imported-na.json');

@@ -324,6 +324,7 @@ export function propagateSafetyOverrides(parentScores, childScores, safetyAlloca
                 message: `Child M5=${childM5} < Parent M5=${parentM5}. A confirmed structured safety-allocation decision is required.${legacyNote}`,
                 requiredAction: 'Confirm non-allocation to the child, retained parent responsibility, authority, evidence, interface assumptions, rationale, and review date; otherwise inherit the parent M5 value.'
             });
+            blockedMetrics.push('M5');
             propagated = true;
         }
     }

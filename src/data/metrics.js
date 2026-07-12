@@ -1,11 +1,11 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _SEMANTIC_VERSION: 4.0.0 | _LAST_UPDATED: 2026-07-10
- * _SOURCE: 01-PAPER/03-Methodology.md, 02-PRACTICAL/Assessment-Worksheet.md
+ * _SEMANTIC_VERSION: 4.1.0 | _LAST_UPDATED: 2026-07-12
+ * _SOURCE: This registry is authoritative for normative semantic fields.
  * _SYNC_CONTRACT:
- *   - Canonical algorithm: 01-PAPER/03-Methodology.md §3.4
- *   - Canonical process/metric map: 01-PAPER/03-Methodology.md §3.3
- *   - Canonical overrides: 01-PAPER/06-Interdependencies.md §6.4
+ *   - 01-PAPER/03-Methodology.md explains the algorithm and map rationale.
+ *   - 01-PAPER/06-Interdependencies.md explains override and rule rationale.
+ *   - Prose and practitioner views must not alter registry semantics.
  * 
  * CURRENT LOGIC:
  *   - Removed weighted score calculations (no P=2/S=1 weighting)
@@ -22,11 +22,20 @@ export const DIMENSIONS = [
     { id: 'stakeholder', name: 'Stakeholder, Governance & Adoption Context', color: '#22d3ee', metrics: ['M13', 'M14', 'M15', 'M16'] }
 ];
 
-export const FRAMEWORK_SEMANTIC_VERSION = '4.0.0';
-export const METRIC_DEFINITION_SET_ID = 'se-tailoring-m1-m16-v2';
-export const QUALIFIER_SCHEMA_VERSION = '1.0';
+export const FRAMEWORK_SEMANTIC_VERSION = '4.1.0';
+export const METRIC_DEFINITION_SET_ID = 'se-tailoring-m1-m16-v3';
+export const METRIC_DEFINITION_VERSION = 3;
+export const QUALIFIER_SCHEMA_VERSION = '1.1';
 
 export const METRIC_QUALIFIER_DEFINITIONS = {
+    M3: [
+        { id: 'component-readiness', label: 'Component or technology readiness' },
+        { id: 'application-novelty', label: 'Novelty of intended application or use' },
+        { id: 'configuration-integration-novelty', label: 'Novelty of configuration or integration pattern' },
+        { id: 'environment-representativeness', label: 'Representativeness of demonstrated environment' },
+        { id: 'scale-up-realization-novelty', label: 'Scale-up, manufacturing, or realization novelty' },
+        { id: 'evidence-maturity', label: 'Maturity of supporting readiness evidence' }
+    ],
     M8: [
         { id: 'confidentiality', label: 'Confidentiality consequence' },
         { id: 'integrity', label: 'Integrity consequence' },
@@ -51,17 +60,32 @@ export const BINDING_ASSURANCE_QUALIFIERS = METRIC_QUALIFIER_DEFINITIONS.M15
     .filter(qualifier => qualifier.floorEligible)
     .map(qualifier => qualifier.id);
 
+export const METRIC_MIGRATION_HISTORY = [
+    {
+        fromDefinitionSet: 'se-tailoring-m1-m16-v1',
+        toDefinitionSet: 'se-tailoring-m1-m16-v2',
+        frameworkVersion: '4.0.0',
+        reassessmentMetrics: ['M6', 'M8', 'M15']
+    },
+    {
+        fromDefinitionSet: 'se-tailoring-m1-m16-v2',
+        toDefinitionSet: METRIC_DEFINITION_SET_ID,
+        frameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
+        reassessmentMetrics: ['M3']
+    }
+];
+
 export const METRIC_MIGRATION = {
-    fromDefinitionSet: 'se-tailoring-m1-m16-v1',
+    fromDefinitionSet: 'se-tailoring-m1-m16-v2',
     toDefinitionSet: METRIC_DEFINITION_SET_ID,
+    frameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
     metrics: {
-        M3: { classification: 'anchor-equivalent-rename', from: 'Technology Maturity', to: 'Technology Novelty / Uncertainty' },
-        M6: { classification: 'reassessment-required', from: 'Mission & Security Criticality', to: 'Mission / Operational Criticality' },
-        M8: { classification: 'not-comparable', from: 'Regulatory Compliance', to: 'Security Criticality / Consequence' },
-        M11: { classification: 'anchor-equivalent-rename', from: 'Team Experience', to: 'Team Capability Gap' },
-        M12: { classification: 'provisional-carry', from: 'Geographic Distribution', to: 'Distributed Delivery Complexity' },
-        M13: { classification: 'provisional-carry', from: 'Stakeholder Count', to: 'Stakeholder Complexity' },
-        M15: { classification: 'reassessment-required', from: 'Political Sensitivity', to: 'External Governance & Assurance Demand' }
+        M3: {
+            classification: 'reassessment-required',
+            from: 'Technology Novelty / Uncertainty (TRL-dominant prompts)',
+            to: 'Technology Novelty / Uncertainty (application/configuration-aware prompts)',
+            rationale: 'Mature components no longer imply low uncertainty when their application, configuration, environment, scale-up, or realization basis is novel.'
+        }
     }
 };
 
@@ -120,27 +144,28 @@ export const METRICS = [
     },
     {
         id: 'M3', name: 'Technology Novelty / Uncertainty', dimension: 'complexity',
-        anchors: { 1: 'Proven technologies', 3: 'Mix of mature and emerging', 5: 'Novel or unproven' },
+        anchors: { 1: 'Proven in the intended use and environment', 3: 'Mixed readiness or bounded application uncertainty', 5: 'Novel or materially unproven use' },
+        note: 'Judge uncertainty from both the technologies and their intended application, configuration, environment, scale, realization method, and supporting evidence. Structural integration burden remains M4.',
         guidedQuestions: [
             {
-                text: "Does the system rely on BLEEDING-EDGE technologies at TRL 1-4 (basic research to lab validation)?",
+                text: "Does the system rely on technologies, applications, configurations, environments, or realization methods with only early research or laboratory evidence?",
                 yesScore: 5,
                 rationale: 'Unproven technology with high technical risk'
             },
             {
-                text: "Does the system use EMERGING technologies at TRL 5-6 that have not been widely adopted in your industry?",
+                text: "Is there material readiness uncertainty because the technology or its intended application, configuration, operating environment, scale, or realization method has limited representative evidence?",
                 yesScore: 4,
                 rationale: 'Limited industry track record, requires validation'
             },
             {
-                text: "Is the system a MIX of mature technologies (TRL 7-8) with some recent but proven innovations?",
+                text: "Is readiness mixed, with representative evidence for most of the intended use but bounded uncertainty in one or more technology, application, configuration, environment, scale, or realization aspects?",
                 yesScore: 3,
                 rationale: 'Mostly proven with minor new elements'
             },
             {
-                text: "Are ALL core technologies fully mature (TRL 9) with extensive industry deployment, even if in a new configuration?",
+                text: "Are all core technologies mature and supported by representative evidence in a familiar application, configuration, operating environment, scale, and realization method?",
                 yesScore: 2,
-                rationale: 'Low technology risk'
+                rationale: 'Low residual novelty or readiness uncertainty in the intended use'
             }
         ]
     },
@@ -281,12 +306,12 @@ export const METRICS = [
         anchors: { 1: 'Flexible timeline', 3: 'Moderate constraints', 5: 'Aggressive, immovable deadlines' },
         guidedQuestions: [
             {
-                text: "Are there AGGRESSIVE, IMMOVABLE deadlines where ANY delay causes catastrophic project failure or massive financial penalties (>$500K/week)?",
+                text: "Is there an immovable external deadline with negligible usable margin and consequences that materially threaten the approved mission, service, authorization, or project case?",
                 yesScore: 5,
                 rationale: 'Extreme schedule pressure with zero tolerance for delay'
             },
             {
-                text: "Is the schedule VERY TIGHT requiring frequent concurrent engineering, significant planned overtime, and critical path compression?",
+                text: "Is the schedule highly constrained, with substantial critical-path compression, concurrency, or limited recovery margin requiring active feasibility intervention?",
                 yesScore: 4,
                 rationale: 'High schedule pressure requiring aggressive management'
             },
@@ -317,12 +342,12 @@ export const METRICS = [
                 rationale: 'High budget pressure requiring active cost management'
             },
             {
-                text: "Is the budget CAREFULLY MANAGED with standard management reserves (10-15%) and contingencies in place?",
+                text: "Does the approved budget require active management but retain a documented, proportionate contingency and workable change authority for the current estimate maturity?",
                 yesScore: 3,
                 rationale: 'Standard budget management'
             },
             {
-                text: "Are funds ADEQUATELY PROVISIONED with comfortable margins for error (>20% contingency)?",
+                text: "Are funds adequately provisioned relative to estimate uncertainty, with usable contingency and flexibility to address credible changes?",
                 yesScore: 2,
                 rationale: 'Low budget pressure'
             }
@@ -356,27 +381,27 @@ export const METRICS = [
     },
     {
         id: 'M12', name: 'Distributed Delivery Complexity', dimension: 'constraints',
-        anchors: { 1: 'Coordinated delivery context', 3: 'Distributed with manageable handoffs', 5: 'Multi-organization, multi-site, or time-zone fragmentation' },
+        anchors: { 1: 'Coordinated delivery context', 3: 'Distributed with manageable handoffs', 5: 'Fragmented delivery topology and authority' },
         guidedQuestions: [
             {
-                text: "Is the team GLOBALLY DISTRIBUTED across MULTIPLE incompatible time zones (>8 hour spread) with significant language/cultural barriers?",
+                text: "Is delivery fragmented across multiple organizations, contracts, sites, tool or data boundaries, and limited working-hour overlap, with unclear or contested integration and decision authority?",
                 yesScore: 5,
-                rationale: 'Extreme distribution with major coordination challenges'
+                rationale: 'Severe delivery-topology fragmentation with major coordination and authority burden'
             },
             {
-                text: "Are KEY development, testing, and management teams located in DISTINCTLY DIFFERENT geographical regions making real-time coordination difficult?",
+                text: "Do material organizational, contractual, site, tool, data, or time-overlap boundaries require formal handoffs and coordinated decision authority?",
                 yesScore: 4,
                 rationale: 'High distribution requiring formal coordination'
             },
             {
-                text: "Is the team PARTIALLY DISTRIBUTED, perhaps across a few regional offices or a hybrid remote model within compatible time zones?",
+                text: "Is delivery distributed across a manageable number of boundaries with defined responsibilities, compatible tools, and workable coordination windows?",
                 yesScore: 3,
                 rationale: 'Moderate distribution with some coordination needs'
             },
             {
-                text: "Is the team MOSTLY CO-LOCATED with only occasional remote contributors or single time-zone distribution?",
+                text: "Is delivery coordinated through clear responsibilities, compatible information and tool access, and routine handoffs, regardless of physical location?",
                 yesScore: 2,
-                rationale: 'Low distribution – easy coordination'
+                rationale: 'Low delivery-topology burden with effective coordination'
             }
         ]
     },
@@ -411,7 +436,7 @@ export const METRICS = [
         anchors: { 1: 'Stable, understood', 3: 'Moderate change expected', 5: 'High volatility, evolving needs' },
         guidedQuestions: [
             {
-                text: "Are requirements expected to CHANGE CONSTANTLY due to extreme uncertainty, shifting market forces, or political whims throughout development?",
+                text: "Are requirements expected to change continually in rate, magnitude, or direction because key needs, constraints, or external conditions remain highly uncertain?",
                 yesScore: 5,
                 rationale: 'Extreme volatility – requirements unstable throughout lifecycle'
             },
@@ -421,9 +446,9 @@ export const METRICS = [
                 rationale: 'High volatility with late-stage changes expected'
             },
             {
-                text: "Are there MODERATE EXPECTED CHANGES requiring a formal change control board and baseline management?",
+                text: "Are moderate changes expected in a bounded set of requirements, with their likely sources, timing, and effects reasonably understood?",
                 yesScore: 3,
-                rationale: 'Standard volatility with formal change control'
+                rationale: 'Moderate, bounded requirements change expected'
             },
             {
                 text: "Are requirements MOSTLY STABLE with only minor, well-understood refinements anticipated?",
@@ -461,28 +486,28 @@ export const METRICS = [
     },
     {
         id: 'M16', name: 'Organizational Culture', dimension: 'stakeholder',
-        anchors: { 1: 'Resistant (SE = overhead)', 3: 'Tolerant (show value)', 5: 'Supportive (actively invests)' },
-        note: 'Shapes adoption strategy only; does not directly raise or lower process-level rigor.',
+        anchors: { 1: 'Limited conditions for adoption and challenge', 3: 'Mixed or locally dependent conditions', 5: 'Strong conditions for adoption and constructive challenge' },
+        note: 'Higher M16 indicates stronger organizational conditions for SE adoption and constructive challenge. It shapes adoption strategy only and does not directly raise or lower process-level rigor.',
         guidedQuestions: [
             {
-                text: "Does the EXECUTIVE TEAM MANDATE and ACTIVELY INVEST HEAVILY in rigorous SE practices across the organization with dedicated funding and headcount?",
+                text: "Does the organization provide sustained leadership support, decision authority, resources, learning mechanisms, and safe constructive challenge for proportionate SE practice?",
                 yesScore: 5,
-                rationale: 'Strong SE culture with executive sponsorship'
+                rationale: 'Strong organizational conditions for adoption and constructive challenge'
             },
             {
-                text: "Is there FORMAL, DOCUMENTED SUPPORT for SE, though implementation might sometimes be inconsistent across projects?",
+                text: "Are formal support, authority, resources, and learning mechanisms present for SE, though application remains inconsistent across parts of the organization?",
                 yesScore: 4,
                 rationale: 'Formal SE support with variable implementation'
             },
             {
-                text: "Is the organization TOLERANT of SE but REQUIRES PRACTITIONERS TO CONSTANTLY PROVE ITS VALUE on each project?",
+                text: "Do conditions for SE adoption depend mainly on local sponsors or repeated case-by-case justification, with uneven authority or learning support?",
                 yesScore: 3,
-                rationale: 'Tolerant but skeptical – value must be demonstrated'
+                rationale: 'Mixed, locally dependent adoption conditions'
             },
             {
-                text: "Is there ACTIVE SKEPTICISM toward Systems Engineering, generally viewing it mostly as DOCUMENTATION OVERHEAD with no tangible value?",
+                text: "Are there material barriers to proportionate SE practice, such as weak decision support, limited authority or resources, incentives for ritual compliance, or low tolerance for constructive challenge?",
                 yesScore: 2,
-                rationale: 'Resistant culture – SE seen as bureaucracy'
+                rationale: 'Limited organizational conditions for effective adoption'
             }
         ]
     }
@@ -495,7 +520,7 @@ export const METRICS = [
 // The trigger tier uses all applicable metrics (P+S); a Comprehensive result
 // still requires corroboration before it becomes the default recommendation.
 // Source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
-// Semantic v4.0 note: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
+// Semantic v4.1 note: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
 // from process-level driving. High constraint scores mean "less budget/time available"
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
 // Index) which governs right-sizing review and priority-based reduction instead.
