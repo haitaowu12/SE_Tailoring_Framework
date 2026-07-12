@@ -13,13 +13,19 @@ import {
   applyOverrides,
   computePSI,
   computeCSI,
+  deriveCSIResponseRequirement,
   computeCRI,
   applyRightSizing,
-  checkConsistency
+  checkConsistency,
+  applyMandatoryClosure,
+  previewDirectConsequences
 } from '../src/utils/assessment-engine.js';
-import { CONSISTENCY_RULES, PROPAGATION_RULES, METRIC_PROCESS_MAP } from '../src/data/se-tailoring-data.js';
+import { CONSISTENCY_RULES, PROPAGATION_RULES, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CONSISTENCY_RULE_MIGRATION, PROPAGATION_RULE_MIGRATION, METRIC_PROCESS_MAP } from '../src/data/se-tailoring-data.js';
 import { buildExportConfig, validateConfig, normalizeImportedConfig } from '../src/utils/export-import.js';
 import { getReportReadiness } from '../src/views/report.js';
+import { PUBLICATION_CASES, PUBLICATION_CASE_FIXTURE_VERSION } from './fixtures/publication-cases.mjs';
+import { CRITICALITY_DERIVATION_SCENARIOS } from './fixtures/criticality-derivation-scenarios.mjs';
+import { createRequirementsArchitectureHandoff } from '../src/data/artifact-relationships.js';
 
 const METRIC_IDS = [
   'M1', 'M2', 'M3', 'M4',
@@ -30,6 +36,30 @@ const METRIC_IDS = [
 
 function makeScores(defaultValue = 1) {
   return Object.fromEntries(METRIC_IDS.map(id => [id, defaultValue]));
+}
+
+function acceptedHandoff(elementId = 'default') {
+  return {
+    ...createRequirementsArchitectureHandoff(elementId),
+    requiredContent: 'Baselined requirements and traceability.',
+    acceptanceCriteria: 'Complete, consistent, feasible, traceable, and approved.',
+    evidenceStatus: 'accepted',
+    evidenceRefs: 'REQ-TEST-1',
+    acceptanceAuthority: 'Chief Engineer',
+    reviewDate: '2099-12-31'
+  };
+}
+
+function makeMetricAssessments(scores, overrides = {}) {
+  return Object.fromEntries(METRIC_IDS.map(id => [id, {
+    score: scores[id],
+    status: 'assessed',
+    definitionVersion: 2,
+    qualifiers: [],
+    rationale: 'Explicit test judgment',
+    evidenceRefs: [],
+    ...(overrides[id] || {})
+  }]));
 }
 
 function makeCoreLevels(defaultLevel = 'basic') {
@@ -53,7 +83,18 @@ test('single uncorroborated high metric caps default recommendation at Standard'
 
   assert.equal(detail.level, 'standard', 'Thin Comprehensive trigger should default to Standard');
   assert.equal(detail.triggerScore, 5);
+  assert.equal(detail.triggerLevel, 'comprehensive', 'Trigger tier must remain visible after the default recommendation is capped');
   assert.equal(detail.confidence, 'available-with-justification');
+  assert.equal(runFullAssessment(scores).confidence[23], 'available-with-justification', 'Final reporting must preserve the governed Comprehensive option');
+});
+
+test(`legacy publication case fixtures remain frozen migration evidence (${PUBLICATION_CASE_FIXTURE_VERSION})`, () => {
+  for (const [caseId, fixture] of Object.entries(PUBLICATION_CASES)) {
+    assert.equal(fixture.definitionSet, 'se-tailoring-m1-m16-v1', `${caseId} must remain tagged with legacy definitions`);
+    assert.equal(fixture.migrationStatus, 'reassessment-required');
+    assert.equal(Object.keys(fixture.scores).length, 16);
+    assert.equal(Object.values(fixture.expected).flat().length, 22);
+  }
 });
 
 test('primary Comprehensive plus secondary Standard corroborates Comprehensive', () => {
@@ -99,10 +140,12 @@ test('process-specific safety overrides apply M5=4 floors', () => {
 
   for (const pid of [12, 16, 19, 20, 25, 27]) {
     assert.equal(result.levels[pid], 'standard', `Process ${pid} should be Standard for M5=4`);
+    const floor = result.activeFloors.find(active => active.processId === pid && active.overrideId === `safety_critical_${({ 12: 'risk', 16: 'qa', 19: 'requirements', 20: 'architecture', 25: 'verification', 27: 'validation' })[pid]}`);
+    assert.equal(floor?.status, 'elevated', `Process ${pid} should expose the active safety floor provenance`);
   }
 });
 
-test('SA floor integration makes M5=5 safety processes Comprehensive', () => {
+test('M5=5 safety processes derive Comprehensive without duplicate floor events', () => {
   const scores = makeScores(1);
   scores.M5 = 5;
 
@@ -113,7 +156,83 @@ test('SA floor integration makes M5=5 safety processes Comprehensive', () => {
 
   for (const pid of [12, 16, 19, 20, 25, 27]) {
     assert.equal(result.levels[pid], 'comprehensive', `Safety process P${pid} should be Comprehensive for M5=5`);
-    assert.equal(result.confidence[pid], 'floor-applied', `Process ${pid} should show floor-applied evidence status`);
+    assert.equal(result.confidence[pid], 'corroborated', `Process ${pid} should preserve metric-derived evidence status`);
+    assert.equal(result.overrides.filter(override => override.processId === pid).length, 0, `Process ${pid} should not record a non-causal duplicate floor event`);
+    assert.ok(
+      result.activeFloors.some(floor => floor.processId === pid && floor.minLevel === 'comprehensive' && floor.status === 'satisfied'),
+      `Process ${pid} should still expose its already-satisfied Comprehensive floor`
+    );
+  }
+});
+
+test('M5/M7 score-5 direct derivation remains distinct from named floor families', () => {
+  for (const scenario of CRITICALITY_DERIVATION_SCENARIOS) {
+    const scores = makeScores(1);
+    scores[scenario.metricId] = scenario.triggerScore;
+
+    const mappedProcesses = Object.entries(METRIC_PROCESS_MAP)
+      .filter(([, metricMap]) => metricMap[scenario.metricId] === 'P' || metricMap[scenario.metricId] === 'S')
+      .map(([processId]) => Number(processId))
+      .sort((a, b) => a - b);
+    assert.deepEqual(mappedProcesses, scenario.directComprehensiveProcesses, `${scenario.id}: fixture must track the canonical mapping`);
+
+    const directlyComprehensive = mappedProcesses.filter(processId =>
+      calculateProcessDerivation(processId, scores).level === 'comprehensive'
+    );
+    assert.deepEqual(directlyComprehensive, scenario.directComprehensiveProcesses, `${scenario.id}: every mapped process must retain direct score-5 derivation`);
+
+    const floorResult = applyOverrides(makeCoreLevels('basic'), scores, {});
+    const namedFloors = floorResult.activeFloors
+      .filter(floor => floor.triggerMetric === scenario.metricId)
+      .map(floor => floor.processId)
+      .sort((a, b) => a - b);
+    assert.deepEqual(namedFloors, scenario.namedFloorProcesses, `${scenario.id}: named floor family must remain independently scoped`);
+    assert.ok(
+      floorResult.activeFloors
+        .filter(floor => floor.triggerMetric === scenario.metricId)
+        .every(floor => floor.minLevel === scenario.namedFloorLevel),
+      `${scenario.id}: named floor level must remain unchanged`
+    );
+    assert.ok(scenario.studyQuestions.length >= 2, `${scenario.id}: future validation hook must retain supportive and counterexample questions`);
+  }
+});
+
+test('M5/M7 criticality exception activates only at the score-5 boundary', () => {
+  for (const scenario of CRITICALITY_DERIVATION_SCENARIOS) {
+    const boundaryScores = makeScores(1);
+    boundaryScores[scenario.metricId] = scenario.boundaryScore;
+    const triggerScores = makeScores(1);
+    triggerScores[scenario.metricId] = scenario.triggerScore;
+
+    for (const processId of scenario.directComprehensiveProcesses) {
+      assert.notEqual(calculateProcessDerivation(processId, boundaryScores).level, 'comprehensive', `${scenario.id}: score 4 must not use the independently-sufficient exception`);
+      const triggered = calculateProcessDerivation(processId, triggerScores);
+      assert.equal(triggered.level, 'comprehensive', `${scenario.id}: score 5 must retain the independently-sufficient exception`);
+      assert.equal(triggered.confidence, 'corroborated', `${scenario.id}: current evidence-status contract must remain stable`);
+    }
+  }
+});
+
+test('M7 reports direct Comprehensive derivation and floor-only Standard elevations separately', () => {
+  const scores = makeScores(1);
+  scores.M7 = 5;
+  const result = runFullAssessment(scores);
+
+  for (const processId of [28, 29, 30]) {
+    assert.equal(result.derived[processId], 'comprehensive', `P${processId} must remain directly derived from mapped M7`);
+    assert.equal(result.confidence[processId], 'corroborated', `P${processId} must retain metric-derived evidence status`);
+    assert.ok(result.activeFloors.some(floor =>
+      floor.processId === processId && floor.triggerMetric === 'M7' && floor.status === 'satisfied'
+    ), `P${processId} must report the separate environmental floor as already satisfied`);
+    assert.ok(!result.overrides.some(override => override.processId === processId && override.triggerMetric === 'M7'), `P${processId} must not report a non-causal floor elevation`);
+  }
+
+  for (const processId of [13, 14, 21]) {
+    assert.equal(result.derived[processId], 'basic', `P${processId} is floor-only and must not manufacture an M7 mapping`);
+    assert.equal(result.levels[processId], 'standard', `P${processId} must retain its named environmental Standard floor`);
+    assert.ok(result.overrides.some(override =>
+      override.processId === processId && override.triggerMetric === 'M7' && override.status === 'elevated'
+    ), `P${processId} must report a causal floor elevation`);
   }
 });
 
@@ -145,24 +264,41 @@ test('metric-corroborated Comprehensive keeps corroborated evidence status', () 
   assert.equal(result.confidence[23], 'corroborated');
 });
 
-test('consistency baseline matches canonical rule catalog and Rule 12 HC fix elevates planning conservatively', () => {
+test('active consistency baseline retires duplicate/vacuous identifiers and Rule 12 elevates planning conservatively', () => {
   const scores = makeScores(1);
   scores.M5 = 5;
 
   const result = runFullAssessment(scores);
 
-  assert.equal(CONSISTENCY_RULES.length, 21);
-  assert.ok(result.fixes.some(f => f.processId === 9 && f.to === 'standard' && f.ruleId === '8a'));
+  assert.equal(CONSISTENCY_RULES.length, 21, 'legacy catalog remains importable');
+  assert.equal(ACTIVE_CONSISTENCY_RULES.length, 17);
+  assert.ok(CONSISTENCY_RULE_MIGRATION.some(entry => entry.legacyId === '8a' && entry.replacementId === 12));
+  assert.ok(CONSISTENCY_RULE_MIGRATION.some(entry => entry.legacyId === 13 && entry.disposition === 'retired-non-monotone'));
+  assert.ok(result.fixes.some(f => f.processId === 9 && f.to === 'standard' && f.ruleId === 12));
   assert.ok(['standard', 'comprehensive'].includes(result.levels[9]));
   assert.equal(result.violations.filter(v => v.type === 'HC').length, 0);
 });
 
-test('canonical propagation catalog contains P1..P21 including split rules', () => {
+test('active consistency rules contain no duplicate semantics or vacuous Basic floors', () => {
+  const signatures = ACTIVE_CONSISTENCY_RULES.map(rule => JSON.stringify({
+    trigger: rule.trigger,
+    required: rule.required
+  }));
+  assert.equal(new Set(signatures).size, signatures.length);
+  assert.ok(ACTIVE_CONSISTENCY_RULES.every(rule => rule.required.level !== 'basic'));
+  assert.ok(ACTIVE_CONSISTENCY_RULES.every(rule => rule.provenance?.evidenceMaturity === 'design-rationale'));
+  assert.ok(ACTIVE_CONSISTENCY_RULES.every(rule => rule.provenance?.expertReviewStatus === 'pending-structured-review'));
+});
+
+test('active direct-consequence catalog excludes retired duplicate/vacuous mappings', () => {
   assert.equal(PROPAGATION_RULES.length, 22);
+  assert.equal(ACTIVE_PROPAGATION_RULES.length, 18);
   assert.ok(PROPAGATION_RULES.some(r => r.id === 'P1'));
-  assert.ok(PROPAGATION_RULES.some(r => r.id === 'P8a'));
+  assert.ok(!ACTIVE_PROPAGATION_RULES.some(r => r.id === 'P8a'));
+  assert.ok(!ACTIVE_PROPAGATION_RULES.some(r => r.id === 'P14'));
   assert.ok(PROPAGATION_RULES.some(r => r.id === 'P8b'));
   assert.ok(PROPAGATION_RULES.some(r => r.id === 'P21'));
+  assert.ok(PROPAGATION_RULE_MIGRATION.some(entry => entry.legacyId === 'P14' && entry.disposition === 'retired-non-monotone'));
 });
 
 test('process-metric mappings match canonical paper matrix with M9/M10 direct inflation removed', () => {
@@ -182,12 +318,12 @@ test('process-metric mappings match canonical paper matrix with M9/M10 direct in
   assert.equal(d10.M9, undefined, 'M9 should NOT drive Assessment & Control');
   assert.equal(d10.M10, undefined, 'M10 should NOT drive Assessment & Control');
 
-  // Decision Management (11): M1, M3, M6 (P), M13, M15 (P); M8, M12 (S)
+  // Decision Management (11): mission and general governance remain direct; security is not an unconditional driver
   const d11 = Object.fromEntries(getDriverAttribution(11, scores).map(d => [d.metric, d.role]));
   assert.equal(d11.M5, undefined);
   assert.equal(d11.M13, 'P', 'M13 should be Primary for Decision Management');
   assert.equal(d11.M15, 'P', 'M15 should be Primary for Decision Management');
-  assert.equal(d11.M8, 'S', 'M8 should be Secondary for Decision Management');
+  assert.equal(d11.M8, undefined, 'M8 security is not an unconditional Decision Management driver');
 
   // Risk Management (12): M5, M6, M8 (P); M1, M2 (S) — M9 removed
   const d12 = Object.fromEntries(getDriverAttribution(12, scores).map(d => [d.metric, d.role]));
@@ -203,17 +339,17 @@ test('process-metric mappings match canonical paper matrix with M9/M10 direct in
   assert.equal(d14.M15, undefined);
 
   const d16 = Object.fromEntries(getDriverAttribution(16, scores).map(d => [d.metric, d.role]));
-  assert.equal(d16.M6, 'P', 'M6 should be Primary for Quality Assurance');
+  assert.equal(d16.M6, undefined, 'Mission criticality no longer unconditionally drives Quality Assurance');
   assert.equal(d16.M3, 'S', 'M3 should be Secondary for Quality Assurance');
 
   const d18 = Object.fromEntries(getDriverAttribution(18, scores).map(d => [d.metric, d.role]));
   assert.equal(d18.M15, 'P', 'M15 should be Primary for Stakeholder Needs');
   assert.equal(d18.M5, 'S', 'M5 should be Secondary for Stakeholder Needs');
 
-  // Measurement (15): M6, M8 (P); M14 (S) — M9/M10/M15 removed
+  // Measurement (15): mission consequence remains direct; security is not an unconditional driver
   const d15 = Object.fromEntries(getDriverAttribution(15, scores).map(d => [d.metric, d.role]));
   assert.equal(d15.M6, 'P', 'M6 should be Primary for Measurement');
-  assert.equal(d15.M8, 'P', 'M8 should be Primary for Measurement');
+  assert.equal(d15.M8, undefined, 'M8 security should not unconditionally drive Measurement');
   assert.equal(d15.M9, undefined, 'M9 should NOT drive Measurement');
   assert.equal(d15.M10, undefined, 'M10 should NOT drive Measurement');
 
@@ -226,6 +362,9 @@ test('process-metric mappings match canonical paper matrix with M9/M10 direct in
 
   const d21 = Object.fromEntries(getDriverAttribution(21, scores).map(d => [d.metric, d.role]));
   assert.equal(d21.M2, 'P', 'M2 should be Primary for Design');
+
+  const d22 = Object.fromEntries(getDriverAttribution(22, scores).map(d => [d.metric, d.role]));
+  assert.equal(d22.M6, 'P', 'M6 should be Primary for System Analysis in paper, practical matrix, and app');
 
   // Implementation (23): M1, M4, M11 (P); M2 (S) — M9/M10 removed
   const d23 = Object.fromEntries(getDriverAttribution(23, scores).map(d => [d.metric, d.role]));
@@ -311,17 +450,30 @@ test('config validation rejects unknown metrics, unknown processes, and malforme
 });
 
 test('export config preserves report-critical assessment state for round trip', () => {
+  const scores = makeScores(3);
   const config = buildExportConfig({
     projectInfo: { name: 'Stakeholder demo' },
-    scores: { M1: 3 },
+    scores,
+    metricAssessments: makeMetricAssessments(scores),
     saResponses: { safetyCaseRequired: true },
     levels: { 9: 'basic' },
     derived: { 9: 'standard' },
     derivationDetails: { 9: { triggerMetrics: ['M1'] } },
     overrides: [{ processId: 9, from: 'basic', to: 'standard', reason: 'demo floor' }],
-    violations: [{ ruleId: 16, affectedProcess: 15, currentLevel: 'basic', requiredLevel: 'standard' }],
+    violations: [{ ruleId: 16, type: 'WN', affectedProcess: 15, currentLevel: 'basic', requiredLevel: 'standard' }],
+    ruleDispositions: {
+      16: {
+        ruleId: 16,
+        outcome: 'accept-current',
+        rationale: 'Measurement support is provided through the parent programme controls.',
+        ownerApprover: 'Chief Engineer',
+        evidenceRef: 'MEAS-DEC-16',
+        reviewDate: '2099-12-31'
+      }
+    },
     fixes: [{ processId: 15, from: 'basic', to: 'standard' }],
     rightSizingActions: [{ processId: 9, from: 'comprehensive', to: 'standard' }],
+    budgetStatus: { withinBudget: false, comprehensiveExcess: 1, standardExcess: 0 },
     adoptionRisks: [{ processId: 25, level: 'comprehensive', severity: 'high' }],
     manualAdjustments: {},
     tradeoffs: [],
@@ -331,16 +483,20 @@ test('export config preserves report-critical assessment state for round trip', 
     saTier: { tier: 'II', floor: 'standard' },
     indices: { psi: 3, csi: 4, cri: 2 },
     confidence: { 9: 'floor-applied' },
+    artifactHandoffs: [acceptedHandoff()],
     assessmentComplete: true,
     deliverablesChecked: ['9-basic-0'],
     notes: 'demo'
   });
 
-  assert.equal(config._version, '1.1');
+  assert.equal(config._version, '2.0');
+  assert.equal(config.semantics.frameworkVersion, '4.0.0');
+  assert.equal(config.semantics.metricDefinitionSet, 'se-tailoring-m1-m16-v2');
   assert.equal(config.saResponses.safetyCaseRequired, true);
   assert.equal(config.violations.length, 1);
   assert.equal(config.fixes.length, 1);
   assert.equal(config.rightSizingActions.length, 1);
+  assert.equal(config.budgetStatus.withinBudget, false);
   assert.equal(config.adoptionRisks.length, 1);
   assert.equal(config.saTier.tier, 'II');
   assert.equal(config.indices.csi, 4);
@@ -348,9 +504,12 @@ test('export config preserves report-critical assessment state for round trip', 
   assert.deepEqual(config.deliverablesChecked, ['9-basic-0']);
   assert.equal(config.assessmentComplete, true);
   assert.equal(validateConfig(config).valid, true);
+
+  const normalized = normalizeImportedConfig(config);
+  assert.equal(normalized.budgetStatus.withinBudget, false);
 });
 
-test('legacy imports hydrate the default element so complete reports stay reviewable', () => {
+test('legacy imports preserve results but require semantic reassessment before review', () => {
   const config = {
     _format: 'se-tailoring-config',
     projectInfo: { name: 'Legacy import' },
@@ -363,9 +522,37 @@ test('legacy imports hydrate the default element so complete reports stay review
   const state = normalizeImportedConfig(config);
 
   assert.equal(state.assessmentTree.nodes.default.assessmentResult.levels[9], 'standard');
-  assert.equal(state.assessmentTree.nodes.default.status, 'under_review');
-  assert.deepEqual(state.assessmentTree.nodes.default.scores, config.metricScores);
-  assert.equal(getReportReadiness(state), 'Ready for review');
+  assert.equal(state.assessmentComplete, false);
+  assert.equal(state.semanticMigration.status, 'review-required');
+  assert.equal(state.semanticMigration.preservedLegacyResult.processLevels[9], 'standard');
+  assert.equal(state.scores.M6, undefined);
+  assert.equal(state.scores.M8, undefined);
+  assert.equal(state.scores.M15, undefined);
+  assert.equal(state.metricAssessments.M8.status, 'migration-required');
+  assert.equal(getReportReadiness(state), 'Draft / incomplete');
+});
+
+test('schema 2.0 round-trips security qualifiers and scoped assurance obligations', () => {
+  const scores = makeScores(3);
+  scores.M8 = 4;
+  scores.M15 = 4;
+  const sourceState = {
+    projectInfo: { name: 'Semantic v4' },
+    scores,
+    metricAssessments: makeMetricAssessments(scores, {
+      M8: { score: 4, status: 'assessed', definitionVersion: 2, qualifiers: ['integrity', 'availability'], evidenceRefs: ['SEC-1'] },
+      M15: { score: 4, status: 'assessed', definitionVersion: 2, qualifiers: ['regulatory-mandate'], evidenceRefs: ['AO-1'] }
+    }),
+    assuranceObligations: [{ id: 'AO-1', type: 'regulatory-mandate', bindingStatus: 'confirmed', authority: 'Rail regulator', sourceRef: 'entry-to-service approval', processScope: [13, 14, 16, 25] }],
+    levels: makeCoreLevels('standard'),
+    assessmentComplete: true
+  };
+  const config = buildExportConfig(sourceState);
+  assert.equal(validateConfig(config).valid, true);
+  const normalized = normalizeImportedConfig(config);
+  assert.deepEqual(normalized.metricAssessments.M8.qualifiers, ['integrity', 'availability']);
+  assert.equal(normalized.assuranceObligations[0].sourceRef, 'entry-to-service approval');
+  assert.equal(normalized.semanticMigration, null);
 });
 
 test('legacy top-level manual adjustments migrate into the default element and final levels', () => {
@@ -484,11 +671,23 @@ test('config validation rejects import payloads that could poison rendered class
 });
 
 test('report readiness requires adoption gaps and weak evidence statuses to be reviewed', () => {
-  assert.equal(getReportReadiness({
+  const completeScores = makeScores(3);
+  const completeAssessment = {
     assessmentComplete: true,
+    scores: completeScores,
+    metricAssessments: makeMetricAssessments(completeScores),
+    artifactHandoffs: [acceptedHandoff()]
+  };
+  const completeNode = {
+    assessmentResult: { violations: [] },
+    scores: completeScores,
+    metricAssessments: makeMetricAssessments(completeScores)
+  };
+  assert.equal(getReportReadiness({
+    ...completeAssessment,
     assessmentTree: {
       nodes: {
-        default: { assessmentResult: {} }
+        default: completeNode
       }
     },
     violations: [],
@@ -497,10 +696,10 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
   }), 'Ready for review');
 
   assert.equal(getReportReadiness({
-    assessmentComplete: true,
+    ...completeAssessment,
     assessmentTree: {
       nodes: {
-        default: { assessmentResult: {} },
+        default: completeNode,
         child: { assessmentResult: null }
       }
     },
@@ -510,10 +709,10 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
   }), 'Draft / incomplete');
 
   assert.equal(getReportReadiness({
-    assessmentComplete: true,
+    ...completeAssessment,
     assessmentTree: {
       nodes: {
-        default: { assessmentResult: {} }
+        default: completeNode
       }
     },
     violations: [],
@@ -522,10 +721,10 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
   }), 'Review required');
 
   assert.equal(getReportReadiness({
-    assessmentComplete: true,
+    ...completeAssessment,
     assessmentTree: {
       nodes: {
-        default: { assessmentResult: {} }
+        default: completeNode
       }
     },
     violations: [],
@@ -534,11 +733,27 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
   }), 'Review required');
 });
 
-test('override baseline includes paper O14/O16/O18/O21/O23-O26 floors', () => {
+test('override baseline separates security and source-backed binding assurance floors', () => {
   const levels = makeCoreLevels('basic');
 
   const m8Result = applyOverrides(levels, { ...makeScores(1), M8: 4 }, {});
-  assert.equal(m8Result.levels[16], 'standard', 'M8>=4 should floor QA to Standard');
+  for (const pid of [12, 13, 14, 20, 25]) {
+    assert.equal(m8Result.levels[pid], 'standard', `M8>=4 should floor security-relevant process ${pid}`);
+  }
+  assert.equal(m8Result.levels[16], 'basic', 'M8 security must not activate the binding-assurance QA floor');
+  const m8Extreme = applyOverrides(levels, { ...makeScores(1), M8: 5 }, {});
+  assert.equal(m8Extreme.levels[25], 'standard', 'M8=5 alone must not manufacture a Comprehensive life-safety floor');
+
+  const politicalOnly = applyOverrides(levels, { ...makeScores(1), M15: 5 }, {
+    assuranceObligations: [{ id: 'VIS-1', type: 'political-visibility', bindingStatus: 'confirmed', authority: 'Public', sourceRef: 'media', processScope: [13, 14, 16, 25] }]
+  });
+  assert.equal(politicalOnly.levels[16], 'basic', 'Political visibility must never trigger assurance floors');
+
+  const binding = applyOverrides(levels, { ...makeScores(1), M15: 4 }, {
+    assuranceObligations: [{ id: 'AO-1', type: 'regulatory-mandate', bindingStatus: 'confirmed', authority: 'Rail regulator', sourceRef: 'approval instrument', processScope: [13, 14, 16, 25] }]
+  });
+  for (const pid of [13, 14, 16, 25]) assert.equal(binding.levels[pid], 'standard');
+  assert.ok(binding.overrides.every(override => override.obligationId === 'AO-1'));
 
   const m3Result = applyOverrides(levels, { ...makeScores(1), M3: 4 }, {});
   assert.equal(m3Result.levels[11], 'standard', 'M3>=4 should floor Decision Management to Standard');
@@ -565,6 +780,154 @@ test('Rules 16 and 17 become hard constraints in critical evidence contexts', ()
   assert.equal(hardConstraints.find(v => v.ruleId === 17)?.type, 'HC');
 });
 
+test('M15 escalates Rules 16 and 17 only for the obligation-scoped support process', () => {
+  const levels = makeCoreLevels('basic');
+  levels[20] = 'comprehensive';
+  const scores = { ...makeScores(1), M15: 4 };
+  const obligation = processScope => ({
+    assuranceObligations: [{
+      id: 'AO-1', type: 'regulatory-mandate', bindingStatus: 'confirmed',
+      authority: 'Acceptance authority', sourceRef: 'approval instrument', processScope
+    }]
+  });
+
+  const unrelated = checkConsistency(levels, scores, obligation([13]));
+  assert.equal(unrelated.find(v => v.ruleId === 16)?.type, 'WN');
+  assert.equal(unrelated.find(v => v.ruleId === 17)?.type, 'WN');
+
+  const measurementScoped = checkConsistency(levels, scores, obligation([15]));
+  assert.equal(measurementScoped.find(v => v.ruleId === 16)?.type, 'HC');
+  assert.equal(measurementScoped.find(v => v.ruleId === 17)?.type, 'WN');
+
+  const qaScoped = checkConsistency(levels, scores, obligation([16]));
+  assert.equal(qaScoped.find(v => v.ruleId === 16)?.type, 'WN');
+  assert.equal(qaScoped.find(v => v.ruleId === 17)?.type, 'HC');
+});
+
+test('Rule 11 remains an advisory Verification-to-Validation review for the M2/M4 counterexample', () => {
+  const scores = makeScores(1);
+  scores.M2 = 5;
+  scores.M4 = 5;
+
+  const result = runFullAssessment(scores);
+  assert.equal(result.derived[25], 'comprehensive', 'Corroborated M2/M4 should derive Comprehensive Verification');
+  assert.equal(result.levels[25], 'comprehensive');
+  assert.equal(result.derived[27], 'basic', 'No Validation driver is present in this counterexample');
+  assert.equal(result.levels[27], 'basic', 'Advisory Rule 11 must not auto-elevate Validation');
+  assert.ok(!result.fixes.some(fix => fix.ruleId === 11), 'Mandatory closure must not apply a Rule 11 fix');
+
+  const warning = result.violations.find(violation => violation.ruleId === 11);
+  assert.equal(warning?.type, 'WN');
+  assert.equal(warning?.severity, 'warning');
+  assert.equal(warning?.affectedProcess, 27);
+  assert.equal(warning?.requiredLevel, 'standard');
+
+  const previewLevels = makeCoreLevels('basic');
+  const preview = previewDirectConsequences(25, 'comprehensive', previewLevels, scores);
+  const rule11Preview = preview.find(change => change.ruleId === 11);
+  assert.equal(rule11Preview?.type, 'recommended');
+  assert.equal(rule11Preview?.processId, 27);
+  assert.equal(rule11Preview?.to, 'standard');
+
+  assert.equal(ACTIVE_CONSISTENCY_RULES.find(rule => rule.id === 11)?.type, 'WN', 'Rule 11 identifier must remain advisory');
+  assert.equal(ACTIVE_PROPAGATION_RULES.find(rule => rule.id === 'P12')?.ruleId, 11, 'P12 identifier must continue to reference Rule 11');
+  for (const hardRuleId of [1, 2, 3, 4, 6, 9, 10, 12, 18]) {
+    assert.equal(ACTIVE_CONSISTENCY_RULES.find(rule => rule.id === hardRuleId)?.type, 'HC', `Rule ${hardRuleId} must remain hard`);
+  }
+});
+
+test('mandatory closure reaches an idempotent fixed point with no hard violations', () => {
+  const levels = makeCoreLevels('basic');
+  levels[19] = 'comprehensive';
+  levels[24] = 'comprehensive';
+  const scores = makeScores(1);
+
+  const first = applyMandatoryClosure(levels, scores);
+  assert.equal(first.violations.filter(v => v.type === 'HC').length, 0);
+  assert.equal(first.levels[9], 'standard');
+  assert.equal(first.levels[13], 'standard');
+  assert.equal(first.levels[25], 'standard');
+  assert.equal(first.levels[27], 'standard');
+
+  const second = applyMandatoryClosure(first.levels, scores);
+  assert.deepEqual(second.levels, first.levels);
+  assert.equal(second.fixes.length, 0);
+});
+
+test('mandatory closure is inflationary and idempotent across generated profiles', () => {
+  const levels = ['basic', 'standard', 'comprehensive'];
+  for (let seed = 0; seed < 128; seed += 1) {
+    const profile = {};
+    for (let pid = 9; pid <= 30; pid += 1) {
+      profile[pid] = levels[(seed * (pid + 3) + pid * pid) % levels.length];
+    }
+    const scores = makeScores(1);
+    if (seed % 2 === 1) scores.M5 = 4;
+    if (seed % 3 === 0) scores.M6 = 4;
+    if (seed % 5 === 0) scores.M8 = 4;
+
+    const closed = applyMandatoryClosure(profile, scores);
+    for (let pid = 9; pid <= 30; pid += 1) {
+      assert.ok(
+        levels.indexOf(closed.levels[pid]) >= levels.indexOf(profile[pid]),
+        `seed ${seed}, process ${pid}: mandatory closure lowered rigor`
+      );
+    }
+    assert.equal(closed.violations.filter(violation => violation.type === 'HC').length, 0, `seed ${seed}: hard violation remained`);
+    const repeated = applyMandatoryClosure(closed.levels, scores);
+    assert.deepEqual(repeated.levels, closed.levels, `seed ${seed}: closure was not idempotent`);
+    assert.equal(repeated.fixes.length, 0, `seed ${seed}: repeated closure still changed the profile`);
+  }
+});
+
+test('synthetic legacy-vector algorithm scenario attributes Comprehensive QA without claiming v4 case validity', () => {
+  const scores = {
+    M1: 4, M2: 4, M3: 3, M4: 5,
+    M5: 5, M6: 5, M7: 2, M8: 4,
+    M9: 4, M10: 3, M11: 3, M12: 4,
+    M13: 4, M14: 3, M15: 4, M16: 3
+  };
+  const result = runFullAssessment(scores);
+  assert.equal(result.derivationDetails[16].level, 'comprehensive');
+  assert.equal(result.confidence[16], 'corroborated');
+  assert.equal(result.overrides.filter(override => override.processId === 16).length, 0);
+  assert.equal(result.confidence[30], 'available-with-justification');
+});
+
+test('retired Rule 13 and P14 no longer emit non-monotone advice while Rule 14 remains active', () => {
+  const levels = makeCoreLevels('basic');
+  assert.ok(!checkConsistency(levels).some(violation => violation.ruleId === 13));
+  assert.ok(!previewDirectConsequences(12, 'basic', levels).some(change => change.ruleId === 13));
+
+  levels[12] = 'comprehensive';
+  const rule14 = checkConsistency(levels).find(violation => violation.ruleId === 14);
+  assert.equal(rule14?.type, 'WN');
+  assert.ok(previewDirectConsequences(12, 'comprehensive', levels).some(change => change.ruleId === 14));
+});
+
+test('direct preview and final checker share context-sensitive severity', () => {
+  const levels = makeCoreLevels('basic');
+  const normal = previewDirectConsequences(20, 'comprehensive', levels, makeScores(1));
+  assert.equal(normal.find(change => change.ruleId === 16)?.type, 'recommended');
+  assert.equal(normal.find(change => change.ruleId === 17)?.type, 'recommended');
+
+  const criticalScores = { ...makeScores(1), M5: 4 };
+  const critical = previewDirectConsequences(20, 'comprehensive', levels, criticalScores);
+  assert.equal(critical.find(change => change.ruleId === 16)?.type, 'mandatory');
+  assert.equal(critical.find(change => change.ruleId === 17)?.type, 'mandatory');
+
+  const m15Scores = { ...makeScores(1), M15: 4 };
+  const scopedContext = {
+    assuranceObligations: [{
+      id: 'AO-1', type: 'regulatory-mandate', bindingStatus: 'confirmed',
+      authority: 'Acceptance authority', sourceRef: 'approval instrument', processScope: [15]
+    }]
+  };
+  const scoped = previewDirectConsequences(20, 'comprehensive', levels, m15Scores, scopedContext);
+  assert.equal(scoped.find(change => change.ruleId === 16)?.type, 'mandatory');
+  assert.equal(scoped.find(change => change.ruleId === 17)?.type, 'recommended');
+});
+
 // ====== Right-Sizing Tests ======
 
 test('PSI computation uses max(M1, M2, M4)', () => {
@@ -578,12 +941,40 @@ test('PSI computation uses max(M1, M2, M4)', () => {
   assert.equal(computePSI(scores), 5, 'M4=5 → PSI=5');
 });
 
-test('CSI computation uses max(M9, M10, M15)', () => {
+test('CSI computation uses max(M9, M10) and excludes M15 assurance demand', () => {
   const scores = makeScores(1);
   assert.equal(computeCSI(scores), 1);
 
   scores.M10 = 4;
   assert.equal(computeCSI(scores), 4);
+  scores.M15 = 5;
+  assert.equal(computeCSI(scores), 4, 'Binding assurance demand must not create downgrade pressure');
+});
+
+test('CSI response requirements are non-reductive: 1-3 none, 4 feasibility review, 5 sponsor escalation', () => {
+  for (const csi of [1, 2, 3]) {
+    assert.deepEqual(deriveCSIResponseRequirement(csi), {
+      csi,
+      requirement: 'none',
+      required: false,
+      rationale: 'Constraint stress does not require an additional governed feasibility response.'
+    });
+  }
+  assert.equal(deriveCSIResponseRequirement(4).requirement, 'feasibility-review');
+  assert.equal(deriveCSIResponseRequirement(4).required, true);
+  assert.equal(deriveCSIResponseRequirement(5).requirement, 'sponsor-escalation');
+  assert.equal(deriveCSIResponseRequirement(5).required, true);
+  assert.throws(() => deriveCSIResponseRequirement(0), RangeError);
+
+  const baselineScores = makeScores(2);
+  const baseline = runFullAssessment(baselineScores);
+  const feasibility = runFullAssessment({ ...baselineScores, M9: 4 });
+  const escalation = runFullAssessment({ ...baselineScores, M10: 5 });
+  assert.deepEqual(feasibility.levels, baseline.levels, 'CSI=4 must not lower or raise process levels');
+  assert.deepEqual(escalation.levels, baseline.levels, 'CSI=5 must not lower or raise process levels');
+  assert.equal(baseline.constraintResponseRequirement.requirement, 'none');
+  assert.equal(feasibility.constraintResponseRequirement.requirement, 'feasibility-review');
+  assert.equal(escalation.constraintResponseRequirement.requirement, 'sponsor-escalation');
 });
 
 test('CRI computation maps M16 to 1-3', () => {
@@ -616,7 +1007,31 @@ test('CRI=1 preserves required rigor and flags adoption readiness gaps', () => {
   );
 });
 
-test('Small project (PSI=1) enforces rigor budget on Comprehensive count', () => {
+test('governed right-sizing is non-mutating and deterministic across generated profiles', () => {
+  const levelNames = ['basic', 'standard', 'comprehensive'];
+  for (let seed = 0; seed < 128; seed += 1) {
+    const levels = {};
+    for (let pid = 9; pid <= 30; pid += 1) {
+      levels[pid] = levelNames[(seed * (pid + 5) + pid) % levelNames.length];
+    }
+    const scores = makeScores(1);
+    scores.M1 = (seed % 2) + 1;
+    scores.M2 = ((seed >> 1) % 2) + 1;
+    scores.M4 = ((seed >> 2) % 2) + 1;
+
+    const first = applyRightSizing(levels, scores);
+    const repeated = applyRightSizing(levels, scores);
+
+    assert.deepEqual(first.levels, levels, `seed ${seed}: normative levels changed`);
+    assert.deepEqual(first.rightSizingProposals, repeated.rightSizingProposals, `seed ${seed}: proposals were not deterministic`);
+    assert.deepEqual(first.rightSizingActions, [], `seed ${seed}: proposals leaked into legacy action history`);
+    assert.equal(new Set(first.rightSizingProposals.map(proposal => proposal.processId)).size, first.rightSizingProposals.length, `seed ${seed}: process received stacked proposals`);
+    assert.ok(first.rightSizingProposals.every(proposal => first.proposedProfile[proposal.processId] === proposal.proposedTo), `seed ${seed}: infeasible proposal survived mandatory-closure preview`);
+    assert.ok(first.blockedRightSizingCandidates.every(proposal => first.proposedProfile[proposal.processId] !== proposal.proposedTo), `seed ${seed}: closure-blocked candidate was mislabeled`);
+  }
+});
+
+test('Small project (PSI=1) preserves normative Comprehensive levels and emits governed proposals', () => {
   const scores = makeScores(5); // All 5s → everything Comprehensive
   scores.M1 = 1; scores.M2 = 1; scores.M4 = 1; // PSI=1 (small)
   scores.M11 = 1; scores.M12 = 1;
@@ -624,14 +1039,42 @@ test('Small project (PSI=1) enforces rigor budget on Comprehensive count', () =>
   scores.M16 = 5; // CRI=3 (supportive adoption posture)
   const result = runFullAssessment(scores);
   assert.ok(result.indices.psi <= 2, 'PSI should be small');
-  // Max 3 Comprehensive for small projects
+  // A PSI budget is a governance review threshold, not an automatic downgrade.
   const compCount = Object.values(result.levels).filter(l => l === 'comprehensive').length;
-  assert.ok(compCount <= 3, `Small project should have ≤3 Comprehensive, got ${compCount}`);
+  assert.ok(compCount > 3, `Normative profile should preserve its Comprehensive recommendations, got ${compCount}`);
+  assert.equal(result.budgetStatus.withinBudget, false);
+  assert.ok(result.rightSizingProposals.length > 0);
+  assert.deepEqual(result.rightSizingActions, [], 'New results must not report governed proposals as completed actions');
+  assert.ok(result.rightSizingProposals.every(proposal =>
+    proposal.type === 'rigor_budget_proposal' &&
+    proposal.status === 'review-required' &&
+    proposal.applied === false &&
+    proposal.proposedTo === proposal.to
+  ));
+  assert.ok(result.rightSizingProposals.every(proposal =>
+    result.levels[proposal.processId] === proposal.from
+  ), 'No proposal may mutate the normative final level');
 });
 
-test('runFullAssessment returns rightSizingActions and indices', () => {
+test('protected safety floors produce a visible final rigor-budget exception', () => {
+  const scores = makeScores(1);
+  scores.M5 = 5;
+  const result = runFullAssessment(scores);
+  assert.equal(result.indices.psi, 1);
+  assert.equal(result.budgetStatus.withinBudget, false);
+  assert.ok(result.budgetStatus.comprehensiveExcess > 0);
+  assert.ok(result.rightSizingProposals.length > 0, 'The regression scenario must exercise proposals and a final exception together');
+  assert.ok(result.rightSizingProposals.every(proposal => proposal.applied === false));
+  assert.ok(result.rightSizingProposals.every(proposal =>
+    ![12, 16, 19, 20, 25, 27].includes(proposal.processId)
+  ), 'Active Comprehensive safety floors must not appear as reduction proposals');
+  assert.equal(result.violations.filter(violation => violation.type === 'HC').length, 0);
+});
+
+test('runFullAssessment returns governed right-sizing proposals, compatibility actions, and indices', () => {
   const scores = makeScores(3);
   const result = runFullAssessment(scores);
+  assert.ok(Array.isArray(result.rightSizingProposals), 'rightSizingProposals should be array');
   assert.ok(Array.isArray(result.rightSizingActions), 'rightSizingActions should be array');
   assert.ok(Array.isArray(result.adoptionRisks), 'adoptionRisks should be array');
   assert.ok(typeof result.indices === 'object', 'indices should be object');

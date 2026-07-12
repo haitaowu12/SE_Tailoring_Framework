@@ -4,7 +4,8 @@
  * Implements metric inheritance, down-tailoring detection, safety override
  * propagation, and peer interface consistency checks per §3.13.
  */
-import { runFullAssessment } from './assessment-engine.js';
+import { runFullAssessment, applyMandatoryClosure, applyRightSizing, computeRigorBudgetStatus } from './assessment-engine.js';
+import { assessHierarchyDisposition } from './hierarchy-dispositions.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
@@ -14,16 +15,72 @@ const METRIC_IDS = [
     'M9', 'M10', 'M11', 'M12', 'M13', 'M14', 'M15', 'M16'
 ];
 
-/** Metrics that Quick assessments allow to override (M1–M6) */
-const QUICK_OVERRIDE_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'];
+/** Metrics that Quick assessments must explicitly review at child level. */
+const QUICK_OVERRIDE_METRICS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M8', 'M15'];
 
 /** Metrics that typically change at child level */
 const TYPICAL_OVERRIDE_GROUPS = {
-    oftenOverridden: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'],
-    sometimesOverridden: ['M7', 'M8', 'M11', 'M12'],
-    usuallyInherited: ['M9', 'M10', 'M13', 'M14', 'M15'],
+    oftenOverridden: ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M8'],
+    sometimesOverridden: ['M7', 'M11', 'M12', 'M15'],
+    usuallyInherited: ['M9', 'M10', 'M13', 'M14'],
     rarelyOverridden: ['M16']
 };
+
+const SAFETY_ALLOCATION_FIELDS = [
+    'authority',
+    'evidenceRef',
+    'interfaceAssumptionsRef',
+    'rationale',
+    'reviewDate'
+];
+
+function isValidIsoDate(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+}
+
+/**
+ * Assess the structured authority needed to lower inherited safety consequence
+ * or down-tailor safety-sensitive Requirements/Architecture processes.
+ */
+export function assessSafetyAllocationDecision(decisionOrLegacy = null) {
+    if (typeof decisionOrLegacy === 'boolean') {
+        return {
+            valid: false,
+            status: decisionOrLegacy ? 'legacy-unconfirmed' : 'missing',
+            legacyMigrationInput: decisionOrLegacy,
+            missingFields: decisionOrLegacy ? ['structuredDecision'] : ['safetyAllocationDecision']
+        };
+    }
+
+    if (!decisionOrLegacy || typeof decisionOrLegacy !== 'object' || Array.isArray(decisionOrLegacy)) {
+        return {
+            valid: false,
+            status: 'missing',
+            legacyMigrationInput: false,
+            missingFields: ['safetyAllocationDecision']
+        };
+    }
+
+    const missingFields = [];
+    if (decisionOrLegacy.status !== 'confirmed') missingFields.push('status');
+    if (decisionOrLegacy.allocationDisposition !== 'not-allocated-to-child') missingFields.push('allocationDisposition');
+    if (decisionOrLegacy.retainedResponsibility !== 'parent') missingFields.push('retainedResponsibility');
+    for (const field of SAFETY_ALLOCATION_FIELDS) {
+        if (!String(decisionOrLegacy[field] || '').trim()) missingFields.push(field);
+    }
+    if (String(decisionOrLegacy.reviewDate || '').trim() && !isValidIsoDate(decisionOrLegacy.reviewDate)) {
+        if (!missingFields.includes('reviewDate')) missingFields.push('reviewDate');
+    }
+
+    return {
+        valid: missingFields.length === 0,
+        status: missingFields.length === 0 ? 'confirmed' : 'incomplete',
+        legacyMigrationInput: false,
+        missingFields
+    };
+}
 
 /**
  * Generate a unique ID for a new assessment node.
@@ -83,6 +140,11 @@ export function createChildAssessment(parentId, name, type, parentScores) {
         inheritedMetrics: inheritedFlags,
         overriddenMetrics: {},
         downTailoringLog: [],
+        securityHierarchyDisposition: null,
+        assuranceHierarchyDisposition: null,
+        // Visible migration-only inputs. These booleans never authorize lowering.
+        hasIndependentSecurityAnalysis: false,
+        hasScopedAssuranceDecision: false,
         status: 'draft',
         scores: { ...inherited }
     };
@@ -141,7 +203,7 @@ export function detectDownTailoring(parentLevels, childLevels) {
  * @param {Array} justifications - Array of { processId, justification, outputSufficiency, approver }
  * @returns {{ valid: boolean, missing: Array, incomplete: Array }}
  */
-export function validateDownTailoring(downTailored, justifications = []) {
+export function validateDownTailoring(downTailored, justifications = [], governance = {}) {
     const justMap = new Map(justifications.map(j => [j.processId, j]));
     const missing = [];
     const incomplete = [];
@@ -160,10 +222,20 @@ export function validateDownTailoring(downTailored, justifications = []) {
         }
     }
 
+    const safetyAllocationDecision = assessSafetyAllocationDecision(governance.safetyAllocationDecision);
+    const safetyAllocationBlocked = (governance.parentM5 ?? 0) >= 4
+        ? downTailored
+            .filter(dt => [19, 20].includes(Number(dt.processId)) && !safetyAllocationDecision.valid)
+            .map(dt => Number(dt.processId))
+        : [];
+    incomplete.push(...safetyAllocationBlocked);
+
     return {
         valid: missing.length === 0 && incomplete.length === 0,
         missing,
-        incomplete
+        incomplete: [...new Set(incomplete)],
+        safetyAllocationBlocked,
+        safetyAllocationDecision
     };
 }
 
@@ -217,55 +289,95 @@ export function checkOutputSufficiency(processId, childLevel) {
  *
  * @param {Object} parentScores - Parent metric scores
  * @param {Object} childScores - Child metric scores
- * @param {boolean} hasIndependentSafetyAnalysis - Whether child has independent analysis
+ * @param {Object|boolean|null} safetyAllocationDecision - Structured allocation decision; legacy boolean is migration-only
  * @returns {{ propagated: boolean, warnings: Array }}
  */
-export function propagateSafetyOverrides(parentScores, childScores, hasIndependentSafetyAnalysis = false) {
+export function propagateSafetyOverrides(parentScores, childScores, safetyAllocationDecision = null, securityDispositionOrLegacy = false, assuranceDispositionOrLegacy = false) {
     const warnings = [];
     let propagated = false;
+    const blockedMetrics = [];
+    const safetyAllocationAssessment = assessSafetyAllocationDecision(safetyAllocationDecision);
+    const securityDisposition = assessHierarchyDisposition('M8', securityDispositionOrLegacy);
+    const assuranceDisposition = assessHierarchyDisposition('M15', assuranceDispositionOrLegacy);
     const parentM5 = parentScores.M5 ?? 3;
     const childM5 = childScores.M5 ?? 3;
     const parentM8 = parentScores.M8 ?? 3;
     const childM8 = childScores.M8 ?? 3;
+    const parentM15 = parentScores.M15 ?? 3;
+    const childM15 = childScores.M15 ?? 3;
 
     // Safety override propagation
     if (parentM5 >= 4 && childM5 < parentM5) {
-        if (hasIndependentSafetyAnalysis) {
+        if (safetyAllocationAssessment.valid) {
             warnings.push({
                 type: 'info',
                 metric: 'M5',
-                message: `Child M5=${childM5} accepted (independent safety analysis provided). Parent M5=${parentM5}.`
+                message: `Child M5=${childM5} accepted through a confirmed safety-allocation decision retaining responsibility at the parent boundary. Parent M5=${parentM5}.`
             });
         } else {
+            const legacyNote = safetyAllocationAssessment.legacyMigrationInput
+                ? ' The legacy independent-safety-analysis boolean is unconfirmed migration input and does not authorize the reduction.'
+                : '';
             warnings.push({
                 type: 'error',
                 metric: 'M5',
-                message: `Child M5=${childM5} < Parent M5=${parentM5}. Independent safety analysis required to justify lower safety classification.`,
-                requiredAction: 'Provide independent safety analysis or inherit parent M5 value.'
+                message: `Child M5=${childM5} < Parent M5=${parentM5}. A confirmed structured safety-allocation decision is required.${legacyNote}`,
+                requiredAction: 'Confirm non-allocation to the child, retained parent responsibility, authority, evidence, interface assumptions, rationale, and review date; otherwise inherit the parent M5 value.'
             });
             propagated = true;
         }
     }
 
-    // Regulatory override propagation
-    if (parentM8 >= 4 && childM8 < parentM8) {
-        if (hasIndependentSafetyAnalysis) {
-            warnings.push({
-                type: 'info',
-                metric: 'M8',
-                message: `Child M8=${childM8} accepted (independent regulatory analysis provided). Parent M8=${parentM8}.`
-            });
+    // Security criticality can differ by element, but a lower value requires an
+    // element-specific boundary/consequence analysis. Safety evidence is not a substitute.
+    if (childM8 < parentM8) {
+        if (securityDisposition.valid) {
+            warnings.push({ type: 'info', metric: 'M8', message: `Child M8=${childM8} accepted through a confirmed child security disposition. Parent M8=${parentM8}. The framework records the decision but does not verify its technical evidence.` });
         } else {
+            const legacyNote = securityDisposition.legacyMigrationInput
+                ? ' The legacy independent-security-analysis boolean is visible as unconfirmed migration input and cannot authorize the reduction.'
+                : '';
             warnings.push({
-                type: 'warning',
+                type: 'error',
                 metric: 'M8',
-                message: `Child M8=${childM8} < Parent M8=${parentM8}. Independent regulatory analysis recommended.`,
-                requiredAction: 'Provide regulatory analysis or inherit parent M8 value.'
+                message: `Child M8=${childM8} < Parent M8=${parentM8}. A complete confirmed hierarchy disposition is required.${legacyNote}`,
+                requiredAction: 'Confirm an allowed outcome, concise rationale, accountable reviewer or approver, and review date; otherwise inherit the parent M8 value.'
             });
+            blockedMetrics.push('M8');
+            propagated = true;
         }
     }
 
-    return { propagated, warnings };
+    if (childM15 < parentM15) {
+        if (assuranceDisposition.valid) {
+            warnings.push({
+                type: 'info',
+                metric: 'M15',
+                message: `Child M15=${childM15} accepted through a confirmed child assurance disposition. Parent M15=${parentM15}. The framework records the decision but does not verify its technical evidence.`
+            });
+        } else {
+            const legacyNote = assuranceDisposition.legacyMigrationInput
+                ? ' The legacy scoped-assurance-decision boolean is visible as unconfirmed migration input and cannot authorize the reduction.'
+                : '';
+            warnings.push({
+                type: 'error',
+                metric: 'M15',
+                message: `Child M15=${childM15} < Parent M15=${parentM15}. A complete confirmed hierarchy disposition is required.${legacyNote}`,
+                requiredAction: 'Confirm an allowed outcome, concise rationale, accountable reviewer or approver, and review date; otherwise inherit the parent M15 value.'
+            });
+            blockedMetrics.push('M15');
+            propagated = true;
+        }
+    }
+
+    return {
+        propagated,
+        blockedMetrics,
+        warnings,
+        safetyAllocationDecision: safetyAllocationAssessment,
+        securityHierarchyDisposition: securityDisposition,
+        assuranceHierarchyDisposition: assuranceDisposition
+    };
 }
 
 /**
@@ -357,20 +469,102 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
     const effectiveScores = getEffectiveScores(childNode, parentScores);
 
     // Step 2: Check safety override propagation
+    const safetyAllocationInput = childNode.safetyAllocationDecision
+        ?? (childNode.hasIndependentSafetyAnalysis === true ? true : null);
     const safetyCheck = propagateSafetyOverrides(
         parentScores,
         effectiveScores,
-        childNode.hasIndependentSafetyAnalysis || false
+        safetyAllocationInput,
+        childNode.securityHierarchyDisposition
+            ?? (childNode.hasIndependentSecurityAnalysis === true ? true : null),
+        childNode.assuranceHierarchyDisposition
+            ?? (childNode.hasScopedAssuranceDecision === true ? true : null)
     );
 
     // If safety overrides need propagation and no independent analysis,
     // enforce parent safety score
     if (safetyCheck.propagated) {
-        effectiveScores.M5 = parentScores.M5;
+        if ((parentScores.M5 ?? 3) >= 4 && (effectiveScores.M5 ?? 3) < parentScores.M5 && !safetyCheck.safetyAllocationDecision.valid) {
+            effectiveScores.M5 = parentScores.M5;
+        }
+        for (const metricId of safetyCheck.blockedMetrics) {
+            effectiveScores[metricId] = parentScores[metricId];
+        }
     }
 
     // Step 3: Run the standard assessment engine
     const assessment = runFullAssessment(effectiveScores, undefined, context);
+
+    // A child under a safety-relevant parent boundary cannot reduce System
+    // Requirements or Architecture rigor until the allocation decision proves
+    // that the relevant safety responsibility remains at the parent boundary.
+    const attemptedDownTailoring = detectDownTailoring(parentLevels, assessment.levels);
+    const safetyAllocationBlocks = [];
+    if ((parentScores.M5 ?? 3) >= 4 && !safetyCheck.safetyAllocationDecision.valid) {
+        for (const candidate of attemptedDownTailoring.filter(item => [19, 20].includes(item.processId))) {
+            safetyAllocationBlocks.push({
+                processId: candidate.processId,
+                attemptedLevel: candidate.childLevel,
+                restoredLevel: candidate.parentLevel,
+                status: 'blocked-missing-safety-allocation-decision',
+                decisionStatus: safetyCheck.safetyAllocationDecision.status,
+                reason: 'P19/P20 down-tailoring requires a confirmed non-allocation decision with retained parent safety responsibility.'
+            });
+            assessment.levels[candidate.processId] = candidate.parentLevel;
+            assessment.confidence[candidate.processId] = 'floor-applied';
+            assessment.activeFloors = [...(assessment.activeFloors || []), {
+                processId: candidate.processId,
+                minLevel: candidate.parentLevel,
+                observedLevel: candidate.childLevel,
+                status: 'elevated',
+                reason: 'Parent safety-allocation boundary retained',
+                condition: 'Parent M5 >= 4 and no confirmed child non-allocation decision',
+                overrideId: 'parent_safety_allocation_boundary',
+                overrideSource: 'Hierarchical safety-allocation governance',
+                triggerType: 'hierarchy'
+            }];
+        }
+    }
+
+    if (safetyAllocationBlocks.length > 0) {
+        const closure = applyMandatoryClosure(assessment.levels, effectiveScores, context);
+        assessment.levels = closure.levels;
+        assessment.fixes = [...(assessment.fixes || []), ...closure.fixes];
+        for (const fix of closure.fixes) assessment.confidence[fix.processId] = 'floor-applied';
+        assessment.violations = closure.violations;
+        assessment.closureIterations = (assessment.closureIterations || 0) + closure.iterations;
+        assessment.budgetStatus = computeRigorBudgetStatus(assessment.levels, effectiveScores);
+
+        // Re-evaluate proposal metadata against the restored hierarchy profile.
+        // Synthetic override records protect the retained parent levels so P19/P20
+        // cannot reappear as reviewable reductions immediately after being blocked.
+        const hierarchyFloorOverrides = safetyAllocationBlocks.map(block => ({
+            processId: block.processId,
+            to: block.restoredLevel,
+            overrideId: 'parent_safety_allocation_boundary'
+        }));
+        const rightSizing = applyRightSizing(
+            assessment.levels,
+            effectiveScores,
+            [...(assessment.overrides || []), ...hierarchyFloorOverrides],
+            context
+        );
+        const blockedProcessIds = new Set(safetyAllocationBlocks.map(block => block.processId));
+        assessment.rightSizingProposals = (rightSizing.rightSizingProposals || [])
+            .filter(proposal => !blockedProcessIds.has(proposal.processId));
+        assessment.blockedRightSizingCandidates = (rightSizing.blockedRightSizingCandidates || [])
+            .filter(proposal => !blockedProcessIds.has(proposal.processId));
+        assessment.rightSizingActions = rightSizing.rightSizingActions || [];
+        assessment.proposedRightSizedLevels = { ...(rightSizing.proposedProfile || assessment.levels) };
+        for (const block of safetyAllocationBlocks) {
+            assessment.proposedRightSizedLevels[block.processId] = block.restoredLevel;
+        }
+        assessment.proposalClosureFixes = rightSizing.proposalClosureFixes || [];
+        assessment.proposalBudgetStatus = computeRigorBudgetStatus(assessment.proposedRightSizedLevels, effectiveScores);
+        assessment.constraintResponseRequirement = rightSizing.constraintResponseRequirement;
+        assessment.adoptionRisks = rightSizing.adoptionRisks || [];
+        assessment.indices = rightSizing.indices || assessment.indices;
+    }
 
     // Step 4: Detect down-tailoring from parent
     const downTailored = detectDownTailoring(parentLevels, assessment.levels);
@@ -386,6 +580,7 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
         effectiveScores,
         downTailored: sufficiencyChecks,
         safetyCheck,
+        safetyAllocationBlocks,
         inheritanceSummary: {
             totalMetrics: METRIC_IDS.length,
             inherited: Object.values(childNode.inheritedMetrics).filter(v => v).length,
@@ -530,4 +725,3 @@ export function detectConflicts(proposedScores, currentScores, manualMetrics = [
 
     return conflicts;
 }
-

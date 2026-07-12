@@ -11,10 +11,15 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 
 ## Current Scope
 
+- Framework semantic version 4.0 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
+- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, and explicit legacy-migration status. Versionless and 3.x records are preserved but cannot be silently baselined under version 4.0.
 - Executable assessment: 16 project metrics mapped to 22 project-facing Technical and Technical Management processes.
 - Reference scope: 8 Agreement and Organizational Project-Enabling processes remain visible in the data model, but are not yet fully executable recommendations.
 - Traceability model: each process declares ISO/IEC/IEEE 15288:2023 process-group metadata and explicit executable-core vs reference scope. This is decision-support traceability, not a standalone ISO compliance or certification claim.
 - Evidence maturity: reviewed and exercised through illustrative cases, automated unit/static checks, and manual browser smoke checks. Not yet empirically validated against a statistically meaningful set of completed projects.
+- Assessment integrity: default values support a work-in-progress preview, but all 16 metric judgments must be explicitly assessed or inherited-confirmed before the result can be represented as a completed baseline. Metric-level N/A is prohibited; downstream artifacts and activities may use N/A only with a documented applicability rationale.
+- Right-sizing governance: PSI budget analysis produces non-binding reduction proposals. It never silently lowers the derived, floor-protected, mandatory-closure recommendation.
+- Practitioner content: existing M8 and scoped M15 mappings activate conditional Security and Assurance evidence overlays in Process Explorer without creating additional metric-process relationships.
 
 ## Run Locally
 
@@ -40,7 +45,7 @@ npm run build
 
 Current verified gates:
 
-- `npm test`: includes algorithm, import/export, inheritance, process-catalog schema, and static security/accessibility guardrails.
+- `npm test`: includes algorithm, semantic migration, qualifier-aware binding-assurance floors, import/export, inheritance, process-catalog schema, and static security/accessibility guardrails.
 - `npm run test:e2e`: builds the production bundle and runs a browser import/report/matrix smoke for legacy JSON hydration and manual-adjustment preservation.
 - GitHub Actions CI and Pages deploy gates run `npm ci`, install Playwright Chromium dependencies, then execute unit/static tests, e2e smoke, production dependency audit, and build before deployment.
 - `npm run build`: production Vite bundle passes.

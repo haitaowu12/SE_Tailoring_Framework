@@ -32,7 +32,7 @@ test('renderMetricSpiderwebSvg includes metric ids, dimension labels, and scale 
     assert.match(svg, /M1/);
     assert.match(svg, /M16/);
     assert.match(svg, /System Complexity/);
-    assert.match(svg, /Stakeholder Context/);
+    assert.match(svg, /Stakeholder, Governance &amp; Adoption Context/);
     assert.match(svg, /Scores remain ordinal and project-local/);
 });
 
@@ -46,7 +46,7 @@ test('renderMetricSpiderwebSvg places dimension labels inside their quadrants', 
         { x: 70, y: 58, label: 'System Complexity' },
         { x: 430, y: 58, label: 'Safety & Criticality' },
         { x: 430, y: 458, label: 'Project Constraints' },
-        { x: 70, y: 458, label: 'Stakeholder Context' }
+        { x: 70, y: 458, label: 'Stakeholder, Governance & Adoption Context' }
     ]);
 });
 

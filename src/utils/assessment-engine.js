@@ -1,5 +1,5 @@
 /**
- * Assessment Engine — Framework v3.5 executable algorithm
+ * Assessment Engine — Framework v4.0 executable algorithm
  * 
  * Algorithm Steps:
  * 1. Get applicable metrics for each process
@@ -11,7 +11,8 @@
  * 7. Apply interdependencies (consistency rules)
  * 8. CORROBORATION: Compute confidence for Comprehensive processes
  */
-import { METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, CONSISTENCY_RULES, PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES } from '../data/se-tailoring-data.js';
+import { METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, BINDING_ASSURANCE_QUALIFIERS, OVERRIDE_CONDITIONS, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES } from '../data/se-tailoring-data.js';
+import { evaluateRightSizingApprovals, getRightSizingApprovalRequirements } from './right-sizing-governance.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
@@ -22,8 +23,6 @@ const SA_TIERS = [
     { tier: 'II', name: 'Safety Relevant', description: 'Additional safety assurance activities needed', floor: 'basic' },
     { tier: 'III', name: 'Safety-Critical', description: 'Full safety assurance program required', floor: 'standard' }
 ];
-
-const SA_PROCESSES = [12, 16, 19, 20, 25, 27];
 
 /**
  * Derive SA Criticality Tier from M5 (Safety Impact) score.
@@ -56,30 +55,73 @@ function compareScore(lhs, op, rhs) {
     return false;
 }
 
-function isCriticalEvidenceContext(scores = {}) {
+function getConfirmedBindingObligation(context = {}, processId = null) {
+    const obligations = Array.isArray(context?.assuranceObligations) ? context.assuranceObligations : [];
+    return obligations.find(obligation => {
+        if (!obligation || obligation.bindingStatus !== 'confirmed') return false;
+        if (!BINDING_ASSURANCE_QUALIFIERS.includes(obligation.type)) return false;
+        if (!String(obligation.authority || '').trim() || !String(obligation.sourceRef || '').trim()) return false;
+        if (processId === null) return true;
+        return Array.isArray(obligation.processScope) && obligation.processScope.map(Number).includes(Number(processId));
+    }) || null;
+}
+
+function isCriticalEvidenceContext(rule, scores = {}, context = {}) {
     return scoreOrDefault(scores, 'M5') >= 4 ||
         scoreOrDefault(scores, 'M6') >= 4 ||
-        scoreOrDefault(scores, 'M8') >= 4;
+        scoreOrDefault(scores, 'M8') >= 4 ||
+        (scoreOrDefault(scores, 'M15') >= 4 && !!getConfirmedBindingObligation(context, rule.required.process));
+}
+
+export function getEffectiveConsistencyType(rule, scores = {}, context = {}) {
+    return ((rule.id === 16 || rule.id === 17) && isCriticalEvidenceContext(rule, scores, context))
+        ? 'HC'
+        : rule.type;
+}
+
+export function getEffectivePropagationType(rule, scores = {}, context = {}) {
+    const consistencyRule = ACTIVE_CONSISTENCY_RULES.find(candidate => candidate.id === rule.ruleId);
+    if (!consistencyRule) return rule.type;
+    return getEffectiveConsistencyType(consistencyRule, scores, context) === 'HC' ? 'mandatory' : 'recommended';
 }
 
 function getTechnicalProcessIds() {
     return CORE_PROCESSES.filter(p => p.group === 'technical').map(p => p.id);
 }
 
-function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
+function getOverrideTriggerEvidence(overrideCondition, scores = {}, context = {}) {
     const trigger = overrideCondition?.trigger;
-    if (!trigger) return false;
+    if (!trigger) return null;
 
     if (trigger.type === 'metric') {
         const score = scoreOrDefault(scores, trigger.metric);
-        return compareScore(score, trigger.op, trigger.value);
+        return compareScore(score, trigger.op, trigger.value) ? { metric: trigger.metric, score } : null;
     }
 
     if (trigger.type === 'context') {
-        return context?.[trigger.field] === trigger.equals;
+        return context?.[trigger.field] === trigger.equals ? { field: trigger.field, value: trigger.equals } : null;
     }
 
-    return false;
+    if (trigger.type === 'binding-assurance') {
+        const score = scoreOrDefault(scores, trigger.metric);
+        if (!compareScore(score, trigger.op, trigger.value)) return null;
+        const processId = overrideCondition.processes?.[0];
+        const obligation = getConfirmedBindingObligation(context, processId);
+        return obligation ? { metric: trigger.metric, score, obligation } : null;
+    }
+
+    return null;
+}
+
+function getEffectiveProcessMetricMap(processId, matrixMap = METRIC_PROCESS_MAP, context = {}) {
+    const map = { ...(matrixMap?.[processId] || {}) };
+    for (const driver of CONDITIONAL_METRIC_PROCESS_DRIVERS) {
+        if (Number(driver.processId) !== Number(processId)) continue;
+        if (driver.predicate === 'binding-assurance' && !getConfirmedBindingObligation(context, processId)) continue;
+        const currentRole = map[driver.metric];
+        map[driver.metric] = currentRole === 'P' || driver.role === 'P' ? 'P' : driver.role;
+    }
+    return map;
 }
 
 /**
@@ -93,9 +135,9 @@ function isOverrideTriggered(overrideCondition, scores = {}, context = {}) {
  * 4. Downgrade thin Comprehensive triggers to Standard unless corroborated
  * 5. Track which metrics drove the decision (all metrics with max score)
  */
-export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
+export function calculateProcessDerivation(processId, scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     const activeMatrixMap = matrixMap || METRIC_PROCESS_MAP;
-    const map = activeMatrixMap[processId];
+    const map = getEffectiveProcessMetricMap(processId, activeMatrixMap, context);
     if (!map || Object.keys(map).length === 0) {
         return {
             level: 'basic',
@@ -129,10 +171,11 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
         .map(d => d.metric)
         .sort(metricSort);
     let derivedLevel = levelFromScore(maxScore);
+    const triggerLevel = derivedLevel;
     let confidence = 'high';
 
     if (derivedLevel === 'comprehensive') {
-        const applicableMetrics = Object.entries(activeMatrixMap[processId] || {});
+        const applicableMetrics = Object.entries(map);
 
         // Count Primary drivers at Comprehensive (score=5)
         const primaryAtComprehensive = applicableMetrics.filter(([m, role]) => {
@@ -152,8 +195,10 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
             (primaryAtComprehensive >= 1 && secondaryAtStandardPlus >= 1)
         );
 
-        // Safety/criticality override: single M5=5 or M7=5 always corroborated
-        // (these represent irreducible safety/regulatory constraints)
+        // Direct critical-consequence derivation: a mapped M5=5 or M7=5 is
+        // independently sufficient for Comprehensive. This is metric-derived
+        // attribution, not a named override-floor event. applyOverrides()
+        // records the separate, process-specific safety/environmental floors.
         const safetyCriticalSole = applicableMetrics.some(([m]) =>
             (m === 'M5' || m === 'M7') && scoreOrDefault(scores, m) === 5
         );
@@ -177,31 +222,31 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
         level: derivedLevel,
         triggerMetrics,
         triggerScore: maxScore,
-        triggerLevel: derivedLevel,
+        triggerLevel,
         confidence,
         allMetricScores
     };
 }
 
 /** Calculate individual process level from metric scores using max-tier plus corroboration */
-export function calculateProcessLevel(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
-    return calculateProcessDerivation(processId, scores, matrixMap).level;
+export function calculateProcessLevel(processId, scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
+    return calculateProcessDerivation(processId, scores, matrixMap, context).level;
 }
 
 /** Calculate levels for all core processes */
-export function calculateAllProcessLevels(scores, matrixMap = METRIC_PROCESS_MAP) {
+export function calculateAllProcessLevels(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     const levels = {};
     for (const p of CORE_PROCESSES) {
-        levels[p.id] = calculateProcessLevel(p.id, scores, matrixMap);
+        levels[p.id] = calculateProcessLevel(p.id, scores, matrixMap, context);
     }
     return levels;
 }
 
 /** Calculate derivation details for all core processes */
-export function calculateAllProcessDerivations(scores, matrixMap = METRIC_PROCESS_MAP) {
+export function calculateAllProcessDerivations(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     const derivations = {};
     for (const p of CORE_PROCESSES) {
-        derivations[p.id] = calculateProcessDerivation(p.id, scores, matrixMap);
+        derivations[p.id] = calculateProcessDerivation(p.id, scores, matrixMap, context);
     }
     return derivations;
 }
@@ -213,37 +258,53 @@ export function calculateAllProcessDerivations(scores, matrixMap = METRIC_PROCES
 export function applyOverrides(levels, scores, context = {}) {
     const applied = { ...levels };
     const overridesApplied = [];
+    const activeFloors = [];
 
     for (const ov of OVERRIDE_CONDITIONS) {
-        if (isOverrideTriggered(ov, scores, context)) {
+        const triggerEvidence = getOverrideTriggerEvidence(ov, scores, context);
+        if (triggerEvidence) {
             for (const pid of ov.processes) {
-                if (levelIndex(applied[pid] || 'basic') < levelIndex(ov.minLevel)) {
-                    const prev = applied[pid];
+                const prev = applied[pid] || 'basic';
+                const requiresElevation = levelIndex(prev) < levelIndex(ov.minLevel);
+                const provenance = {
+                    processId: pid,
+                    minLevel: ov.minLevel,
+                    observedLevel: prev,
+                    status: requiresElevation ? 'elevated' : 'satisfied',
+                    reason: ov.label,
+                    condition: ov.condition,
+                    overrideId: ov.id,
+                    overrideSource: ov.source,
+                    triggerType: ov.trigger?.type || 'metric',
+                    triggerMetric: triggerEvidence.metric || null,
+                    triggerScore: triggerEvidence.score ?? null,
+                    obligationId: triggerEvidence.obligation?.id || null,
+                    authority: triggerEvidence.obligation?.authority || null,
+                    sourceRef: triggerEvidence.obligation?.sourceRef || null
+                };
+                activeFloors.push(provenance);
+
+                if (requiresElevation) {
                     applied[pid] = ov.minLevel;
                     overridesApplied.push({
-                        processId: pid,
+                        ...provenance,
                         from: prev,
                         to: ov.minLevel,
-                        reason: ov.label,
-                        condition: ov.condition,
-                        overrideId: ov.id,
-                        overrideSource: ov.source,
-                        triggerType: ov.trigger?.type || 'metric'
                     });
                 }
             }
         }
     }
-    return { levels: applied, overrides: overridesApplied };
+    return { levels: applied, overrides: overridesApplied, activeFloors };
 }
 
 /**
  * Get driver attribution for a process.
  * Returns all metrics (Primary and Secondary) that influence the process level.
  */
-export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCESS_MAP) {
+export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     const activeMatrixMap = matrixMap || METRIC_PROCESS_MAP;
-    const map = activeMatrixMap[processId];
+    const map = getEffectiveProcessMetricMap(processId, activeMatrixMap, context);
     if (!map) return [];
 
     const drivers = [];
@@ -258,11 +319,11 @@ export function getDriverAttribution(processId, scores, matrixMap = METRIC_PROCE
  * Check consistency rules (interdependencies), return violations.
  * Interdependencies ensure related processes maintain appropriate level relationships.
  */
-export function checkConsistency(levels, scores = {}) {
+export function checkConsistency(levels, scores = {}, context = {}) {
     const violations = [];
     const technicalIds = getTechnicalProcessIds();
 
-    for (const rule of CONSISTENCY_RULES) {
+    for (const rule of ACTIVE_CONSISTENCY_RULES) {
         let triggered = false;
 
         if (rule.trigger.process === 'any_technical') {
@@ -301,9 +362,7 @@ export function checkConsistency(levels, scores = {}) {
         }
 
         if (triggered) {
-            const effectiveType = (
-                (rule.id === 16 || rule.id === 17) && isCriticalEvidenceContext(scores)
-            ) ? 'HC' : rule.type;
+            const effectiveType = getEffectiveConsistencyType(rule, scores, context);
             const reqProcess = rule.required.process;
             let violated = false;
             let affectedProcess = reqProcess;
@@ -356,7 +415,7 @@ export function checkConsistency(levels, scores = {}) {
  * Simulate propagation when a process level changes.
  * Shows downstream effects on related processes via interdependency rules.
  */
-export function simulatePropagation(processId, newLevel, currentLevels) {
+export function previewDirectConsequences(processId, newLevel, currentLevels, scores = {}, context = {}) {
     const changes = [];
     const technicalIds = getTechnicalProcessIds();
 
@@ -367,7 +426,7 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
                 processId: targetId,
                 from: currentLevel,
                 to: rule.minLevel,
-                type: rule.type,
+                type: getEffectivePropagationType(rule, scores, context),
                 depth: rule.depth,
                 ruleId: rule.ruleId || rule.id
             });
@@ -378,19 +437,25 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
                 processId: targetId,
                 from: currentLevel,
                 to: rule.maxLevel,
-                type: rule.type,
+                type: getEffectivePropagationType(rule, scores, context),
                 depth: rule.depth,
                 ruleId: rule.ruleId || rule.id
             });
         }
     };
 
-    for (const rule of PROPAGATION_RULES) {
+    for (const rule of ACTIVE_PROPAGATION_RULES) {
         let sourceTriggered = false;
         if (rule.source === 'any_technical') {
-            sourceTriggered = technicalIds.includes(processId) && levelIndex(newLevel) >= levelIndex(rule.sourceLevel);
+            const sourceMatches = rule.sourceOp === '='
+                ? newLevel === rule.sourceLevel
+                : levelIndex(newLevel) >= levelIndex(rule.sourceLevel);
+            sourceTriggered = technicalIds.includes(processId) && sourceMatches;
         } else {
-            sourceTriggered = rule.source === processId && levelIndex(newLevel) >= levelIndex(rule.sourceLevel);
+            const sourceMatches = rule.sourceOp === '='
+                ? newLevel === rule.sourceLevel
+                : levelIndex(newLevel) >= levelIndex(rule.sourceLevel);
+            sourceTriggered = rule.source === processId && sourceMatches;
         }
 
         if (!sourceTriggered) continue;
@@ -405,6 +470,54 @@ export function simulatePropagation(processId, newLevel, currentLevels) {
         applyToTarget(rule, rule.target);
     }
     return changes;
+}
+
+/** @deprecated Use previewDirectConsequences; this helper intentionally performs one-hop preview only. */
+export const simulatePropagation = previewDirectConsequences;
+
+/**
+ * Apply mandatory upward floors until a least fixed point is reached.
+ * Current hard constraints are monotone over the finite Basic < Standard < Comprehensive lattice.
+ */
+export function applyMandatoryClosure(levels, scores = {}, context = {}) {
+    const closed = { ...levels };
+    const fixes = [];
+    let iterations = 0;
+
+    while (true) {
+        const violations = checkConsistency(closed, scores, context);
+        const hardViolations = violations.filter(v => v.type === 'HC');
+        if (hardViolations.length === 0) {
+            return { levels: closed, fixes, violations, iterations };
+        }
+
+        let changed = false;
+        for (const violation of hardViolations) {
+            if (violation.requiredOp !== '>=' || typeof violation.affectedProcess !== 'number') continue;
+            const current = closed[violation.affectedProcess] || 'basic';
+            if (levelIndex(current) >= levelIndex(violation.requiredLevel)) continue;
+
+            closed[violation.affectedProcess] = violation.requiredLevel;
+            fixes.push({
+                processId: violation.affectedProcess,
+                from: current,
+                to: violation.requiredLevel,
+                reason: violation.label,
+                ruleId: violation.ruleId
+            });
+            changed = true;
+        }
+
+        if (!changed) {
+            return { levels: closed, fixes, violations: checkConsistency(closed, scores, context), iterations };
+        }
+
+        iterations += 1;
+        const finiteLatticeElevationBound = CORE_PROCESSES.length * (LEVELS.length - 1);
+        if (fixes.length > finiteLatticeElevationBound) {
+            throw new Error('Mandatory closure exceeded the finite-lattice elevation bound; check for malformed or non-monotone hard rules.');
+        }
+    }
 }
 
 // =====================================================================
@@ -433,15 +546,49 @@ export function computePSI(scores) {
 
 /**
  * Compute Constraint Stress Index (CSI) from constraint/pressure metrics.
- * CSI = max(M9, M10, M15) — schedule, budget, political pressure.
+ * CSI = max(M9, M10) — schedule and budget pressure.
+ * M15 is external governance/assurance demand in semantic version 4.0 and
+ * therefore cannot be used as pressure to reduce required rigor.
  * Returns 1-5 ordinal scale.
  */
 export function computeCSI(scores) {
     return Math.max(
         scoreOrDefault(scores, 'M9'),
-        scoreOrDefault(scores, 'M10'),
-        scoreOrDefault(scores, 'M15')
+        scoreOrDefault(scores, 'M10')
     );
+}
+
+/**
+ * Derive the non-reductive governance response required by constraint stress.
+ * CSI never changes process levels: it creates a feasibility response only.
+ */
+export function deriveCSIResponseRequirement(scoresOrCsi = {}) {
+    const csi = typeof scoresOrCsi === 'number' ? scoresOrCsi : computeCSI(scoresOrCsi);
+    if (!Number.isInteger(csi) || csi < 1 || csi > 5) {
+        throw new RangeError('CSI response requirement expects an integer CSI from 1 to 5.');
+    }
+    if (csi <= 3) {
+        return {
+            csi,
+            requirement: 'none',
+            required: false,
+            rationale: 'Constraint stress does not require an additional governed feasibility response.'
+        };
+    }
+    if (csi === 4) {
+        return {
+            csi,
+            requirement: 'feasibility-review',
+            required: true,
+            rationale: 'High schedule or budget pressure requires a documented feasibility review without lowering the normative rigor profile.'
+        };
+    }
+    return {
+        csi,
+        requirement: 'sponsor-escalation',
+        required: true,
+        rationale: 'Extreme schedule or budget pressure requires sponsor escalation and explicit resolution of the feasibility conflict without automatic rigor reduction.'
+    };
 }
 
 /**
@@ -488,7 +635,7 @@ function getActiveOverrideFloor(processId, overridesApplied = [], scores = {}, c
     }
 
     for (const overrideCondition of OVERRIDE_CONDITIONS) {
-        if (overrideCondition.processes?.includes(processId) && isOverrideTriggered(overrideCondition, scores, context)) {
+        if (overrideCondition.processes?.includes(processId) && getOverrideTriggerEvidence(overrideCondition, scores, context)) {
             floor = floor ? maxLevel(floor, overrideCondition.minLevel) : overrideCondition.minLevel;
         }
     }
@@ -525,23 +672,50 @@ export function assessAdoptionReadiness(levels, scores) {
 }
 
 /**
- * Apply right-sizing: rigor budget enforcement plus readiness-gap reporting.
- * Returns adjusted levels and a log of any rigor-budget actions taken.
+ * Evaluate right-sizing: preserve normative levels and return governed reduction
+ * proposals plus readiness-gap reporting. Proposals are never applied here;
+ * accepting one requires a separate owner decision with justification and
+ * output-sufficiency evidence.
  */
 export function applyRightSizing(levels, scores, overridesApplied = [], context = {}) {
     const psi = computePSI(scores);
     const csi = computeCSI(scores);
     const cri = computeCRI(scores);
-    const adjusted = { ...levels };
-    const actions = [];
+    const constraintResponseRequirement = deriveCSIResponseRequirement(csi);
+    const normative = { ...levels };
+    // A private planning copy allows proposals to be sequenced deterministically
+    // without changing the normative profile returned to the caller.
+    const proposedProfile = { ...levels };
+    const proposals = [];
+    const makeProposal = (processId, from, proposedTo, reason) => {
+        const affectedMetricIds = Object.keys(getEffectiveProcessMetricMap(processId, METRIC_PROCESS_MAP, context)).sort(metricSort);
+        const protectedMetricIds = affectedMetricIds
+            .filter(metric => ['M5', 'M8', 'M15'].includes(metric));
+        const proposal = {
+            processId,
+            elementId: context.activeElementId || context.elementId || 'default',
+            scopeElementIds: context.scopeElementIds || [context.activeElementId || context.elementId || 'default'],
+            from,
+            proposedTo,
+            to: proposedTo,
+            protectedMetricIds,
+            affectedMetricIds,
+            protectedOutputImpact: false,
+            type: 'rigor_budget_proposal',
+            status: 'review-required',
+            applied: false,
+            reason
+        };
+        return { ...proposal, approvalRequirements: getRightSizingApprovalRequirements(proposal, context.assessmentTree) };
+    };
 
-    // Enforce rigor budget based on PSI. CRI is intentionally not a ceiling;
+    // Evaluate the rigor budget based on PSI. CRI is intentionally not a ceiling;
     // low readiness creates adoption risks, not permission to under-tailor.
     const budget = RIGOR_BUDGET.find(b => psi >= b.psiMin && psi <= b.psiMax);
     if (budget) {
         // Count current Comprehensive processes (excluding override-protected)
         const compProcesses = CORE_PROCESSES
-            .filter(p => adjusted[p.id] === 'comprehensive')
+            .filter(p => proposedProfile[p.id] === 'comprehensive')
             .map(p => p.id);
 
         if (compProcesses.length > budget.maxComprehensive) {
@@ -570,15 +744,10 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
                 const targetLevel = overrideFloor && levelIndex(overrideFloor) > levelIndex('standard')
                     ? overrideFloor
                     : 'standard';
-                if (adjusted[candidate.pid] === targetLevel) continue;
-                adjusted[candidate.pid] = targetLevel;
-                actions.push({
-                    processId: candidate.pid,
-                    from: 'comprehensive',
-                    to: targetLevel,
-                    type: 'rigor_budget',
-                    reason: `PSI=${psi} (${budget.label}) limits Comprehensive to ${budget.maxComprehensive}`
-                });
+                if (proposedProfile[candidate.pid] === targetLevel) continue;
+                proposedProfile[candidate.pid] = targetLevel;
+                proposals.push(makeProposal(candidate.pid, 'comprehensive', targetLevel,
+                    `PSI=${psi} (${budget.label}) proposes review of Comprehensive count above ${budget.maxComprehensive}`));
                 excess--;
             }
         }
@@ -586,12 +755,19 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
         // For small projects (PSI 1-2), also limit Standard count
         if (psi <= 2 && budget.typicalStandardRange) {
             const maxStd = budget.typicalStandardRange[1];
-            const stdProcesses = CORE_PROCESSES
-                .filter(p => adjusted[p.id] === 'standard')
+            const proposedStandardCount = CORE_PROCESSES
+                .filter(p => proposedProfile[p.id] === 'standard')
+                .length;
+            // Do not stack a second contingent proposal onto a process already
+            // proposed for Comprehensive -> Standard. Choose only processes
+            // whose normative level is Standard, while sizing the proposal set
+            // against the full contingent profile.
+            const normativeStandardProcesses = CORE_PROCESSES
+                .filter(p => normative[p.id] === 'standard')
                 .map(p => p.id);
 
-            if (stdProcesses.length > maxStd) {
-                const stdCandidates = stdProcesses
+            if (proposedStandardCount > maxStd) {
+                const stdCandidates = normativeStandardProcesses
                     .filter(pid => {
                         const overrideFloor = getActiveOverrideFloor(pid, overridesApplied, scores, context);
                         return !overrideFloor || levelIndex(overrideFloor) < levelIndex('standard');
@@ -606,30 +782,77 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
                         return a.maxMetric - b.maxMetric;
                     });
 
-                let stdExcess = stdProcesses.length - maxStd;
+                let stdExcess = proposedStandardCount - maxStd;
                 for (const candidate of stdCandidates) {
                     if (stdExcess <= 0) break;
                     const overrideFloor = getActiveOverrideFloor(candidate.pid, overridesApplied, scores, context);
                     const targetLevel = overrideFloor && levelIndex(overrideFloor) > levelIndex('basic')
                         ? overrideFloor
                         : 'basic';
-                    if (adjusted[candidate.pid] === targetLevel) continue;
-                    adjusted[candidate.pid] = targetLevel;
-                    actions.push({
-                        processId: candidate.pid,
-                        from: 'standard',
-                        to: targetLevel,
-                        type: 'rigor_budget',
-                        reason: `PSI=${psi} (${budget.label}) limits Standard to ${maxStd}`
-                    });
+                    if (proposedProfile[candidate.pid] === targetLevel) continue;
+                    proposedProfile[candidate.pid] = targetLevel;
+                    proposals.push(makeProposal(candidate.pid, 'standard', targetLevel,
+                        `PSI=${psi} (${budget.label}) proposes review of Standard count above ${maxStd}`));
                     stdExcess--;
                 }
             }
         }
     }
 
-    const adoptionRisks = assessAdoptionReadiness(adjusted, scores);
-    return { levels: adjusted, rightSizingActions: actions, adoptionRisks, indices: { psi, csi, cri } };
+    // A proposal that mandatory closure would immediately undo is not a viable
+    // approval candidate. Preview closure on the contingent profile, preserve
+    // blocked candidates for audit, and expose only closure-feasible proposals
+    // for governance review.
+    const proposalClosure = applyMandatoryClosure(proposedProfile, scores, context);
+    const blockedRightSizingCandidates = proposals
+        .filter(proposal => proposalClosure.levels[proposal.processId] !== proposal.proposedTo)
+        .map(proposal => ({
+            ...proposal,
+            status: 'blocked-by-mandatory-closure',
+            applied: false,
+            closureLevel: proposalClosure.levels[proposal.processId]
+        }));
+    const rightSizingProposals = proposals.filter(proposal =>
+        proposalClosure.levels[proposal.processId] === proposal.proposedTo
+    );
+    const proposalBudgetStatus = computeRigorBudgetStatus(proposalClosure.levels, scores);
+    const adoptionRisks = assessAdoptionReadiness(normative, scores);
+    return {
+        levels: normative,
+        rightSizingProposals,
+        blockedRightSizingCandidates,
+        // Legacy compatibility field. New engine results never report proposals
+        // as completed right-sizing actions.
+        rightSizingActions: [],
+        proposedProfile: proposalClosure.levels,
+        proposalClosureFixes: proposalClosure.fixes,
+        proposalBudgetStatus,
+        constraintResponseRequirement,
+        adoptionRisks,
+        indices: { psi, csi, cri }
+    };
+}
+
+/** Report final rigor-budget fit after mandatory closure and protected floors. */
+export function computeRigorBudgetStatus(levels, scores) {
+    const psi = computePSI(scores);
+    const budget = RIGOR_BUDGET.find(candidate => psi >= candidate.psiMin && psi <= candidate.psiMax) || null;
+    const comprehensiveCount = CORE_PROCESSES.filter(process => levels[process.id] === 'comprehensive').length;
+    const standardCount = CORE_PROCESSES.filter(process => levels[process.id] === 'standard').length;
+    const maxStandard = psi <= 2 && budget?.typicalStandardRange ? budget.typicalStandardRange[1] : null;
+    const comprehensiveExcess = budget ? Math.max(0, comprehensiveCount - budget.maxComprehensive) : 0;
+    const standardExcess = maxStandard === null ? 0 : Math.max(0, standardCount - maxStandard);
+    return {
+        psi,
+        label: budget?.label || 'Unclassified',
+        maxComprehensive: budget?.maxComprehensive ?? null,
+        maxStandard,
+        comprehensiveCount,
+        standardCount,
+        comprehensiveExcess,
+        standardExcess,
+        withinBudget: comprehensiveExcess === 0 && standardExcess === 0
+    };
 }
 
 /** Helper: get the max driving metric score for a process */
@@ -640,11 +863,12 @@ function getMaxDrivingMetric(processId, scores) {
 }
 
 /**
- * Full assessment pipeline implementing the framework v3.5 executable algorithm.
+ * Full assessment pipeline implementing the framework v4.0 executable algorithm.
  * 
  * Execution Steps:
  * 1. Derive initial levels from metrics (max-tier with Comprehensive corroboration)
- * 2. Apply override conditions (safety, regulatory, project-context)
+ * 2. Apply scoped floor conditions (safety, mission, environmental, security,
+ *    binding assurance, novelty, and integration context)
  * 3. Apply SA floor (Safety Assurance minimum levels based on M5)
  * 4. Apply interdependencies (consistency rules with auto-fix)
  * 
@@ -652,101 +876,60 @@ function getMaxDrivingMetric(processId, scores) {
  */
 export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {}) {
     // Step 1: Derive initial levels using max-tier plus corroboration
-    const derivationDetails = calculateAllProcessDerivations(scores, matrixMap);
+    const derivationDetails = calculateAllProcessDerivations(scores, matrixMap, context);
     const derived = {};
     for (const [pid, detail] of Object.entries(derivationDetails)) {
         derived[pid] = detail.level;
     }
 
     // Step 2: Apply override conditions (safety, regulatory, project-context)
-    const { levels: withOverrides, overrides } = applyOverrides(derived, scores, context);
+    const { levels: withOverrides, overrides, activeFloors } = applyOverrides(derived, scores, context);
 
-    // Step 3: Apply SA floor (Safety Assurance minimum levels)
+    // Step 3: Derive the SA tier for explanation. O1-O6 in OVERRIDE_CONDITIONS
+    // are the single authoritative implementation of M5-based process floors.
     let final = { ...withOverrides };
-    const saOverrides = [];
-
     const saTier = calculateSATier(scores);
-    if (saTier.floor) {
-        for (const pid of SA_PROCESSES) {
-            const currentLevel = final[pid] || 'basic';
-            if (levelIndex(currentLevel) < levelIndex(saTier.floor)) {
-                const prev = currentLevel;
-                final[pid] = saTier.floor;
-                saOverrides.push({
-                    processId: pid,
-                    from: prev,
-                    to: saTier.floor,
-                    reason: `SA Tier ${saTier.tier} Floor`,
-                    condition: `M5 = ${scoreOrDefault(scores, 'M5')}`,
-                    triggerType: 'metric'
-                });
-            }
-        }
-    }
+    const allOverrides = overrides;
 
-    const allOverrides = [...overrides, ...saOverrides];
+    // Step 4: RIGHT-SIZE — propose governed reductions (PSI) and flag adoption gaps (CRI)
+    const { levels: afterRightSizing, rightSizingActions, rightSizingProposals, blockedRightSizingCandidates, proposedProfile, proposalClosureFixes, proposalBudgetStatus, constraintResponseRequirement, adoptionRisks, indices } = applyRightSizing(final, scores, allOverrides, context);
 
-    // Step 4: RIGHT-SIZE — apply rigor budget (PSI) and flag adoption gaps (CRI)
-    const { levels: afterRightSizing, rightSizingActions, adoptionRisks, indices } = applyRightSizing(final, scores, allOverrides, context);
-
-    // Step 5: Apply interdependencies (consistency rules with auto-fix)
-    final = { ...afterRightSizing };
-    const fixes = [];
-    let iterations = 0;
-    let remainingViolations = checkConsistency(final, scores);
-
-    while (iterations < 8) {
-        const hcViolations = remainingViolations.filter(v => v.type === 'HC');
-        if (hcViolations.length === 0) break;
-
-        let fixedThisRound = false;
-        for (const v of hcViolations) {
-            if (v.ruleId === 12 || v.ruleId === '12') {
-                const currentPlanning = final[9] || 'basic';
-                if (levelIndex(currentPlanning) < levelIndex('standard')) {
-                    final[9] = 'standard';
-                    fixes.push({
-                        processId: 9,
-                        from: currentPlanning,
-                        to: 'standard',
-                        reason: 'Rule 12 strengthened fix (Planning floor)',
-                        ruleId: 12
-                    });
-                    fixedThisRound = true;
-                }
-                continue;
-            }
-
-            if (v.requiredOp === '>=' && levelIndex(final[v.affectedProcess] || 'basic') < levelIndex(v.requiredLevel)) {
-                const prev = final[v.affectedProcess];
-                final[v.affectedProcess] = v.requiredLevel;
-                fixes.push({
-                    processId: v.affectedProcess,
-                    from: prev,
-                    to: v.requiredLevel,
-                    reason: v.label,
-                    ruleId: v.ruleId
-                });
-                fixedThisRound = true;
-            }
-        }
-
-        if (!fixedThisRound) break;
-        remainingViolations = checkConsistency(final, scores);
-        iterations += 1;
-    }
+    // Step 5: Apply monotone mandatory closure to the least fixed point.
+    const closure = applyMandatoryClosure(afterRightSizing, scores, context);
+    const normativeLevels = closure.levels;
+    const approvalContext = {
+        ...context,
+        scores,
+        activeFloors,
+        normativeLevels,
+        frameworkVersion: context.frameworkVersion || '4.0.0',
+        metricDefinitionSet: context.metricDefinitionSet || 'se-tailoring-m1-m16-v2'
+    };
+    const approvalResult = evaluateRightSizingApprovals(
+        rightSizingProposals,
+        context.rightSizingApprovalRecords || [],
+        approvalContext
+    );
+    // Approval can authorize a reduction, but cannot bypass mandatory closure.
+    // Re-closing the approved profile makes that property executable rather than documentary.
+    const approvedClosure = applyMandatoryClosure(approvalResult.levels, scores, context);
+    final = approvedClosure.levels;
+    const fixes = [...closure.fixes, ...approvedClosure.fixes];
+    const remainingViolations = approvedClosure.violations;
+    const budgetStatus = computeRigorBudgetStatus(final, scores);
 
     // Step 6: Compute evidence status for each process based on final levels.
-    // Metric corroboration, safety/regulatory floors, and explicit-justification
+    // Metric corroboration, criticality/assurance floors, and explicit-justification
     // cases are separate evidence states; do not collapse them into one label.
     const confidence = {};
     for (const p of CORE_PROCESSES) {
         const finalLevel = final[p.id];
         if (finalLevel === 'comprehensive') {
             const derivationConfidence = derivationDetails[p.id]?.confidence || 'high';
-            const activeFloor = getActiveOverrideFloor(p.id, allOverrides, scores, context);
-            const comprehensiveFloorApplied = (
-                activeFloor && levelIndex(activeFloor) >= levelIndex('comprehensive')
+            const comprehensiveFloorApplied = allOverrides.some(override =>
+                override.processId === p.id &&
+                levelIndex(override.to) >= levelIndex('comprehensive') &&
+                levelIndex(override.from || 'basic') < levelIndex('comprehensive')
             ) || fixes.some(f =>
                 f.processId === p.id && levelIndex(f.to) >= levelIndex('comprehensive')
             );
@@ -758,6 +941,11 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
             } else {
                 confidence[p.id] = 'available-with-justification';
             }
+        } else if (derivationDetails[p.id]?.confidence === 'available-with-justification') {
+            // Preserve the score-5 trigger disposition even though the default
+            // final recommendation is Standard. This is a governed option, not
+            // a claim that the final Standard result is weak evidence.
+            confidence[p.id] = 'available-with-justification';
         } else {
             confidence[p.id] = 'high';
         }
@@ -767,7 +955,18 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         derived,
         derivationDetails,
         overrides: allOverrides,
+        activeFloors: activeFloors || [],
+        rightSizingProposals: rightSizingProposals || [],
+        blockedRightSizingCandidates: blockedRightSizingCandidates || [],
         rightSizingActions: rightSizingActions || [],
+        proposedRightSizedLevels: proposedProfile || {},
+        proposalClosureFixes: proposalClosureFixes || [],
+        proposalBudgetStatus: proposalBudgetStatus || null,
+        rightSizingApprovalEvaluations: approvalResult.evaluations || [],
+        approvedRightSizedLevels: approvalResult.effectiveCount > 0 ? final : {},
+        normativeLevels,
+        effectiveRightSizingApprovalCount: approvalResult.effectiveCount || 0,
+        constraintResponseRequirement: constraintResponseRequirement || deriveCSIResponseRequirement(scores),
         adoptionRisks: adoptionRisks || [],
         indices: indices || {},
         fixes,
@@ -775,6 +974,8 @@ export function runFullAssessment(scores, matrixMap = METRIC_PROCESS_MAP, contex
         violations: remainingViolations,
         scores,
         saTier,
-        confidence
+        confidence,
+        budgetStatus,
+        closureIterations: closure.iterations + approvedClosure.iterations
     };
 }

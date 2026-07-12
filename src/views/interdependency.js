@@ -1,9 +1,9 @@
 /**
  * Interdependency View — Process dependency visualization & consistency rules
  */
-import { CORE_PROCESSES, CONSISTENCY_RULES, PROPAGATION_RULES, DEPENDENCY_CHAINS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
+import { CORE_PROCESSES, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, DEPENDENCY_CHAINS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { getState } from '../state.js';
-import { simulatePropagation } from '../utils/assessment-engine.js';
+import { previewDirectConsequences, getEffectivePropagationType } from '../utils/assessment-engine.js';
 
 export function renderInterdependency(container) {
     const state = getState();
@@ -22,7 +22,7 @@ export function renderInterdependency(container) {
       <button class="tab active" data-tab="rules">Consistency Rules</button>
       <button class="tab" data-tab="propagation">Propagation</button>
       <button class="tab" data-tab="chains">Dependency Chains</button>
-      <button class="tab" data-tab="simulate">Simulate</button>
+      <button class="tab" data-tab="simulate">Direct Preview</button>
     </div>
 
     <div id="tab-content"></div>
@@ -58,9 +58,9 @@ export function renderInterdependency(container) {
         if (tab === 'rules') {
             content.innerHTML = `
         <div class="mb-lg">
-          <p class="text-secondary text-sm mb-md">${CONSISTENCY_RULES.length} consistency rules prevent logically inconsistent tailoring combinations. Hard Constraints (HC) must be satisfied; Warnings (WN) should be reviewed.</p>
+          <p class="text-secondary text-sm mb-md">${ACTIVE_CONSISTENCY_RULES.length} active consistency rules identify incoherent tailoring combinations. Hard Constraints (HC) must be satisfied; Warnings (WN) should be reviewed.</p>
         </div>
-        ${CONSISTENCY_RULES.map(r => {
+        ${ACTIVE_CONSISTENCY_RULES.map(r => {
                 const triggerDesc = Array.isArray(r.trigger.process) ? r.trigger.process.map(processName).join(' or ') : r.trigger.process === 'any_technical' ? 'Any Technical Process' : processName(r.trigger.process);
                 const violated = state.violations?.some(v => v.ruleId === r.id);
                 return `
@@ -84,7 +84,9 @@ export function renderInterdependency(container) {
           <div class="prop-row" style="font-weight:700;color:var(--text-secondary);font-size:11px;text-transform:uppercase">
             <span>Source Process</span><span>→</span><span>Target Process</span><span>Min Level</span><span>Type</span>
           </div>
-          ${PROPAGATION_RULES.map(r => `
+          ${ACTIVE_PROPAGATION_RULES.map(r => {
+              const effectiveType = getEffectivePropagationType(r, state.scores || {});
+              return `
             <div class="prop-row">
               <span>${processRefName(r.source)} ≥ ${FRAMEWORK_META.levelLabels[r.sourceLevel]}</span>
               <span class="chain-arrow">→</span>
@@ -92,9 +94,9 @@ export function renderInterdependency(container) {
               <span class="level-badge ${r.minLevel || r.maxLevel}">
                 ${r.minLevel ? `≥ ${FRAMEWORK_META.levelLabels[r.minLevel]}` : `≤ ${FRAMEWORK_META.levelLabels[r.maxLevel]}`}
               </span>
-              <span class="prop-type ${r.type}">${r.type} (d${r.depth})</span>
+              <span class="prop-type ${effectiveType}">${effectiveType} (direct)</span>
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       `;
         } else if (tab === 'chains') {
@@ -116,7 +118,7 @@ export function renderInterdependency(container) {
       `;
         } else if (tab === 'simulate') {
             content.innerHTML = `
-        <p class="text-secondary text-sm mb-lg">Select a process and new level to see propagation effects.</p>
+        <p class="text-secondary text-sm mb-lg">Select a process and new level to preview immediate one-hop consequences. Mandatory transitive closure is applied only by the full assessment engine.</p>
         <div class="sim-select">
           <select class="select" id="sim-process">
             <option value="">Select process...</option>
@@ -135,10 +137,10 @@ export function renderInterdependency(container) {
                 const pid = parseInt(content.querySelector('#sim-process').value);
                 const lvl = content.querySelector('#sim-level').value;
                 if (!pid) return;
-                const changes = simulatePropagation(pid, lvl, state.levels || {});
+                const changes = previewDirectConsequences(pid, lvl, state.levels || {}, state.scores || {});
                 const results = content.querySelector('#sim-results');
                 if (changes.length === 0) {
-                    results.innerHTML = '<div class="sim-result text-sm text-secondary">No propagation needed — all dependent processes already meet minimum levels.</div>';
+                    results.innerHTML = '<div class="sim-result text-sm text-secondary">No direct outgoing consequence for this change. Run the full assessment to evaluate whole-profile consistency and mandatory closure.</div>';
                 } else {
                     results.innerHTML = changes.map(c => `
             <div class="sim-result">
