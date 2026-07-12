@@ -76,7 +76,7 @@ const BASE_PROCESSES = [
         definition: { basic: 'Simple risk register with high/medium/low assessment. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
         assumptions: 'Risks identified through experience and intuition; assessment is qualitative (H/M/L); monitoring is informal.',
         whenToElevate: 'Elevate to Standard for medium-complexity projects. Elevate to Comprehensive for safety-critical systems.',
-        cultureActions: { resistant: 'Frame risks as "What could go wrong?"; use guerrilla tactics if formal registers rejected', tolerant: 'Demonstrate ROI of risk management; use internal champions', supportive: 'Implement quantitative risk analysis; create risk dashboards' }
+        cultureActions: { resistant: 'Frame risks as "What could go wrong?"; use lightweight informal capture if formal registers are not yet accepted', tolerant: 'Demonstrate ROI of risk management; use internal champions', supportive: 'Implement quantitative risk analysis; create risk dashboards' }
     },
     {
         id: 13, name: 'Configuration Management', group: 'tech_mgmt', purpose: 'Establish and maintain consistency of system attributes throughout the lifecycle', extended: false,

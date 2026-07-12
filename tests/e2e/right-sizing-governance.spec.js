@@ -49,16 +49,16 @@ function currentConfig(scores, name) {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.0.0',
-      metricDefinitionSet: 'se-tailoring-m1-m16-v2',
-      qualifierSchemaVersion: '1.0'
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
     },
     projectInfo: { name },
     metricScores: scores,
     metricAssessments: Object.fromEntries(Object.entries(scores).map(([metricId, score]) => [metricId, {
       score,
       status: 'assessed',
-      definitionVersion: 2,
+      definitionVersion: 3,
       qualifiers: [],
       rationale: 'Right-sizing E2E fixture judgment',
       evidenceRefs: [`EVID-${metricId}`]

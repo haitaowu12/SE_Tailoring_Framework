@@ -1,6 +1,6 @@
 import { RELATIONSHIP_STUDIES, HANDOFF_EVIDENCE_STATUSES, createRequirementsArchitectureHandoff } from '../data/artifact-relationships.js';
 import { getState, setState, showToast } from '../state.js';
-import { assessArtifactHandoff, normalizeArtifactHandoffs } from '../utils/output-sufficiency.js';
+import { assessArtifactHandoff, ensureArtifactHandoffsForElements } from '../utils/output-sufficiency.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
 const field = (label, name, value, { type = 'text', help = '', required = false } = {}) => `
@@ -47,9 +47,9 @@ export function renderOutputSufficiency(container) {
   const state = getState();
   const tree = state.assessmentTree;
   const rootId = tree?.rootId || 'default';
-  const records = normalizeArtifactHandoffs(state.artifactHandoffs, rootId);
-  if (!state.artifactHandoffs?.length) setState({ artifactHandoffs: records });
   const elements = Object.values(tree?.nodes || {}).sort((a, b) => a.name.localeCompare(b.name));
+  const records = ensureArtifactHandoffsForElements(state.artifactHandoffs, elements.map(element => element.id));
+  if (records.length !== (state.artifactHandoffs || []).length) setState({ artifactHandoffs: records });
   const elementOptions = selected => elements.map(element => `<option value="${escapeHtml(element.id)}" ${selected === element.id ? 'selected' : ''}>${escapeHtml(element.name)}</option>`).join('');
 
   container.innerHTML = `

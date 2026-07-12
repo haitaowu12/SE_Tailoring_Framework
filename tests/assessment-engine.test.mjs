@@ -54,7 +54,7 @@ function makeMetricAssessments(scores, overrides = {}) {
   return Object.fromEntries(METRIC_IDS.map(id => [id, {
     score: scores[id],
     status: 'assessed',
-    definitionVersion: 2,
+    definitionVersion: 3,
     qualifiers: [],
     rationale: 'Explicit test judgment',
     evidenceRefs: [],
@@ -490,8 +490,8 @@ test('export config preserves report-critical assessment state for round trip', 
   });
 
   assert.equal(config._version, '2.0');
-  assert.equal(config.semantics.frameworkVersion, '4.0.0');
-  assert.equal(config.semantics.metricDefinitionSet, 'se-tailoring-m1-m16-v2');
+  assert.equal(config.semantics.frameworkVersion, '4.1.0');
+  assert.equal(config.semantics.metricDefinitionSet, 'se-tailoring-m1-m16-v3');
   assert.equal(config.saResponses.safetyCaseRequired, true);
   assert.equal(config.violations.length, 1);
   assert.equal(config.fixes.length, 1);
@@ -540,8 +540,8 @@ test('schema 2.0 round-trips security qualifiers and scoped assurance obligation
     projectInfo: { name: 'Semantic v4' },
     scores,
     metricAssessments: makeMetricAssessments(scores, {
-      M8: { score: 4, status: 'assessed', definitionVersion: 2, qualifiers: ['integrity', 'availability'], evidenceRefs: ['SEC-1'] },
-      M15: { score: 4, status: 'assessed', definitionVersion: 2, qualifiers: ['regulatory-mandate'], evidenceRefs: ['AO-1'] }
+      M8: { score: 4, status: 'assessed', definitionVersion: 3, qualifiers: ['integrity', 'availability'], evidenceRefs: ['SEC-1'] },
+      M15: { score: 4, status: 'assessed', definitionVersion: 3, qualifiers: ['regulatory-mandate'], evidenceRefs: ['AO-1'] }
     }),
     assuranceObligations: [{ id: 'AO-1', type: 'regulatory-mandate', bindingStatus: 'confirmed', authority: 'Rail regulator', sourceRef: 'entry-to-service approval', processScope: [13, 14, 16, 25] }],
     levels: makeCoreLevels('standard'),

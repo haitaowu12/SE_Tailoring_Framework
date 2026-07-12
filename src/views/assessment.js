@@ -2,10 +2,10 @@
  * Assessment View — Step-by-step metric scoring wizard
  * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
  */
-import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS } from '../data/se-tailoring-data.js';
+import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
 import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
 import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, setElementAssessmentResult, markMetricManual } from '../state.js';
-import { navigateTo } from '../router.js';
+import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
 import { assessMetricCompleteness, getM15ScopeOptions } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
@@ -332,7 +332,7 @@ function renderStep(container) {
         ...(localMetricAssessments[metricId] || {}),
         score: null,
         status: 'unknown',
-        definitionVersion: 2,
+        definitionVersion: METRIC_DEFINITION_VERSION,
         qualifiers: localMetricAssessments[metricId]?.qualifiers || [],
         evidenceRefs: localMetricAssessments[metricId]?.evidenceRefs || []
       };
@@ -371,7 +371,7 @@ function bindCorrelatedEvidenceControls(content) {
         ...(localMetricAssessments[metricId] || {}),
         score: localMetricAssessments[metricId]?.score ?? localScores[metricId] ?? 3,
         status: localMetricAssessments[metricId]?.status || 'assessed',
-        definitionVersion: 2,
+        definitionVersion: METRIC_DEFINITION_VERSION,
         qualifiers: localMetricAssessments[metricId]?.qualifiers || [],
         evidenceRefs: localMetricAssessments[metricId]?.evidenceRefs || [],
         evidenceContext: normalizeEvidenceContext(raw)
@@ -428,7 +428,7 @@ function bindQualifierControls(content) {
     const qualifiers = [...content.querySelectorAll(`.metric-qualifier[data-metric="${metricId}"]:checked`)].map(item => item.value);
     localMetricAssessments[metricId] = {
       ...(localMetricAssessments[metricId] || {}), score: localScores[metricId] || 3,
-      status: 'assessed', definitionVersion: 2, qualifiers, evidenceRefs: localMetricAssessments[metricId]?.evidenceRefs || []
+      status: 'assessed', definitionVersion: METRIC_DEFINITION_VERSION, qualifiers, evidenceRefs: localMetricAssessments[metricId]?.evidenceRefs || []
     };
   }));
 
@@ -447,7 +447,7 @@ function bindQualifierControls(content) {
       localAssuranceObligations = [obligation, ...localAssuranceObligations.slice(1)];
       const qualifiers = new Set(localMetricAssessments.M15?.qualifiers || []);
       qualifiers.add(obligation.type);
-      localMetricAssessments.M15 = { ...(localMetricAssessments.M15 || {}), score: localScores.M15 || 3, status: 'assessed', definitionVersion: 2, qualifiers: [...qualifiers], evidenceRefs: [] };
+      localMetricAssessments.M15 = { ...(localMetricAssessments.M15 || {}), score: localScores.M15 || 3, status: 'assessed', definitionVersion: METRIC_DEFINITION_VERSION, qualifiers: [...qualifiers], evidenceRefs: [] };
     };
     assuranceInputs.forEach(id => content.querySelector(`#${id}`)?.addEventListener('change', update));
     content.querySelectorAll('.assurance-scope').forEach(input => input.addEventListener('change', update));
@@ -456,9 +456,10 @@ function bindQualifierControls(content) {
 
 function setMetricScore(metricId, value, contentContainer) {
   const m = METRICS.find(x => x.id === metricId);
+  const activeNode = getActiveNode();
   localScores[metricId] = value;
   localMetricAssessments[metricId] = {
-    ...(localMetricAssessments[metricId] || {}), score: value, status: 'assessed', definitionVersion: 2,
+    ...(localMetricAssessments[metricId] || {}), score: value, status: 'assessed', definitionVersion: METRIC_DEFINITION_VERSION,
     qualifiers: localMetricAssessments[metricId]?.qualifiers || [], evidenceRefs: localMetricAssessments[metricId]?.evidenceRefs || []
   };
   const slider = contentContainer.querySelector(`#slider-${metricId}`);
@@ -474,7 +475,6 @@ function setMetricScore(metricId, value, contentContainer) {
   if (desc) desc.textContent = m.anchors[value] || '';
 
   // Track as manually set for the active element
-  const activeNode = getActiveNode();
   if (activeNode) {
     markMetricManual(activeNode.id, metricId);
   }
@@ -598,7 +598,7 @@ function renderResults(content) {
   const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.complete;
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
-  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
+  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [activeNodeBeforeRun?.id || state.assessmentTree?.rootId || 'default']);
   content.innerHTML = `
     ${!completeness.complete ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
       <strong>⚠ Work-in-progress preview — not a baseline</strong>
@@ -870,6 +870,7 @@ function renderResults(content) {
                   <span>${d.metric}: ${d.value}</span>
                 </div>`).join('')}
             </div>
+            <a class="btn btn-secondary btn-sm mt-sm process-detail-link" href="${escapeHtml(processDetailsHref(p.id, level, 'assessment'))}" aria-label="View ${escapeHtml(p.name)} ${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)} details">View level details →</a>
           </div>`;
   }).join('')}
       </div>
@@ -897,6 +898,12 @@ function renderResults(content) {
       completeButton.textContent = '✓ Complete Baseline';
     }
   };
+  content.querySelectorAll('.process-detail-link').forEach(link => {
+    link.addEventListener('click', event => {
+      event.preventDefault();
+      finalizeAssessment(link.getAttribute('href'));
+    });
+  });
   content.querySelector('#btn-review-handoffs')?.addEventListener('click', () => navigateTo('handoffs'));
   const refreshRule11Record = () => {
     if (!rule11Disposition.required) return;
@@ -985,17 +992,24 @@ function renderResults(content) {
   updateCompleteButton();
 }
 
-function finalizeAssessment() {
+function finalizeAssessment(destinationHash = null) {
+  const navigationOnly = typeof destinationHash === 'string' && destinationHash.startsWith('#');
   const state = getState();
+  const activeNode = getActiveNode();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const assessmentContext = { ...localProject, metricAssessments: localMetricAssessments, assuranceObligations: localAssuranceObligations };
+  const assessmentContext = {
+    ...localProject,
+    metricAssessments: localMetricAssessments,
+    assuranceObligations: localAssuranceObligations,
+    rightSizingApprovalRecords: activeNode?.rightSizingApprovalRecords || state.rightSizingApprovalRecords || []
+  };
   const hierarchyInput = getHierarchyGuardedInput(state, localScores);
   const result = runFullAssessment(hierarchyInput.effectiveScores, matrixMap, assessmentContext);
   result.hierarchyWarnings = hierarchyInput.warnings;
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
   const rule11Record = localRuleDispositions?.['11'];
   const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
-  const applyRule11Elevation = rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
+  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
   const effectiveLevels = applyRule11Elevation ? { ...result.levels, 27: 'standard' } : result.levels;
   const effectiveResult = applyRule11Elevation
     ? { ...result, levels: effectiveLevels, budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores) }
@@ -1004,9 +1018,9 @@ function finalizeAssessment() {
   const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, effectiveLevels);
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
-  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
+  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [activeNode?.id || state.assessmentTree?.rootId || 'default']);
   const hierarchyReady = hierarchyInput.blockedMetrics.length === 0;
-  const canBaseline = completeness.complete && warningDispositions.complete && csiReadiness.complete && outputSufficiency.complete && hierarchyReady;
+  const canBaseline = effectiveResult.authoritative === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && outputSufficiency.complete && hierarchyReady;
   const manualAdjustments = applyRule11Elevation ? {
     ...(state.manualAdjustments || {}),
     27: {
@@ -1030,7 +1044,7 @@ function finalizeAssessment() {
     ruleDispositions: localRuleDispositions,
     csiResponse: localCsiResponse,
     correlatedEvidenceWarnings: correlatedEvidence.warnings,
-    semanticMigration: canBaseline ? null : state.semanticMigration,
+    semanticMigration: !navigationOnly && canBaseline ? null : state.semanticMigration,
     saTier: effectiveResult.saTier,
     derived: effectiveResult.derived,
     derivationDetails: effectiveResult.derivationDetails || {},
@@ -1045,7 +1059,7 @@ function finalizeAssessment() {
     rightSizingApprovalRecords: assessmentContext.rightSizingApprovalRecords,
     rightSizingApprovalEvaluations: effectiveResult.rightSizingApprovalEvaluations || [],
     approvedRightSizedLevels: effectiveResult.approvedRightSizedLevels || {},
-    normativeLevels: effectiveResult.normativeLevels || effectiveResult.levels,
+    normativeLevels: effectiveResult.normativeLevels || {},
     effectiveRightSizingApprovalCount: effectiveResult.effectiveRightSizingApprovalCount || 0,
     rightSizingActions: [],
     budgetStatus: effectiveResult.budgetStatus || null,
@@ -1054,13 +1068,13 @@ function finalizeAssessment() {
     violations: effectiveResult.violations,
     fixes: effectiveResult.fixes,
     confidence: effectiveResult.confidence || {},
+    derivationStatus: effectiveResult.derivationStatus || effectiveResult.confidence || {},
     manualAdjustments,
-    assessmentComplete: canBaseline,
-    assessmentDisposition: canBaseline ? 'complete-baseline' : 'work-in-progress'
+    assessmentComplete: !navigationOnly && canBaseline,
+    assessmentDisposition: !navigationOnly && canBaseline ? 'complete-baseline' : 'work-in-progress'
   });
 
   // Also store per-element (hierarchy)
-  const activeNode = getActiveNode();
   if (activeNode) {
     activeNode.metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments ?? {}));
     activeNode.assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations ?? []));
@@ -1071,9 +1085,17 @@ function finalizeAssessment() {
     activeNode.manualAdjustments = JSON.parse(JSON.stringify(manualAdjustments ?? {}));
     setElementScores(activeNode.id, { ...localScores });
     setElementAssessmentResult(activeNode.id, effectiveResult);
+    if (navigationOnly) {
+      activeNode.status = 'draft';
+      activeNode.assessmentDisposition = 'work-in-progress';
+    }
   }
 
-  if (canBaseline) {
+  if (navigationOnly) {
+    showToast('Work in progress saved before opening process details.', 'info');
+    const destination = getCurrentRouteContext(destinationHash);
+    navigateTo(destination.path, destination.params);
+  } else if (canBaseline) {
     showToast(`Assessment complete for "${activeNode?.name || 'Project'}"! Process levels calculated.`, 'success');
     currentStep = 0;
     navigateTo('report');

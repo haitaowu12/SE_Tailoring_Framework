@@ -39,6 +39,15 @@ test('escapeHtml neutralizes markup, attributes, and quoted text', () => {
   assert.equal(safeText('   ', 'fallback'), 'fallback');
 });
 
+test('app shell enforces a local-resource CSP and does not contact third-party font hosts', () => {
+  const html = readFileSync(join(appRoot, 'index.html'), 'utf8');
+  assert.match(html, /http-equiv="Content-Security-Policy"/);
+  assert.match(html, /default-src 'self'/);
+  assert.match(html, /object-src 'none'/);
+  assert.match(html, /referrer" content="no-referrer"/);
+  assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+});
+
 test('source templates avoid inline event handlers and javascript pseudo-links', () => {
   const offenders = [];
   const inlineEventPattern = /(?<!\.)\bon(?:click|error|load|mouseover|mouseenter|mouseleave)\s*=/i;

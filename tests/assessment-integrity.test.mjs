@@ -16,7 +16,7 @@ const METRIC_IDS = Array.from({ length: 16 }, (_, index) => `M${index + 1}`);
 const makeScores = value => Object.fromEntries(METRIC_IDS.map(metricId => [metricId, value]));
 const makeAssessments = (scores, status = 'assessed') => Object.fromEntries(
   METRIC_IDS.map(metricId => [metricId, {
-    score: scores[metricId], status, definitionVersion: 2, qualifiers: [], rationale: '', evidenceRefs: []
+    score: scores[metricId], status, definitionVersion: 3, qualifiers: [], rationale: '', evidenceRefs: []
   }])
 );
 
@@ -89,7 +89,7 @@ test('confirmed assessment record cannot complete a baseline without an active e
 test('imported not-applicable remains unsupported and non-baselineable', () => {
   const scores = makeScores(3);
   const assessments = makeAssessments(scores);
-  assessments.M7 = { score: null, status: 'not-applicable', definitionVersion: 2, qualifiers: [], rationale: '', evidenceRefs: [] };
+  assessments.M7 = { score: null, status: 'not-applicable', definitionVersion: 3, qualifiers: [], rationale: '', evidenceRefs: [] };
   assert.equal(assessMetricCompleteness(scores, assessments).complete, false);
   assessments.M7.rationale = 'No physical system or environmental interaction is in the assessed boundary.';
   const completeness = assessMetricCompleteness(scores, assessments);
@@ -100,7 +100,7 @@ test('imported not-applicable remains unsupported and non-baselineable', () => {
 test('Unknown is explicit and non-baselineable while missing remains unanswered preview', () => {
   const scores = makeScores(3);
   const unknown = makeAssessments(scores);
-  unknown.M4 = { score: null, status: 'unknown', definitionVersion: 2, qualifiers: [], evidenceRefs: [] };
+  unknown.M4 = { score: null, status: 'unknown', definitionVersion: 3, qualifiers: [], evidenceRefs: [] };
   const unknownResult = assessMetricCompleteness(scores, unknown);
   assert.equal(unknownResult.complete, false);
   assert.equal(unknownResult.metrics.find(metric => metric.metricId === 'M4').status, 'unknown');
@@ -116,9 +116,9 @@ test('legacy schema-2 scores remain readable but become unconfirmed work in prog
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.0.0',
-      metricDefinitionSet: 'se-tailoring-m1-m16-v2',
-      qualifierSchemaVersion: '1.0'
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
     },
     metricScores: scores,
     processLevels: { 9: 'standard' },
@@ -260,7 +260,7 @@ test('hierarchy disposition schema rejects malformed outcomes and impossible dat
   const scores = makeScores(3);
   const base = {
     _format: 'se-tailoring-config', _version: '2.0',
-    semantics: { frameworkVersion: '4.0.0', metricDefinitionSet: 'se-tailoring-m1-m16-v2', qualifierSchemaVersion: 'se-tailoring-qualifiers-v1' },
+    semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: 'se-tailoring-qualifiers-v1' },
     metricScores: scores, processLevels: {},
     assessmentTree: {
       rootId: 'root', activeId: 'child', nodes: {
@@ -291,7 +291,7 @@ test('M15 UI scope model distinguishes drivers, floors, and rule-severity-only s
 test('preserving unconfirmed assessments never overwrites explicit current judgments', () => {
   const scores = makeScores(3);
   const normalized = preserveUnconfirmedMetricAssessments(scores, {
-    M8: { score: 4, status: 'assessed', definitionVersion: 2, qualifiers: ['integrity'], evidenceRefs: [] }
+    M8: { score: 4, status: 'assessed', definitionVersion: 3, qualifiers: ['integrity'], evidenceRefs: [] }
   });
   assert.equal(normalized.M8.status, 'assessed');
   assert.equal(normalized.M8.score, 4);

@@ -6,8 +6,8 @@ dist-ssr/
 .env.*
 .DS_Store
 *.log
+test-results/
+playwright-report/
 .codex/
 .openai/
 output/playwright/
-test-results/
-playwright-report/

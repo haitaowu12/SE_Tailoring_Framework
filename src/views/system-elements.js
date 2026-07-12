@@ -16,7 +16,7 @@ import {
   HIERARCHY_DISPOSITION_CONSIDERATIONS,
   HIERARCHY_DISPOSITION_OUTCOMES
 } from '../utils/hierarchy-dispositions.js';
-import { navigateTo } from '../router.js';
+import { navigateTo, processDetailsHref } from '../router.js';
 import { exportSystemBreakdownCSV } from '../utils/export-import.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
@@ -116,7 +116,7 @@ export function renderSystemElements(container) {
         <div class="se-tree-panel">
           <div class="se-panel-header">
             <h3>System Tree <span class="badge-count">${elementCount}</span></h3>
-            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown without element display names">📥 Safe Export CSV</button>
+            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown without element display names; spreadsheet formula prefixes are literalized">📥 Identifier-reduced CSV</button>
           </div>
           <div class="se-tree" id="se-tree">
             ${renderTreeNodes(tree.nodes, tree.rootId, tree.activeId, 0)}
@@ -225,7 +225,7 @@ export function renderSystemElements(container) {
                     <tr>
                       <td>
                         <span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> 
-                        <button type="button" class="process-name-link" data-id="${p.id}" title="View in Process Explorer">${escapeHtml(p.name)}</button>
+                        <a class="process-name-link" href="${escapeHtml(processDetailsHref(p.id, finalLevel, 'elements'))}" aria-label="View ${escapeHtml(finalLevel)} details for ${escapeHtml(p.name)}" title="View ${escapeHtml(finalLevel)} details in Process Explorer">${escapeHtml(p.name)}</a>
                       </td>
                       <td>
                         <span class="level-badge ${finalLevel}" style="font-size: 10px; padding: 2px 6px;">
@@ -544,16 +544,6 @@ export function renderSystemElements(container) {
     showToast(`Suggested ${Object.keys(result.suggested).length} metrics upstream to "${parentNode.name}"` +
       (result.conflicts.length ? ` (${result.conflicts.length} conflicts)` : ''), 'success');
     renderSystemElements(container);
-  });
-
-  // Process name links → navigate to Process Explorer
-  container.querySelectorAll('.process-name-link').forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      const processId = e.currentTarget.dataset.id;
-      setState({ activeProcessExplorerId: processId });
-      navigateTo('processes');
-    });
   });
 
   // Export CSV

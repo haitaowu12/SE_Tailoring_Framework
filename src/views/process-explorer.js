@@ -3,15 +3,32 @@
  */
 import { BINDING_ASSURANCE_QUALIFIERS, CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRIC_PROCESS_MAP, METRICS } from '../data/se-tailoring-data.js';
 import { PROCESS_DETAILS, PROCESS_CONTEXT_OVERLAYS } from '../data/process-details.js';
-import { getState, setState } from '../state.js';
+import { getState } from '../state.js';
+import { getCurrentRouteContext, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
-let activeProcess = null;
-let activeLevel = null;
 let filterGroup = 'all';
 let searchQuery = '';
 
 const LEVEL_KEYS = ['basic', 'standard', 'comprehensive'];
+const LEVEL_SET = new Set(LEVEL_KEYS);
+const PROCESS_ID_SET = new Set(CORE_PROCESSES.map(process => process.id));
+const ROUTE_PARAM_KEYS = new Set(['process', 'level', 'source']);
+const VALID_PROCESS_SOURCES = new Set([
+  'assessment',
+  'report',
+  'elements',
+  'system-elements',
+  'vee-model',
+  'matrix',
+  'deliverables',
+  'adjust',
+  'manual-adjust',
+  'interdependency',
+  'dashboard',
+  'process-explorer',
+  'direct'
+]);
 
 const MINI_CARDS = {
   'risk-management': {
@@ -613,56 +630,188 @@ const CULTURE_TACTICS = {
   }
 };
 
-export function renderProcessExplorer(container) {
-  const state = getState();
+function hasEntries(value) {
+  return value && typeof value === 'object' && Object.keys(value).length > 0;
+}
 
-  // If navigated here from Elements tab with a specific process target
-  if (state.activeProcessExplorerId) {
-    activeProcess = parseInt(state.activeProcessExplorerId, 10) || null;
-    activeLevel = activeProcess ? getCurrentProcessLevel(state, activeProcess) : null;
-    setState({ activeProcessExplorerId: null });
+function getProcessViewContext(state) {
+  const tree = state.assessmentTree;
+  const activeNode = tree?.nodes?.[tree.activeId] || tree?.nodes?.[tree.rootId] || null;
+  const isRootContext = !activeNode || activeNode.id === tree?.rootId;
+  const assessmentResult = activeNode?.assessmentResult || {};
+  const levels = hasEntries(activeNode?.levels)
+    ? activeNode.levels
+    : hasEntries(assessmentResult.levels)
+      ? assessmentResult.levels
+      : isRootContext
+        ? (state.levels || {})
+        : {};
+  const scores = hasEntries(activeNode?.scores)
+    ? activeNode.scores
+    : isRootContext
+      ? (state.scores || {})
+      : {};
+  const metricAssessments = hasEntries(activeNode?.metricAssessments)
+    ? activeNode.metricAssessments
+    : isRootContext
+      ? (state.metricAssessments || {})
+      : {};
+
+  return {
+    elementId: activeNode?.id || null,
+    elementName: activeNode?.name || 'Current assessment',
+    levels,
+    scores,
+    metricAssessments,
+    manualAdjustments: {
+      ...(isRootContext ? (state.manualAdjustments || {}) : {}),
+      ...(activeNode?.manualAdjustments || {})
+    },
+    assuranceObligations: Array.isArray(activeNode?.assuranceObligations)
+      ? (isRootContext && activeNode.assuranceObligations.length === 0 && (state.assuranceObligations || []).length > 0
+        ? state.assuranceObligations
+        : activeNode.assuranceObligations)
+      : isRootContext
+        ? (state.assuranceObligations || [])
+        : [],
+    derivationDetails: assessmentResult.derivationDetails || (isRootContext ? state.derivationDetails : {}) || {},
+    overrides: assessmentResult.overrides || (isRootContext ? state.overrides : []) || [],
+    fixes: assessmentResult.fixes || (isRootContext ? state.fixes : []) || []
+  };
+}
+
+function getAdjustmentLevel(manualAdjustments, processId) {
+  const adjustment = manualAdjustments?.[processId] || manualAdjustments?.[String(processId)];
+  const level = typeof adjustment === 'string' ? adjustment : adjustment?.level || adjustment?.to;
+  return LEVEL_SET.has(level) ? level : null;
+}
+
+function getAssignedProcessLevel(viewContext, processId) {
+  const adjustedLevel = getAdjustmentLevel(viewContext.manualAdjustments, processId);
+  if (adjustedLevel) return adjustedLevel;
+  const level = viewContext.levels?.[processId] || viewContext.levels?.[String(processId)];
+  return LEVEL_SET.has(level) ? level : null;
+}
+
+function readSingleRouteParam(params, key, issues) {
+  const values = params.getAll(key);
+  if (values.length > 1) {
+    issues.push(`The ${key} parameter must appear only once.`);
+    return null;
+  }
+  return values.length === 1 ? values[0] : null;
+}
+
+export function resolveProcessExplorerRoute(routeContext = getCurrentRouteContext(), state = getState()) {
+  const params = routeContext?.params instanceof URLSearchParams
+    ? routeContext.params
+    : new URLSearchParams();
+  const issues = [];
+  for (const key of new Set(params.keys())) {
+    if (!ROUTE_PARAM_KEYS.has(key)) issues.push(`Unsupported route parameter ignored: ${key}.`);
   }
 
-  if (activeProcess && (!activeLevel || !LEVEL_KEYS.includes(activeLevel))) {
-    activeLevel = getCurrentProcessLevel(state, activeProcess);
+  const processValue = readSingleRouteParam(params, 'process', issues);
+  const levelValue = readSingleRouteParam(params, 'level', issues);
+  const sourceValue = readSingleRouteParam(params, 'source', issues);
+  const processId = processValue !== null
+    && /^(?:0|[1-9]\d*)$/.test(processValue)
+    && PROCESS_ID_SET.has(Number(processValue))
+    ? Number(processValue)
+    : null;
+  if (processValue !== null && processId === null) {
+    issues.push('The requested process is not part of the 22-process executable core.');
   }
 
-  const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const filtered = CORE_PROCESSES.filter(p => {
-    if (filterGroup !== 'all' && p.group !== filterGroup) return false;
-    if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+  const source = sourceValue === null
+    ? null
+    : VALID_PROCESS_SOURCES.has(sourceValue)
+      ? sourceValue
+      : null;
+  if (sourceValue !== null && source === null) issues.push('The process-detail source is not recognized.');
+
+  const viewContext = getProcessViewContext(state);
+  const assignedLevel = processId ? getAssignedProcessLevel(viewContext, processId) : null;
+  const requestedLevel = levelValue !== null && LEVEL_SET.has(levelValue) ? levelValue : null;
+  if (levelValue !== null && requestedLevel === null) {
+    issues.push('The requested tailoring level must be basic, standard, or comprehensive.');
+  }
+  if (!processId && levelValue !== null) issues.push('A tailoring level can only be opened with a valid process.');
+
+  return {
+    processId,
+    assignedLevel,
+    viewLevel: processId ? (requestedLevel || assignedLevel || 'basic') : null,
+    source,
+    issues,
+    viewContext
+  };
+}
+
+function getFilteredProcesses() {
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  return CORE_PROCESSES.filter(process => {
+    if (filterGroup !== 'all' && process.group !== filterGroup) return false;
+    if (normalizedSearch && !`${process.id} ${process.name} ${process.purpose}`.toLowerCase().includes(normalizedSearch)) return false;
     return true;
   });
+}
+
+function renderProcessListMarkup(selection) {
+  const filtered = getFilteredProcesses();
+  if (!filtered.length) return '<div class="empty-state process-list-empty"><p class="text-secondary">No processes match this filter.</p></div>';
+  return filtered.map(process => {
+    const assignedLevel = getAssignedProcessLevel(selection.viewContext, process.id);
+    const browseLevel = assignedLevel || 'basic';
+    return `
+      <a class="process-list-card ${selection.processId === process.id ? 'selected' : ''} hover-lift"
+         href="${escapeHtml(processDetailsHref(process.id, browseLevel, selection.source))}"
+         ${selection.processId === process.id ? 'aria-current="page"' : ''}
+         aria-label="Open ${escapeHtml(process.name)} at ${escapeHtml(FRAMEWORK_META.levelLabels[browseLevel])} detail">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-sm">
+            <span class="process-id">${process.id}</span>
+            <span class="font-bold">${escapeHtml(process.name)}</span>
+          </div>
+          ${assignedLevel ? `<span class="level-badge ${escapeHtml(assignedLevel)}" title="Recommended for ${escapeHtml(selection.viewContext.elementName)}">${assignedLevel[0].toUpperCase()}</span>` : ''}
+        </div>
+        <div class="text-xs text-secondary mt-sm">${escapeHtml(process.purpose)}</div>
+      </a>`;
+  }).join('');
+}
+
+function updateProcessList(container, selection) {
+  const panel = container.querySelector('#process-list-panel');
+  if (panel) panel.innerHTML = renderProcessListMarkup(selection);
+}
+
+export function renderProcessExplorer(container, routeContext = getCurrentRouteContext()) {
+  const state = getState();
+  const selection = resolveProcessExplorerRoute(routeContext, state);
 
   container.innerHTML = `
     <h2 class="mb-lg">🔍 Process Explorer</h2>
+    ${selection.issues.length ? `
+      <div class="callout process-route-warning mb-lg" role="status">
+        <strong>Some process-detail link information was ignored.</strong>
+        <div class="text-xs text-secondary mt-sm">${selection.issues.map(issue => escapeHtml(issue)).join('<br>')}</div>
+      </div>` : ''}
     <div class="explorer-controls mb-lg">
-      <input class="input" id="process-search" placeholder="Search processes..." value="${escapeHtml(searchQuery)}" style="max-width:300px" aria-label="Search processes" role="searchbox">
-      <div class="tabs" id="group-tabs" role="tablist" aria-label="Process group filter">
-        <button class="tab ${filterGroup === 'all' ? 'active' : ''}" data-group="all" role="tab" aria-selected="${filterGroup === 'all'}">All (${CORE_PROCESSES.length})</button>
-        <button class="tab ${filterGroup === 'tech_mgmt' ? 'active' : ''}" data-group="tech_mgmt" role="tab" aria-selected="${filterGroup === 'tech_mgmt'}">Tech Management</button>
-        <button class="tab ${filterGroup === 'technical' ? 'active' : ''}" data-group="technical" role="tab" aria-selected="${filterGroup === 'technical'}">Technical</button>
+      <input class="input" id="process-search" placeholder="Search processes..." value="${escapeHtml(searchQuery)}" style="max-width:300px" aria-label="Search processes" type="search">
+      <div class="tabs" id="group-tabs" role="group" aria-label="Process group filter">
+        <button class="tab ${filterGroup === 'all' ? 'active' : ''}" data-group="all" type="button" aria-pressed="${filterGroup === 'all'}">All (${CORE_PROCESSES.length})</button>
+        <button class="tab ${filterGroup === 'tech_mgmt' ? 'active' : ''}" data-group="tech_mgmt" type="button" aria-pressed="${filterGroup === 'tech_mgmt'}">Tech Management</button>
+        <button class="tab ${filterGroup === 'technical' ? 'active' : ''}" data-group="technical" type="button" aria-pressed="${filterGroup === 'technical'}">Technical</button>
       </div>
     </div>
     <div class="explorer-layout">
-      <div class="process-list-panel" role="listbox" aria-label="Process list">
-        ${filtered.map(p => {
-    const level = state.levels[p.id];
-    return `
-          <div class="process-list-card ${activeProcess === p.id ? 'selected' : ''} hover-lift" data-pid="${p.id}" role="option" tabindex="0" aria-selected="${activeProcess === p.id}" aria-label="${escapeHtml(p.name)} - ${escapeHtml(p.purpose)}">
-            <div class="flex justify-between items-center">
-              <div class="flex items-center gap-sm">
-                <span class="process-id">${p.id}</span>
-                <span class="font-bold">${escapeHtml(p.name)}</span>
-              </div>
-              ${level ? `<span class="level-badge ${level}">${level[0].toUpperCase()}</span>` : ''}
-            </div>
-            <div class="text-xs text-secondary mt-sm">${escapeHtml(p.purpose)}</div>
-          </div>`;
-  }).join('')}
-      </div>
+      <nav class="process-list-panel" id="process-list-panel" aria-label="Processes">
+        ${renderProcessListMarkup(selection)}
+      </nav>
       <div class="process-detail-panel" id="process-detail">
-        ${activeProcess ? renderProcessDetail(activeProcess, state) : '<div class="empty-state"><p class="text-secondary">← Select a process to view details</p></div>'}
+        ${selection.processId
+          ? renderProcessDetail(selection.processId, state, selection.viewContext, selection.viewLevel, selection.source)
+          : '<div class="empty-state"><p class="text-secondary">Select a process to view its Basic, Standard, and Comprehensive content.</p></div>'}
       </div>
     </div>
   `;
@@ -675,9 +824,11 @@ export function renderProcessExplorer(container) {
       .explorer-controls { display: flex; flex-direction: column; gap: 12px; }
       .explorer-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; }
       .process-list-panel { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 240px); overflow-y: auto; padding-right: 8px; }
-      .process-list-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all var(--transition-fast); }
+      .process-list-card { display: block; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all var(--transition-fast); color: inherit; text-decoration: none; }
       .process-list-card.selected { border-color: var(--accent-primary); background: rgba(99,102,241,0.08); }
       .process-list-card:hover { border-color: var(--border-medium); }
+      .process-list-card:focus-visible { outline: 2px solid var(--accent-primary-light); outline-offset: 2px; }
+      .process-list-empty { min-height: 140px; }
       .process-detail-panel { min-height: 500px; }
       .empty-state { display: flex; align-items: center; justify-content: center; min-height: 400px; }
       .detail-section { margin-bottom: var(--space-xl); }
@@ -687,10 +838,11 @@ export function renderProcessExplorer(container) {
       .process-meta-pill { border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 9px; font-size: 11px; color: var(--text-secondary); }
       .level-selector-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; padding: 12px 0 18px; margin-bottom: var(--space-xl); border-bottom: 1px solid var(--border-subtle); }
       .level-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
-      .level-tab { padding: 6px 16px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 600; cursor: pointer; border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary); transition: all var(--transition-fast); }
+      .level-tab { display: inline-block; padding: 6px 16px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 600; cursor: pointer; border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary); transition: all var(--transition-fast); text-decoration: none; }
       .level-tab.active-basic { background: var(--level-basic-bg); color: var(--level-basic); border-color: var(--level-basic-border); }
       .level-tab.active-standard { background: var(--level-standard-bg); color: var(--level-standard); border-color: var(--level-standard-border); }
       .level-tab.active-comprehensive { background: var(--level-comprehensive-bg); color: var(--level-comprehensive); border-color: var(--level-comprehensive-border); }
+      .level-tab:focus-visible { outline: 2px solid var(--accent-primary-light); outline-offset: 2px; }
       .detail-empty-line { color: var(--text-tertiary); font-size: var(--font-size-sm); padding: 8px 0; }
       .activity-item { padding: 6px 0; font-size: var(--font-size-xs); color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); }
       .activity-item.essential { color: var(--text-primary); font-weight: 500; }
@@ -720,65 +872,79 @@ export function renderProcessExplorer(container) {
   // Event handlers
   container.querySelector('#process-search').addEventListener('input', (e) => {
     searchQuery = e.target.value;
-    renderProcessExplorer(container);
+    updateProcessList(container, selection);
   });
   container.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => { filterGroup = tab.dataset.group; renderProcessExplorer(container); });
-  });
-  container.querySelectorAll('.process-list-card').forEach(card => {
-    card.addEventListener('click', () => {
-      activeProcess = parseInt(card.dataset.pid, 10);
-      activeLevel = getCurrentProcessLevel(getState(), activeProcess);
-      renderProcessExplorer(container);
-    });
-    // Keyboard accessibility: Enter/Space to select
-    card.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        activeProcess = parseInt(card.dataset.pid, 10);
-        activeLevel = getCurrentProcessLevel(getState(), activeProcess);
-        renderProcessExplorer(container);
-      }
-    });
-  });
-
-  // Level tab click handlers (scoped to container, replaces global CustomEvent)
-  bindLevelTabs(container);
-}
-
-/** Bind level tab click handlers within the current container scope */
-function bindLevelTabs(container) {
-  container.querySelectorAll('.level-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      activeLevel = tab.dataset.level;
-      const panel = document.getElementById('process-detail');
-      if (panel && activeProcess) {
-        panel.innerHTML = renderProcessDetail(activeProcess, getState());
-        // Re-bind level tabs after detail panel re-render
-        bindLevelTabs(container);
-      }
+      filterGroup = tab.dataset.group;
+      container.querySelectorAll('.tab').forEach(button => {
+        const active = button.dataset.group === filterGroup;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+      updateProcessList(container, selection);
     });
   });
+
+  if (selection.processId && selection.source) {
+    window.requestAnimationFrame(() => {
+      const heading = container.querySelector('#process-detail-heading');
+      if (!heading) return;
+      heading.focus({ preventScroll: true });
+      const mobileLayout = window.matchMedia?.('(max-width: 900px)').matches;
+      if (mobileLayout) {
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        heading.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      }
+    });
+  }
 }
 
-function renderProcessDetail(processId, state) {
+export function getContextScore(viewContext, metricId) {
+  const assessment = viewContext?.metricAssessments?.[metricId];
+  if (!['assessed', 'inherited-confirmed'].includes(assessment?.status)) return null;
+  const assessmentScore = Number(assessment?.score);
+  const contextScore = Number(viewContext?.scores?.[metricId]);
+  const validAssessmentScore = Number.isInteger(assessmentScore) && assessmentScore >= 1 && assessmentScore <= 5;
+  const validContextScore = Number.isInteger(contextScore) && contextScore >= 1 && contextScore <= 5;
+  if (validAssessmentScore && validContextScore && assessmentScore !== contextScore) return null;
+  if (validAssessmentScore) return assessmentScore;
+  return validContextScore ? contextScore : null;
+}
+
+function getConditionalContentState(text, viewContext) {
+  const metricId = text.includes('[Safety]') ? 'M5' : text.includes('[RAM]') ? 'M6' : null;
+  if (!metricId) return { disabled: false, note: '' };
+  const score = getContextScore(viewContext, metricId);
+  if (score === null) return { disabled: false, note: `${metricId} context unconfirmed` };
+  return score < 3
+    ? { disabled: true, note: `Not required (${metricId} < 3)` }
+    : { disabled: false, note: '' };
+}
+
+function renderContextNote(note, disabled) {
+  if (!note) return '';
+  return `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${disabled ? '' : '⚠ '}${escapeHtml(note)}</span>`;
+}
+
+function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
   const p = CORE_PROCESSES.find(x => x.id === processId);
   if (!p) return '';
   const details = PROCESS_DETAILS[processId];
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const map = matrixMap[processId] || {};
-  const level = getCurrentProcessLevel(state, processId);
+  const level = getAssignedProcessLevel(viewContext, processId);
   const miniCard = MINI_CARDS[p.slug];
   const basicChecklist = MINIMAL_BASIC_CHECKLISTS[processId];
   const cultureTactics = CULTURE_TACTICS[processId];
-  const viewLevel = activeLevel || level || 'basic';
 
   const activities = details?.activities?.[viewLevel] || [];
   const deliverables = details?.deliverables?.[viewLevel] || [];
   const outputs = details?.outputs || [];
   const contextOverlays = PROCESS_CONTEXT_OVERLAYS[processId] || {};
-  const securityOverlay = Number(state.scores?.M8) >= 3 ? contextOverlays.security : null;
-  const assuranceOverlay = (state.assuranceObligations || []).some(obligation =>
+  const securityScore = getContextScore(viewContext, 'M8');
+  const securityOverlay = securityScore !== null && securityScore >= 3 ? contextOverlays.security : null;
+  const assuranceOverlay = (viewContext.assuranceObligations || []).some(obligation =>
     obligation?.bindingStatus === 'confirmed'
       && BINDING_ASSURANCE_QUALIFIERS.includes(obligation.type)
       && String(obligation.authority || '').trim()
@@ -799,28 +965,36 @@ function renderProcessDetail(processId, state) {
     <div class="card animate-fade-in">
       <div class="flex justify-between process-detail-header mb-lg">
         <div>
-          <h3>${escapeHtml(p.name)}</h3>
+          <h3 id="process-detail-heading" tabindex="-1">${escapeHtml(p.name)}</h3>
           <p class="text-sm text-secondary mt-sm">${escapeHtml(p.purpose)}</p>
           <div class="process-meta-row">
             <span class="process-meta-pill">P${p.id}</span>
             <span class="process-meta-pill">${escapeHtml(groupLabel)}</span>
             <span class="process-meta-pill">${escapeHtml(scopeLabel)}</span>
+            <span class="process-meta-pill">Context: ${escapeHtml(viewContext.elementName)}</span>
             <span class="process-meta-pill">${activities.length} activities · ${deliverables.length} deliverables at ${escapeHtml(viewLevelLabel)}</span>
           </div>
         </div>
-        ${level ? `<span class="level-badge ${escapeHtml(level)}" title="Current tailoring level">${escapeHtml(levelLabel)}</span>` : ''}
+        ${level
+          ? `<span class="level-badge ${escapeHtml(level)}" title="Recommended tailoring level for ${escapeHtml(viewContext.elementName)}">Recommended: ${escapeHtml(levelLabel)}</span>`
+          : '<span class="process-meta-pill">No assessment assignment</span>'}
       </div>
 
       <div class="level-selector-bar">
         <div>
           <div class="text-xs text-secondary">Viewing process content at</div>
-          <div class="text-sm">Defaults to the current tailoring assignment. Switch levels for comparison.</div>
+          <div class="text-sm">${level
+            ? `The recommendation is ${escapeHtml(levelLabel)}. Switch levels for comparison.`
+            : `No recommendation is assigned. ${escapeHtml(viewLevelLabel)} is shown for browsing only.`}</div>
         </div>
-        <div class="level-tabs" role="tablist" aria-label="Tailoring level detail selector">
+        <nav class="level-tabs" aria-label="Tailoring level detail selector">
           ${LEVEL_KEYS.map(l => `
-            <button class="level-tab ${viewLevel === l ? 'active-' + escapeHtml(l) : ''}" data-level="${escapeHtml(l)}" role="tab" aria-selected="${viewLevel === l}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[l])} level content">${escapeHtml(FRAMEWORK_META.levelLabels[l])}</button>
+            <a class="level-tab ${viewLevel === l ? 'active-' + escapeHtml(l) : ''}"
+               href="${escapeHtml(processDetailsHref(processId, l, source))}"
+               ${viewLevel === l ? 'aria-current="page"' : ''}
+               aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[l])} level content">${escapeHtml(FRAMEWORK_META.levelLabels[l])}</a>
           `).join('')}
-        </div>
+        </nav>
       </div>
 
       ${p.definition ? `
@@ -834,14 +1008,11 @@ function renderProcessDetail(processId, state) {
         ${activities.length ? activities.map(a => {
     let isEssential = a.startsWith('(*)');
     let text = isEssential ? a.slice(4) : a;
-    let disabled = false; let reason = '';
-    const m5Score = state.scores?.M5 || 3;
-    const m6Score = state.scores?.M6 || 3;
-    if (text.includes('[Safety]') && m5Score < 3) { disabled = true; reason = '(M5 < 3)'; }
-    if (text.includes('[RAM]') && m6Score < 3) { disabled = true; reason = '(M6 < 3)'; }
+    const contentState = getConditionalContentState(text, viewContext);
+    const { disabled } = contentState;
     return `<div class="activity-item ${isEssential ? 'essential' : ''}" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
             ${isEssential ? '⭐ ' : '• '} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
-            ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
+            ${renderContextNote(contentState.note, disabled)}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No activity detail is defined for this process level yet.</div>'}
       </div>
@@ -850,14 +1021,11 @@ function renderProcessDetail(processId, state) {
         <h4>Deliverables (${deliverables.length})</h4>
         ${deliverables.length ? deliverables.map(d => {
     let text = d;
-    let disabled = false; let reason = '';
-    const m5Score = state.scores?.M5 || 3;
-    const m6Score = state.scores?.M6 || 3;
-    if (text.includes('[Safety]') && m5Score < 3) { disabled = true; reason = '(M5 < 3)'; }
-    if (text.includes('[RAM]') && m6Score < 3) { disabled = true; reason = '(M6 < 3)'; }
+    const contentState = getConditionalContentState(text, viewContext);
+    const { disabled } = contentState;
     return `<div class="deliverable-item" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
             📄 <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
-            ${disabled ? `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">Not Required ${reason}</span>` : ''}
+            ${renderContextNote(contentState.note, disabled)}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No deliverable detail is defined for this process level yet.</div>'}
       </div>
@@ -882,7 +1050,8 @@ function renderProcessDetail(processId, state) {
 
       ${miniCard ? `
       <div class="detail-section">
-        <h4>Tailoring Dependencies</h4>
+        <h4>Practitioner Dependency Context (Non-Normative)</h4>
+        <p class="text-xs text-secondary mb-md">This hand-authored aid highlights selected workflow considerations. It is not the executable rule registry and does not change the recommendation.</p>
         ${renderMiniCard(miniCard, level)}
       </div>` : ''}
 
@@ -905,12 +1074,6 @@ function renderProcessDetail(processId, state) {
       </div>` : ''}
     </div>
   `;
-}
-
-function getCurrentProcessLevel(state, processId) {
-  const activeNodeId = state.assessmentTree?.activeId;
-  const activeNodeLevel = activeNodeId ? state.assessmentTree?.nodes?.[activeNodeId]?.levels?.[processId] : null;
-  return activeNodeLevel || state.levels?.[processId] || 'basic';
 }
 
 function renderImplementationAids(basicChecklist, cultureTactics) {
@@ -1007,5 +1170,3 @@ function renderMiniCard(card, currentLevel) {
     </div>
   `;
 }
-
-// Level tab changes are now handled by scoped bindLevelTabs() within renderProcessExplorer

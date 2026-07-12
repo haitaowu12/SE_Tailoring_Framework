@@ -7,7 +7,7 @@ import { generateReport, exportConfig } from '../utils/export-import.js';
 import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, setState, showToast, getElementsFlat } from '../state.js';
-import { navigateTo } from '../router.js';
+import { navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
 import { assessMetricCompleteness } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
@@ -52,7 +52,7 @@ function renderRightSizingApprovalForm(proposal, state) {
     </details>`;
 }
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
-import { assessOutputSufficiency } from '../utils/output-sufficiency.js';
+import { assessOutputSufficiency, getBaselineElementIds } from '../utils/output-sufficiency.js';
 
 function findDirectReportCard(container, titleText) {
   return [...container.querySelectorAll(':scope > .card.mb-xl')]
@@ -100,7 +100,7 @@ export function getReportReadiness(state = {}) {
   const metricCompleteness = assessMetricCompleteness(state.scores, state.metricAssessments);
   const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
   const csiResponse = assessCsiResponse(state.scores, state.csiResponse);
-  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
+  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, getBaselineElementIds(state.assessmentTree));
   if (!state.assessmentComplete || !metricCompleteness.complete || !warningDispositions.complete || !csiResponse.complete || !outputSufficiency.complete || incompleteElementCount > 0 || state.semanticMigration?.status === 'review-required') {
     return 'Draft / incomplete';
   }
@@ -236,7 +236,7 @@ function enhanceReportSections(container) {
 
 export function renderReport(container) {
   const state = getState();
-  const outputSufficiencyGate = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
+  const outputSufficiencyGate = assessOutputSufficiency(state.artifactHandoffs, getBaselineElementIds(state.assessmentTree));
   if (!state.assessmentComplete || !outputSufficiencyGate.complete) {
     const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
     container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${completeness.completeCount}/16 metric judgments are confirmed. Preview values are not a completed baseline and cannot generate a publication report.</p>${completeness.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}</p>` : ''}${!outputSufficiencyGate.complete ? '<p class="text-xs text-secondary mt-sm">The Requirements-to-Architecture artifact handoff is not accepted and has no complete governed review.</p>' : ''}<button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
@@ -302,8 +302,8 @@ export function renderReport(container) {
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
       </div>
       <div class="flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-export-json">Safe Export JSON</button>
-        <button class="btn btn-primary btn-sm" id="btn-export-html">Safe Export HTML Report</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
+        <button class="btn btn-primary btn-sm" id="btn-export-html" title="Removes direct display labels but retains free text and evidence references; review before sharing">Identifier-reduced HTML (review required)</button>
       </div>
     </div>
 
@@ -640,7 +640,7 @@ export function renderReport(container) {
       : '';
     return `<tr>
                 <td><span class="process-id">${p.id}</span></td>
-                <td>${escapeHtml(p.name)}${justificationFlag}</td>
+                <td><a href="${escapeHtml(processDetailsHref(p.id, final_, 'report'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[final_] || final_)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a>${justificationFlag}</td>
                 <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
@@ -760,7 +760,7 @@ export function renderReport(container) {
     });
     const changed = derived !== final_;
     return `<tr>
-                <td><span class="process-id">${p.id}</span> ${escapeHtml(p.name)}</td>
+                <td><span class="process-id">${p.id}</span> <a href="${escapeHtml(processDetailsHref(p.id, final_, 'report'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[final_] || final_)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a></td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
                 <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
                 <td class="text-xs">${confLabel}</td>
@@ -915,10 +915,10 @@ export function renderReport(container) {
   // Export handlers
   container.querySelector('#btn-export-json').addEventListener('click', () => {
     exportConfig(state);
-    showToast('Pilot-safe JSON exported. Review free text before sharing.', 'success');
+    showToast('Minimum-data JSON exported. It is not a completed-baseline record.', 'success');
   });
   container.querySelector('#btn-export-html').addEventListener('click', () => {
     generateReport(state, data);
-    showToast('Pilot-safe HTML report downloaded. Review free text before sharing.', 'success');
+    showToast('Identifier-reduced HTML downloaded. It retains free text and evidence and is not de-identified.', 'warning');
   });
 }

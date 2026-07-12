@@ -2,21 +2,30 @@
  * Matrix View — Process-Metric Applicability Heatmap
  */
 import { CORE_PROCESSES, METRICS, DIMENSIONS, METRIC_PROCESS_MAP, FRAMEWORK_META } from '../data/se-tailoring-data.js';
-import { runFullAssessment } from '../utils/assessment-engine.js';
-import { getState, setState } from '../state.js';
-import { applyManualAdjustmentsToLevels, exportMatrixCSV, exportMatrixPDF } from '../utils/export-import.js';
+import { getState } from '../state.js';
+import { exportMatrixCSV, exportMatrixPDF } from '../utils/export-import.js';
+import { processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
 
 export function renderMatrixView(container) {
   const state = getState();
-  const matrixMap = state.matrixMap || JSON.parse(JSON.stringify(METRIC_PROCESS_MAP));
-  const roleLabel = role => role === 'P' ? 'Primary' : role === 'S' ? 'Secondary' : 'None';
+  const matrixMap = METRIC_PROCESS_MAP;
+  const canonicalCellCount = Object.values(matrixMap)
+    .reduce((count, mapping) => count + Object.keys(mapping || {}).length, 0);
+  const activeNodeId = state.assessmentTree?.activeId;
+  const activeNode = activeNodeId ? state.assessmentTree?.nodes?.[activeNodeId] : null;
+  const activeNodeIsRoot = activeNodeId === state.assessmentTree?.rootId;
+  const effectiveLevel = processId => activeNode?.manualAdjustments?.[processId]?.level
+    || (activeNodeIsRoot ? state.manualAdjustments?.[processId]?.level : null)
+    || activeNode?.levels?.[processId]
+    || state.levels?.[processId]
+    || null;
 
   container.innerHTML = `
     <div class="flex justify-between items-center mb-md">
       <div>
         <h2 class="mb-sm">📊 Process-Metric Applicability Matrix</h2>
-        <p class="text-secondary text-sm">Shows which metrics (columns) drive which processes (rows). <strong class="text-accent">P</strong> = Primary driver, <strong class="text-secondary">S</strong> = Secondary driver. <strong style="color:var(--text-primary)">Click any cell to toggle.</strong></p>
+        <p class="text-secondary text-sm">Read-only canonical ${canonicalCellCount}-cell process–metric map. <strong class="text-accent">P</strong> = Primary driver, <strong class="text-secondary">S</strong> = Secondary driver. Changes require governed registry review and cannot be made from the practitioner app.</p>
       </div>
       <div class="flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-export-matrix-csv">📥 Export CSV</button>
@@ -42,7 +51,7 @@ export function renderMatrixView(container) {
           <tbody>
             ${CORE_PROCESSES.map(p => {
     const map = matrixMap[p.id] || {};
-    const lvl = state.levels?.[p.id];
+    const lvl = effectiveLevel(p.id);
     return `<tr class="matrix-row" data-pid="${p.id}">
                 <td class="matrix-process-cell">
                   <span class="process-id">${p.id}</span>
@@ -51,10 +60,10 @@ export function renderMatrixView(container) {
                 ${METRICS.map(m => {
       const role = map[m.id];
       const cellClass = role ? role : 'empty';
-      const label = `Toggle ${p.name} / ${m.id} applicability. Current: ${roleLabel(role)}.`;
-      return `<td class="matrix-cell ${cellClass} clickable-cell" data-pid="${p.id}" data-mid="${m.id}" role="button" tabindex="0" aria-label="${escapeHtml(label)}" title="Click or press Enter/Space to toggle (Primary/Secondary/None)" style="cursor:pointer">${role || ''}</td>`;
+      const label = role === 'P' ? 'Primary driver' : role === 'S' ? 'Secondary driver' : 'Not mapped';
+      return `<td class="matrix-cell ${cellClass}" data-pid="${p.id}" data-mid="${m.id}" aria-label="${escapeHtml(`${p.name} / ${m.id}: ${label}`)}" title="${escapeHtml(label)}">${role || ''}</td>`;
     }).join('')}
-                <td class="matrix-level-cell">${lvl ? `<span class="level-badge ${lvl}">${lvl[0].toUpperCase()}</span>` : '—'}</td>
+                <td class="matrix-level-cell">${lvl ? `<a href="${escapeHtml(processDetailsHref(p.id, lvl, 'matrix'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[lvl] || lvl)} details for ${escapeHtml(p.name)}" title="View exact assigned level details" style="display:inline-flex;align-items:center;gap:5px;text-decoration:none;"><span class="level-badge ${lvl}">${lvl[0].toUpperCase()}</span><span class="text-xs">View</span></a>` : '—'}</td>
               </tr>`;
   }).join('')}
           </tbody>
@@ -88,12 +97,10 @@ export function renderMatrixView(container) {
     .metric-col-score { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-top: 2px; }
     .matrix-level-header { font-size: 11px; }
     .matrix-process-cell { text-align: left !important; position: sticky; left: 0; background: var(--bg-card); z-index: 1; display: flex; gap: 8px; align-items: center; }
-    .matrix-cell { font-weight: 700; font-size: 12px; transition: all 0.15s; border: 1px solid transparent; }
+    .matrix-cell { font-weight: 700; font-size: 12px; border: 1px solid transparent; }
     .matrix-cell.P { background: rgba(99,102,241,0.2); color: var(--accent-primary-light); }
     .matrix-cell.S { background: rgba(148,163,184,0.1); color: var(--text-secondary); }
     .matrix-cell.empty { background: transparent; }
-    .matrix-cell:hover { transform: scale(1.5); border-color: var(--accent-primary); z-index: 5; position: relative; }
-    .matrix-cell:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
     .matrix-row:hover td { background: rgba(99,102,241,0.04); }
     .matrix-level-cell { min-width: 50px; }
     .matrix-cell-example { width: 24px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 700; }
@@ -101,74 +108,6 @@ export function renderMatrixView(container) {
     .matrix-cell-example.S { background: rgba(148,163,184,0.1); color: var(--text-secondary); }
   `;
   container.appendChild(style);
-
-  const wrapper = container.querySelector('#matrix-wrapper');
-  const toggleMatrixCell = (cell) => {
-    if (!cell?.classList.contains('clickable-cell')) return;
-      const currentState = getState();
-      const currentMatrixMap = currentState.matrixMap || JSON.parse(JSON.stringify(METRIC_PROCESS_MAP));
-
-      const pid = parseInt(cell.dataset.pid);
-      const mid = cell.dataset.mid;
-      const currentRole = currentMatrixMap[pid]?.[mid];
-      const nextRole = currentRole === 'P' ? 'S' : currentRole === 'S' ? null : 'P';
-
-      if (!currentMatrixMap[pid]) currentMatrixMap[pid] = {};
-      if (nextRole) {
-        currentMatrixMap[pid][mid] = nextRole;
-      } else {
-        delete currentMatrixMap[pid][mid];
-      }
-
-      if (currentState.assessmentComplete) {
-        const result = runFullAssessment(
-          currentState.scores,
-          currentMatrixMap,
-          currentState.projectInfo || {}
-        );
-        const activeNodeId = currentState.assessmentTree?.activeId || currentState.assessmentTree?.rootId;
-        const activeNodeAdjustments = currentState.assessmentTree?.nodes?.[activeNodeId]?.manualAdjustments || {};
-        const finalLevels = applyManualAdjustmentsToLevels(
-          result.levels,
-          currentState.manualAdjustments,
-          activeNodeAdjustments
-        );
-        setState({
-          matrixMap: currentMatrixMap,
-          derived: result.derived,
-          derivationDetails: result.derivationDetails || {},
-          levels: finalLevels,
-          overrides: result.overrides,
-          fixes: result.fixes,
-          confidence: result.confidence || {},
-        });
-      } else {
-        setState({ matrixMap: currentMatrixMap });
-      }
-
-      const scrollContainer = container.querySelector('.matrix-scroll');
-      const scrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-      const scrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
-
-      renderMatrixView(container);
-
-      const newScrollContainer = container.querySelector('.matrix-scroll');
-      if (newScrollContainer) {
-        newScrollContainer.scrollLeft = scrollLeft;
-        newScrollContainer.scrollTop = scrollTop;
-      }
-  };
-
-  wrapper.addEventListener('click', (e) => {
-    toggleMatrixCell(e.target);
-  });
-
-  wrapper.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    if (!e.target.classList.contains('clickable-cell')) return;
-    e.preventDefault();
-    toggleMatrixCell(e.target);
-  });
 
   container.querySelector('#btn-export-matrix-csv').addEventListener('click', () => {
     exportMatrixCSV(getState(), METRICS, CORE_PROCESSES, METRIC_PROCESS_MAP);

@@ -24,7 +24,7 @@ const sharedContext = {
 const metricAssessments = Object.fromEntries(Object.entries(metricScores).map(([metricId, score]) => [metricId, {
   score,
   status: 'assessed',
-  definitionVersion: 2,
+  definitionVersion: 3,
   qualifiers: [],
   rationale: 'Correlated-evidence E2E fixture',
   evidenceRefs: [],
@@ -59,9 +59,9 @@ async function importCorrelatedFixture(page) {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.0.0',
-      metricDefinitionSet: 'se-tailoring-m1-m16-v2',
-      qualifierSchemaVersion: '1.0'
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
     },
     projectInfo: { name: 'Correlated Evidence Browser Proof', team: 'Joint Assurance' },
     metricScores,

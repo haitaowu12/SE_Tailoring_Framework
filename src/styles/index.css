@@ -275,6 +275,29 @@ h4 { font-size: var(--font-size-lg); }
   margin-left: var(--space-md);
 }
 
+.mobile-session-menu { display: none; }
+
+.mobile-session-action {
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.mobile-session-action:hover,
+.mobile-session-action:focus-visible {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+}
+
+.mobile-session-action.danger { color: var(--accent-error); }
+
 .author-link {
   display: inline-flex;
   align-items: center;
@@ -343,6 +366,41 @@ h4 { font-size: var(--font-size-lg); }
   color: var(--accent-warning);
   white-space: nowrap;
 }
+
+#runtime-status {
+  display: none;
+  padding: var(--space-sm) var(--space-xl);
+  border-bottom: 1px solid var(--accent-error);
+  background: color-mix(in oklch, var(--accent-error) 12%, var(--bg-primary));
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+#runtime-status.active { display: block; }
+
+.runtime-status-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.runtime-diagnostic-list {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.runtime-diagnostic-list > div {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.35fr) 1fr;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: var(--space-xs) 0;
+}
+
+.runtime-diagnostic-list dt { color: var(--text-tertiary); }
+.runtime-diagnostic-list dd { margin: 0; overflow-wrap: anywhere; }
+
+.runtime-recovery { max-width: 760px; margin: var(--space-xl) auto; }
+.runtime-recovery-actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
 
 /* --- Generic Card --- */
 .card {
@@ -531,7 +589,8 @@ h4 { font-size: var(--font-size-lg); }
   animation: fadeInDown 0.15s ease;
 }
 .nav-dropdown:hover .nav-dropdown-menu,
-.nav-dropdown:focus-within .nav-dropdown-menu {
+.nav-dropdown:focus-within .nav-dropdown-menu,
+.nav-dropdown.open .nav-dropdown-menu {
   display: flex;
 }
 .nav-dropdown-menu .nav-link {
@@ -1199,6 +1258,10 @@ h4 { font-size: var(--font-size-lg); }
     padding-inline: var(--space-sm);
     font-size: 11px;
   }
+  .desktop-session-action { display: none; }
+  .mobile-session-menu { display: block; }
+  .mobile-session-menu .nav-dropdown-menu { left: auto; right: 0; min-width: 210px; background: var(--bg-secondary); }
+  .nav-actions { margin-left: 0; }
   .author-link { display: none; }
   h1 { font-size: var(--font-size-2xl); }
   h2 { font-size: var(--font-size-xl); }

@@ -1,3 +1,5 @@
+import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID } from '../data/metrics.js';
+
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const PROTECTED_METRICS = new Set(['M5', 'M8', 'M15']);
 
@@ -88,8 +90,8 @@ export function createRightSizingApprovalSnapshot(proposal = {}, context = {}) {
     const requirements = getRightSizingApprovalRequirements(proposal, context.assessmentTree);
     const processId = Number(proposal.processId);
     const snapshot = {
-        frameworkVersion: context.frameworkVersion || '4.0.0',
-        metricDefinitionSet: context.metricDefinitionSet || 'se-tailoring-m1-m16-v2',
+        frameworkVersion: context.frameworkVersion || FRAMEWORK_SEMANTIC_VERSION,
+        metricDefinitionSet: context.metricDefinitionSet || METRIC_DEFINITION_SET_ID,
         elementIds: requirements.scopeElementIds,
         processId,
         from: proposal.from,

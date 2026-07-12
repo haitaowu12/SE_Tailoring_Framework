@@ -54,6 +54,8 @@ test('core process definitions are complete for all tailoring levels', () => {
     assert.ok(process.whenToElevate?.length > 20, `${process.name} must have tailoring guidance`);
     for (const level of levels) {
       assert.ok(process.definition?.[level]?.length > 15, `${process.name} missing ${level} definition`);
+      assert.ok(PROCESS_DETAILS[process.id]?.activities?.[level]?.length > 0, `${process.name} missing ${level} activities`);
+      assert.ok(PROCESS_DETAILS[process.id]?.deliverables?.[level]?.length > 0, `${process.name} missing ${level} deliverables`);
     }
   }
 });

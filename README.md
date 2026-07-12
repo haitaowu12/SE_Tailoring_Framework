@@ -11,8 +11,8 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 
 ## Current Scope
 
-- Framework semantic version 4.0 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
-- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, and explicit legacy-migration status. Versionless and 3.x records are preserved but cannot be silently baselined under version 4.0.
+- Framework semantic version 4.1.0 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
+- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, explicit legacy-migration status, and producer release/build identity. Versionless, 3.x, and semantic 4.0 records are preserved through explicit migration handling and cannot be silently baselined under 4.1.0.
 - Executable assessment: 16 project metrics mapped to 22 project-facing Technical and Technical Management processes.
 - Reference scope: 8 Agreement and Organizational Project-Enabling processes remain visible in the data model, but are not yet fully executable recommendations.
 - Traceability model: each process declares ISO/IEC/IEEE 15288:2023 process-group metadata and explicit executable-core vs reference scope. This is decision-support traceability, not a standalone ISO compliance or certification claim.
@@ -20,6 +20,14 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 - Assessment integrity: default values support a work-in-progress preview, but all 16 metric judgments must be explicitly assessed or inherited-confirmed before the result can be represented as a completed baseline. Metric-level N/A is prohibited; downstream artifacts and activities may use N/A only with a documented applicability rationale.
 - Right-sizing governance: PSI budget analysis produces non-binding reduction proposals. It never silently lowers the derived, floor-protected, mandatory-closure recommendation.
 - Practitioner content: existing M8 and scoped M15 mappings activate conditional Security and Assurance evidence overlays in Process Explorer without creating additional metric-process relationships.
+- Operating scope: the static browser build supports internal/synthetic prototype use. Facilitated pilot use remains conditional on the study authorization gates; a persistent governed service is not implemented. See [Operating Model](OPERATING-MODEL.md).
+- Local diagnostics: the app exposes release, semantic, schema, build, storage, and sanitized runtime issue metadata without telemetry or assessment content.
+
+## Operating and release controls
+
+- [Operating profile and data-lifecycle contract](OPERATING-MODEL.md)
+- [Deployment and rollback runbook](docs/DEPLOYMENT-ROLLBACK-RUNBOOK.md)
+- [Incident and support runbook](docs/INCIDENT-AND-SUPPORT-RUNBOOK.md)
 
 ## Run Locally
 

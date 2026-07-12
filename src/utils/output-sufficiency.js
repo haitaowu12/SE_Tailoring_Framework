@@ -26,6 +26,31 @@ export function normalizeArtifactHandoffs(records, rootElementId = 'default') {
         }));
 }
 
+export function ensureArtifactHandoffsForElements(records, elementIds = ['default']) {
+    const normalized = normalizeArtifactHandoffs(records, elementIds[0] || 'default');
+    const existing = new Set(normalized.map(record => `${record.providerElementId}:${record.consumerElementId}`));
+    const additions = [...new Set(elementIds.filter(Boolean))]
+        .filter(elementId => !existing.has(`${elementId}:${elementId}`))
+        .map(elementId => createRequirementsArchitectureHandoff(elementId));
+    return [...normalized, ...additions];
+}
+
+export function getBaselineElementIds(assessmentTree, { includeRoot = true } = {}) {
+    if (!assessmentTree?.nodes || typeof assessmentTree.nodes !== 'object') {
+        return includeRoot ? [assessmentTree?.rootId || 'default'] : [];
+    }
+    const ids = [];
+    if (includeRoot && assessmentTree.rootId && assessmentTree.nodes[assessmentTree.rootId]) ids.push(assessmentTree.rootId);
+    for (const [id, node] of Object.entries(assessmentTree.nodes)) {
+        if (id === assessmentTree.rootId) continue;
+        const representedComplete = node?.assessmentDisposition === 'complete-baseline'
+            || node?.status === 'approved'
+            || node?.status === 'baselined';
+        if (representedComplete) ids.push(id);
+    }
+    return [...new Set(ids)];
+}
+
 export function assessArtifactHandoff(record, now = new Date()) {
     const missingFields = [];
     if (!ARTIFACT_ID_PATTERN.test(text(record?.artifactId))) missingFields.push('typed artifact ID');

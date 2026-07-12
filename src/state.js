@@ -11,8 +11,9 @@ import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_
 import { assessMetricCompleteness, getAssessmentDisposition } from './utils/assessment-integrity.js';
 import { assessWarningDispositions } from './utils/rule-dispositions.js';
 import { assessCsiResponse } from './utils/csi-response.js';
-import { assessOutputSufficiency, normalizeArtifactHandoffs } from './utils/output-sufficiency.js';
+import { assessOutputSufficiency, ensureArtifactHandoffsForElements, getBaselineElementIds, normalizeArtifactHandoffs } from './utils/output-sufficiency.js';
 import { assessCorrelatedEvidence } from './utils/correlated-evidence.js';
+import { recordRuntimeIssue } from './utils/runtime-operations.js';
 
 const state = {
     // Hierarchical assessment tree (v3.3)
@@ -89,6 +90,7 @@ const state = {
     assessmentComplete: false,
     assessmentDisposition: 'work-in-progress',
     confidence: {},
+    derivationStatus: {},
     deliverablesChecked: [],
     artifactHandoffs: normalizeArtifactHandoffs([], 'default')
 };
@@ -149,6 +151,7 @@ function debounceAutosave() {
                 assessmentDisposition: integrity.disposition,
                 assessmentIntegrity: integrity,
                 confidence: state.confidence,
+                derivationStatus: state.derivationStatus || state.confidence,
                 assessmentTree: state.assessmentTree,
                 deliverablesChecked: state.deliverablesChecked,
                 artifactHandoffs: state.artifactHandoffs,
@@ -157,6 +160,10 @@ function debounceAutosave() {
             localStorage.setItem(AUTOSAVE_KEY, data);
         } catch (e) {
             console.warn('Auto-save failed:', e);
+            recordRuntimeIssue(e, 'autosave-write');
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('app:storage-failure', { detail: { operation: 'save' } }));
+            }
         }
     }, AUTOSAVE_DEBOUNCE_MS);
 }
@@ -170,7 +177,7 @@ export function setState(updates) {
         const warningDispositions = assessWarningDispositions(next.violations, next.ruleDispositions, next.levels);
         const csiResponse = assessCsiResponse(next.scores, next.csiResponse);
         const migrationBlocked = next.semanticMigration?.status === 'review-required';
-        const outputSufficiency = assessOutputSufficiency(next.artifactHandoffs, [next.assessmentTree?.rootId || 'default']);
+        const outputSufficiency = assessOutputSufficiency(next.artifactHandoffs, getBaselineElementIds(next.assessmentTree));
         next.assessmentComplete = completeness.complete && warningDispositions.complete && csiResponse.complete && outputSufficiency.complete && !migrationBlocked && next.assessmentDisposition !== 'demo';
         if (!next.assessmentComplete) next.assessmentDisposition = next.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
         else next.assessmentDisposition = 'complete-baseline';
@@ -187,6 +194,10 @@ export function loadAutosave() {
         return data;
     } catch (e) {
         console.warn('Auto-save load failed:', e);
+        recordRuntimeIssue(e, 'autosave-read');
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('app:storage-failure', { detail: { operation: 'restore' } }));
+        }
         return null;
     }
 }
@@ -200,6 +211,10 @@ export function clearAutosave() {
         localStorage.removeItem(AUTOSAVE_KEY);
     } catch (e) {
         console.warn('Auto-save clear failed:', e);
+        recordRuntimeIssue(e, 'autosave-clear');
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('app:storage-failure', { detail: { operation: 'erase' } }));
+        }
     }
 }
 
@@ -258,7 +273,7 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
                 ...(parentAssessment || {}),
                 score: scores[m],
                 status: parentConfirmed ? 'inherited-confirmed' : 'unknown',
-                definitionVersion: 2,
+                definitionVersion: 3,
                 qualifiers: parentAssessment?.qualifiers || [],
                 evidenceRefs: parentAssessment?.evidenceRefs || []
             };
@@ -295,6 +310,7 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         manualAdjustments: {}
     };
     parent.childIds.push(id);
+    state.artifactHandoffs = ensureArtifactHandoffsForElements(state.artifactHandoffs, [tree.rootId, id]);
     notifyStateChanged();
     return id;
 }
@@ -310,16 +326,18 @@ export function removeElement(elementId) {
     const node = tree.nodes[elementId];
     if (!node) return false;
 
-    // Recursively remove children
-    const removeRecursive = (id) => {
-        const n = tree.nodes[id];
-        if (!n) return;
-        for (const childId of [...n.childIds]) {
-            removeRecursive(childId);
-        }
-        delete tree.nodes[id];
-    };
-    removeRecursive(elementId);
+    const removedIds = new Set();
+    const pending = [elementId];
+    while (pending.length > 0) {
+        const id = pending.pop();
+        const current = tree.nodes[id];
+        if (!current || removedIds.has(id)) continue;
+        removedIds.add(id);
+        pending.push(...(current.childIds || []));
+    }
+    for (const id of removedIds) delete tree.nodes[id];
+    state.artifactHandoffs = (state.artifactHandoffs || []).filter(record =>
+        !removedIds.has(record.providerElementId) && !removedIds.has(record.consumerElementId));
 
     // Remove from parent's childIds
     const parent = tree.nodes[node.parentId];
@@ -384,7 +402,8 @@ export function setElementAssessmentResult(elementId, result) {
     const completeness = assessMetricCompleteness(node.scores, node.metricAssessments);
     const warningDispositions = assessWarningDispositions(result.violations, node.ruleDispositions, node.levels);
     const csiResponse = assessCsiResponse(node.scores, node.csiResponse);
-    const baselineReady = completeness.complete && warningDispositions.complete && csiResponse.complete;
+    const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [elementId]);
+    const baselineReady = result?.authoritative === true && completeness.complete && warningDispositions.complete && csiResponse.complete && outputSufficiency.complete;
     node.status = baselineReady ? 'under_review' : 'draft';
     node.assessmentDisposition = baselineReady ? 'complete-baseline' : 'work-in-progress';
     notifyStateChanged();
@@ -441,15 +460,23 @@ export function getElementCount() {
 export function getElementsFlat() {
     const tree = state.assessmentTree;
     const result = [];
-    const walk = (id, depth) => {
+    const pending = [{ id: tree.rootId, depth: 0 }];
+    const visited = new Set();
+    while (pending.length > 0) {
+        const { id, depth } = pending.pop();
+        if (visited.has(id)) throw new Error(`Assessment tree contains a cycle or duplicate path at ${id}`);
         const node = tree.nodes[id];
-        if (!node) return;
+        if (!node) continue;
+        visited.add(id);
         result.push({ ...node, depth });
-        for (const childId of node.childIds) {
-            walk(childId, depth + 1);
+        const children = Array.isArray(node.childIds) ? node.childIds : [];
+        for (let index = children.length - 1; index >= 0; index -= 1) {
+            pending.push({ id: children[index], depth: depth + 1 });
         }
-    };
-    walk(tree.rootId, 0);
+    }
+    if (visited.size !== Object.keys(tree.nodes || {}).length) {
+        throw new Error('Assessment tree contains unreachable nodes');
+    }
     return result;
 }
 

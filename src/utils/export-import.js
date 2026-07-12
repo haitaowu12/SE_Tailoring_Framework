@@ -11,7 +11,8 @@ import { assessSafetyAllocationDecision } from './inheritance-engine.js';
 import { validateHierarchyDisposition } from './hierarchy-dispositions.js';
 import { assessCorrelatedEvidence } from './correlated-evidence.js';
 import { validateRightSizingApprovalRecords } from './right-sizing-governance.js';
-import { assessOutputSufficiency, normalizeArtifactHandoffs, validateArtifactHandoffs } from './output-sufficiency.js';
+import { assessOutputSufficiency, ensureArtifactHandoffsForElements, getBaselineElementIds, normalizeArtifactHandoffs, validateArtifactHandoffs } from './output-sufficiency.js';
+import { APP_RUNTIME_META, EXCHANGE_SCHEMA_VERSION } from './runtime-operations.js';
 
 const VALID_METRIC_IDS = new Set(Array.from({ length: 16 }, (_, index) => `M${index + 1}`));
 const VALID_PROCESS_IDS = new Set(Array.from({ length: 22 }, (_, index) => String(index + 9)));
@@ -24,8 +25,94 @@ const VALID_METRIC_ASSESSMENT_STATUSES = new Set(['assessed', 'inherited-confirm
 const VALID_M8_QUALIFIERS = new Set(METRIC_QUALIFIER_DEFINITIONS.M8.map(item => item.id));
 const VALID_M15_QUALIFIERS = new Set(METRIC_QUALIFIER_DEFINITIONS.M15.map(item => item.id));
 
+export const IMPORT_LIMITS = Object.freeze({
+    maxFileBytes: 2 * 1024 * 1024,
+    maxNodes: 200,
+    maxTreeDepth: 20,
+    maxTextLength: 10000,
+    maxCollectionLength: 1000,
+    maxVisitedValues: 50000
+});
+
 function isPlainObject(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validatePayloadBounds(config, errors) {
+    const pending = [{ value: config, path: 'config' }];
+    let visited = 0;
+    while (pending.length > 0) {
+        const { value, path } = pending.pop();
+        visited += 1;
+        if (visited > IMPORT_LIMITS.maxVisitedValues) {
+            errors.push(`Config exceeds ${IMPORT_LIMITS.maxVisitedValues} values`);
+            return;
+        }
+        if (typeof value === 'string') {
+            if (value.length > IMPORT_LIMITS.maxTextLength) errors.push(`${path} exceeds ${IMPORT_LIMITS.maxTextLength} characters`);
+            continue;
+        }
+        if (Array.isArray(value)) {
+            if (value.length > IMPORT_LIMITS.maxCollectionLength) errors.push(`${path} exceeds ${IMPORT_LIMITS.maxCollectionLength} items`);
+            value.forEach((item, index) => pending.push({ value: item, path: `${path}[${index}]` }));
+            continue;
+        }
+        if (isPlainObject(value)) {
+            const entries = Object.entries(value);
+            if (entries.length > IMPORT_LIMITS.maxCollectionLength) errors.push(`${path} exceeds ${IMPORT_LIMITS.maxCollectionLength} fields`);
+            entries.forEach(([key, item]) => pending.push({ value: item, path: `${path}.${key}` }));
+        }
+    }
+}
+
+function validateAssessmentTreeGraph(tree, errors) {
+    const { rootId, nodes } = tree;
+    if (typeof rootId !== 'string' || !isPlainObject(nodes) || !nodes[rootId]) return;
+    const nodeIds = Object.keys(nodes);
+    if (nodeIds.length > IMPORT_LIMITS.maxNodes) errors.push(`assessmentTree exceeds ${IMPORT_LIMITS.maxNodes} nodes`);
+    if (nodes[rootId]?.parentId !== null && nodes[rootId]?.parentId !== undefined) {
+        errors.push('assessmentTree root must not have a parent');
+    }
+
+    const incoming = new Map(nodeIds.map(id => [id, 0]));
+    for (const [parentId, node] of Object.entries(nodes)) {
+        if (!Array.isArray(node?.childIds)) continue;
+        const uniqueChildren = new Set();
+        for (const childId of node.childIds) {
+            if (uniqueChildren.has(childId)) errors.push(`assessmentTree node ${parentId} duplicates child ${childId}`);
+            uniqueChildren.add(childId);
+            if (!nodes[childId]) continue;
+            incoming.set(childId, (incoming.get(childId) || 0) + 1);
+            if (nodes[childId]?.parentId !== parentId) errors.push(`assessmentTree parent/child mismatch for ${childId}`);
+        }
+    }
+    for (const id of nodeIds) {
+        if (id === rootId) {
+            if ((incoming.get(id) || 0) !== 0) errors.push('assessmentTree root cannot be a child');
+        } else if ((incoming.get(id) || 0) !== 1) {
+            errors.push(`assessmentTree node ${id} must have exactly one parent`);
+        }
+        const parentId = nodes[id]?.parentId;
+        if (id !== rootId && typeof parentId === 'string' && nodes[parentId] && !nodes[parentId].childIds?.includes(id)) {
+            errors.push(`assessmentTree child/parent mismatch for ${id}`);
+        }
+    }
+
+    const pending = [{ id: rootId, depth: 0 }];
+    const visited = new Set();
+    while (pending.length > 0) {
+        const { id, depth } = pending.pop();
+        if (visited.has(id)) {
+            errors.push(`assessmentTree contains a cycle or duplicate path at ${id}`);
+            continue;
+        }
+        visited.add(id);
+        if (depth > IMPORT_LIMITS.maxTreeDepth) errors.push(`assessmentTree exceeds depth ${IMPORT_LIMITS.maxTreeDepth}`);
+        for (const childId of nodes[id]?.childIds || []) {
+            if (nodes[childId]) pending.push({ id: childId, depth: depth + 1 });
+        }
+    }
+    if (visited.size !== nodeIds.length) errors.push('assessmentTree contains unreachable nodes');
 }
 
 function validateLevelMap(map, fieldName, errors) {
@@ -196,7 +283,27 @@ function isCurrentSemanticConfig(config) {
         config?.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID;
 }
 
+function isV4PredecessorConfig(config) {
+    return config?._version === '2.0' && config?.semantics?.metricDefinitionSet === 'se-tailoring-m1-m16-v2';
+}
+
 function buildLegacySemanticMigration(config) {
+    if (isV4PredecessorConfig(config)) {
+        return {
+            fromDefinitionSet: 'se-tailoring-m1-m16-v2',
+            toDefinitionSet: METRIC_DEFINITION_SET_ID,
+            status: 'review-required',
+            reassessmentMetrics: ['M3'],
+            originalMetricScores: { M3: config.metricScores?.M3 },
+            preservedLegacyResult: {
+                processLevels: clonePlain(config.processLevels, {}),
+                derivedLevels: clonePlain(config.derivedLevels, {}),
+                overrides: clonePlain(config.overrides, []),
+                derivationStatus: clonePlain(config.derivationStatus || config.confidence, {})
+            },
+            warnings: ['M3 requires reassessment under the application/configuration-aware definition before a current baseline can be approved.']
+        };
+    }
     const originalMetricScores = {
         M6: config.metricScores?.M6,
         M8: config.metricScores?.M8,
@@ -206,6 +313,7 @@ function buildLegacySemanticMigration(config) {
         fromDefinitionSet: config.semantics?.metricDefinitionSet || 'se-tailoring-m1-m16-v1',
         toDefinitionSet: METRIC_DEFINITION_SET_ID,
         status: 'review-required',
+        reassessmentMetrics: ['M6', 'M8', 'M15'],
         originalMetricScores,
         preservedLegacyResult: {
             processLevels: clonePlain(config.processLevels, {}),
@@ -236,13 +344,26 @@ function normalizeMetricAssessments(config, legacyMigration) {
         return normalized;
     }
     const old = config.metricScores || {};
+    if (legacyMigration?.reassessmentMetrics?.length === 1 && legacyMigration.reassessmentMetrics[0] === 'M3') {
+        const normalized = preserveUnconfirmedMetricAssessments(old, clonePlain(config.metricAssessments, {}));
+        normalized.M3 = {
+            score: null,
+            status: 'migration-required',
+            definitionVersion: 3,
+            qualifiers: [],
+            legacyScore: old.M3 ?? null,
+            rationale: '',
+            evidenceRefs: []
+        };
+        return normalized;
+    }
     return {
-        M6: { score: null, status: 'migration-required', definitionVersion: 2, qualifiers: [], legacyScore: old.M6 ?? null, rationale: '', evidenceRefs: [] },
-        M8: { score: null, status: 'migration-required', definitionVersion: 2, qualifiers: [], legacyScore: old.M8 ?? null, rationale: '', evidenceRefs: [] },
+        M6: { score: null, status: 'migration-required', definitionVersion: 3, qualifiers: [], legacyScore: old.M6 ?? null, rationale: '', evidenceRefs: [] },
+        M8: { score: null, status: 'migration-required', definitionVersion: 3, qualifiers: [], legacyScore: old.M8 ?? null, rationale: '', evidenceRefs: [] },
         M15: {
             score: null,
             status: 'migration-required',
-            definitionVersion: 2,
+            definitionVersion: 3,
             qualifiers: Number(old.M15) > 1 ? ['political-visibility'] : [],
             legacyRegulatoryScore: old.M8 ?? null,
             legacyPoliticalScore: old.M15 ?? null,
@@ -254,28 +375,54 @@ function normalizeMetricAssessments(config, legacyMigration) {
 
 export function normalizeImportedConfig(config, fallbackTree = null) {
     const currentSemantics = isCurrentSemanticConfig(config);
+    const v4Predecessor = isV4PredecessorConfig(config);
+    const structurallyCompatible = currentSemantics || v4Predecessor;
     const semanticMigration = currentSemantics ? clonePlain(config.semanticMigration, null) : buildLegacySemanticMigration(config);
     const metricScores = { ...(config.metricScores || {}) };
-    if (!currentSemantics) {
+    if (v4Predecessor) {
+        delete metricScores.M3;
+    } else if (!currentSemantics) {
         delete metricScores.M6;
         delete metricScores.M8;
         delete metricScores.M15;
     }
     const metricAssessments = normalizeMetricAssessments(config, currentSemantics ? null : semanticMigration);
-    const assuranceObligations = currentSemantics ? clonePlain(config.assuranceObligations, []) : [];
+    const assuranceObligations = structurallyCompatible ? clonePlain(config.assuranceObligations, []) : [];
     const ruleDispositions = normalizeRuleDispositions(config.ruleDispositions);
     const csiResponse = normalizeCsiResponse(config.csiResponse);
-    const rightSizingApprovalRecords = currentSemantics ? clonePlain(config.rightSizingApprovalRecords, []) : [];
+    const rightSizingApprovalRecords = structurallyCompatible ? clonePlain(config.rightSizingApprovalRecords, []) : [];
     const manualAdjustments = normalizeManualAdjustments(config.manualAdjustments || {});
     const finalLevels = applyManualAdjustmentsToLevels(config.processLevels || {}, manualAdjustments);
     const assessmentTree = clonePlain(config.assessmentTree, null)
         || clonePlain(fallbackTree, null)
         || makeDefaultAssessmentTree(config, finalLevels, manualAdjustments);
     const rootId = assessmentTree.rootId || 'default';
+    const reassessmentMetrics = semanticMigration?.reassessmentMetrics || [];
+    if (!currentSemantics) {
+        for (const node of Object.values(assessmentTree.nodes || {})) {
+            if (!isPlainObject(node)) continue;
+            node.scores = { ...(node.scores || {}) };
+            node.metricAssessments = preserveUnconfirmedMetricAssessments(node.scores, node.metricAssessments || {});
+            for (const metricId of reassessmentMetrics) {
+                const legacyScore = node.scores[metricId] ?? node.metricAssessments?.[metricId]?.score ?? null;
+                delete node.scores[metricId];
+                node.metricAssessments[metricId] = {
+                    score: null,
+                    status: 'migration-required',
+                    definitionVersion: 3,
+                    qualifiers: [],
+                    legacyScore,
+                    rationale: '',
+                    evidenceRefs: []
+                };
+            }
+        }
+    }
     // Older/current files that predate this field remain readable, but migrate
     // to an explicit incomplete record so omission cannot authorize a baseline.
-    const artifactHandoffs = normalizeArtifactHandoffs(config.artifactHandoffs, rootId);
-    const outputSufficiency = assessOutputSufficiency(artifactHandoffs, [rootId]);
+    const requiredElementIds = getBaselineElementIds(assessmentTree);
+    const artifactHandoffs = ensureArtifactHandoffsForElements(config.artifactHandoffs, requiredElementIds);
+    const outputSufficiency = assessOutputSufficiency(artifactHandoffs, requiredElementIds);
     const rootNode = assessmentTree.nodes?.[rootId];
 
     if (rootNode) {
@@ -362,7 +509,8 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         saTier: config.saTier || null,
         indices: config.indices || {},
         notes: config.notes || '',
-        confidence: config.confidence || {},
+        derivationStatus: config.derivationStatus || config.confidence || {},
+        confidence: config.confidence || config.derivationStatus || {},
         deliverablesChecked: config.deliverablesChecked || [],
         artifactHandoffs,
         assessmentComplete: currentSemantics && config.assessmentComplete === true && assessMetricCompleteness(metricScores, metricAssessments).complete && assessWarningDispositions(config.violations, ruleDispositions, rootNode?.levels || finalLevels).complete && assessCsiResponse(metricScores, csiResponse).complete && outputSufficiency.complete,
@@ -374,7 +522,7 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
     };
 }
 
-function buildPilotSafeProjectInfo(projectInfo = {}) {
+function buildIdentifierReducedProjectInfo(projectInfo = {}) {
     return {
         ...clonePlain(projectInfo, {}),
         name: '',
@@ -382,7 +530,7 @@ function buildPilotSafeProjectInfo(projectInfo = {}) {
     };
 }
 
-function buildPilotSafeAssessmentTree(assessmentTree) {
+function buildIdentifierReducedAssessmentTree(assessmentTree) {
     const safeTree = clonePlain(assessmentTree, null);
     if (!safeTree?.nodes) return safeTree;
 
@@ -396,28 +544,106 @@ function buildPilotSafeAssessmentTree(assessmentTree) {
     return safeTree;
 }
 
-export function buildPilotSafeExportState(state = {}) {
+export function buildIdentifierReducedExportState(state = {}) {
     return {
         ...state,
-        projectInfo: buildPilotSafeProjectInfo(state.projectInfo),
-        assessmentTree: buildPilotSafeAssessmentTree(state.assessmentTree)
+        projectInfo: buildIdentifierReducedProjectInfo(state.projectInfo),
+        assessmentTree: buildIdentifierReducedAssessmentTree(state.assessmentTree)
     };
 }
 
-export function buildExportConfig(state, { includeProjectIdentifiers = false } = {}) {
+// Compatibility alias. The former name overstated the privacy guarantee.
+export const buildPilotSafeExportState = buildIdentifierReducedExportState;
+
+function sanitizeMetricAssessmentsForMinimumData(metricAssessments = {}) {
+    return Object.fromEntries(Object.entries(metricAssessments || {}).map(([metricId, assessment]) => [metricId, {
+        score: assessment?.score ?? null,
+        status: assessment?.status || 'missing',
+        definitionVersion: assessment?.definitionVersion || 3,
+        qualifiers: Array.isArray(assessment?.qualifiers) ? [...assessment.qualifiers] : []
+    }]));
+}
+
+function sanitizeTreeForMinimumData(assessmentTree) {
+    const tree = buildIdentifierReducedAssessmentTree(assessmentTree);
+    if (!tree?.nodes) return tree;
+    tree.nodes = Object.fromEntries(Object.entries(tree.nodes).map(([id, node]) => [id, {
+        id,
+        name: node.name,
+        parentId: node.parentId ?? null,
+        childIds: [...(node.childIds || [])],
+        assessmentType: node.assessmentType || 'full',
+        status: 'draft',
+        scores: clonePlain(node.scores, {}),
+        metricAssessments: sanitizeMetricAssessmentsForMinimumData(node.metricAssessments),
+        levels: clonePlain(node.levels, {}),
+        inheritedMetrics: clonePlain(node.inheritedMetrics, {}),
+        manualAdjustments: {},
+        ruleDispositions: {},
+        csiResponse: {},
+        rightSizingApprovalRecords: []
+    }]));
+    return tree;
+}
+
+function reduceConfigToMinimumData(config) {
+    return {
+        ...config,
+        _privacy: {
+            mode: 'minimum-data',
+            projectAndTeamIdentifiersIncluded: false,
+            elementDisplayNamesIncluded: false,
+            uncontrolledFreeTextIncluded: false,
+            warning: 'Minimum-data export omits free text, evidence references, asserted identities, approval records, and completed-baseline status.'
+        },
+        projectInfo: { name: '', team: '', date: '', phase: config.projectInfo?.phase || '' },
+        metricAssessments: sanitizeMetricAssessmentsForMinimumData(config.metricAssessments),
+        assuranceObligations: [],
+        ruleDispositions: {},
+        csiResponse: {},
+        correlatedEvidenceWarnings: [],
+        overrides: [],
+        activeFloors: [],
+        violations: [],
+        fixes: [],
+        rightSizingProposals: [],
+        blockedRightSizingCandidates: [],
+        proposalClosureFixes: [],
+        rightSizingApprovalRecords: [],
+        rightSizingApprovalEvaluations: [],
+        rightSizingActions: [],
+        adoptionRisks: [],
+        manualAdjustments: {},
+        tradeoffs: [],
+        assessmentTree: sanitizeTreeForMinimumData(config.assessmentTree),
+        artifactHandoffs: [],
+        assessmentComplete: false,
+        assessmentDisposition: 'work-in-progress',
+        assessmentIntegrity: { complete: false, reason: 'minimum-data-export-omits-governance-evidence' },
+        deliverablesChecked: [],
+        notes: ''
+    };
+}
+
+export function buildExportConfig(state, { includeProjectIdentifiers = false, mode } = {}) {
     const integrity = getAssessmentDisposition(state);
-    const exportState = includeProjectIdentifiers ? state : buildPilotSafeExportState(state);
+    const resolvedMode = includeProjectIdentifiers ? 'identified' : (mode || 'identifier-reduced');
+    const exportState = resolvedMode === 'identified' ? state : buildIdentifierReducedExportState(state);
     const projectInfo = clonePlain(exportState.projectInfo, {});
     const assessmentTree = clonePlain(exportState.assessmentTree, null);
-    return {
+    const config = {
         _format: 'se-tailoring-config',
-        _version: '2.0',
+        _version: EXCHANGE_SCHEMA_VERSION,
         _exported: new Date().toISOString(),
+        _producer: { ...APP_RUNTIME_META },
         _privacy: {
-            mode: includeProjectIdentifiers ? 'identified' : 'pilot-safe',
-            projectAndTeamIdentifiersIncluded: includeProjectIdentifiers,
-            elementDisplayNamesIncluded: includeProjectIdentifiers,
-            warning: 'Free-text rationale, notes, evidence references, and other assessment content are not automatically de-identified; review before sharing.'
+            mode: resolvedMode,
+            projectAndTeamIdentifiersIncluded: resolvedMode === 'identified',
+            elementDisplayNamesIncluded: resolvedMode === 'identified',
+            uncontrolledFreeTextIncluded: true,
+            warning: resolvedMode === 'identified'
+                ? 'Identified export includes project, team, element, free-text, evidence, and approval content. Handle only in an approved controlled system.'
+                : 'Identifier-reduced export removes direct display labels but retains free text, evidence references, and asserted identities. It is not de-identified.'
         },
         semantics: {
             frameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
@@ -465,7 +691,8 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false } =
         cultureType: state.cultureType || null,
         saTier: state.saTier || null,
         indices: state.indices || {},
-        confidence: state.confidence || {},
+        derivationStatus: state.derivationStatus || state.confidence || {},
+        confidence: state.confidence || state.derivationStatus || {},
         assessmentComplete: integrity.complete,
         assessmentDisposition: integrity.disposition,
         assessmentIntegrity: {
@@ -482,19 +709,20 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false } =
         deliverablesChecked: state.deliverablesChecked || [],
         notes: state.notes || ''
     };
+    return resolvedMode === 'minimum-data' ? reduceConfigToMinimumData(config) : config;
 }
 
 /** Export current state as JSON */
 export function exportConfig(state, options = {}) {
-    const config = buildExportConfig(state, options);
+    const config = buildExportConfig(state, { mode: 'minimum-data', ...options });
 
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safeMode = config._privacy.mode === 'pilot-safe';
-    const filenameStem = safeMode
-        ? 'pilot-assessment'
+    const reducedMode = config._privacy.mode !== 'identified';
+    const filenameStem = reducedMode
+        ? config._privacy.mode
         : (state.projectInfo?.name || 'config').replace(/\s+/g, '-').toLowerCase();
     a.download = `se-tailoring-${filenameStem}-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
@@ -504,6 +732,14 @@ export function exportConfig(state, options = {}) {
 /** Import config from JSON file */
 export function importConfig(file) {
     return new Promise((resolve, reject) => {
+        if (!file || typeof file.size !== 'number') {
+            reject(new Error('Invalid config file'));
+            return;
+        }
+        if (file.size > IMPORT_LIMITS.maxFileBytes) {
+            reject(new Error(`Config exceeds ${IMPORT_LIMITS.maxFileBytes} byte import limit`));
+            return;
+        }
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
@@ -529,11 +765,24 @@ export function validateConfig(config) {
     if (!isPlainObject(config)) {
         return { valid: false, errors: ['Config must be a JSON object'] };
     }
+    validatePayloadBounds(config, errors);
 
     if (config._format !== 'se-tailoring-config') errors.push('Invalid format identifier');
     if (config._version !== undefined && config._version !== '1.1' && config._version !== '2.0') errors.push(`Unsupported config version: ${config._version}`);
     if (!isPlainObject(config.metricScores)) errors.push('Missing metricScores');
     if (!isPlainObject(config.processLevels)) errors.push('Missing processLevels');
+    if (config._producer !== undefined) {
+        if (!isPlainObject(config._producer)) {
+            errors.push('_producer must be an object');
+        } else {
+            for (const field of ['application', 'appRelease', 'frameworkVersion', 'metricDefinitionSet', 'exchangeSchemaVersion', 'buildId', 'operatingProfile', 'telemetry']) {
+                const value = config._producer[field];
+                if (value !== undefined && (typeof value !== 'string' || value.length > 160)) {
+                    errors.push(`_producer.${field} must be a short string`);
+                }
+            }
+        }
+    }
     if (config.projectInfo !== undefined && !isPlainObject(config.projectInfo)) {
         errors.push('projectInfo must be an object');
     }
@@ -549,7 +798,7 @@ export function validateConfig(config) {
         validateLevelMap(config.processLevels, 'processLevels', errors);
     }
 
-    for (const field of ['saResponses', 'derivedLevels', 'manualAdjustments', 'derivationDetails', 'matrixMap', 'assessmentTree', 'saTier', 'indices', 'confidence', 'semantics', 'metricAssessments', 'semanticMigration', 'assessmentIntegrity', 'proposedRightSizedLevels', 'approvedRightSizedLevels', 'normativeLevels', 'proposalBudgetStatus', 'ruleDispositions', 'csiResponse']) {
+    for (const field of ['saResponses', 'derivedLevels', 'manualAdjustments', 'derivationDetails', 'matrixMap', 'assessmentTree', 'saTier', 'indices', 'confidence', 'derivationStatus', 'semantics', 'metricAssessments', 'semanticMigration', 'assessmentIntegrity', 'proposedRightSizedLevels', 'approvedRightSizedLevels', 'normativeLevels', 'proposalBudgetStatus', 'ruleDispositions', 'csiResponse']) {
         if (config[field] !== undefined && config[field] !== null && !isPlainObject(config[field])) {
             errors.push(`${field} must be an object`);
         }
@@ -567,8 +816,11 @@ export function validateConfig(config) {
     }
 
     if (config._version === '2.0') {
-        if (config.semantics?.metricDefinitionSet !== METRIC_DEFINITION_SET_ID) errors.push('Unsupported metric definition set');
-        if (config.semantics?.frameworkVersion !== FRAMEWORK_SEMANTIC_VERSION) errors.push('Unsupported framework semantic version');
+        const current = config.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID
+            && config.semantics?.frameworkVersion === FRAMEWORK_SEMANTIC_VERSION;
+        const v4Predecessor = config.semantics?.metricDefinitionSet === 'se-tailoring-m1-m16-v2'
+            && config.semantics?.frameworkVersion === '4.0.0';
+        if (!current && !v4Predecessor) errors.push('Unsupported metric definition set or framework semantic version');
     }
 
     if (isPlainObject(config.metricAssessments)) {
@@ -697,6 +949,13 @@ export function validateConfig(config) {
             if (!validConfidence.has(v)) errors.push(`Invalid confidence value for process ${k}: ${v}`);
         }
     }
+    if (isPlainObject(config.derivationStatus)) {
+        const validStatuses = new Set(['high', 'corroborated', 'available-with-justification', 'floor-applied']);
+        for (const [k, v] of Object.entries(config.derivationStatus)) {
+            if (!VALID_PROCESS_IDS.has(String(k))) errors.push(`Unknown derivationStatus process id: ${k}`);
+            if (!validStatuses.has(v)) errors.push(`Invalid derivationStatus value for process ${k}: ${v}`);
+        }
+    }
 
     if (isPlainObject(config.assessmentTree)) {
         const { rootId, activeId, nodes } = config.assessmentTree;
@@ -769,6 +1028,7 @@ export function validateConfig(config) {
                     }
                 }
             }
+            validateAssessmentTreeGraph(config.assessmentTree, errors);
         }
     }
 
@@ -854,6 +1114,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 <h1>SE Process Tailoring Report</h1>
 ${!integrity.complete ? `<div class="violation"><strong>WORK-IN-PROGRESS PREVIEW — NOT A BASELINE</strong><br>${integrity.completeCount}/16 metric judgments are confirmed. Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', ') || (outputSufficiency.complete ? 'semantic/governance review' : 'Requirements-to-Architecture output-sufficiency gate'))}.</div>` : ''}
 <div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} (ISO/IEC/IEEE 15288:2023)</div>
+<div class="info"><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</div>
 <div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers 22 project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.</div>
 <table><tr><td><strong>Project</strong>: ${escapeHtml(projectName)}</td><td><strong>Date</strong>: ${escapeHtml(projectDate)}</td></tr>
 <tr><td><strong>Team</strong>: ${escapeHtml(projectTeam)}</td><td><strong>Phase</strong>: ${escapeHtml(projectPhase)}</td></tr></table>
@@ -980,8 +1241,9 @@ ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
     return html;
 }
 
-function csvCell(value) {
-    const text = String(value ?? '');
+export function csvCell(value) {
+    let text = String(value ?? '');
+    if (/^[\u0000-\u0020]*[=+\-@]/.test(text)) text = `'${text}`;
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -1050,7 +1312,7 @@ export function exportSystemBreakdownCSV(state, CORE_PROCESSES) {
     const rows = [];
     
     const headers = ['Depth', 'Element Name', 'Assessment Type', 'Status', ...CORE_PROCESSES.map(p => p.id)];
-    rows.push(headers.join(','));
+    rows.push(headers);
     
     const walk = (id, depth) => {
         const node = tree.nodes[id];
@@ -1058,7 +1320,7 @@ export function exportSystemBreakdownCSV(state, CORE_PROCESSES) {
         
         const row = [
             depth,
-            `"${node.name.replace(/"/g, '""')}"`,
+            node.name,
             node.assessmentType || 'full',
             node.status || 'draft'
         ];
@@ -1069,16 +1331,16 @@ export function exportSystemBreakdownCSV(state, CORE_PROCESSES) {
             const finalLevel = manualAdj ? manualAdj.level : derivedLevel;
             const justifyStr = manualAdj?.justification ? ` [${manualAdj.justification.replace(/"/g, '""')}]` : '';
             const levelLabel = finalLevel === 'unassessed' ? 'Unassessed' : finalLevel.charAt(0).toUpperCase();
-            row.push(`"${levelLabel}${justifyStr}"`);
+            row.push(`${levelLabel}${justifyStr}`);
         }
         
-        rows.push(row.join(','));
+        rows.push(row);
         for (const childId of node.childIds) walk(childId, depth + 1);
     };
     
     walk(tree.rootId, 0);
     
-    const csvContent = rows.join('\n');
+    const csvContent = rows.map(row => row.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
