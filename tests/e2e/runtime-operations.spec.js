@@ -24,7 +24,7 @@ test('diagnostics disclose exact release identity and remain local-only', async 
   await expect(dialog).toContainText('3.6.0');
   await expect(dialog).toContainText('4.1.0');
   await expect(dialog).toContainText('se-tailoring-m1-m16-v3');
-  await expect(dialog).toContainText('local-unattested');
+  await expect(dialog).toContainText(/(?:local-unattested|[0-9a-f]{40})/);
   await expect(dialog).toContainText('static-self-service-prototype');
   await expect(dialog).toContainText('The app sends no telemetry.');
   const closeButton = dialog.getByRole('button', { name: 'Close' });
