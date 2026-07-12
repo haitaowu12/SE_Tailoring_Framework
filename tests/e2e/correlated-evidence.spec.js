@@ -105,6 +105,7 @@ test('correlated-evidence warning is visible and distinct consequence pathways r
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByText(/Correlated evidence review \(1\)/)).toBeVisible();
+  await expect(page.locator('.result-card')).toHaveCount(22);
   const levelsBefore = await resultLevels(page);
 
   await page.getByRole('button', { name: 'Go to Safety & Criticality step' }).click();
@@ -116,6 +117,7 @@ test('correlated-evidence warning is visible and distinct consequence pathways r
   await page.getByRole('button', { name: 'Go to Results step' }).click();
 
   await expect(page.getByText(/Correlated evidence review/)).toHaveCount(0);
+  await expect(page.locator('.result-card')).toHaveCount(22);
   expect(scoresAfter).toEqual(scoresBefore);
   expect(await resultLevels(page)).toEqual(levelsBefore);
 });
