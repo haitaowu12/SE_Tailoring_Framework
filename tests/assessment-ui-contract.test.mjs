@@ -34,11 +34,10 @@ test('assessment UI keeps the default path lightweight and records optional note
   assert.doesNotMatch(assessmentSource, /Ordinal Scale Warning/);
 });
 
-test('assessment UI explains how each metric reaches the recommendation path', () => {
-  assert.match(assessmentSource, /function metricDecisionPath/);
-  assert.match(assessmentSource, /class="metric-impact"/);
-  assert.match(assessmentSource, /Constraint Stress Index/);
-  assert.match(assessmentSource, /Adoption Readiness Index/);
+test('assessment UI keeps recommendation logic out of each metric card', () => {
+  assert.doesNotMatch(assessmentSource, /function metricDecisionPath/);
+  assert.doesNotMatch(assessmentSource, /class="metric-impact"/);
+  assert.match(assessmentSource, /class="metric-justification/);
 });
 
 test('score changes resolve the active node within setMetricScore', () => {

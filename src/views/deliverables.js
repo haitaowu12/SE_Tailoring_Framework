@@ -26,7 +26,7 @@ export function renderDeliverables(container) {
     container.innerHTML = `
     <div class="flex justify-between items-center mb-lg deliverables-toolbar">
       <div>
-        <h2>📋 Deliverables Checklist</h2>
+        <h2>Deliverables Checklist</h2>
         <p class="text-secondary text-sm mt-sm">${checkedCount}/${totalCount} items checked</p>
       </div>
       <div class="flex gap-sm items-center deliverables-filter">
@@ -43,7 +43,7 @@ export function renderDeliverables(container) {
 
     ${Object.entries(groupByGroup).map(([group, procs]) => `
       <div class="mb-xl">
-        <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.icon || ''} ${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
+        <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
         ${procs.map(p => {
         const details = PROCESS_DETAILS[p.id];
         if (!details?.deliverables) return '';

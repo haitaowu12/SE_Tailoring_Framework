@@ -74,7 +74,7 @@ export function renderVeeModel(container) {
 
   container.innerHTML = `
     <div class="vee-header">
-      <h2>📐 Vee Model Lifecycle View</h2>
+      <h2>Vee Model Lifecycle View</h2>
       <p class="text-secondary text-sm">Click any process node to explore details. Colors indicate current tailoring levels.</p>
       <div class="vee-legend flex gap-lg mt-md">
         ${Object.entries(FRAMEWORK_META.levelLabels).map(([k, v]) => `

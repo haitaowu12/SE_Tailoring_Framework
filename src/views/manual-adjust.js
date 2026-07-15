@@ -48,10 +48,10 @@ export function renderManualAdjust(container) {
   container.dataset.elementId = selectedElementId;
   container.innerHTML = `
     <div class="flex justify-between items-center mb-0">
-      <div><h2>🎛️ Manual Level Adjustment</h2><p class="text-secondary text-sm mt-sm">Override algorithm-derived levels per system element. Consistency rules are checked in real time.</p></div>
+      <div><h2>Manual Level Adjustment</h2><p class="text-secondary text-sm mt-sm">Override algorithm-derived levels per system element. Consistency rules are checked in real time.</p></div>
       <div class="flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-reset">↻ Reset to Derived</button>
-        <button class="btn btn-primary btn-sm" id="btn-save">💾 Save Changes</button>
+        <button class="btn btn-primary btn-sm" id="btn-save">Save Changes</button>
       </div>
     </div>
 
@@ -65,7 +65,7 @@ export function renderManualAdjust(container) {
     ${violations.length > 0 ? `
     <div class="card mb-lg" style="border-left: 3px solid ${violations.some(v => v.type === 'HC') ? 'var(--accent-error)' : 'var(--accent-warning)'}; background: ${violations.some(v => v.type === 'HC') ? 'rgba(239,68,68,0.06)' : 'rgba(251,191,36,0.06)'}">
       <div class="flex items-center gap-sm mb-sm">
-        <strong>${violations.some(v => v.type === 'HC') ? '🚫' : '⚠️'} ${violations.length} Consistency Issue${violations.length > 1 ? 's' : ''} for ${selectedElementName}</strong>
+      <strong>${violations.length} Consistency Issue${violations.length > 1 ? 's' : ''} for ${selectedElementName}</strong>
       </div>
       ${violations.map(v => `
         <div class="text-sm mb-sm" style="color: ${v.type === 'HC' ? 'var(--accent-error)' : 'var(--accent-warning)'}">
@@ -77,7 +77,7 @@ export function renderManualAdjust(container) {
 
     ${Object.entries(groupByGroup).map(([group, procs]) => `
       <div class="mb-xl">
-        <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.icon || ''} ${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
+        <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
         <div class="card" style="padding: 0; overflow: hidden; overflow-x: auto;">
           <table class="data-table" style="min-width: 600px;">
             <thead><tr><th>Process</th><th>Derived</th><th>Current Level</th><th>Justification</th><th>Status</th></tr></thead>

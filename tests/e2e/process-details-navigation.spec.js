@@ -90,7 +90,7 @@ test('report recommendation opens, reloads, and returns from the exact level det
   await page.getByRole('button', { name: 'Expand all' }).click();
 
   const profile = page.locator('.card', {
-    has: page.getByRole('heading', { name: '📋 Full Process Tailoring Profile' })
+    has: page.getByRole('heading', { name: 'Full Process Tailoring Profile' })
   });
   await profile.getByRole('link', { name: 'View Comprehensive details for Architecture Definition' }).click();
 

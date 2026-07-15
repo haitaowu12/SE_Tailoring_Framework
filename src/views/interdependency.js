@@ -16,7 +16,7 @@ export function renderInterdependency(container) {
     };
 
     container.innerHTML = `
-    <h2 class="mb-lg">🔗 Process Interdependencies</h2>
+    <h2 class="mb-lg">Process Interdependencies</h2>
 
     <div class="tabs mb-xl">
       <button class="tab active" data-tab="rules">Consistency Rules</button>

@@ -244,8 +244,8 @@ function buildPilotNotice() {
     notice.innerHTML = `
       <div class="pilot-notice-inner">
         <div class="pilot-notice-copy">
-          <strong>Static prototype — not a validated decision authority.</strong>
-          <span>Use a non-identifying project code and avoid personal, confidential, export-controlled, or operationally sensitive information. Work auto-saves only in this browser.</span>
+          <strong>Pilot prototype.</strong>
+          <span>Use a non-identifying project code; do not enter sensitive information.</span>
         </div>
         <button class="btn btn-ghost btn-sm pilot-notice-dismiss" id="btn-dismiss-pilot-notice" type="button">Dismiss</button>
       </div>
@@ -382,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
         overlay.innerHTML = `
             <div style="background:var(--bg-card);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-                <div style="font-size:2rem;margin-bottom:12px;">💾</div>
+                <div class="modal-kicker">Saved session</div>
                 <h3 id="autosave-restore-title" style="margin-bottom:8px;">Saved Assessment Work Found</h3>
                 <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">Auto-saved ${saved.assessmentComplete ? 'baseline work' : 'work in progress'} from <strong>${escapeHtml(savedDate)}</strong> was found in this browser. Restore it only if this is your session.</p>
                 <div style="display:flex;gap:10px;justify-content:center;">

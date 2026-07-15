@@ -478,11 +478,36 @@ export function getElementsFlat() {
 export function setElementProcessAdjustment(elementId, processId, level, justification) {
     const node = state.assessmentTree.nodes[elementId];
     if (!node) return;
+    const currentDerivedLevel = node.assessmentResult?.derived?.[processId]
+        || node.assessmentResult?.derived?.[String(processId)]
+        || (elementId === state.assessmentTree.rootId ? state.derived?.[processId] : null)
+        || (elementId === state.assessmentTree.rootId ? state.derived?.[String(processId)] : null)
+        || node.levels?.[processId]
+        || node.levels?.[String(processId)]
+        || 'basic';
     if (!node.manualAdjustments) node.manualAdjustments = {};
     if (level === 'default') {
         delete node.manualAdjustments[processId];
+        node.levels = { ...(node.levels || {}), [processId]: currentDerivedLevel };
     } else {
         node.manualAdjustments[processId] = { level, justification: justification || '' };
+        node.levels = { ...(node.levels || {}), [processId]: level };
+    }
+    if (node.assessmentResult) {
+        node.assessmentResult = {
+            ...node.assessmentResult,
+            levels: { ...(node.assessmentResult.levels || {}), [processId]: node.levels[processId] }
+        };
+    }
+    if (elementId === state.assessmentTree.rootId) {
+        const manualAdjustments = { ...(state.manualAdjustments || {}) };
+        if (level === 'default') {
+            delete manualAdjustments[processId];
+        } else {
+            manualAdjustments[processId] = { level, justification: justification || '' };
+        }
+        state.manualAdjustments = manualAdjustments;
+        state.levels = { ...(state.levels || {}), [processId]: node.levels[processId] };
     }
     notifyStateChanged();
 }
