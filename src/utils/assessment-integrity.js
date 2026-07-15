@@ -6,7 +6,6 @@ import {
 } from '../data/metrics.js';
 import { assessRule11Disposition, assessWarningDispositions } from './rule-dispositions.js';
 import { assessCsiResponse } from './csi-response.js';
-import { assessOutputSufficiency, getBaselineElementIds } from './output-sufficiency.js';
 
 const VALID_SCORE = score => Number.isInteger(score) && score >= 1 && score <= 5;
 const CONFIRMED_STATUSES = new Set(['assessed', 'inherited-confirmed']);
@@ -123,8 +122,7 @@ export function getAssessmentDisposition(state = {}) {
     const csiResponse = assessCsiResponse(state.scores, state.csiResponse);
     const migrationBlocked = state.semanticMigration?.status === 'review-required';
     const explicitlyDemo = state.assessmentDisposition === 'demo';
-    const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, getBaselineElementIds(state.assessmentTree));
-    const complete = !!state.assessmentComplete && completeness.complete && warningDispositions.complete && csiResponse.complete && outputSufficiency.complete && !migrationBlocked && !explicitlyDemo;
+    const complete = !!state.assessmentComplete && completeness.complete && warningDispositions.complete && csiResponse.complete && !migrationBlocked && !explicitlyDemo;
     return {
         ...completeness,
         disposition: explicitlyDemo ? 'demo' : complete ? 'complete-baseline' : 'work-in-progress',
@@ -132,7 +130,6 @@ export function getAssessmentDisposition(state = {}) {
         migrationBlocked,
         rule11Disposition,
         warningDispositions,
-        csiResponse,
-        outputSufficiency
+        csiResponse
     };
 }

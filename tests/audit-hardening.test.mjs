@@ -5,7 +5,6 @@ import { runFullAssessment, runPreviewAssessment } from '../src/utils/assessment
 import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION } from '../src/data/metrics.js';
 import { propagateSafetyOverrides } from '../src/utils/inheritance-engine.js';
 import { csvCell, IMPORT_LIMITS, normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
-import { ensureArtifactHandoffsForElements, getBaselineElementIds } from '../src/utils/output-sufficiency.js';
 
 const scores = value => Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, value]));
 
@@ -136,16 +135,4 @@ test('CSV cells literalize spreadsheet formula prefixes before quoting', () => {
     assert.ok(cell.startsWith("'") || cell.startsWith("\"'"));
   }
   assert.equal(csvCell('standard'), 'standard');
-});
-
-test('tree-wide handoff helpers initialize each element and include every represented baseline', () => {
-  const tree = { rootId: 'root', activeId: 'child', nodes: {
-    root: { ...node('root', null, ['child']), assessmentDisposition: 'complete-baseline' },
-    child: { ...node('child', 'root'), assessmentDisposition: 'complete-baseline' },
-    draft: node('draft', 'root')
-  } };
-  assert.deepEqual(getBaselineElementIds(tree), ['root', 'child']);
-  const records = ensureArtifactHandoffsForElements([], ['root', 'child']);
-  assert.equal(records.length, 2);
-  assert.deepEqual(records.map(record => record.providerElementId), ['root', 'child']);
 });

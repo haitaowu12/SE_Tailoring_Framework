@@ -11,7 +11,6 @@ import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_
 import { assessMetricCompleteness, getAssessmentDisposition } from './utils/assessment-integrity.js';
 import { assessWarningDispositions } from './utils/rule-dispositions.js';
 import { assessCsiResponse } from './utils/csi-response.js';
-import { assessOutputSufficiency, ensureArtifactHandoffsForElements, getBaselineElementIds, normalizeArtifactHandoffs } from './utils/output-sufficiency.js';
 import { assessCorrelatedEvidence } from './utils/correlated-evidence.js';
 import { recordRuntimeIssue } from './utils/runtime-operations.js';
 
@@ -91,8 +90,7 @@ const state = {
     assessmentDisposition: 'work-in-progress',
     confidence: {},
     derivationStatus: {},
-    deliverablesChecked: [],
-    artifactHandoffs: normalizeArtifactHandoffs([], 'default')
+    deliverablesChecked: []
 };
 
 const listeners = [];
@@ -154,7 +152,6 @@ function debounceAutosave() {
                 derivationStatus: state.derivationStatus || state.confidence,
                 assessmentTree: state.assessmentTree,
                 deliverablesChecked: state.deliverablesChecked,
-                artifactHandoffs: state.artifactHandoffs,
                 savedAt: new Date().toISOString()
             });
             localStorage.setItem(AUTOSAVE_KEY, data);
@@ -177,8 +174,7 @@ export function setState(updates) {
         const warningDispositions = assessWarningDispositions(next.violations, next.ruleDispositions, next.levels);
         const csiResponse = assessCsiResponse(next.scores, next.csiResponse);
         const migrationBlocked = next.semanticMigration?.status === 'review-required';
-        const outputSufficiency = assessOutputSufficiency(next.artifactHandoffs, getBaselineElementIds(next.assessmentTree));
-        next.assessmentComplete = completeness.complete && warningDispositions.complete && csiResponse.complete && outputSufficiency.complete && !migrationBlocked && next.assessmentDisposition !== 'demo';
+        next.assessmentComplete = completeness.complete && warningDispositions.complete && csiResponse.complete && !migrationBlocked && next.assessmentDisposition !== 'demo';
         if (!next.assessmentComplete) next.assessmentDisposition = next.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
         else next.assessmentDisposition = 'complete-baseline';
     }
@@ -310,7 +306,6 @@ export function addChildElement(parentId, name, assessmentType = 'quick') {
         manualAdjustments: {}
     };
     parent.childIds.push(id);
-    state.artifactHandoffs = ensureArtifactHandoffsForElements(state.artifactHandoffs, [tree.rootId, id]);
     notifyStateChanged();
     return id;
 }
@@ -336,9 +331,6 @@ export function removeElement(elementId) {
         pending.push(...(current.childIds || []));
     }
     for (const id of removedIds) delete tree.nodes[id];
-    state.artifactHandoffs = (state.artifactHandoffs || []).filter(record =>
-        !removedIds.has(record.providerElementId) && !removedIds.has(record.consumerElementId));
-
     // Remove from parent's childIds
     const parent = tree.nodes[node.parentId];
     if (parent) {
@@ -402,8 +394,7 @@ export function setElementAssessmentResult(elementId, result) {
     const completeness = assessMetricCompleteness(node.scores, node.metricAssessments);
     const warningDispositions = assessWarningDispositions(result.violations, node.ruleDispositions, node.levels);
     const csiResponse = assessCsiResponse(node.scores, node.csiResponse);
-    const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [elementId]);
-    const baselineReady = result?.authoritative === true && completeness.complete && warningDispositions.complete && csiResponse.complete && outputSufficiency.complete;
+    const baselineReady = result?.authoritative === true && completeness.complete && warningDispositions.complete && csiResponse.complete;
     node.status = baselineReady ? 'under_review' : 'draft';
     node.assessmentDisposition = baselineReady ? 'complete-baseline' : 'work-in-progress';
     notifyStateChanged();

@@ -138,7 +138,7 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
   await expect(page.getByText('Ready for review')).toBeVisible();
 });
 
-test('assessment UI exposes all M15 scopes and labels implicit scores as work in progress', async ({ page }) => {
+test('assessment UI exposes all M15 scopes while keeping binding detail optional', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => {
     localStorage.clear();
@@ -147,14 +147,16 @@ test('assessment UI exposes all M15 scopes and labels implicit scores as work in
   await page.goto('./#assessment');
 
   await page.getByRole('button', { name: 'Go to Stakeholder Context step' }).click();
+  await page.getByText('Binding assurance detail', { exact: true }).click();
   await expect(page.locator('.assurance-scope')).toHaveCount(8);
   await expect(page.getByText(/Risk Management.*driver-only/)).toBeVisible();
   await expect(page.getByText(/Configuration Management.*floor-capable/)).toBeVisible();
   await expect(page.getByText(/Disposal.*driver-only/)).toBeVisible();
+  await expect(page.getByText('Assessed 1–5 score')).toHaveCount(4);
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText(/Work-in-progress preview — not a baseline/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Save Work in Progress \(0\/16\)/ })).toBeVisible();
+  await expect(page.getByText('Assessment Results')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Save Work in Progress \(output review pending\)/ })).toBeVisible();
 });
 
 test('Rule 11 warning remains visible and can be dispositioned before baselining', async ({ page }) => {
@@ -325,16 +327,24 @@ test('Requirements-to-Architecture handoff blocks baseline until accepted eviden
   await expect(page.getByText(/Requirements-to-Architecture Output Sufficiency/).first()).toBeVisible();
 });
 
-test('metric UI distinguishes explicit Unknown, unanswered preview, and imported unsupported N/A', async ({ page }) => {
+test('metric UI defaults to assessed scores, supports Unknown, and keeps imported N/A visible', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
-  const m1State = page.getByLabel('Assessment state for M1: Architectural Complexity');
-  await expect(m1State).toHaveValue('');
-  await expect(m1State.locator('option', { hasText: 'Imported N/A' })).toHaveCount(0);
-  await m1State.selectOption('unknown');
-  await expect(m1State).toHaveValue('unknown');
+  const m1Card = page.locator('.metric-item').filter({ hasText: 'Architectural Complexity' });
+  const m1Unknown = page.getByLabel('Mark M1 Architectural Complexity as Unknown');
+  await expect(m1Card.getByText('Assessed 1–5 score')).toBeVisible();
+  await expect(m1Unknown).not.toBeChecked();
+  await m1Card.getByText('Justification note').click();
+  await m1Card.getByLabel('Optional context for this score').fill('Neutral midpoint retained pending project-specific review.');
+  await m1Unknown.check();
+  await expect(m1Unknown).toBeChecked();
+  await expect(m1Card.getByText('Unknown — preview only')).toBeVisible();
+  await page.goto('./#dashboard');
+  await page.goto('./#assessment');
+  await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
+  await expect(page.locator('.metric-item').filter({ hasText: 'Architectural Complexity' }).getByText('Recorded')).toBeVisible();
 
   const scores = { ...metricScores };
   const assessments = { ...metricAssessments, M7: { score: null, status: 'not-applicable', definitionVersion: 3, qualifiers: [], rationale: 'Legacy N/A', evidenceRefs: [] } };
@@ -347,9 +357,9 @@ test('metric UI distinguishes explicit Unknown, unanswered preview, and imported
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Safety & Criticality step' }).click();
   await expect(page.getByText(/Imported N\/A cannot complete a current baseline/)).toBeVisible();
-  const m7State = page.getByLabel('Assessment state for M7: Environmental Impact');
-  await expect(m7State).toHaveValue('not-applicable');
-  await expect(m7State.locator('option[value="not-applicable"]')).toHaveAttribute('disabled', '');
+  const m7Card = page.locator('.metric-item').filter({ hasText: 'Environmental Impact' });
+  await expect(m7Card.getByText(/Imported N\/A cannot complete a current baseline/)).toBeVisible();
+  await expect(page.getByLabel('Mark M7 Environmental Impact as Unknown')).not.toBeChecked();
 });
 
 test('child hierarchy records a structured parent-retained safety allocation decision', async ({ page }) => {

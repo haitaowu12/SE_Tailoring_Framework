@@ -27,6 +27,15 @@ test('allows shared evidence when each metric documents a distinct consequence a
   assert.equal(result.warningCount, 0);
 });
 
+test('uses the standardized justification note to resolve an imported shared-evidence review', () => {
+  const result = assessCorrelatedEvidence({
+    M5: { ...assessed(5, { episodeId: 'EV-1', consequencePathway: '' }), rationale: 'Personnel injury through unsafe actuation' },
+    M6: { ...assessed(4, { episodeId: 'EV-1', consequencePathway: '' }), rationale: 'Loss of passenger service and recovery capacity' },
+    M8: { ...assessed(5, { episodeId: 'EV-1', consequencePathway: '' }), rationale: 'Unauthorized control-state manipulation' }
+  });
+  assert.equal(result.warningCount, 0);
+});
+
 test('detects an identical fully described context without family or episode IDs', () => {
   const shared = { eventRef: 'Cyber-physical hazard H-17', artifactRefs: ['FTA-17', 'HAZLOG-4'], assumptionsRef: 'ASM-9', assessorId: 'Assurance team', consequencePathway: '' };
   const result = assessCorrelatedEvidence({ M5: assessed(4, shared), M8: assessed(4, shared) });

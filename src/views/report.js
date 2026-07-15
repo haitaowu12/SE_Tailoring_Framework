@@ -52,7 +52,6 @@ function renderRightSizingApprovalForm(proposal, state) {
     </details>`;
 }
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
-import { assessOutputSufficiency, getBaselineElementIds } from '../utils/output-sufficiency.js';
 
 function findDirectReportCard(container, titleText) {
   return [...container.querySelectorAll(':scope > .card.mb-xl')]
@@ -100,8 +99,7 @@ export function getReportReadiness(state = {}) {
   const metricCompleteness = assessMetricCompleteness(state.scores, state.metricAssessments);
   const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
   const csiResponse = assessCsiResponse(state.scores, state.csiResponse);
-  const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, getBaselineElementIds(state.assessmentTree));
-  if (!state.assessmentComplete || !metricCompleteness.complete || !warningDispositions.complete || !csiResponse.complete || !outputSufficiency.complete || incompleteElementCount > 0 || state.semanticMigration?.status === 'review-required') {
+  if (!state.assessmentComplete || !metricCompleteness.complete || !warningDispositions.complete || !csiResponse.complete || incompleteElementCount > 0 || state.semanticMigration?.status === 'review-required') {
     return 'Draft / incomplete';
   }
 
@@ -236,10 +234,9 @@ function enhanceReportSections(container) {
 
 export function renderReport(container) {
   const state = getState();
-  const outputSufficiencyGate = assessOutputSufficiency(state.artifactHandoffs, getBaselineElementIds(state.assessmentTree));
-  if (!state.assessmentComplete || !outputSufficiencyGate.complete) {
+  if (!state.assessmentComplete) {
     const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${completeness.completeCount}/16 metric judgments are confirmed. Preview values are not a completed baseline and cannot generate a publication report.</p>${completeness.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}</p>` : ''}${!outputSufficiencyGate.complete ? '<p class="text-xs text-secondary mt-sm">The Requirements-to-Architecture artifact handoff is not accepted and has no complete governed review.</p>' : ''}<button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
+    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${completeness.completeCount}/16 metric judgments are confirmed. Preview values are not a completed baseline and cannot generate a publication report.</p>${completeness.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}</p>` : ''}<button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
     container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment'));
     return;
   }
@@ -279,13 +276,13 @@ export function renderReport(container) {
   const csiRecord = csiReadiness.response;
   const csiActionLabels = new Map(CSI_RESPONSE_ACTIONS.map(action => [action.id, action.label]));
   const justificationCount = Object.values(confidence).filter(value => value === 'available-with-justification').length;
+  const metricNotesCount = METRICS.filter(metric => String(state.metricAssessments?.[metric.id]?.rationale || '').trim()).length;
   const floorAppliedCount = Object.values(confidence).filter(value => value === 'floor-applied').length;
   const highPressureMetrics = METRICS
     .filter(metric => (scores[metric.id] ?? 3) >= 4)
     .map(metric => metric.id);
   const reportReadiness = getReportReadiness(state);
   const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
-  const handoffRecords = state.artifactHandoffs || [];
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
   const processRefName = (ref) => {
@@ -341,6 +338,7 @@ export function renderReport(container) {
       <div class="report-summary-notes">
         <span><strong>Final profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
         <span><strong>High-pressure metrics:</strong> ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None at 4 or 5'}.</span>
+        <span><strong>Metric notes:</strong> ${metricNotesCount} of ${METRICS.length} recorded.</span>
         <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
       </div>
       <div class="report-scope-note">
@@ -375,15 +373,6 @@ export function renderReport(container) {
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="card mb-xl" style="border-left:3px solid ${outputSufficiencyGate.complete ? 'var(--accent-success)' : 'var(--accent-warning)'}">
-      <h4 class="mb-md">Requirements-to-Architecture Output Sufficiency</h4>
-      <p class="text-xs text-secondary mb-md">Artifact prerequisite and acceptance gate. This result has no process-level effect.</p>
-      <table class="data-table"><thead><tr><th>Artifact</th><th>Provider → consumer</th><th>Status</th><th>Authority</th><th>Review date</th></tr></thead><tbody>
-        ${handoffRecords.map(record => `<tr><td>${escapeHtml(record.artifactId || '—')}</td><td>${escapeHtml(record.providerElementId || '—')} / P19 → ${escapeHtml(record.consumerElementId || '—')} / P20</td><td>${escapeHtml(record.evidenceStatus || 'draft')}</td><td>${escapeHtml(record.acceptanceAuthority || '—')}</td><td>${escapeHtml(record.reviewDate || '—')}</td></tr>`).join('')}
-      </tbody></table>
-      ${outputSufficiencyGate.governedReviewCount ? '<p class="text-xs mt-md">Governed review used: documented gaps and equivalent evidence or compensating controls remain subject to the recorded review date.</p>' : ''}
     </div>
 
     ${elements.length > 1 ? `
@@ -782,16 +771,18 @@ export function renderReport(container) {
       <h4 class="mb-md">Metric Scores Detail</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>Metric</th><th>Dimension</th><th>Score</th><th>Description</th></tr></thead>
+          <thead><tr><th>Metric</th><th>Dimension</th><th>Score</th><th>Description</th><th>Justification note</th></tr></thead>
           <tbody>
             ${METRICS.map(m => {
     const s = scores[m.id] || '—';
     const dim = DIMENSIONS.find(d => d.id === m.dimension);
+    const rationale = state.metricAssessments?.[m.id]?.rationale || '';
     return `<tr>
                 <td><strong>${m.id}</strong> ${m.name}</td>
                 <td style="color:${dim.color}">${dim.name}</td>
                 <td><strong>${s}</strong></td>
                 <td class="text-xs text-secondary">${m.anchors[s] || ''}</td>
+                <td class="text-xs text-secondary metric-note-cell">${escapeHtml(rationale || '—')}</td>
               </tr>`;
   }).join('')}
           </tbody>
@@ -823,6 +814,7 @@ export function renderReport(container) {
     .confidence-badge-inline.floor-applied { color: #60a5fa; }
     .confidence-badge-inline.high { color: var(--text-tertiary); }
     .justification-flag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.15); color: #f59e0b; font-weight: 600; margin-left: 4px; cursor: help; }
+    .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
   `;
   container.appendChild(style);

@@ -11,7 +11,6 @@ import { assessSafetyAllocationDecision } from './inheritance-engine.js';
 import { validateHierarchyDisposition } from './hierarchy-dispositions.js';
 import { assessCorrelatedEvidence } from './correlated-evidence.js';
 import { validateRightSizingApprovalRecords } from './right-sizing-governance.js';
-import { assessOutputSufficiency, ensureArtifactHandoffsForElements, getBaselineElementIds, normalizeArtifactHandoffs, validateArtifactHandoffs } from './output-sufficiency.js';
 import { APP_RUNTIME_META, EXCHANGE_SCHEMA_VERSION } from './runtime-operations.js';
 
 const VALID_METRIC_IDS = new Set(Array.from({ length: 16 }, (_, index) => `M${index + 1}`));
@@ -418,11 +417,6 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
             }
         }
     }
-    // Older/current files that predate this field remain readable, but migrate
-    // to an explicit incomplete record so omission cannot authorize a baseline.
-    const requiredElementIds = getBaselineElementIds(assessmentTree);
-    const artifactHandoffs = ensureArtifactHandoffsForElements(config.artifactHandoffs, requiredElementIds);
-    const outputSufficiency = assessOutputSufficiency(artifactHandoffs, requiredElementIds);
     const rootNode = assessmentTree.nodes?.[rootId];
 
     if (rootNode) {
@@ -460,7 +454,7 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         const completeness = assessMetricCompleteness(metricScores, metricAssessments);
         const warningDispositions = assessWarningDispositions(config.violations, ruleDispositions, rootNode.levels);
         const csiReadiness = assessCsiResponse(metricScores, csiResponse);
-        const importedComplete = currentSemantics && config.assessmentComplete === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && outputSufficiency.complete && semanticMigration?.status !== 'review-required';
+        const importedComplete = currentSemantics && config.assessmentComplete === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && semanticMigration?.status !== 'review-required';
         if (importedComplete && !rootNode.assessmentResult) {
             rootNode.assessmentResult = buildLegacyAssessmentResult(config, rootNode.levels);
             rootNode.status = rootNode.status === 'draft' ? 'under_review' : (rootNode.status || 'under_review');
@@ -512,11 +506,10 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         derivationStatus: config.derivationStatus || config.confidence || {},
         confidence: config.confidence || config.derivationStatus || {},
         deliverablesChecked: config.deliverablesChecked || [],
-        artifactHandoffs,
-        assessmentComplete: currentSemantics && config.assessmentComplete === true && assessMetricCompleteness(metricScores, metricAssessments).complete && assessWarningDispositions(config.violations, ruleDispositions, rootNode?.levels || finalLevels).complete && assessCsiResponse(metricScores, csiResponse).complete && outputSufficiency.complete,
+        assessmentComplete: currentSemantics && config.assessmentComplete === true && assessMetricCompleteness(metricScores, metricAssessments).complete && assessWarningDispositions(config.violations, ruleDispositions, rootNode?.levels || finalLevels).complete && assessCsiResponse(metricScores, csiResponse).complete,
         assessmentDisposition: config.assessmentDisposition === 'demo'
             ? 'demo'
-            : currentSemantics && config.assessmentComplete === true && assessMetricCompleteness(metricScores, metricAssessments).complete && assessWarningDispositions(config.violations, ruleDispositions, rootNode?.levels || finalLevels).complete && assessCsiResponse(metricScores, csiResponse).complete && outputSufficiency.complete
+            : currentSemantics && config.assessmentComplete === true && assessMetricCompleteness(metricScores, metricAssessments).complete && assessWarningDispositions(config.violations, ruleDispositions, rootNode?.levels || finalLevels).complete && assessCsiResponse(metricScores, csiResponse).complete
                 ? 'complete-baseline'
                 : 'work-in-progress'
     };
@@ -616,7 +609,6 @@ function reduceConfigToMinimumData(config) {
         manualAdjustments: {},
         tradeoffs: [],
         assessmentTree: sanitizeTreeForMinimumData(config.assessmentTree),
-        artifactHandoffs: [],
         assessmentComplete: false,
         assessmentDisposition: 'work-in-progress',
         assessmentIntegrity: { complete: false, reason: 'minimum-data-export-omits-governance-evidence' },
@@ -684,10 +676,6 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
         tradeoffs: state.tradeoffs || [],
         matrixMap: state.matrixMap || null,
         assessmentTree,
-        artifactHandoffs: normalizeArtifactHandoffs(
-            state.artifactHandoffs,
-            state.assessmentTree?.rootId || 'default'
-        ),
         cultureType: state.cultureType || null,
         saTier: state.saTier || null,
         indices: state.indices || {},
@@ -703,8 +691,7 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
             migrationBlocked: integrity.migrationBlocked,
             rule11Disposition: integrity.rule11Disposition,
             warningDispositions: integrity.warningDispositions,
-            csiResponse: integrity.csiResponse,
-            outputSufficiency: integrity.outputSufficiency
+            csiResponse: integrity.csiResponse
         },
         deliverablesChecked: state.deliverablesChecked || [],
         notes: state.notes || ''
@@ -807,9 +794,8 @@ export function validateConfig(config) {
     errors.push(...validateRuleDispositions(config.ruleDispositions));
     errors.push(...validateCsiResponse(config.csiResponse));
     errors.push(...validateRightSizingApprovalRecords(config.rightSizingApprovalRecords));
-    errors.push(...validateArtifactHandoffs(config.artifactHandoffs));
 
-    for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations', 'artifactHandoffs']) {
+    for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations']) {
         if (config[field] !== undefined && !Array.isArray(config[field])) {
             errors.push(`${field} must be an array`);
         }
@@ -833,6 +819,9 @@ export function validateConfig(config) {
             if (!VALID_METRIC_ASSESSMENT_STATUSES.has(assessment.status)) errors.push(`metricAssessments[${metricId}] has invalid status`);
             if (assessment.score !== null && assessment.score !== undefined && (typeof assessment.score !== 'number' || assessment.score < 1 || assessment.score > 5)) {
                 errors.push(`metricAssessments[${metricId}] has invalid score`);
+            }
+            if (assessment.rationale !== undefined && typeof assessment.rationale !== 'string') {
+                errors.push(`metricAssessments[${metricId}] rationale must be a string`);
             }
             if (assessment.qualifiers !== undefined && !Array.isArray(assessment.qualifiers)) {
                 errors.push(`metricAssessments[${metricId}] qualifiers must be an array`);
@@ -1067,7 +1056,6 @@ export function generateReport(state, data) {
     const rule11Record = ruleDispositions?.['11'] || ruleDispositions?.[11];
     const csiReadiness = assessCsiResponse(scores, csiResponse);
     const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
-    const outputSufficiency = assessOutputSufficiency(state.artifactHandoffs, [state.assessmentTree?.rootId || 'default']);
 
     const levelClass = l => l === 'comprehensive' ? 'color:#ef4444' : l === 'standard' ? 'color:#f59e0b' : 'color:#3b82f6';
 
@@ -1112,7 +1100,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 @media (max-width:720px){.spiderweb-figure{grid-template-columns:1fr}.dimension-pattern-grid{grid-template-columns:1fr 1fr}}
 </style></head><body>
 <h1>SE Process Tailoring Report</h1>
-${!integrity.complete ? `<div class="violation"><strong>WORK-IN-PROGRESS PREVIEW — NOT A BASELINE</strong><br>${integrity.completeCount}/16 metric judgments are confirmed. Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', ') || (outputSufficiency.complete ? 'semantic/governance review' : 'Requirements-to-Architecture output-sufficiency gate'))}.</div>` : ''}
+${!integrity.complete ? `<div class="violation"><strong>WORK-IN-PROGRESS PREVIEW — NOT A BASELINE</strong><br>${integrity.completeCount}/16 metric judgments are confirmed. Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', ') || 'semantic/governance review')}.</div>` : ''}
 <div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} (ISO/IEC/IEEE 15288:2023)</div>
 <div class="info"><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</div>
 <div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers 22 project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.</div>
@@ -1129,9 +1117,6 @@ ${!integrity.complete ? `<div class="violation"><strong>WORK-IN-PROGRESS PREVIEW
 ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
 </div>
 </div>
-
-<h2>Requirements-to-Architecture Output Sufficiency</h2>
-<div class="${outputSufficiency.complete ? 'info' : 'violation'}"><strong>${outputSufficiency.complete ? 'Gate satisfied' : 'Baseline blocked'}</strong><br>Classification: artifact prerequisite / acceptance gate<br>Accepted: ${outputSufficiency.acceptedCount}; governed reviews: ${outputSufficiency.governedReviewCount}; required: ${outputSufficiency.requiredCount}<br><em>This gate does not elevate or otherwise change process levels.</em></div>
 
 <h2>Metric Scores</h2><table><tr><th>Metric</th><th>Score</th><th>Description</th></tr>`;
 

@@ -59,7 +59,9 @@ export function assessCorrelatedEvidence(metricAssessments = {}) {
   const warnings = [];
   for (const [key, records] of groups) {
     if (records.length < 2) continue;
-    const pathways = records.map(record => normalized(record.context.consequencePathway));
+    const pathways = records.map(record => normalized(
+      metricAssessments?.[record.metricId]?.rationale || record.context.consequencePathway
+    ));
     const distinctConsequenceAnalyses = pathways.every(Boolean) && new Set(pathways).size === records.length;
     if (distinctConsequenceAnalyses) continue;
     const metricIds = records.map(record => record.metricId);
