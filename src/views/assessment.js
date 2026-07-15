@@ -191,7 +191,7 @@ export function renderAssessment(container) {
       <p class="assessment-guidance mb-lg">Set a 1–5 score for each metric. Scores drive the tailoring profile; optional justification notes are kept with the assessment record.</p>
       <div class="step-progress">
         ${STEPS.map((s, i) => `
-          <button class="step-dot ${visitedSteps.has(i) ? 'visited' : ''} ${i === currentStep ? 'current' : ''}" type="button" data-step="${i}" aria-label="${i === currentStep ? 'Current step' : visitedSteps.has(i) ? 'Visited step' : 'Go to step'}: ${escapeHtml(s.title)}" ${i === currentStep ? 'aria-current="step"' : ''}>
+          <button class="step-dot ${visitedSteps.has(i) ? 'visited' : ''} ${i === currentStep ? 'current' : ''}" type="button" data-step="${i}" aria-label="Go to ${escapeHtml(s.title)} step" ${i === currentStep ? 'aria-current="step"' : ''}>
             <span class="step-icon">${s.icon}</span>
             <span class="step-label">${s.title}</span>
           </button>

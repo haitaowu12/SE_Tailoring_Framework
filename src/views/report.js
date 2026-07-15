@@ -122,12 +122,6 @@ function enhanceReportSections(container) {
 
   const sectionConfigs = [
     {
-      section: findDirectReportCard(container, 'Requirements-to-Architecture Output Sufficiency'),
-      title: 'Requirements-to-Architecture Output Sufficiency',
-      description: 'Artifact acceptance gate and governed-review evidence; no process-level effect.',
-      open: true
-    },
-    {
       section: container.querySelector(':scope > .grid-2.mb-xl'),
       title: 'Project and Level Distribution',
       description: 'Project metadata and final profile count.',

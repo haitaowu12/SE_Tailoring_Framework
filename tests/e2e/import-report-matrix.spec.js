@@ -87,8 +87,8 @@ test('legacy import is preserved but blocked pending M6/M8/M15 reassessment', as
     assessmentComplete: true
   }, 'legacy-config.json');
 
-  await expect(page.getByText('Semantic migration required')).toBeVisible();
-  await expect(page.getByText(/M6 Mission\/Operational, M8 Security Consequence, and M15 External Assurance must be reassessed/)).toBeVisible();
+  await expect(page.getByText('Older assessment needs review')).toBeVisible();
+  await expect(page.getByText(/older definitions for Mission and Operations, Security Consequence, and External Assurance/)).toBeVisible();
 
   await openReportFromNavigation(page);
   await expect(page).toHaveURL(/#report$/);
@@ -156,7 +156,8 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByText('Assessment Results')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Save Work in Progress \(output review pending\)/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Complete Baseline/ })).toBeVisible();
+  await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
 });
 
 test('Rule 11 warning remains visible and can be dispositioned before baselining', async ({ page }) => {
@@ -287,7 +288,7 @@ for (const scenario of [
   });
 }
 
-test('Requirements-to-Architecture handoff blocks baseline until accepted evidence is saved', async ({ page }) => {
+test('retired artifact handoff data is ignored and does not block baseline', async ({ page }) => {
   await importFixture(page, {
     _format: 'se-tailoring-config',
     _version: '2.0',
@@ -308,23 +309,13 @@ test('Requirements-to-Architecture handoff blocks baseline until accepted eviden
     assessmentComplete: true
   }, 'output-sufficiency-gate.json');
 
-  await page.goto('./#handoffs');
-  await expect(page.getByText(/Baseline blocked:/)).toBeVisible();
-  await page.getByLabel('Evidence status *').selectOption('accepted');
-  await page.getByLabel('Required content *').fill('Baselined system requirements, interfaces, constraints, assumptions, and traceability.');
-  await page.getByLabel('Acceptance criteria *').fill('Complete, consistent, feasible, traceable, and approved for architecture use.');
-  await page.getByLabel('Evidence references *').fill('REQ-BL-E2E; ARCH-ACCEPT-E2E');
-  await page.getByLabel('Acceptance authority *').fill('E2E Chief Engineer');
-  await page.getByLabel('Review date *').fill('2027-07-10');
-  await page.getByRole('button', { name: 'Save handoff' }).click();
-  await expect(page.getByText(/Baseline gate satisfied:/)).toBeVisible();
-
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByRole('button', { name: 'Complete Baseline' }).click();
+  await expect(page.getByRole('button', { name: /Complete Baseline/ })).toBeVisible();
+  await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
+  await page.getByRole('button', { name: /Complete Baseline/ }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Tailoring Report')).toBeVisible();
-  await expect(page.getByText(/Requirements-to-Architecture Output Sufficiency/).first()).toBeVisible();
 });
 
 test('metric UI defaults to assessed scores, supports Unknown, and keeps imported N/A visible', async ({ page }) => {
