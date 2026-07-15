@@ -31,22 +31,22 @@ test('renderMetricSpiderwebSvg includes metric ids, dimension labels, and scale 
     assert.match(svg, /spiderweb-chart/);
     assert.match(svg, /M1/);
     assert.match(svg, /M16/);
-    assert.match(svg, /System Complexity/);
-    assert.match(svg, /Stakeholder, Governance &amp; Adoption Context/);
-    assert.match(svg, /Scores remain ordinal and project-local/);
+    assert.match(svg, /System complexity/);
+    assert.match(svg, /Stakeholder context/);
+    assert.doesNotMatch(svg, /Scores remain ordinal and project-local/);
 });
 
 test('renderMetricSpiderwebSvg places dimension labels inside their quadrants', () => {
     const svg = renderMetricSpiderwebSvg({}, METRICS, DIMENSIONS);
     const labels = [...svg.matchAll(/x="([\d.]+)" y="([\d.]+)" text-anchor="[^"]+">([^<]+)<\/text>/g)]
         .map(([, x, y, label]) => ({ x: Number(x), y: Number(y), label: label.replaceAll('&amp;', '&') }))
-        .filter(({ label }) => DIMENSIONS.some(dimension => dimension.name === label));
+        .filter(({ label }) => ['System complexity', 'Safety & criticality', 'Project constraints', 'Stakeholder context'].includes(label));
 
     assert.deepEqual(labels, [
-        { x: 70, y: 58, label: 'System Complexity' },
-        { x: 430, y: 58, label: 'Safety & Criticality' },
-        { x: 430, y: 458, label: 'Project Constraints' },
-        { x: 70, y: 458, label: 'Stakeholder, Governance & Adoption Context' }
+        { x: 70, y: 58, label: 'System complexity' },
+        { x: 430, y: 58, label: 'Safety & criticality' },
+        { x: 430, y: 458, label: 'Project constraints' },
+        { x: 70, y: 458, label: 'Stakeholder context' }
     ]);
 });
 
@@ -55,5 +55,5 @@ test('renderDimensionPatternCards summarizes high and low drivers', () => {
 
     assert.match(cards, /High: M1, M4/);
     assert.match(cards, /Low: M2/);
-    assert.match(cards, /Ordinal score range/);
+    assert.match(cards, /Score range/);
 });

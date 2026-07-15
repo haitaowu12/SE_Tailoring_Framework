@@ -24,12 +24,12 @@ export function renderMatrixView(container) {
   container.innerHTML = `
     <div class="flex justify-between items-center mb-md">
       <div>
-        <h2 class="mb-sm">📊 Process-Metric Applicability Matrix</h2>
+        <h2 class="mb-sm">Process-Metric Applicability Matrix</h2>
         <p class="text-secondary text-sm">Read-only canonical ${canonicalCellCount}-cell process–metric map. <strong class="text-accent">P</strong> = Primary driver, <strong class="text-secondary">S</strong> = Secondary driver. Changes require governed registry review and cannot be made from the practitioner app.</p>
       </div>
       <div class="flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-export-matrix-csv">📥 Export CSV</button>
-        <button class="btn btn-primary btn-sm" id="btn-export-matrix-pdf">📄 Export PDF</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-matrix-csv">Export CSV</button>
+        <button class="btn btn-primary btn-sm" id="btn-export-matrix-pdf">Export PDF</button>
       </div>
     </div>
     <div class="matrix-container card" id="matrix-wrapper">

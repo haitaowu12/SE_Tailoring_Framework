@@ -184,7 +184,7 @@ function enhanceReportSections(container) {
     {
       section: findDirectReportCard(container, 'Full Process Tailoring Profile'),
       title: 'Full Process Tailoring Profile',
-      description: 'Derived, final, override, fix, and evidence-status columns.',
+      description: 'One process view with derived, manual, governed, final, evidence, and driver context.',
       open: false
     },
     {
@@ -197,12 +197,6 @@ function enhanceReportSections(container) {
       section: findDirectReportCard(container, 'Propagation Chain Documentation'),
       title: 'Propagation Chain Documentation',
       description: 'Consistency rule enforcement and dependency resolution.',
-      open: false
-    },
-    {
-      section: findDirectReportCard(container, 'Process Levels & Drivers'),
-      title: 'Process Levels & Drivers',
-      description: 'Trigger metrics and top driver attribution.',
       open: false
     },
     {
@@ -289,7 +283,7 @@ export function renderReport(container) {
   container.innerHTML = `
     <div class="flex justify-between items-center mb-lg">
       <div>
-        <h2>📄 Tailoring Report</h2>
+        <h2>Tailoring Report</h2>
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
       </div>
       <div class="flex gap-sm">
@@ -371,7 +365,7 @@ export function renderReport(container) {
 
     ${elements.length > 1 ? `
     <div class="card mb-xl">
-      <h4 class="mb-md">🏗️ System Element Tailoring Overview</h4>
+      <h4 class="mb-md">System Element Tailoring Overview</h4>
       <p class="text-xs text-secondary mb-md">Hierarchical breakdown of system elements and their targeted tailoring assessments.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
@@ -393,7 +387,6 @@ export function renderReport(container) {
               const cCount = Object.values(e.levels || {}).filter(l => l === 'comprehensive').length;
               const hasResult = e.assessmentResult != null;
               const indent = e.depth * 20;
-              const icon = e.childIds?.length > 0 ? '📂' : '📄';
               const elementName = escapeHtml(e.name);
               const assessmentType = ['full', 'quick', 'inherited'].includes(e.assessmentType) ? e.assessmentType : 'full';
               const status = ['draft', 'under_review', 'approved', 'baselined'].includes(e.status) ? e.status : 'draft';
@@ -423,7 +416,6 @@ export function renderReport(container) {
               return `
                 <tr>
                   <td style="padding-left: ${indent + 12}px">
-                    <span style="opacity:0.7; font-size:12px; margin-right:4px;">${icon}</span>
                     <strong style="${e.id === tree.rootId ? 'color: var(--accent-primary-light);' : ''}">${elementName}</strong>
                   </td>
                   <td><span class="se-type-badge ${assessmentType}">${assessmentType}</span></td>
@@ -455,7 +447,7 @@ export function renderReport(container) {
     </div>` : ''}
 
     <div class="card mb-xl" style="border-left: 3px solid ${state.rightSizingProposals?.length > 0 ? '#6366f1' : '#34d399'};">
-      <h4 class="mb-md">📐 Right-Sizing Analysis</h4>
+      <h4 class="mb-md">Right-Sizing Analysis</h4>
       <div class="grid-3 mb-md">
         <div style="text-align: center; padding: 12px;">
           <div style="font-size: 28px; font-weight: 900; color: #6366f1;">${state.indices?.psi || '—'}</div>
@@ -478,7 +470,7 @@ export function renderReport(container) {
       </div>
       ${state.rightSizingProposals?.length > 0 ? `
       <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">📐 ${state.rightSizingProposals.length} Right-Sizing Proposal${state.rightSizingProposals.length === 1 ? '' : 's'} — Not Applied</div>
+        <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">${state.rightSizingProposals.length} Right-Sizing Proposal${state.rightSizingProposals.length === 1 ? '' : 's'} — Not Applied</div>
         <div class="text-xs text-secondary mb-sm">The final profile remains normative. Each reduction requires an explicit accept/reject decision, rationale, approver, and residual-risk record.</div>
         ${state.rightSizingProposals.map(a => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>${renderRightSizingApprovalForm(a, state)}`).join('')}
       </div>` : ''}
@@ -487,13 +479,13 @@ export function renderReport(container) {
       ${state.blockedRightSizingCandidates?.length > 0 ? `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Blocked reduction candidates (${state.blockedRightSizingCandidates.length})</div><div class="text-xs text-secondary mt-sm">Mandatory closure would restore these candidate levels, so they are not offered for approval.</div></div>` : ''}
       ${state.budgetStatus && !state.budgetStatus.withinBudget ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">⚠ Final Rigor-Budget Exception</div>
+        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">Final Rigor-Budget Exception</div>
         <div class="text-sm mt-sm">The final protected profile exceeds the configured PSI guidance by ${state.budgetStatus.comprehensiveExcess} Comprehensive and ${state.budgetStatus.standardExcess} Standard process(es). This exception requires governance review; it is not a failed safety or mandatory-rule closure.</div>
       </div>` : !state.rightSizingProposals?.length ? `
       <div class="text-sm" style="color: #34d399;">✓ Final profile is within configured rigor-budget guidance; no reduction proposal is needed.</div>` : ''}
       ${state.adoptionRisks?.length > 0 ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 6px;">🧭 ${state.adoptionRisks.length} Adoption Readiness Gap${state.adoptionRisks.length === 1 ? '' : 's'}</div>
+        <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 6px;">${state.adoptionRisks.length} Adoption Readiness Gap${state.adoptionRisks.length === 1 ? '' : 's'}</div>
         <div class="text-xs text-secondary mb-sm">Required rigor is preserved. These gaps identify support needed to execute the selected profile.</div>
         ${state.adoptionRisks.slice(0, 10).map(r => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(r.processId))}</strong>: ${escapeHtml(r.level)} <span class="text-xs text-secondary">(${escapeHtml(r.guidance || r.reason)})</span></div>`).join('')}
         ${state.adoptionRisks.length > 10 ? `<div class="text-xs text-secondary">+ ${state.adoptionRisks.length - 10} more readiness gaps.</div>` : ''}
@@ -502,7 +494,7 @@ export function renderReport(container) {
 
     ${state.saTier ? `
     <div class="card mb-xl" style="border-left: 3px solid #ef4444; background: rgba(239,68,68,0.04);">
-      <h4 class="mb-md">🔒 Safety Assurance Criticality</h4>
+      <h4 class="mb-md">Safety Assurance Criticality</h4>
       <div class="flex items-center gap-lg">
         <div class="sa-tier-badge tier-${state.saTier.tier}" style="font-size: 24px; font-weight: 700; padding: 12px 24px; border-radius: 8px;">
           ${state.saTier.tier}
@@ -524,13 +516,13 @@ export function renderReport(container) {
 
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
-      <h4 class="mb-md">⚠️ Floor Elevations (${state.overrides.length})</h4>
+      <h4 class="mb-md">Floor Elevations (${state.overrides.length})</h4>
       ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${escapeHtml(processName(o.processId))}</strong>: ${escapeHtml(o.from)} → ${escapeHtml(o.to)} — ${escapeHtml(o.reason)}${o.condition ? ` (${escapeHtml(o.condition)})` : ''}</div>`).join('')}
     </div>` : ''}
 
     ${state.activeFloors?.length > 0 ? `
     <div class="card mb-xl" style="border-left:3px solid var(--accent-info)">
-      <h4 class="mb-md">↥ Active Mandatory Floors (${state.activeFloors.length})</h4>
+      <h4 class="mb-md">Active Mandatory Floors (${state.activeFloors.length})</h4>
       <p class="text-xs text-secondary mb-md">Every triggered floor is retained for provenance. A floor may already be satisfied and therefore produce no elevation event.</p>
       ${state.activeFloors.map(floor => {
         const elevation = state.overrides.find(override => override.processId === floor.processId && (override.overrideId === floor.overrideId || override.reason === floor.reason || override.reason === floor.label));
@@ -540,13 +532,13 @@ export function renderReport(container) {
 
     ${state.violations.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-error)">
-      <h4 class="mb-md">⚠ Consistency Warnings (${state.violations.length})</h4>
+      <h4 class="mb-md">Consistency Warnings (${state.violations.length})</h4>
       ${state.violations.map(v => `<div class="text-sm mb-sm"><strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}</div>`).join('')}
     </div>` : ''}
 
     ${correlatedEvidence.warningCount ? `
     <div class="card mb-xl" style="border-left:3px solid var(--accent-warning)">
-      <h4 class="mb-md">⚠ Correlated Evidence Review (${correlatedEvidence.warningCount})</h4>
+      <h4 class="mb-md">Correlated Evidence Review (${correlatedEvidence.warningCount})</h4>
       <p class="text-xs text-secondary mb-md">Shared evidence is permitted, but it is not independent corroboration unless each metric has a distinct documented consequence analysis. This warning does not change scores, recommended levels, or closure.</p>
       ${correlatedEvidence.warnings.map(warning => `<div class="text-sm mb-sm"><strong>${escapeHtml(warning.metricIds.join(', '))}</strong>: ${escapeHtml(warning.message)}</div>`).join('')}
     </div>` : ''}
@@ -587,8 +579,8 @@ export function renderReport(container) {
     </div>` : ''}
 
     <div class="card mb-xl">
-      <h4 class="mb-md">📋 Full Process Tailoring Profile</h4>
-      <p class="text-xs text-secondary mb-md">Complete tailoring profile showing derived levels, overrides, and final assignments for all core processes.</p>
+      <h4 class="mb-md">Full Process Tailoring Profile</h4>
+      <p class="text-xs text-secondary mb-md">One process-level view: derived level, governed changes, final assignment, evidence status, and top drivers.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
           <thead>
@@ -597,39 +589,59 @@ export function renderReport(container) {
               <th>Process</th>
               <th>Group</th>
               <th>Derived</th>
+              <th>Manual adjustment</th>
               <th>Override</th>
               <th>Fix</th>
               <th>Final</th>
               <th>Evidence Status</th>
+              <th>Top drivers</th>
             </tr>
           </thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
     const derived = derivedLevels[p.id] || 'basic';
     const final_ = levels[p.id] || 'basic';
+    const manualAdjustment = state.manualAdjustments?.[p.id]
+      || state.manualAdjustments?.[String(p.id)]
+      || tree?.nodes?.[tree.rootId]?.manualAdjustments?.[p.id]
+      || tree?.nodes?.[tree.rootId]?.manualAdjustments?.[String(p.id)];
     const override = state.overrides?.find(o => o.processId === p.id);
     const fix = state.fixes?.find(f => f.processId === p.id);
     const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
     const conf = confidence[p.id] || 'high';
+    const detail = derivationDetails[p.id] || {};
+    const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
+      ? detail.triggerMetrics.join(', ')
+      : '—';
+    const drivers = getDriverAttribution(p.id, scores, state.matrixMap, {
+      ...state.projectInfo,
+      metricAssessments: state.metricAssessments || {},
+      assuranceObligations: state.assuranceObligations || []
+    });
     const confBadge = conf === 'corroborated'
-      ? '<span class="confidence-badge-inline corroborated" title="Corroborated by multiple metrics">✅</span>'
+      ? '<span class="confidence-badge-inline corroborated" title="Corroborated by multiple metrics">Corroborated</span>'
       : conf === 'available-with-justification'
-        ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">⚠️</span>'
+        ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">Needs note</span>'
         : conf === 'floor-applied'
-          ? '<span class="confidence-badge-inline floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">↥</span>'
-          : '<span class="confidence-badge-inline high" title="Supported by drivers/rules">—</span>';
+          ? '<span class="confidence-badge-inline floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">Floor</span>'
+          : '<span class="confidence-badge-inline high" title="Supported by drivers/rules">Supported</span>';
     const justificationFlag = conf === 'available-with-justification'
-      ? ' <span class="justification-flag" title="Justification required for Comprehensive level">📋 Justification Required</span>'
+      ? ' <span class="justification-flag" title="Justification required for Comprehensive level">Justification required</span>'
       : '';
+    const manualHtml = manualAdjustment
+      ? `<span class="manual-adjustment-cell"><strong>${escapeHtml(manualAdjustment.level || final_)}</strong><span class="text-xs text-secondary">${escapeHtml(manualAdjustment.justification || 'No justification recorded')}</span></span>`
+      : '<span class="text-tertiary">—</span>';
     return `<tr>
                 <td><span class="process-id">${p.id}</span></td>
                 <td><a href="${escapeHtml(processDetailsHref(p.id, final_, 'report'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[final_] || final_)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a>${justificationFlag}</td>
                 <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
                 <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
+                <td>${manualHtml}</td>
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td><span class="level-badge ${final_}" style="font-weight:700;">${final_[0].toUpperCase()}</span></td>
                 <td>${confBadge}</td>
+                <td class="text-xs text-secondary">${escapeHtml(triggerMetrics)}${detail.triggerScore ? ` (${detail.triggerScore})` : ''}<br>${escapeHtml(drivers.slice(0, 3).map(d => `${d.metric}=${d.value} (${d.role})`).join(', ') || '—')}</td>
               </tr>`;
   }).join('')}
           </tbody>
@@ -639,7 +651,7 @@ export function renderReport(container) {
 
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
-      <h4 class="mb-md">🔗 Override Chain Documentation</h4>
+      <h4 class="mb-md">Override Chain Documentation</h4>
       <p class="text-xs text-secondary mb-md">Traceability from metric thresholds to process level floors.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
@@ -671,7 +683,7 @@ export function renderReport(container) {
 
     ${(state.fixes?.length > 0 || state.violations?.length > 0) ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-info)">
-      <h4 class="mb-md">⚡ Propagation Chain Documentation</h4>
+      <h4 class="mb-md">Propagation Chain Documentation</h4>
       <p class="text-xs text-secondary mb-md">Consistency rule enforcement showing how process dependencies were resolved.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
@@ -714,54 +726,6 @@ export function renderReport(container) {
     </div>` : ''}
 
     <div class="card mb-xl">
-      <h4 class="mb-md">Process Levels & Drivers</h4>
-      <div style="overflow-x:auto">
-        <table class="data-table">
-          <thead><tr><th>Process</th><th>Derived</th><th>Final</th><th>Evidence Status</th><th>Trigger Metric(s)</th><th>Top Drivers</th></tr></thead>
-          <tbody>
-            ${CORE_PROCESSES.map(p => {
-    const derived = derivedLevels[p.id] || 'basic';
-    const final_ = levels[p.id] || 'basic';
-    const detail = derivationDetails[p.id] || {};
-    const conf = confidence[p.id] || 'high';
-    const confLabel = conf === 'corroborated'
-      ? (detail.triggerScore === 5 && detail.triggerMetrics?.some(metric => metric === 'M5' || metric === 'M7')
-        ? '✅ Metric-derived: M5/M7 sufficient'
-        : '✅ Corroborated')
-      : conf === 'available-with-justification'
-        ? '⚠️ Needs Justification'
-        : conf === 'floor-applied'
-          ? '↥ Floor Applied'
-          : 'Supported by drivers/rules';
-    const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
-      ? detail.triggerMetrics.join(', ')
-      : '—';
-    const drivers = getDriverAttribution(p.id, scores, state.matrixMap, {
-      ...state.projectInfo,
-      metricAssessments: state.metricAssessments || {},
-      assuranceObligations: state.assuranceObligations || []
-    });
-    const changed = derived !== final_;
-    return `<tr>
-                <td><span class="process-id">${p.id}</span> <a href="${escapeHtml(processDetailsHref(p.id, final_, 'report'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[final_] || final_)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a></td>
-                <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
-                <td><span class="level-badge ${final_}">${final_[0].toUpperCase()}</span>${changed ? ' ⬆' : ''}</td>
-                <td class="text-xs">${confLabel}</td>
-                <td class="text-xs">${triggerMetrics}${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</td>
-                <td class="text-xs text-secondary">${drivers.slice(0, 3).map(d => `${d.metric}=${d.value}(${d.role})`).join(', ')}</td>
-              </tr>`;
-  }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="report-author-note mb-md">
-      <span>Built by Tony Wu.</span>
-      <a href="https://haitaowu12.github.io/tony-wu-home/" aria-label="Know the author: Tony Wu">Know the author</a>
-    </div>
-
-    <div class="card mb-xl">
       <h4 class="mb-md">Metric Scores Detail</h4>
       <div style="overflow-x:auto">
         <table class="data-table">
@@ -802,12 +766,13 @@ export function renderReport(container) {
     .se-status-badge.draft { background: rgba(148,163,184,0.15); color: var(--text-secondary); }
     .se-status-badge.under_review { background: rgba(245,158,11,0.15); color: #f59e0b; }
     .se-status-badge.approved { background: rgba(52,211,153,0.15); color: #34d399; }
-    .confidence-badge-inline { font-size: 14px; cursor: help; }
+    .confidence-badge-inline { display:inline-flex; align-items:center; width:max-content; padding:2px 6px; border:1px solid var(--border-subtle); border-radius:4px; font-size:10px; font-weight:700; cursor:help; }
     .confidence-badge-inline.corroborated { color: #22c55e; }
     .confidence-badge-inline.available-with-justification { color: #f59e0b; }
     .confidence-badge-inline.floor-applied { color: #60a5fa; }
     .confidence-badge-inline.high { color: var(--text-tertiary); }
     .justification-flag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; background: rgba(245,158,11,0.15); color: #f59e0b; font-weight: 600; margin-left: 4px; cursor: help; }
+    .manual-adjustment-cell { display:grid; gap:2px; min-width:160px; }
     .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
   `;

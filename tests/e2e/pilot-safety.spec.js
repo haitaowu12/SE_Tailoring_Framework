@@ -58,7 +58,7 @@ test('end session confirmation erases the origin autosave and returns to a blank
 
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
-  await expect(page.getByText('Static prototype — not a validated decision authority.')).toBeVisible();
+  await expect(page.getByText('Pilot prototype.')).toBeVisible();
 });
 
 test('end-session critical path is keyboard operable and restores focus on Escape', async ({ page }) => {
@@ -74,13 +74,12 @@ test('end-session critical path is keyboard operable and restores focus on Escap
 });
 
 test('pilot notice and non-identifying assessment guidance remain visible', async ({ page }) => {
-  await expect(page.getByText('Static prototype — not a validated decision authority.')).toBeVisible();
-  await expect(page.getByText(/Use a non-identifying project code and avoid personal, confidential, export-controlled, or operationally sensitive information/)).toBeVisible();
+  await expect(page.getByText('Pilot prototype.')).toBeVisible();
+  await expect(page.getByText(/Use a non-identifying project code; do not enter sensitive information/)).toBeVisible();
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await expect(page.getByRole('complementary', { name: 'Formative pilot privacy notice' })).toBeHidden();
 
   await page.goto('./#assessment');
-  await expect(page.locator('.alert.alert-info').filter({ hasText: 'Pilot privacy' })).toBeVisible();
   await expect(page.getByLabel('Project code')).toHaveAttribute('placeholder', 'e.g., PILOT-07');
   await expect(page.getByLabel('Team code (optional)')).toHaveAttribute('placeholder', 'e.g., COHORT-B');
 });

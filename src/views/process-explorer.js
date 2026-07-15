@@ -924,7 +924,7 @@ function getConditionalContentState(text, viewContext) {
 
 function renderContextNote(note, disabled) {
   if (!note) return '';
-  return `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${disabled ? '' : '⚠ '}${escapeHtml(note)}</span>`;
+  return `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${disabled ? '' : 'Review: '}${escapeHtml(note)}</span>`;
 }
 
 function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
@@ -1004,14 +1004,14 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
       </div>` : ''}
 
       <div class="detail-section">
-        <h4>Activities (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(⭐ = Essential core activity)</span></h4>
+        <h4>Activities (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(Essential core activities are marked)</span></h4>
         ${activities.length ? activities.map(a => {
     let isEssential = a.startsWith('(*)');
     let text = isEssential ? a.slice(4) : a;
     const contentState = getConditionalContentState(text, viewContext);
     const { disabled } = contentState;
     return `<div class="activity-item ${isEssential ? 'essential' : ''}" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
-            ${isEssential ? '⭐ ' : '• '} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
+            <span class="activity-marker" aria-hidden="true">${isEssential ? '◆' : '•'}</span> <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
             ${renderContextNote(contentState.note, disabled)}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No activity detail is defined for this process level yet.</div>'}
@@ -1024,7 +1024,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
     const contentState = getConditionalContentState(text, viewContext);
     const { disabled } = contentState;
     return `<div class="deliverable-item" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
-            📄 <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
+            <span class="deliverable-marker" aria-hidden="true">•</span> <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
             ${renderContextNote(contentState.note, disabled)}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No deliverable detail is defined for this process level yet.</div>'}
@@ -1043,7 +1043,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
           <div class="mb-md">
             <div class="text-sm font-bold">${escapeHtml(overlay.label)} <span class="metric-tag secondary">${escapeHtml(overlay.metric)}</span></div>
             ${(overlay.activities || []).map(activity => `<div class="activity-item">• ${escapeHtml(activity)}</div>`).join('')}
-            ${(overlay.evidence || []).map(item => `<div class="deliverable-item">📄 ${escapeHtml(item)}</div>`).join('')}
+            ${(overlay.evidence || []).map(item => `<div class="deliverable-item"><span class="deliverable-marker" aria-hidden="true">•</span> ${escapeHtml(item)}</div>`).join('')}
           </div>
         `).join('')}
       </div>` : ''}
@@ -1087,7 +1087,7 @@ function renderImplementationAids(basicChecklist, cultureTactics) {
           <div class="aid-panel basic">
             <h5>${escapeHtml(basicChecklist.title)}</h5>
             <div class="aid-checklist">
-              ${basicChecklist.items.map(item => `<div>${escapeHtml(item)}</div>`).join('')}
+              ${basicChecklist.items.map(item => `<div><span class="checklist-marker" aria-hidden="true">◆</span> ${escapeHtml(item.replace(/^✓\s*/, ''))}</div>`).join('')}
             </div>
           </div>` : ''}
           ${cultureTactics ? `
@@ -1096,7 +1096,6 @@ function renderImplementationAids(basicChecklist, cultureTactics) {
             ${cultureTactics.cultures.map(c => `
               <div class="culture-tactic">
                 <div class="flex items-center gap-sm">
-                  <span>${escapeHtml(c.icon)}</span>
                   <span class="font-bold text-sm">${escapeHtml(c.type)}</span>
                   <span class="text-xs text-secondary">${escapeHtml(c.description)}</span>
                 </div>
@@ -1143,7 +1142,7 @@ function renderMiniCard(card, currentLevel) {
     <div class="mini-card">
       <div class="flex gap-lg" style="flex-wrap:wrap;">
         <div style="flex:1; min-width:200px;">
-          <h5 style="color:var(--accent-primary-light); margin-bottom:10px; font-size:13px;">⬆️ Upstream Must Be At Least</h5>
+          <h5 style="color:var(--accent-primary-light); margin-bottom:10px; font-size:13px;">Upstream must be at least</h5>
           ${card.upstream.map(u => `
             <div class="mini-card-item" style="padding:4px 0; font-size:12px;">
               ${getLevelBadge(u.level)} ${escapeHtml(u.process)} ${u.note ? `<span class="text-secondary">(${escapeHtml(u.note)})</span>` : ''}
@@ -1151,18 +1150,18 @@ function renderMiniCard(card, currentLevel) {
           `).join('')}
         </div>
         <div style="flex:1; min-width:200px;">
-          <h5 style="color:var(--accent-primary-light); margin-bottom:10px; font-size:13px;">⬇️ If This Process Is...</h5>
+          <h5 style="color:var(--accent-primary-light); margin-bottom:10px; font-size:13px;">If this process is...</h5>
           ${downstreamItems.length > 0 ? downstreamItems.join('') : '<div class="text-secondary" style="font-size:12px;">No mandatory downstream propagation</div>'}
         </div>
       </div>
       <div style="margin-top:14px; padding-top:12px; border-top:1px solid rgba(99,102,241,0.1);">
         <div class="flex gap-lg" style="flex-wrap:wrap;">
           <div style="flex:1;">
-            <span style="font-size:11px; color:var(--text-secondary);">🛡️ Criticality Override:</span>
+            <span style="font-size:11px; color:var(--text-secondary);">Criticality override:</span>
             <span style="font-size:12px; margin-left:6px;">${escapeHtml(card.override)}</span>
           </div>
           <div style="flex:1;">
-            <span style="font-size:11px; color:var(--text-secondary);">📤 Key Outputs:</span>
+            <span style="font-size:11px; color:var(--text-secondary);">Key outputs:</span>
             <span style="font-size:12px; margin-left:6px;">${escapeHtml(card.outputs.join(', '))}</span>
           </div>
         </div>

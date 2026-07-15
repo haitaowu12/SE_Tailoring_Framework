@@ -144,7 +144,7 @@ test('incomplete approval fails closed, then complete eligible approval is appli
   await effectiveForm.locator('xpath=..').locator('summary').click();
   await expect(effectiveForm.locator('[name="evidenceRef"]')).toHaveValue('RS-APPROVAL-E2E-17');
   const profileRow = page.locator('table.data-table tbody tr', { hasText: 'Business/Mission Analysis' }).first();
-  await expect(profileRow.locator('td').nth(6)).toContainText('S');
+  await expect(profileRow.locator('td').nth(7)).toContainText('S');
 });
 
 test('active safety floors are never exposed as approvable reduction forms', async ({ page }) => {

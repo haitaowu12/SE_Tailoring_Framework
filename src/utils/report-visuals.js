@@ -82,7 +82,7 @@ export function renderDimensionPatternCards(scores = {}, metrics = [], dimension
               <span>${escapeHtml(profile.name)}</span>
             </div>
             <div class="dimension-pattern-range">${profile.range}</div>
-            <div class="dimension-pattern-meta">Ordinal score range</div>
+            <div class="dimension-pattern-meta">Score range</div>
             <div class="dimension-pattern-drivers">
               <span>High: ${escapeHtml(highText)}</span>
               <span>Low: ${escapeHtml(lowText)}</span>
@@ -116,9 +116,16 @@ export function renderMetricSpiderwebSvg(scores = {}, metrics = [], dimensions =
         return `<polygon class="${className}" points="${points.join(' ')}"></polygon>`;
     }).join('');
 
+    const chartDimensionName = profile => ({
+        complexity: 'System complexity',
+        safety: 'Safety & criticality',
+        constraints: 'Project constraints',
+        stakeholder: 'Stakeholder context'
+    }[profile.id] || profile.name);
+
     const quadrantLabels = profiles.map((profile, index) => {
         const quadrant = DIMENSION_QUADRANTS[index % DIMENSION_QUADRANTS.length];
-        return `<text class="spiderweb-dimension-label" x="${quadrant.label.x}" y="${quadrant.label.y}" text-anchor="${quadrant.label.anchor}">${escapeHtml(profile.name)}</text>`;
+        return `<text class="spiderweb-dimension-label" x="${quadrant.label.x}" y="${quadrant.label.y}" text-anchor="${quadrant.label.anchor}">${escapeHtml(chartDimensionName(profile))}</text>`;
     }).join('');
 
     const axes = allPositions.map(position => {
@@ -146,7 +153,7 @@ export function renderMetricSpiderwebSvg(scores = {}, metrics = [], dimensions =
     }).join('');
 
     const title = options.title || 'Metric spiderweb overview';
-    const description = options.description || 'Sixteen ordinal metric scores grouped into four framework dimensions.';
+    const description = options.description || 'Sixteen metric scores grouped into four framework dimensions.';
 
     return `
       <figure class="spiderweb-figure" aria-labelledby="spiderweb-title" aria-describedby="spiderweb-desc">
@@ -168,7 +175,7 @@ export function renderMetricSpiderwebSvg(scores = {}, metrics = [], dimensions =
           ${scaleLabels}
           ${quadrantLabels}
         </svg>
-        <figcaption>Scale: 1 lower tailoring pressure, 3 standard pressure, 5 highest tailoring pressure. Scores remain ordinal and project-local.</figcaption>
+        <figcaption>Higher scores indicate more tailoring pressure. Metric IDs map to the detail table.</figcaption>
       </figure>
     `;
 }

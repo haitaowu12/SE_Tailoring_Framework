@@ -99,7 +99,7 @@ export function renderSystemElements(container) {
   container.innerHTML = `
     <div class="se-elements-container">
       <div class="se-header">
-        <h2>🏗️ System Element Breakdown</h2>
+        <h2>System Element Breakdown</h2>
         <p class="text-secondary">Build your system hierarchy and perform targeted assessments at each level</p>
       </div>
 
@@ -116,7 +116,7 @@ export function renderSystemElements(container) {
         <div class="se-tree-panel">
           <div class="se-panel-header">
             <h3>System Tree <span class="badge-count">${elementCount}</span></h3>
-            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown without element display names; spreadsheet formula prefixes are literalized">📥 Identifier-reduced CSV</button>
+            <button class="btn btn-sm btn-secondary" id="btn-export-breakdown" title="Export system breakdown without element display names; spreadsheet formula prefixes are literalized">Identifier-reduced CSV</button>
           </div>
           <div class="se-tree" id="se-tree">
             ${renderTreeNodes(tree.nodes, tree.rootId, tree.activeId, 0)}
@@ -143,8 +143,8 @@ export function renderSystemElements(container) {
               ${activeNode.parentId ? `<span class="text-xs text-secondary">Parent: ${escapeHtml(tree.nodes[activeNode.parentId]?.name || '—')}</span>` : '<span class="text-xs text-secondary">Root element</span>'}
             </div>
             <div class="se-detail-actions">
-              <button class="btn btn-primary btn-sm" id="btn-assess-element">🎯 Assess This Element</button>
-              ${activeNode.id !== tree.rootId ? '<button class="btn btn-danger btn-sm" id="btn-remove-element">🗑 Remove</button>' : ''}
+              <button class="btn btn-primary btn-sm" id="btn-assess-element">Assess This Element</button>
+              ${activeNode.id !== tree.rootId ? '<button class="btn btn-danger btn-sm" id="btn-remove-element">Remove element</button>' : ''}
             </div>
           </div>
 
@@ -562,12 +562,10 @@ function renderTreeNodes(nodes, nodeId, activeId, depth) {
   const indent = depth * 16;
   const isActive = nodeId === activeId;
   const hasChildren = node.childIds && node.childIds.length > 0;
-  const icon = hasChildren ? '📂' : '📄';
   const status = safeElementStatus(node.status);
 
   let html = `
     <div class="se-tree-node ${isActive ? 'active' : ''}" data-id="${escapeHtml(nodeId)}" style="padding-left: ${indent + 8}px">
-      <span class="node-icon">${icon}</span>
       <span class="node-name">${escapeHtml(node.name)}</span>
       <span class="node-status ${status}" title="${status}"></span>
     </div>`;
@@ -592,7 +590,7 @@ function showConflictBanner(container, conflicts, direction) {
 
   banner.innerHTML = `
     <div class="se-conflict-banner">
-      <div class="se-conflict-title">⚠ ${dirLabel} — ${conflicts.length} Conflict(s) Detected</div>
+      <div class="se-conflict-title">${dirLabel} — ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'} detected</div>
       <p class="text-xs text-secondary mb-md">These metrics have manually-set values that differ from the proposed propagation. Choose how to resolve each conflict.</p>
       ${conflicts.map((c, i) => `
       <div class="se-conflict-item" id="conflict-${i}">

@@ -2,7 +2,7 @@
  * Assessment View — Step-by-step metric scoring wizard
  * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
  */
-import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
+import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
 import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
 import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, setElementAssessmentResult, markMetricManual } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
@@ -13,15 +13,16 @@ import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.j
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
 import { propagateSafetyOverrides } from '../utils/inheritance-engine.js';
 import { renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
+import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
 
 const STEPS = [
-  { id: 'info', title: 'Project Info', icon: '📋' },
-  { id: 'complexity', title: 'System Complexity', icon: '🔧' },
-  { id: 'safety', title: 'Safety & Criticality', icon: '🛡️' },
-  { id: 'constraints', title: 'Project Constraints', icon: '📏' },
-  { id: 'stakeholder', title: 'Stakeholder Context', icon: '👥' },
-  { id: 'results', title: 'Results', icon: '📊' }
+  { id: 'info', title: 'Project Info' },
+  { id: 'complexity', title: 'System Complexity' },
+  { id: 'safety', title: 'Safety & Criticality' },
+  { id: 'constraints', title: 'Project Constraints' },
+  { id: 'stakeholder', title: 'Stakeholder Context' },
+  { id: 'results', title: 'Results' }
 ];
 
 let currentStep = 0;
@@ -76,34 +77,6 @@ function persistAssessmentDraft() {
     metricAssessments,
     assuranceObligations
   });
-}
-
-function metricDecisionPath(metricId) {
-  if (metricId === 'M9' || metricId === 'M10') {
-    return 'Feeds the Constraint Stress Index and feasibility response; it does not raise process levels directly.';
-  }
-  if (metricId === 'M16') {
-    return 'Feeds the Adoption Readiness Index; it does not raise or lower process levels directly.';
-  }
-
-  const processIds = Object.entries(METRIC_PROCESS_MAP)
-    .filter(([, mapping]) => Object.prototype.hasOwnProperty.call(mapping, metricId))
-    .map(([processId]) => Number(processId));
-  const processNames = processIds
-    .map(processId => CORE_PROCESSES.find(process => process.id === processId)?.name)
-    .filter(Boolean);
-  const floorCount = OVERRIDE_CONDITIONS.filter(condition => condition.trigger?.metric === metricId).length;
-  const conditionalCount = CONDITIONAL_METRIC_PROCESS_DRIVERS.filter(driver => driver.metric === metricId).length;
-  const processScope = processNames.length
-    ? `Informs ${processNames.length} mapped process recommendations, including ${processNames.slice(0, 2).join(' and ')}${processNames.length > 2 ? ' and others' : ''}.`
-    : 'Does not directly drive a process recommendation.';
-  const floorScope = floorCount
-    ? ` It also participates in ${floorCount} threshold-based floor${floorCount === 1 ? '' : 's'}.`
-    : '';
-  const conditionalScope = conditionalCount
-    ? ' Additional scoped assurance floors apply only when the related obligation is confirmed.'
-    : '';
-  return `${processScope}${floorScope}${conditionalScope}`;
 }
 
 function compareScore(lhs, op, rhs) {
@@ -183,7 +156,7 @@ export function renderAssessment(container) {
         </div>
       </div>` : ''}
       <div class="assessment-header">
-        <h2>🎯 ${isHierarchical ? activeNodeName + ' — ' : ''}Assessment</h2>
+        <h2>${isHierarchical ? activeNodeName + ' — ' : ''}Assessment</h2>
         <p class="text-secondary">${isHierarchical
           ? `Scoring metrics for system element: ${activeNodeName} (${activeAssessmentType} assessment)`
           : 'Score 16 metrics to get process-specific tailoring recommendations'}</p>
@@ -192,7 +165,7 @@ export function renderAssessment(container) {
       <div class="step-progress">
         ${STEPS.map((s, i) => `
           <button class="step-dot ${visitedSteps.has(i) ? 'visited' : ''} ${i === currentStep ? 'current' : ''}" type="button" data-step="${i}" aria-label="Go to ${escapeHtml(s.title)} step" ${i === currentStep ? 'aria-current="step"' : ''}>
-            <span class="step-icon">${s.icon}</span>
+            <span class="step-index">${i + 1}</span>
             <span class="step-label">${s.title}</span>
           </button>
         `).join('<div class="step-line"></div>')}
@@ -203,7 +176,7 @@ export function renderAssessment(container) {
         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
         <span class="step-indicator text-sm text-secondary">Step ${currentStep + 1} of ${STEPS.length}</span>
         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
-          ? completeness.complete ? '✓ Complete Baseline' : `💾 Save Work in Progress (${completeness.completeCount}/16)`
+          ? completeness.complete ? 'Complete Baseline' : `Save Work in Progress (${completeness.completeCount}/16)`
           : 'Next →'}</button>
       </div>
     </div>
@@ -217,8 +190,8 @@ export function renderAssessment(container) {
     .step-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; cursor: pointer; opacity: 0.4; transition: all 0.3s; border: 0; background: transparent; color: inherit; font: inherit; }
     .step-dot.visited { opacity: .75; }
     .step-dot.current { opacity: 1; }
-    .step-dot.current .step-icon { background: var(--accent-primary); transform: scale(1.15); }
-    .step-icon { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-tertiary); font-size: 16px; transition: all 0.3s; }
+    .step-dot.current .step-index { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--bg-primary); transform: scale(1.1); }
+    .step-index { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 12px; font-weight: 700; transition: all 0.3s; }
     .step-label { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
     .step-line { width: 24px; height: 2px; background: var(--border-subtle); margin-bottom: 18px; }
     .step-progress-note { text-align: center; margin: -6px 0 28px; }
@@ -243,8 +216,6 @@ export function renderAssessment(container) {
     .metric-status.unknown::before, .metric-status.needs-review::before { content: '•'; }
     .metric-unknown-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer; }
     .metric-unknown-toggle input { accent-color: var(--accent-warning); }
-    .metric-impact { margin-top: 12px; padding: 9px 10px; border-left: 2px solid var(--accent-primary-dark); color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
-    .metric-impact span { display: block; margin-bottom: 2px; color: var(--accent-primary-light); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
     .metric-justification, .metric-advanced { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
     .metric-justification > summary, .metric-advanced > summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--accent-primary-light); font-size: 12px; font-weight: 600; list-style: none; }
     .metric-justification > summary::-webkit-details-marker, .metric-advanced > summary::-webkit-details-marker { display: none; }
@@ -262,12 +233,17 @@ export function renderAssessment(container) {
     .result-process { font-weight: 600; font-size: 14px; }
     .drivers-list { font-size: 12px; color: var(--text-secondary); }
     .driver-item { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
-    .results-overview { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(240px, .75fr); gap: 16px; align-items: stretch; }
-    .results-overview .spiderweb-figure { height: 100%; }
+    .results-overview { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(360px, 1.2fr); gap: 24px; align-items: stretch; }
+    .results-summary, .results-visual { border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 20px 0; }
+    .results-summary h4 { margin-bottom: 20px; }
+    .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .results-summary .stat-value { font-size: 32px; }
+    .results-visual .spiderweb-figure { grid-template-columns: 1fr; gap: 12px; }
+    .results-visual .spiderweb-chart { max-width: 560px; }
     .results-breakdown { margin-top: 24px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card); }
     .results-breakdown > summary { padding: 16px 18px; cursor: pointer; color: var(--accent-primary-light); font-weight: 700; }
     .results-breakdown-body { padding: 0 18px 18px; }
-    @media (max-width: 760px) { .results-overview { grid-template-columns: 1fr; } .step-line { width: 10px; } .step-label { white-space: normal; text-align: center; max-width: 70px; } }
+    @media (max-width: 760px) { .results-overview { grid-template-columns: 1fr; } .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .step-line { width: 10px; } .step-label { white-space: normal; text-align: center; max-width: 70px; } }
     .override-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .violation-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .fix-banner { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
@@ -318,7 +294,6 @@ function renderStep(container) {
   if (step.id === 'info') {
     content.innerHTML = `
       <h3 class="mb-lg">Project Information</h3>
-      <div class="alert alert-info mb-lg"><strong>Pilot privacy:</strong> use a non-identifying project code. Do not enter personal names, organization names, confidential project names, or sensitive operational information.</div>
       <div class="info-form">
         <div class="form-group">
           <label class="form-label" for="proj-name">Project code</label>
@@ -363,7 +338,7 @@ function renderStep(container) {
   const dimMetrics = METRICS.filter(m => m.dimension === step.id);
   content.innerHTML = `
     <div class="mb-lg">
-      <h3 style="color: ${dim.color}">${step.icon} ${dim.name}</h3>
+      <h3 style="color: ${dim.color}">${dim.name}</h3>
     </div>
     <div class="metric-group">
       ${dimMetrics.map(m => {
@@ -403,7 +378,6 @@ function renderStep(container) {
             <label class="metric-unknown-toggle"><input type="checkbox" class="metric-unknown" data-metric="${m.id}" aria-label="Mark ${m.id} ${escapeHtml(m.name)} as Unknown" ${isUnknown ? 'checked' : ''}> Unknown</label>
           </div>
           ${assessment.status === 'not-applicable' ? '<div class="text-xs mt-sm" style="color:var(--accent-warning);">Imported N/A cannot complete a current baseline. Choose an assessed 1–5 score or explicitly record Unknown.</div>' : ''}
-          <div class="metric-impact"><span>Decision path</span>${escapeHtml(metricDecisionPath(m.id))}</div>
           ${m.id === 'M15' ? renderAssuranceObligationControls() : ''}
           ${renderMetricJustificationControls(m.id)}
           <div class="metric-wizard hidden" id="wizard-${m.id}" style="display: none; margin-top: 12px; padding: 16px; background: rgba(99,102,241,0.05); border-radius: 8px; border: 1px solid var(--accent-primary-light);"></div>
@@ -690,17 +664,16 @@ function renderResults(content) {
     ...CORE_PROCESSES.filter(p => result.levels[p.id] === 'comprehensive').map(p => p.id),
     ...CORE_PROCESSES.filter(p => result.confidence?.[p.id] === 'available-with-justification').map(p => p.id)
   ].filter(Boolean).map(Number));
-  const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id)).slice(0, 6);
-  const fallbackPriorities = CORE_PROCESSES.filter(p => result.levels[p.id] !== 'basic').slice(0, 6);
-  const reviewFirst = priorityProcesses.length ? priorityProcesses : fallbackPriorities;
+  const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id));
+  const reviewFirst = priorityProcesses;
   const metricNotesCount = METRICS.filter(metric => String(localMetricAssessments?.[metric.id]?.rationale || '').trim()).length;
   content.innerHTML = `
     ${!completeness.complete ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
-      <strong>⚠ Work-in-progress preview — not a baseline</strong>
+      <strong>Work-in-progress preview — not a baseline</strong>
       <div class="text-sm mt-sm">${completeness.incompleteMetricIds.length} metric judgment(s) remain unresolved: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}. Unknown or migrated values can preview behavior, but this profile cannot be baselined until they are resolved.</div>
     </div>` : ''}
     ${correlatedEvidence.warningCount ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
-      <strong>⚠ Correlated evidence review (${correlatedEvidence.warningCount})</strong>
+      <strong>Correlated evidence review (${correlatedEvidence.warningCount})</strong>
       ${correlatedEvidence.warnings.map(warning => `<div class="text-sm mt-sm">${escapeHtml(warning.message)}</div>`).join('')}
       <div class="text-xs text-secondary mt-sm">Warning only: scores, recommended process levels, and closure are unchanged. If shared evidence is appropriate, add a distinct consequence analysis in the affected metrics' optional Justification note.</div>
     </div>` : ''}
@@ -762,20 +735,23 @@ function renderResults(content) {
       <div class="text-xs mt-sm" id="csi-response-status" style="color:${csiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)'};">${csiReadiness.complete ? 'Constraint response complete.' : `Incomplete: ${escapeHtml(csiReadiness.missingFields.join(', '))}`}</div>
     </fieldset>` : ''}
     <h3 class="mb-sm">Assessment results</h3>
-    <p class="result-guidance mb-lg">Start with the priorities below. Open the full breakdown afterward to inspect every process and its supporting inputs.</p>
+    <p class="result-guidance mb-lg">Review the profile at a glance, then open the complete process breakdown when you need the supporting inputs.</p>
     <div class="results-overview mb-lg">
-      <div class="card">
-        <h4 class="mb-md">What to review first</h4>
+      <section class="results-summary">
+        <h4>Assessment at a glance</h4>
         <div class="grid-3">
           <div><div class="stat-value" style="color:var(--level-comprehensive)">${Object.values(result.levels).filter(l => l === 'comprehensive').length}</div><div class="stat-label">Comprehensive processes</div></div>
           <div><div class="stat-value" style="color:var(--accent-warning)">${result.violations.length}</div><div class="stat-label">Warnings to review</div></div>
           <div><div class="stat-value">${metricNotesCount}/${METRICS.length}</div><div class="stat-label">Optional notes added</div></div>
         </div>
-        <p class="text-xs text-secondary mt-md">Notes are optional. Metrics without notes still use the score you selected, including the neutral default of 3.</p>
-      </div>
-      <div class="card">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, { title: 'Assessment shape', description: 'Your 16 scores across the four assessment areas.' })}</div>
+        <p class="text-xs text-secondary mt-md">Notes are optional. Metrics without notes still use the score you selected.</p>
+        <p class="result-priority-note text-sm mt-lg">${reviewFirst.length
+          ? `${reviewFirst.length} process${reviewFirst.length === 1 ? '' : 'es'} need focused review below.`
+          : 'No priority process review is needed for this profile.'}</p>
+      </section>
+      <section class="results-visual">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, { title: 'Assessment shape', description: 'Sixteen scores grouped across the four assessment dimensions.' })}</section>
     </div>
-    ${reviewFirst.length ? `<h4 class="mb-md">Priority process guidance</h4><div class="results-grid mb-lg">${reviewFirst.map(processCard).join('')}</div>` : '<div class="card mb-lg"><strong>No elevated priorities.</strong><p class="text-sm text-secondary mt-sm">Open the full breakdown to review all Basic recommendations.</p></div>'}
+    ${reviewFirst.length ? `<section class="priority-guidance mb-lg"><h4 class="mb-md">Priority process guidance</h4><div class="results-grid">${reviewFirst.map(processCard).join('')}</div></section>` : ''}
     
     <div class="sa-tier-result mb-lg" style="background: ${tierColors[saTier.tier]}15; border: 2px solid ${tierColors[saTier.tier]}; border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
@@ -790,7 +766,7 @@ function renderResults(content) {
     
     ${rightSizingProposals.length ? `
       <div class="override-banner" style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);">
-        <strong>📐 Right-Sizing Proposals (${rightSizingProposals.length}; not applied)</strong>
+        <strong>${rightSizingProposals.length} Right-Sizing Proposal${rightSizingProposals.length === 1 ? '' : 's'} — not applied</strong>
         <div class="text-xs text-secondary mt-sm mb-sm">Project scale: ${result.indices?.psi || '—'} · Delivery pressure: ${result.indices?.csi || '—'} · Adoption readiness: ${result.indices?.cri || '—'}</div>
         <div class="text-xs text-secondary mb-sm">Each proposal requires an explicit accept/reject decision, rationale, approver, and residual-risk record. Final levels below remain unchanged.</div>
         ${rightSizingProposals.map(a => `<div class="text-sm mt-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>`).join('')}
@@ -799,17 +775,17 @@ function renderResults(content) {
     ${blockedRightSizingCandidates.length ? `<div class="override-banner" style="background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25);"><strong>Blocked Right-Sizing Candidates (${blockedRightSizingCandidates.length})</strong><div class="text-xs text-secondary mt-sm">These reductions are not approval candidates because mandatory closure would immediately restore the required level.</div></div>` : ''}
     ${result.budgetStatus && !result.budgetStatus.withinBudget ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
-        <div class="text-xs" style="font-weight: 700; color: var(--accent-warning);">⚠ Final Rigor-Budget Exception</div>
+        <div class="text-xs" style="font-weight: 700; color: var(--accent-warning);">Final Rigor-Budget Exception</div>
         <div class="text-sm mt-sm">Mandatory floors or closure leave ${result.budgetStatus.comprehensiveExcess} Comprehensive and ${result.budgetStatus.standardExcess} Standard process(es) above configured PSI guidance. Governance review is required.</div>
       </div>` : !rightSizingProposals.length && result.indices ? `
       <div style="background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
-        <div class="text-xs text-secondary" style="font-weight: 600;">📐 Right-Sizing Indices</div>
+        <div class="text-xs text-secondary" style="font-weight: 600;">Right-Sizing Indices</div>
         <div class="text-sm mt-sm">Project scale: ${result.indices.psi} · Delivery pressure: ${result.indices.csi} · Adoption readiness: ${result.indices.cri} — <span style="color:var(--accent-success)">No right-sizing proposals generated</span></div>
       </div>` : ''}
 
     ${result.adoptionRisks?.length ? `
       <div class="override-banner" style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.35);">
-        <strong>🧭 Adoption Readiness Gaps (${result.adoptionRisks.length})</strong>
+        <strong>Adoption Readiness Gaps (${result.adoptionRisks.length})</strong>
         <div class="text-xs text-secondary mt-sm mb-sm">Required rigor is preserved. Adoption readiness identifies support the organization may need to use the selected processes.</div>
         ${result.adoptionRisks.slice(0, 8).map(r => `<div class="text-sm mt-sm">• <strong>${escapeHtml(processName(r.processId))}</strong>: ${escapeHtml(r.level)} <span class="text-xs text-secondary">(${escapeHtml(r.guidance)})</span></div>`).join('')}
         ${result.adoptionRisks.length > 8 ? `<div class="text-xs text-secondary mt-sm">+ ${result.adoptionRisks.length - 8} more readiness gaps in the report.</div>` : ''}
@@ -817,11 +793,11 @@ function renderResults(content) {
 
     ${result.overrides.length ? `
       <div class="override-banner">
-        <strong>⚠️ Floor Elevations Applied (${result.overrides.length})</strong>
+        <strong>Floor Elevations Applied (${result.overrides.length})</strong>
         ${result.overrides.map(o => `<div class="text-sm mt-sm">• <strong>${processName(o.processId)}</strong>: ${o.from} → ${o.to} (${o.reason})</div>`).join('')}
       </div>` : ''}
     ${activeFloors.length ? `<div class="override-banner" style="background:rgba(14,165,233,.08);border-color:rgba(14,165,233,.3);">
-      <strong>↥ Active Mandatory Floors (${activeFloors.length})</strong>
+      <strong>Active Mandatory Floors (${activeFloors.length})</strong>
       <div class="text-xs text-secondary mt-sm mb-sm">Triggered floors are recorded even when the metric-derived level already satisfied them; only actual elevations appear above. A mapped M5=5 or M7=5 may directly derive Comprehensive for processes beyond the named floor family; that metric attribution remains distinct from this floor record.</div>
       ${activeFloors.map(floor => {
         const elevated = result.overrides.some(override => override.processId === floor.processId && (override.overrideId === floor.overrideId || override.reason === floor.reason || override.reason === floor.label));
@@ -835,7 +811,7 @@ function renderResults(content) {
       </div>` : ''}
     ${result.violations.length ? `
       <div class="violation-banner">
-        <strong>⚠ Remaining Warnings (${result.violations.length})</strong>
+        <strong>Remaining Warnings (${result.violations.length})</strong>
         ${result.violations.map(v => `<div class="text-sm mt-sm">• Rule ${v.ruleId} [${v.type}]: ${v.label}</div>`).join('')}
       </div>` : ''}
     <details class="results-breakdown">
@@ -843,7 +819,7 @@ function renderResults(content) {
       <div class="results-breakdown-body">
         <p class="text-sm text-secondary mb-lg">Use this complete breakdown to verify every recommendation, supporting input, and detailed level guide.</p>
     ${Object.entries(groupByGroup).map(([group, procs]) => `
-      <h4 class="mb-md mt-lg" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.icon || ''} ${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h4>
+      <h4 class="mb-md mt-lg" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h4>
       <div class="results-grid">
         ${procs.map(processCard).join('')}
       </div>
@@ -860,15 +836,15 @@ function renderResults(content) {
   const updateCompleteButton = () => {
     if (!completeButton || !completeness.complete) return;
     if (!currentCsiReadiness.complete) {
-      completeButton.textContent = `💾 Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
+      completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
     } else if (!currentRule11Readiness.complete) {
       completeButton.textContent = currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')
-        ? '↥ Apply P27 Adjustment & Complete Baseline'
-        : '💾 Save Work in Progress (Rule 11 disposition required)';
+        ? 'Apply P27 Adjustment & Complete Baseline'
+        : 'Save Work in Progress (Rule 11 disposition required)';
     } else if (!currentWarningReadiness.complete) {
-      completeButton.textContent = `💾 Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
+      completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
     } else {
-      completeButton.textContent = '✓ Complete Baseline';
+      completeButton.textContent = 'Complete Baseline';
     }
   };
   content.querySelectorAll('.process-detail-link').forEach(link => {
@@ -982,18 +958,12 @@ function finalizeAssessment(destinationHash = null) {
   const rule11Record = localRuleDispositions?.['11'];
   const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
   const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
-  const effectiveLevels = applyRule11Elevation ? { ...result.levels, 27: 'standard' } : result.levels;
-  const effectiveResult = applyRule11Elevation
-    ? { ...result, levels: effectiveLevels, budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores) }
-    : result;
-  const rule11Disposition = assessRule11Disposition(result.violations, localRuleDispositions, effectiveLevels);
-  const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, effectiveLevels);
-  const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
-  const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
-  const hierarchyReady = hierarchyInput.blockedMetrics.length === 0;
-  const canBaseline = effectiveResult.authoritative === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReady;
+  const rootManualAdjustments = state.manualAdjustments || {};
+  const activeManualAdjustments = activeNode?.id === state.assessmentTree.rootId
+    ? { ...rootManualAdjustments, ...(activeNode.manualAdjustments || {}) }
+    : { ...(activeNode?.manualAdjustments || {}) };
   const manualAdjustments = applyRule11Elevation ? {
-    ...(state.manualAdjustments || {}),
+    ...activeManualAdjustments,
     27: {
       level: 'standard',
       justification: `Rule 11 disposition: ${rule11Record.rationale}`,
@@ -1004,8 +974,22 @@ function finalizeAssessment(destinationHash = null) {
       evidenceRef: rule11Record.evidenceRef,
       reviewDate: rule11Record.reviewDate
     }
-  } : (state.manualAdjustments || {});
-
+  } : activeManualAdjustments;
+  const rule11Levels = applyRule11Elevation ? { ...result.levels, 27: 'standard' } : result.levels;
+  const effectiveLevels = applyManualAdjustmentsToLevels(rule11Levels, manualAdjustments);
+  const hasManualLevelChanges = Object.keys(manualAdjustments).length > 0;
+  const effectiveResult = applyRule11Elevation || hasManualLevelChanges
+    ? { ...result, levels: effectiveLevels, budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores) }
+    : result;
+  const globalManualAdjustments = activeNode?.id === state.assessmentTree.rootId
+    ? manualAdjustments
+    : rootManualAdjustments;
+  const rule11Disposition = assessRule11Disposition(result.violations, localRuleDispositions, effectiveLevels);
+  const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, effectiveLevels);
+  const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
+  const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
+  const hierarchyReady = hierarchyInput.blockedMetrics.length === 0;
+  const canBaseline = effectiveResult.authoritative === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReady;
   // Store results globally (backward compat)
   setState({
     projectInfo: { ...localProject },
@@ -1040,7 +1024,7 @@ function finalizeAssessment(destinationHash = null) {
     fixes: effectiveResult.fixes,
     confidence: effectiveResult.confidence || {},
     derivationStatus: effectiveResult.derivationStatus || effectiveResult.confidence || {},
-    manualAdjustments,
+    manualAdjustments: globalManualAdjustments,
     assessmentComplete: !navigationOnly && canBaseline,
     assessmentDisposition: !navigationOnly && canBaseline ? 'complete-baseline' : 'work-in-progress'
   });
