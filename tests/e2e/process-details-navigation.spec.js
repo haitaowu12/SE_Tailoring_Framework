@@ -128,7 +128,7 @@ test('assessment recommendation saves work in progress before opening details', 
 
   await page.goBack();
   await expect(page).toHaveURL(/#assessment$/);
-  await expect(page.getByRole('button', { name: /Save Work in Progress \(1\/16\)/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Save Work in Progress \(output review pending\)/ })).toBeVisible();
 });
 
 test('malformed and unassessed direct links fail closed without a false assignment', async ({ page }) => {

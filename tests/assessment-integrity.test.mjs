@@ -10,7 +10,6 @@ import { buildExportConfig, normalizeImportedConfig, validateConfig } from '../s
 import { assessRule11Disposition, assessWarningDispositions, normalizeRuleDispositions } from '../src/utils/rule-dispositions.js';
 import { assessCsiResponse } from '../src/utils/csi-response.js';
 import { assessSafetyAllocationDecision } from '../src/utils/inheritance-engine.js';
-import { createRequirementsArchitectureHandoff } from '../src/data/artifact-relationships.js';
 
 const METRIC_IDS = Array.from({ length: 16 }, (_, index) => `M${index + 1}`);
 const makeScores = value => Object.fromEntries(METRIC_IDS.map(metricId => [metricId, value]));
@@ -19,18 +18,6 @@ const makeAssessments = (scores, status = 'assessed') => Object.fromEntries(
     score: scores[metricId], status, definitionVersion: 3, qualifiers: [], rationale: '', evidenceRefs: []
   }])
 );
-
-function acceptedHandoff(elementId = 'default') {
-  return {
-    ...createRequirementsArchitectureHandoff(elementId),
-    requiredContent: 'Baselined requirements and traceability.',
-    acceptanceCriteria: 'Complete, consistent, feasible, traceable, and approved.',
-    evidenceStatus: 'accepted',
-    evidenceRefs: 'REQ-TEST-1',
-    acceptanceAuthority: 'Chief Engineer',
-    reviewDate: '2099-12-31'
-  };
-}
 
 test('default preview scores do not count as confirmed baseline judgments', () => {
   const completeness = assessMetricCompleteness(makeScores(3), {});
@@ -133,22 +120,20 @@ test('legacy schema-2 scores remain readable but become unconfirmed work in prog
   assert.equal(normalized.levels[9], 'standard', 'Historical result is preserved as preview evidence');
 });
 
-test('current-semantic import with omitted handoffs migrates to an explicit incomplete record', () => {
+test('retired artifact handoff data is ignored and no longer blocks a current baseline', () => {
   const scores = makeScores(3);
   const config = buildExportConfig({
     scores,
     metricAssessments: makeAssessments(scores),
-    artifactHandoffs: [acceptedHandoff()],
+    artifactHandoffs: [{ relationshipId: 'legacy-requirements-architecture-record' }],
     assessmentComplete: true
   });
   assert.equal(config.assessmentComplete, true);
-  delete config.artifactHandoffs;
-
+  assert.equal('artifactHandoffs' in config, false);
   const normalized = normalizeImportedConfig(config);
-  assert.equal(normalized.assessmentComplete, false);
-  assert.equal(normalized.assessmentDisposition, 'work-in-progress');
-  assert.equal(normalized.artifactHandoffs.length, 1);
-  assert.equal(normalized.artifactHandoffs[0].evidenceStatus, 'draft');
+  assert.equal(normalized.assessmentComplete, true);
+  assert.equal(normalized.assessmentDisposition, 'complete-baseline');
+  assert.equal('artifactHandoffs' in normalized, false);
 });
 
 test('export cannot claim a complete baseline from implicit scores', () => {
@@ -164,7 +149,6 @@ test('confirmed export preserves proposals, historical actions, and active floor
     scores,
     metricAssessments: makeAssessments(scores),
     assessmentComplete: true,
-    artifactHandoffs: [acceptedHandoff()],
     rightSizingProposals: [{ processId: 15, from: 'standard', proposedTo: 'basic', reason: 'PSI guidance' }],
     rightSizingActions: [{ processId: 14, from: 'standard', to: 'basic', reason: 'Legacy record' }],
     activeFloors: [{ processId: 13, overrideId: 'security_critical_cm', minLevel: 'standard', status: 'satisfied' }]
@@ -185,7 +169,7 @@ test('CSI 4 and 5 require governed responses without changing levels or acceptin
   const proposals = [{ processId: 15, from: 'standard', proposedTo: 'basic', applied: false }];
   const base = {
     scores, metricAssessments: assessments, levels, rightSizingProposals: proposals,
-    artifactHandoffs: [acceptedHandoff()], assessmentComplete: true
+    assessmentComplete: true
   };
   assert.equal(buildExportConfig(base).assessmentComplete, false);
 
@@ -348,7 +332,6 @@ test('Rule 11 warning blocks complete export until disposition is complete', () 
     metricAssessments: makeAssessments(scores),
     levels: { 27: 'basic' },
     violations: [{ ruleId: 11, type: 'WN', affectedProcess: 27, currentLevel: 'basic', requiredLevel: 'standard' }],
-    artifactHandoffs: [acceptedHandoff()],
     assessmentComplete: true
   };
   const blocked = buildExportConfig(state);
@@ -426,7 +409,6 @@ test('non-Rule-11 warning blocks complete export without changing process levels
     metricAssessments: makeAssessments(scores),
     levels: { 20: 'comprehensive', 24: 'basic' },
     violations: [{ ruleId: 7, type: 'WN', label: 'Architecture to Integration', affectedProcess: 24, currentLevel: 'basic', requiredLevel: 'standard' }],
-    artifactHandoffs: [acceptedHandoff()],
     assessmentComplete: true
   };
   const blocked = buildExportConfig(state);

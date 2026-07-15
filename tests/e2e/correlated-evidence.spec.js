@@ -110,9 +110,15 @@ test('correlated-evidence warning is visible and distinct consequence pathways r
 
   await page.getByRole('button', { name: 'Go to Safety & Criticality step' }).click();
   const scoresBefore = await Promise.all(['M5', 'M6', 'M8'].map(id => page.locator(`#score-${id}`).textContent()));
-  await page.getByLabel('M5 distinct consequence pathway').fill('Personnel injury through unsafe actuation and failed protective response.');
-  await page.getByLabel('M6 distinct consequence pathway').fill('Loss of passenger service, operational recovery capacity, and mission continuity.');
-  await page.getByLabel('M8 distinct consequence pathway').fill('Unauthorized control-state manipulation across the security boundary.');
+  for (const [metricId, note] of [
+    ['M5', 'Personnel injury through unsafe actuation and failed protective response.'],
+    ['M6', 'Loss of passenger service, operational recovery capacity, and mission continuity.'],
+    ['M8', 'Unauthorized control-state manipulation across the security boundary.']
+  ]) {
+    const metricCard = page.locator('.metric-item').filter({ has: page.locator(`#slider-${metricId}`) });
+    await metricCard.getByText('Justification note').click();
+    await page.locator(`#metric-note-${metricId}`).fill(note);
+  }
   const scoresAfter = await Promise.all(['M5', 'M6', 'M8'].map(id => page.locator(`#score-${id}`).textContent()));
   await page.getByRole('button', { name: 'Go to Results step' }).click();
 

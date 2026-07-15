@@ -1,300 +1,128 @@
-/**
- * Dashboard View — Landing page with framework overview
- */
-import { FRAMEWORK_META, CORE_PROCESSES, PROCESS_GROUPS, METRICS, DIMENSIONS, ACTIVE_CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
+/** Dashboard View — focused start/resume surface with framework detail on demand. */
+import { FRAMEWORK_META, CORE_PROCESSES, DIMENSIONS, ACTIVE_CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
 import { getState, getElementCount } from '../state.js';
 import { navigateTo } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
 
 export function renderDashboard(container) {
     const state = getState();
-    const techMgmt = CORE_PROCESSES.filter(p => p.group === 'tech_mgmt');
-    const technical = CORE_PROCESSES.filter(p => p.group === 'technical');
-    const projectName = escapeHtml(safeText(state.projectInfo.name, 'Project'));
+    const hasAssessment = Object.keys(state.scores || {}).length > 0;
+    const projectName = escapeHtml(safeText(state.projectInfo.name, 'Current project'));
+    const basicCount = Object.values(state.levels || {}).filter(level => level === 'basic').length;
+    const standardCount = Object.values(state.levels || {}).filter(level => level === 'standard').length;
+    const comprehensiveCount = Object.values(state.levels || {}).filter(level => level === 'comprehensive').length;
 
     container.innerHTML = `
-    ${state.semanticMigration?.status === 'review-required' ? `<section class="card" style="border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.08);margin-bottom:18px;">
-      <strong>⚠ Semantic migration required</strong>
-      <p class="text-sm text-secondary mt-sm">This assessment was created with legacy M6/M8/M15 definitions. Its original result is preserved for audit, but M6 Mission/Operational, M8 Security Consequence, and M15 External Assurance must be reassessed before a version ${FRAMEWORK_META.version} baseline can be approved.</p>
-    </section>` : ''}
-    <section class="hero animate-fade-in-up">
-      <div class="hero-badge">v${FRAMEWORK_META.version} · ${FRAMEWORK_META.standard}</div>
-      <h1 class="hero-title">SE Process<br><span class="gradient-text">Tailoring Framework</span></h1>
-      <p class="hero-subtitle">Metrics-driven process tailoring for systems engineering projects. Score 16 metrics once, get tailored recommendations for 22 project-facing core processes, with Agreement and Organizational Project-Enabling processes retained as reference scope.</p>
-      <div class="hero-actions">
-        <button class="btn btn-primary btn-lg" id="btn-start-assessment">🎯 Start Assessment</button>
-        <button class="btn btn-secondary btn-lg" id="btn-explore">🔍 Explore Processes</button>
-      </div>
-    </section>
+      ${state.semanticMigration?.status === 'review-required' ? `<section class="card migration-notice">
+        <strong>Older assessment needs review</strong>
+        <p class="text-sm text-secondary mt-sm">This record used older definitions for Mission and Operations, Security Consequence, and External Assurance. Review those three answers before approving a current baseline.</p>
+      </section>` : ''}
 
-    <section class="stats-strip animate-fade-in-up stagger-2">
-      <div class="grid-4">
-        <div class="card stat-card hover-lift">
-          <div class="stat-value">${FRAMEWORK_META.coreProcessCount}</div>
-          <div class="stat-label">Executable Core Processes</div>
+      <section class="dashboard-hero animate-fade-in-up">
+        <div class="hero-badge">Version ${FRAMEWORK_META.version} · aligned with ${FRAMEWORK_META.standard}</div>
+        <p class="hero-kicker">Systems engineering process tailoring</p>
+        <h1>Right-size the work.<br><span>Keep the reasoning visible.</span></h1>
+        <p class="hero-subtitle">Answer 16 project questions and get clear guidance for 22 systems engineering processes. A neutral score of 3 is a valid starting judgment; change only what is different for your project.</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-lg" id="btn-start-assessment">${hasAssessment ? 'Continue assessment' : 'Start assessment'}</button>
+          <button class="btn btn-secondary btn-lg" id="btn-explore">Explore process guidance</button>
         </div>
-        <div class="card stat-card hover-lift">
-          <div class="stat-value">${FRAMEWORK_META.metricCount}</div>
-          <div class="stat-label">Assessment Metrics</div>
+        <div class="framework-facts" aria-label="Framework scope">
+          <span><strong>${FRAMEWORK_META.metricCount}</strong> project questions</span>
+          <span><strong>${FRAMEWORK_META.coreProcessCount}</strong> process recommendations</span>
+          <span><strong>3</strong> tailoring levels</span>
         </div>
-        <div class="card stat-card hover-lift">
-          <div class="stat-value">3</div>
-          <div class="stat-label">Tailoring Levels</div>
-        </div>
-        <div class="card stat-card hover-lift">
-          <div class="stat-value">${ACTIVE_CONSISTENCY_RULES.length}</div>
-          <div class="stat-label">Active Consistency Rules</div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    ${state.assessmentComplete ? `
-    <section class="assessment-summary card animate-fade-in-up stagger-3 mb-xl">
-      <div class="card-header">
-        <h3 class="card-title">📊 Current Assessment: ${projectName}</h3>
-        <button class="btn btn-secondary btn-sm" id="btn-view-report">View Report →</button>
-      </div>
-      <div class="grid-3">
-        <div class="level-summary">
-          <div class="level-count basic-count">${Object.values(state.levels).filter(l => l === 'basic').length}</div>
-          <span class="level-badge basic">Basic</span>
+      ${hasAssessment ? `<section class="card current-work animate-fade-in-up stagger-2">
+        <div>
+          <span class="eyebrow">${state.assessmentComplete ? 'Completed assessment' : 'Work in progress'}</span>
+          <h2>${projectName}</h2>
+          <p class="text-sm text-secondary mt-sm">${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive recommendations.` : 'Your answers are saved in this browser. Continue when you are ready.'}</p>
         </div>
-        <div class="level-summary">
-          <div class="level-count standard-count">${Object.values(state.levels).filter(l => l === 'standard').length}</div>
-          <span class="level-badge standard">Standard</span>
+        <button class="btn btn-secondary" id="btn-current-work">${state.assessmentComplete ? 'View report' : 'Resume assessment'} →</button>
+      </section>` : ''}
+
+      <section class="how-it-works animate-fade-in-up stagger-3">
+        <div class="section-heading">
+          <span class="eyebrow">A straightforward path</span>
+          <h2>How it works</h2>
         </div>
-        <div class="level-summary">
-          <div class="level-count comprehensive-count">${Object.values(state.levels).filter(l => l === 'comprehensive').length}</div>
-          <span class="level-badge comprehensive">Comprehensive</span>
-        </div>
-      </div>
-      ${state.confidence ? `
-      <div class="confidence-strip mt-md">
-        ${Object.entries(state.confidence).filter(([, c]) => c === 'corroborated').length > 0 ? `
-        <span class="confidence-badge corroborated" title="Comprehensive level corroborated by multiple metrics">✅ ${Object.entries(state.confidence).filter(([, c]) => c === 'corroborated').length} Corroborated</span>
-        ` : ''}
-        ${Object.entries(state.confidence).filter(([, c]) => c === 'available-with-justification').length > 0 ? `
-        <span class="confidence-badge available-with-justification" title="Comprehensive available with documented justification">⚠️ ${Object.entries(state.confidence).filter(([, c]) => c === 'available-with-justification').length} Need Justification</span>
-        ` : ''}
-        ${Object.entries(state.confidence).filter(([, c]) => c === 'floor-applied').length > 0 ? `
-        <span class="confidence-badge floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">↥ ${Object.entries(state.confidence).filter(([, c]) => c === 'floor-applied').length} Floor Applied</span>
-        ` : ''}
-      </div>` : ''}
-    </section>` : ''}
-
-    <section class="levels-section mb-xl animate-fade-in-up stagger-3">
-      <h2 class="mb-lg">Tailoring Levels</h2>
-      <div class="grid-3">
-        ${['basic', 'standard', 'comprehensive'].map(l => `
-        <div class="card level-card hover-lift level-card-${l}">
-          <div class="level-card-header">
-            <span class="level-badge ${l}">${FRAMEWORK_META.levelLabels[l]}</span>
-          </div>
-          <p class="text-sm text-secondary mt-md">${FRAMEWORK_META.levelDescriptions[l]}</p>
-          <div class="level-range mt-md text-xs text-secondary">
-            ${l === 'basic' ? 'Trigger tier: scores 1-2' : l === 'standard' ? 'Trigger tier: scores 3-4' : 'Trigger tier: score 5'}
-          </div>
-        </div>`).join('')}
-      </div>
-    </section>
-
-    <section class="process-groups mb-xl animate-fade-in-up stagger-4">
-      <h2 class="mb-lg">Process Architecture</h2>
-      <div class="grid-2">
-        <div class="card process-group-card hover-lift">
-          <h3 style="color: ${PROCESS_GROUPS.TECH_MGMT.color}">${PROCESS_GROUPS.TECH_MGMT.icon} Technical Management (${techMgmt.length})</h3>
-          <ul class="process-list mt-md">
-            ${techMgmt.map(p => `<li class="process-list-item"><span class="process-id">${p.id}</span> ${p.name}</li>`).join('')}
-          </ul>
-        </div>
-        <div class="card process-group-card hover-lift">
-          <h3 style="color: ${PROCESS_GROUPS.TECHNICAL.color}">${PROCESS_GROUPS.TECHNICAL.icon} Technical Processes (${technical.length})</h3>
-          <ul class="process-list mt-md">
-            ${technical.map(p => `<li class="process-list-item"><span class="process-id">${p.id}</span> ${p.name}</li>`).join('')}
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="dimensions-section mb-xl animate-fade-in-up stagger-5">
-      <h2 class="mb-lg">Assessment Dimensions</h2>
-      <div class="grid-4">
-        ${DIMENSIONS.map(d => `
-        <div class="card dimension-card hover-lift" style="border-top: 3px solid ${d.color}">
-          <h4 style="color: ${d.color}">${d.name}</h4>
-          <div class="dimension-metrics mt-md">
-            ${d.metrics.map(mid => {
-        const m = METRICS.find(x => x.id === mid);
-        return `<div class="text-xs text-secondary">${mid}: ${m.name}</div>`;
-    }).join('')}
-          </div>
-        </div>`).join('')}
-      </div>
-    </section>
-
-    <section class="quick-nav mb-xl animate-fade-in-up stagger-6">
-      <h2 class="mb-lg">Quick Navigation</h2>
-      <div class="grid-3">
-        <button class="card nav-card hover-lift click-ripple" data-route="elements">
-          <div class="nav-card-icon">🏗️</div>
-          <h4>System Elements</h4>
-          <p class="text-xs text-secondary">Build hierarchy & per-element assessments (${getElementCount()} elements)</p>
-        </button>
-        <button class="card nav-card hover-lift click-ripple" data-route="vee-model">
-          <div class="nav-card-icon">📐</div>
-          <h4>Vee Model</h4>
-          <p class="text-xs text-secondary">Project delivery lifecycle view</p>
-        </button>
-        <button class="card nav-card hover-lift click-ripple" data-route="interdependency">
-          <div class="nav-card-icon">🔗</div>
-          <h4>Dependencies</h4>
-          <p class="text-xs text-secondary">Process relationships & consistency rules</p>
-        </button>
-        <button class="card nav-card hover-lift click-ripple" data-route="matrix">
-          <div class="nav-card-icon">📊</div>
-          <h4>Metric Matrix</h4>
-          <p class="text-xs text-secondary">Process-metric applicability mapping</p>
-        </button>
-      </div>
-    </section>
-
-    <section class="culture-matrix mb-xl animate-fade-in-up stagger-7">
-      <h2 class="mb-lg">Culture × Metric Profile Matrix</h2>
-      <p class="text-secondary mb-md">Find your recommended starting point based on organizational culture and project complexity.</p>
-      
-      <div class="culture-types mb-lg">
-        <h4 class="text-sm mb-sm">Culture Types</h4>
         <div class="grid-3">
-          <div class="culture-type-card">
-            <span class="culture-badge resistant">Resistant</span>
-            <p class="text-xs text-secondary mt-sm">Process-averse, "just get it done"</p>
+          <article class="card step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Keep the neutral answers that fit. Adjust the scores that matter; notes remain optional.</p></article>
+          <article class="card step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">See the assessment shape and the processes needing attention before opening the complete breakdown.</p></article>
+          <article class="card step-card"><span>03</span><h3>Apply the guidance</h3><p class="text-sm text-secondary">Open a process to see the expected activities, outputs, and practical level guidance.</p></article>
+        </div>
+      </section>
+
+      <section class="explore-section animate-fade-in-up stagger-4">
+        <div class="section-heading">
+          <span class="eyebrow">Supporting tools</span>
+          <h2>Explore the framework</h2>
+          <p class="text-sm text-secondary">Use these views when you need more context. They are supporting references, not extra assessment steps.</p>
+        </div>
+        <div class="grid-4">
+          <button class="card nav-card hover-lift" data-route="processes"><span>Guidance</span><h3>Process explorer</h3><p>Browse activities and outputs by tailoring level.</p></button>
+          <button class="card nav-card hover-lift" data-route="elements"><span>${getElementCount()} configured</span><h3>System elements</h3><p>Tailor parts of a larger system when needed.</p></button>
+          <button class="card nav-card hover-lift" data-route="vee-model"><span>Lifecycle</span><h3>Vee model</h3><p>See where process guidance fits in delivery.</p></button>
+          <button class="card nav-card hover-lift" data-route="interdependency"><span>${ACTIVE_CONSISTENCY_RULES.length} checks</span><h3>Dependencies</h3><p>Understand consistency rules between processes.</p></button>
+        </div>
+      </section>
+
+      <details class="card method-details animate-fade-in-up stagger-5">
+        <summary>Learn how the framework is organized</summary>
+        <div class="method-details-body">
+          <div>
+            <h3>Three levels</h3>
+            <p class="text-sm text-secondary"><strong>Basic</strong> keeps the essentials. <strong>Standard</strong> adds coordination and evidence. <strong>Comprehensive</strong> adds the highest rigor for demanding contexts.</p>
           </div>
-          <div class="culture-type-card">
-            <span class="culture-badge tolerant">Tolerant</span>
-            <p class="text-xs text-secondary mt-sm">Open to process, needs ROI clarity</p>
+          <div>
+            <h3>Four assessment areas</h3>
+            <ul>${DIMENSIONS.map(dimension => `<li><strong>${escapeHtml(dimension.name)}</strong> · ${dimension.metrics.length} questions</li>`).join('')}</ul>
           </div>
-          <div class="culture-type-card">
-            <span class="culture-badge supportive">Supportive</span>
-            <p class="text-xs text-secondary mt-sm">Embraces SE rigor, continuous improvement</p>
+          <div>
+            <h3>Process scope</h3>
+            <p class="text-sm text-secondary">The executable assessment covers ${CORE_PROCESSES.length} project-facing technical and technical-management processes. Other organizational processes remain reference material.</p>
           </div>
         </div>
-      </div>
+      </details>
+    `;
 
-      <div class="matrix-table-wrapper">
-        <table class="matrix-table">
-          <thead>
-            <tr>
-              <th>Culture Type</th>
-              <th>Low-Medium Complexity<br><span class="text-xs text-secondary">(Most M1-M4 ≤ 3, M5-M8 ≤ 3)</span></th>
-              <th>High-Complexity / High-Risk<br><span class="text-xs text-secondary">(Any M1-M4 ≥ 4 OR M5-M8 ≥ 4)</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><span class="culture-badge resistant">Resistant</span></td>
-              <td>
-                <span class="level-badge basic">Basic Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">5 processes: Risk, Requirements, Integration, V&V, CM</p>
-                <p class="text-xs mt-xs"><em>Present as "common-sense PM" — avoid SE jargon</em></p>
-              </td>
-              <td>
-                <span class="level-badge standard">Standard Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">10 processes with culture-adapted rollout</p>
-                <p class="text-xs mt-xs"><em>Frame Comprehensive needs as "compliance"</em></p>
-              </td>
-            </tr>
-            <tr>
-              <td><span class="culture-badge tolerant">Tolerant</span></td>
-              <td>
-                <span class="level-badge standard">Standard Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">10 processes: Basic 5 + Architecture, Design, Validation, QA, Stakeholder</p>
-                <p class="text-xs mt-xs"><em>ROI-driven justification, champion-led</em></p>
-              </td>
-              <td>
-                <span class="level-badge comprehensive">Comprehensive Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">22 core processes plus reference review of Agreement/OPE processes</p>
-                <p class="text-xs mt-xs"><em>Champions critical for adoption success</em></p>
-              </td>
-            </tr>
-            <tr>
-              <td><span class="culture-badge supportive">Supportive</span></td>
-              <td>
-                <span class="level-badge standard">Standard Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">10 processes — expand with reference review if desired</p>
-                <p class="text-xs mt-xs"><em>Full SE terminology, formal training supported</em></p>
-              </td>
-              <td>
-                <span class="level-badge comprehensive">Comprehensive Starter Set</span>
-                <p class="text-xs text-secondary mt-sm">22 core processes plus reference review of Agreement/OPE processes</p>
-                <p class="text-xs mt-xs"><em>Leverage training, certification, MBSE capabilities</em></p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="matrix-note mt-md">
-        <div class="callout callout-warning">
-          <strong>⚠️ Culture shapes rollout, not rigor</strong>
-          <p class="text-xs mt-xs">This matrix provides a starting point. Actual tailoring levels are determined by metric scores and overrides. A resistant organization with a safety-relevant project still needs the required V&V rigor: Standard floor at M5=4 and Comprehensive floor at M5=5. Culture determines <em>how</em> you implement it, not <em>whether</em> it is required.</p>
-        </div>
-      </div>
-    </section>
-  `;
-
-    // Styles for this view
     const style = document.createElement('style');
     style.textContent = `
-    .hero { text-align: center; padding: 60px 20px 40px; }
-    .hero-badge { display: inline-block; padding: 4px 16px; background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 20px; font-size: 12px; color: var(--accent-primary-light); font-weight: 600; margin-bottom: 16px; }
-    .hero-title { font-size: 3.5rem; font-weight: 900; line-height: 1.1; margin-bottom: 16px; }
-    .gradient-text { color: var(--accent-primary); }
-    .hero-subtitle { max-width: 640px; margin: 0 auto 32px; color: var(--text-secondary); font-size: 1.1rem; line-height: 1.7; }
-    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .stats-strip { margin-top: 40px; margin-bottom: 48px; }
-    .level-card { position: relative; overflow: hidden; }
-    .level-card-basic { border-left: 3px solid var(--level-basic); }
-    .level-card-standard { border-left: 3px solid var(--level-standard); }
-    .level-card-comprehensive { border-left: 3px solid var(--level-comprehensive); }
-    .level-range { padding: 4px 8px; background: rgba(255,255,255,0.03); border-radius: 6px; display: inline-block; }
-    .process-list { list-style: none; }
-    .process-list-item { padding: 6px 0; font-size: 14px; color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); display: flex; align-items: center; gap: 8px; }
-    .process-id { background: rgba(99,102,241,0.12); color: var(--accent-primary-light); padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; min-width: 24px; text-align: center; }
-    .dimension-card { padding: 20px; }
-    .nav-card { text-align: center; cursor: pointer; border: none; background: var(--bg-card); color: var(--text-primary); width: 100%; }
-    .nav-card-icon { font-size: 2rem; margin-bottom: 8px; }
-    .level-summary { text-align: center; }
-    .level-count { font-size: 2.5rem; font-weight: 900; margin-bottom: 4px; }
-    .basic-count { color: var(--level-basic); }
-    .standard-count { color: var(--level-standard); }
-    .comprehensive-count { color: var(--level-comprehensive); }
-    .confidence-strip { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .confidence-badge { display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: help; }
-    .confidence-badge.corroborated { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
-    .confidence-badge.available-with-justification { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .confidence-badge.floor-applied { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-    .culture-type-card { padding: 16px; background: var(--bg-card); border-radius: 8px; text-align: center; }
-    .culture-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .culture-badge.resistant { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-    .culture-badge.tolerant { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .culture-badge.supportive { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
-    .matrix-table-wrapper { overflow-x: auto; }
-    .matrix-table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; }
-    .matrix-table th, .matrix-table td { padding: 16px; text-align: left; border: 1px solid rgba(99,102,241,0.1); vertical-align: top; }
-    .matrix-table th { background: rgba(99,102,241,0.08); font-weight: 600; }
-    .matrix-table tr:hover td { background: rgba(99,102,241,0.03); }
-    .callout { padding: 12px 16px; border-radius: 8px; background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; }
-    .callout-warning { border-left-color: #f59e0b; }
-    .mt-xs { margin-top: 4px; }
-    @media (max-width: 768px) { .hero-title { font-size: 2rem; } .matrix-table th, .matrix-table td { padding: 10px; font-size: 13px; } }
-  `;
+      .dashboard-hero { max-width: 980px; margin: 0 auto; padding: 64px 20px 46px; text-align: center; }
+      .hero-badge { display:inline-block; padding:4px 14px; border:1px solid var(--border-subtle); border-radius:999px; color:var(--text-secondary); font-size:12px; margin-bottom:24px; }
+      .hero-kicker,.eyebrow { color:var(--accent-primary-light); font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+      .dashboard-hero h1 { font-size:clamp(2.3rem,6vw,4.8rem); line-height:1.02; letter-spacing:-.045em; max-width:860px; margin:10px auto 20px; }
+      .dashboard-hero h1 span { color:var(--accent-primary-light); }
+      .hero-subtitle { max-width:700px; margin:0 auto 28px; color:var(--text-secondary); font-size:1.05rem; line-height:1.7; }
+      .hero-actions { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
+      .framework-facts { display:flex; justify-content:center; gap:28px; flex-wrap:wrap; margin-top:34px; color:var(--text-secondary); font-size:13px; }
+      .framework-facts strong { color:var(--text-primary); font-size:17px; margin-right:4px; }
+      .migration-notice { border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.08); margin-bottom:18px; }
+      .current-work { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 auto 64px; max-width:900px; border-left:3px solid var(--accent-primary); }
+      .current-work h2 { margin-top:5px; }
+      .how-it-works,.explore-section { margin-bottom:64px; }
+      .section-heading { max-width:680px; margin-bottom:20px; }
+      .section-heading h2 { margin:5px 0 8px; }
+      .step-card { min-height:190px; }
+      .step-card > span { color:var(--accent-primary-light); font-size:12px; font-weight:800; }
+      .step-card h3 { margin:28px 0 8px; font-size:18px; }
+      .nav-card { width:100%; min-height:190px; text-align:left; cursor:pointer; color:var(--text-primary); background:var(--bg-card); }
+      .nav-card > span { color:var(--accent-primary-light); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+      .nav-card h3 { margin:28px 0 8px; font-size:17px; }
+      .nav-card p { color:var(--text-secondary); font-size:12px; line-height:1.55; }
+      .method-details { margin-bottom:48px; }
+      .method-details > summary { cursor:pointer; font-weight:700; color:var(--accent-primary-light); }
+      .method-details-body { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; padding-top:24px; margin-top:18px; border-top:1px solid var(--border-subtle); }
+      .method-details-body h3 { font-size:16px; margin-bottom:8px; }
+      .method-details-body ul { list-style:none; display:grid; gap:8px; color:var(--text-secondary); font-size:13px; }
+      @media (max-width:760px) { .dashboard-hero { padding-top:38px; } .framework-facts { gap:14px; flex-direction:column; } .current-work { align-items:flex-start; flex-direction:column; } .method-details-body { grid-template-columns:1fr; } }
+    `;
     container.appendChild(style);
 
-    // Event handlers
-    container.querySelector('#btn-start-assessment').addEventListener('click', () => navigateTo('assessment'));
-    container.querySelector('#btn-explore').addEventListener('click', () => navigateTo('processes'));
-    container.querySelector('#btn-view-report')?.addEventListener('click', () => navigateTo('report'));
-    container.querySelectorAll('.nav-card').forEach(card => {
-        card.addEventListener('click', () => navigateTo(card.dataset.route));
-    });
+    container.querySelector('#btn-start-assessment')?.addEventListener('click', () => navigateTo('assessment'));
+    container.querySelector('#btn-explore')?.addEventListener('click', () => navigateTo('processes'));
+    container.querySelector('#btn-current-work')?.addEventListener('click', () => navigateTo(state.assessmentComplete ? 'report' : 'assessment'));
+    container.querySelectorAll('.nav-card').forEach(card => card.addEventListener('click', () => navigateTo(card.dataset.route)));
 }

@@ -25,7 +25,6 @@ import { buildExportConfig, validateConfig, normalizeImportedConfig } from '../s
 import { getReportReadiness } from '../src/views/report.js';
 import { PUBLICATION_CASES, PUBLICATION_CASE_FIXTURE_VERSION } from './fixtures/publication-cases.mjs';
 import { CRITICALITY_DERIVATION_SCENARIOS } from './fixtures/criticality-derivation-scenarios.mjs';
-import { createRequirementsArchitectureHandoff } from '../src/data/artifact-relationships.js';
 
 const METRIC_IDS = [
   'M1', 'M2', 'M3', 'M4',
@@ -36,18 +35,6 @@ const METRIC_IDS = [
 
 function makeScores(defaultValue = 1) {
   return Object.fromEntries(METRIC_IDS.map(id => [id, defaultValue]));
-}
-
-function acceptedHandoff(elementId = 'default') {
-  return {
-    ...createRequirementsArchitectureHandoff(elementId),
-    requiredContent: 'Baselined requirements and traceability.',
-    acceptanceCriteria: 'Complete, consistent, feasible, traceable, and approved.',
-    evidenceStatus: 'accepted',
-    evidenceRefs: 'REQ-TEST-1',
-    acceptanceAuthority: 'Chief Engineer',
-    reviewDate: '2099-12-31'
-  };
 }
 
 function makeMetricAssessments(scores, overrides = {}) {
@@ -483,7 +470,6 @@ test('export config preserves report-critical assessment state for round trip', 
     saTier: { tier: 'II', floor: 'standard' },
     indices: { psi: 3, csi: 4, cri: 2 },
     confidence: { 9: 'floor-applied' },
-    artifactHandoffs: [acceptedHandoff()],
     assessmentComplete: true,
     deliverablesChecked: ['9-basic-0'],
     notes: 'demo'
@@ -675,8 +661,7 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
   const completeAssessment = {
     assessmentComplete: true,
     scores: completeScores,
-    metricAssessments: makeMetricAssessments(completeScores),
-    artifactHandoffs: [acceptedHandoff()]
+    metricAssessments: makeMetricAssessments(completeScores)
   };
   const completeNode = {
     assessmentResult: { violations: [] },

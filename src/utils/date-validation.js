@@ -5,3 +5,9 @@ export function isValidIsoCalendarDate(value) {
     const parsed = new Date(`${text}T00:00:00.000Z`);
     return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === text;
 }
+
+/** Return the user's local calendar date in the value format expected by date inputs. */
+export function getLocalCalendarDate(date = new Date()) {
+    const local = new Date(date.getTime() - (date.getTimezoneOffset() * 60_000));
+    return local.toISOString().slice(0, 10);
+}

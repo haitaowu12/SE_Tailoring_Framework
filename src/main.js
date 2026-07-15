@@ -17,12 +17,12 @@ import { renderManualAdjust } from './views/manual-adjust.js';
 import { renderDeliverables } from './views/deliverables.js';
 import { renderReport } from './views/report.js';
 import { renderSystemElements } from './views/system-elements.js';
-import { renderOutputSufficiency } from './views/output-sufficiency.js';
 import { escapeHtml } from './utils/safe-text.js';
 import { FRAMEWORK_META } from './data/se-tailoring-data.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
 
 const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
+const PILOT_NOTICE_DISMISSED_KEY = 'se-tailoring-pilot-notice-dismissed';
 
 function keepFocusWithinDialog(event, dialog) {
     if (event.key !== 'Tab') return;
@@ -49,7 +49,6 @@ registerRoute('interdependency', renderInterdependency);
 registerRoute('matrix', renderMatrixView);
 registerRoute('adjust', renderManualAdjust);
 registerRoute('deliverables', renderDeliverables);
-registerRoute('handoffs', renderOutputSufficiency);
 registerRoute('report', renderReport);
 
 // Build the navbar
@@ -78,7 +77,6 @@ function buildNavbar() {
         <div class="nav-dropdown-menu" role="menu">
           <button class="nav-link" data-route="adjust" role="menuitem">Manual Adjust</button>
           <button class="nav-link" data-route="deliverables" role="menuitem">Deliverables</button>
-          <button class="nav-link" data-route="handoffs" role="menuitem">Artifact Handoffs</button>
           <button class="nav-link" data-route="report" role="menuitem">Report</button>
         </div>
       </div>
@@ -94,7 +92,6 @@ function buildNavbar() {
       <option value="matrix">Matrix View</option>
       <option value="adjust">Manual Adjust</option>
       <option value="deliverables">Deliverables</option>
-      <option value="handoffs">Artifact Handoffs</option>
       <option value="report">Report</option>
     </select>
     <div class="nav-actions">
@@ -124,8 +121,13 @@ function buildNavbar() {
         btn.addEventListener('click', () => navigateTo(btn.dataset.route));
     });
 
-    navbar.querySelectorAll('.nav-dropdown').forEach(dropdown => {
+    navbar.querySelectorAll('.nav-dropdown').forEach((dropdown, dropdownIndex) => {
         const trigger = dropdown.querySelector('.nav-dropdown-trigger');
+        const menu = dropdown.querySelector('.nav-dropdown-menu');
+        if (trigger && menu) {
+            menu.id = `nav-dropdown-menu-${dropdownIndex}`;
+            trigger.setAttribute('aria-controls', menu.id);
+        }
         const closeMenu = () => {
             dropdown.classList.remove('open');
             trigger?.setAttribute('aria-expanded', 'false');
@@ -143,6 +145,25 @@ function buildNavbar() {
             if (event.key === 'Escape') {
                 closeMenu();
                 trigger.focus();
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                dropdown.classList.add('open');
+                trigger.setAttribute('aria-expanded', 'true');
+                const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
+                (event.key === 'ArrowDown' ? items[0] : items.at(-1))?.focus();
+            }
+        });
+        dropdown.addEventListener('keydown', event => {
+            const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
+            const index = items.indexOf(document.activeElement);
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeMenu();
+                trigger?.focus();
+            } else if (index >= 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+                event.preventDefault();
+                const direction = event.key === 'ArrowDown' ? 1 : -1;
+                items[(index + direction + items.length) % items.length]?.focus();
             }
         });
         dropdown.addEventListener('focusout', () => {
@@ -151,6 +172,14 @@ function buildNavbar() {
             }, 0);
         });
         dropdown.querySelectorAll('[role="menuitem"]').forEach(item => item.addEventListener('click', closeMenu));
+    });
+    document.addEventListener('pointerdown', event => {
+        if (!navbar.contains(event.target)) {
+            navbar.querySelectorAll('.nav-dropdown.open').forEach(open => {
+                open.classList.remove('open');
+                open.querySelector('.nav-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+            });
+        }
     });
 
     navbar.querySelector('#btn-nav-home')?.addEventListener('click', () => navigateTo('dashboard'));
@@ -202,12 +231,33 @@ function buildNavbar() {
 
 function buildPilotNotice() {
     const notice = document.getElementById('pilot-notice');
+    let dismissed = false;
+    try {
+        dismissed = localStorage.getItem(PILOT_NOTICE_DISMISSED_KEY) === 'true';
+    } catch {
+        dismissed = false;
+    }
+    if (dismissed) {
+        notice.hidden = true;
+        return;
+    }
     notice.innerHTML = `
       <div class="pilot-notice-inner">
-        <strong>Static prototype — not a validated decision authority.</strong>
-        <span>Facilitated pilot use is conditional on the study's external authorization gates. Use a non-identifying project code and avoid personal, confidential, export-controlled, or operationally sensitive information. Work auto-saves only in this browser. Minimum-data Export omits project, team, element names, free text, evidence references, and asserted identities; it is not a completed-baseline record.</span>
+        <div class="pilot-notice-copy">
+          <strong>Static prototype — not a validated decision authority.</strong>
+          <span>Use a non-identifying project code and avoid personal, confidential, export-controlled, or operationally sensitive information. Work auto-saves only in this browser.</span>
+        </div>
+        <button class="btn btn-ghost btn-sm pilot-notice-dismiss" id="btn-dismiss-pilot-notice" type="button">Dismiss</button>
       </div>
     `;
+    notice.querySelector('#btn-dismiss-pilot-notice')?.addEventListener('click', () => {
+        notice.hidden = true;
+        try {
+            localStorage.setItem(PILOT_NOTICE_DISMISSED_KEY, 'true');
+        } catch {
+            // The notice can still be dismissed for the current page if storage is unavailable.
+        }
+    });
 }
 
 function downloadDiagnostics(diagnostics) {
@@ -418,15 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 derivationStatus: saved.derivationStatus || saved.confidence || {},
                 confidence: saved.confidence || saved.derivationStatus || {},
                 assessmentTree: saved.assessmentTree || getState().assessmentTree,
-                deliverablesChecked: saved.deliverablesChecked || [],
-                artifactHandoffs: normalizeImportedConfig({
-                    _format: 'se-tailoring-config',
-                    _version: '2.0',
-                    semantics: saved.semantics,
-                    metricScores: saved.scores || {},
-                    processLevels: saved.levels || {},
-                    artifactHandoffs: saved.artifactHandoffs
-                }, saved.assessmentTree || getState().assessmentTree).artifactHandoffs
+                deliverablesChecked: saved.deliverablesChecked || []
             });
             document.removeEventListener('keydown', handleRestoreKeydown);
             overlay.remove();

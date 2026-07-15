@@ -20,9 +20,25 @@ test('current UI judgments use the v3 metric definition version constant', () =>
     'Current assessment UI must not label new judgments with a legacy definition version'
   );
   assert.ok(
-    (assessmentSource.match(/definitionVersion:\s*METRIC_DEFINITION_VERSION/g) || []).length >= 5,
-    'All current assessment record creation paths should use the shared version constant'
+    (assessmentSource.match(/definitionVersion:\s*METRIC_DEFINITION_VERSION/g) || []).length >= 1,
+    'The shared metric-assessment factory should use the current version constant'
   );
+});
+
+test('assessment UI keeps the default path lightweight and records optional notes', () => {
+  assert.match(assessmentSource, /function initializeMetricAssessments/);
+  assert.match(assessmentSource, /status: updates\.status \|\| existing\.status \|\| 'assessed'/);
+  assert.match(assessmentSource, /class="metric-unknown"/);
+  assert.match(assessmentSource, /class="input mt-sm metric-justification-input"/);
+  assert.doesNotMatch(assessmentSource, /metric-assessment-status/);
+  assert.doesNotMatch(assessmentSource, /Ordinal Scale Warning/);
+});
+
+test('assessment UI explains how each metric reaches the recommendation path', () => {
+  assert.match(assessmentSource, /function metricDecisionPath/);
+  assert.match(assessmentSource, /class="metric-impact"/);
+  assert.match(assessmentSource, /Constraint Stress Index/);
+  assert.match(assessmentSource, /Adoption Readiness Index/);
 });
 
 test('score changes resolve the active node within setMetricScore', () => {
@@ -37,7 +53,7 @@ test('assessment recommendations link to their exact process and computed level'
     assessmentSource,
     /aria-label="View \$\{escapeHtml\(p\.name\)\} \$\{escapeHtml\(FRAMEWORK_META\.levelLabels\[level\] \|\| level\)\} details"/
   );
-  assert.match(assessmentSource, />View level details →<\/a>/);
+  assert.match(assessmentSource, />View guidance →<\/a>/);
 });
 
 test('opening recommendation details persists work in progress without silently baselining', () => {
