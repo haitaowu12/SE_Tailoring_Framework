@@ -40,10 +40,17 @@ test('assessment UI keeps recommendation logic out of each metric card', () => {
   assert.match(assessmentSource, /class="metric-justification/);
 });
 
-test('score changes resolve the active node within setMetricScore', () => {
+test('score changes use the unified active-node draft commit', () => {
+  const commitBody = assessmentSource.match(/function commitAssessmentDraft[\s\S]*?\n}\n\nfunction compareScore/)?.[0] || '';
   const functionBody = assessmentSource.match(/function setMetricScore[\s\S]*?\n}\n\nfunction startWizard/)?.[0] || '';
-  assert.match(functionBody, /const activeNode = getActiveNode\(\);/);
-  assert.match(functionBody, /if \(activeNode\)/);
+  assert.match(commitBody, /const activeNode = getActiveNode\(\);/);
+  assert.match(commitBody, /activeNode\.scores = \{ \.\.\.scores \}/);
+  assert.match(commitBody, /activeNode\.metricAssessments/);
+  assert.match(commitBody, /activeNode\.ruleDispositions/);
+  assert.match(commitBody, /activeNode\.csiResponse/);
+  assert.match(commitBody, /activeNode\.assessmentDisposition = 'work-in-progress'/);
+  assert.match(commitBody, /assessmentComplete: false/);
+  assert.match(functionBody, /commitAssessmentDraft\(\{ manualMetricId: metricId \}\)/);
 });
 
 test('assessment recommendations link to their exact process and computed level', () => {
