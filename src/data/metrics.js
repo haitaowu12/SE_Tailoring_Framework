@@ -1,6 +1,6 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _SEMANTIC_VERSION: 4.1.0 | _LAST_UPDATED: 2026-07-12
+ * _SEMANTIC_VERSION: 4.1.1 | _LAST_UPDATED: 2026-07-12
  * _SOURCE: This registry is authoritative for normative semantic fields.
  * _SYNC_CONTRACT:
  *   - 01-PAPER/03-Methodology.md explains the algorithm and map rationale.
@@ -22,7 +22,7 @@ export const DIMENSIONS = [
     { id: 'stakeholder', name: 'Stakeholder, Governance & Adoption Context', color: '#22d3ee', metrics: ['M13', 'M14', 'M15', 'M16'] }
 ];
 
-export const FRAMEWORK_SEMANTIC_VERSION = '4.1.0';
+export const FRAMEWORK_SEMANTIC_VERSION = '4.1.1';
 export const METRIC_DEFINITION_SET_ID = 'se-tailoring-m1-m16-v3';
 export const METRIC_DEFINITION_VERSION = 3;
 export const QUALIFIER_SCHEMA_VERSION = '1.1';
@@ -70,7 +70,7 @@ export const METRIC_MIGRATION_HISTORY = [
     {
         fromDefinitionSet: 'se-tailoring-m1-m16-v2',
         toDefinitionSet: METRIC_DEFINITION_SET_ID,
-        frameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
+        frameworkVersion: '4.1.0',
         reassessmentMetrics: ['M3']
     }
 ];
@@ -78,7 +78,7 @@ export const METRIC_MIGRATION_HISTORY = [
 export const METRIC_MIGRATION = {
     fromDefinitionSet: 'se-tailoring-m1-m16-v2',
     toDefinitionSet: METRIC_DEFINITION_SET_ID,
-    frameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
+    frameworkVersion: '4.1.0',
     metrics: {
         M3: {
             classification: 'reassessment-required',
@@ -1202,30 +1202,30 @@ export const RIGOR_BUDGET = [
 /**
  * Adoption-readiness guidance by CRI.
  * CRI never lowers technically required rigor; it flags implementation support
- * needed to execute the required profile in resistant or mixed cultures.
+ * needed when the assessed enabling conditions do not support the required profile.
  */
 export const ADOPTION_READINESS_GUIDANCE = [
     {
         cri: 1,
-        label: 'Resistant / Low Capability',
+        label: 'Constrained Enabling Conditions',
         triggerLevel: 'standard',
         comprehensiveSeverity: 'high',
         standardSeverity: 'medium',
-        notes: 'Use common-sense language, staged rollout, sponsor protection, and independent SE or assurance support for high-rigor processes.'
+        notes: 'Clarify decision authority, secure leadership support and resources, enable safe challenge, and provide independent SE or assurance support for high-rigor processes.'
     },
     {
         cri: 2,
-        label: 'Tolerant / Moderate Capability',
+        label: 'Mixed Enabling Conditions',
         triggerLevel: 'comprehensive',
         comprehensiveSeverity: 'medium',
-        notes: 'Use champion-led implementation, explicit ROI framing, and focused coaching for Comprehensive processes.'
+        notes: 'Resolve uneven authority, resources, incentives, learning mechanisms, or challenge pathways and provide focused support for Comprehensive processes.'
     },
     {
         cri: 3,
-        label: 'Supportive / High Capability',
+        label: 'Strong Enabling Conditions',
         triggerLevel: null,
         comprehensiveSeverity: 'low',
-        notes: 'No readiness gap flag; execute normal governance and continuous improvement.'
+        notes: 'No readiness gap flag; retain normal governance, learning, and continuous improvement.'
     }
 ];
 

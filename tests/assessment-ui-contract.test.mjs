@@ -25,9 +25,9 @@ test('current UI judgments use the v3 metric definition version constant', () =>
   );
 });
 
-test('assessment UI keeps the default path lightweight and records optional notes', () => {
-  assert.match(assessmentSource, /function initializeMetricAssessments/);
-  assert.match(assessmentSource, /status: updates\.status \|\| existing\.status \|\| 'assessed'/);
+test('assessment UI keeps untouched preview values unreviewed and records optional notes', () => {
+  assert.doesNotMatch(assessmentSource, /function initializeMetricAssessments/);
+  assert.match(assessmentSource, /status: updates\.status \|\| existing\.status \|\| 'unreviewed'/);
   assert.match(assessmentSource, /class="metric-unknown"/);
   assert.match(assessmentSource, /class="input mt-sm metric-justification-input"/);
   assert.doesNotMatch(assessmentSource, /metric-assessment-status/);

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { openSessionMenu } from './helpers.js';
 import { runFullAssessment } from '../../src/utils/assessment-engine.js';
 
 function acceptedHandoff() {
@@ -49,7 +50,7 @@ function currentConfig(scores, name) {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -97,15 +98,15 @@ async function importFixture(page, config, filename) {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   const chooser = page.waitForEvent('filechooser');
+  await openSessionMenu(page);
   await page.locator('#btn-import').click();
   await (await chooser).setFiles(path);
   await expect(page.getByText('Configuration imported successfully!')).toBeVisible();
   await expect(page).toHaveURL(/#dashboard$/);
-  await page.getByRole('button', { name: 'Output ▾' }).click();
-  await page.getByRole('menuitem', { name: 'Report' }).click();
+  await page.getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page).toHaveURL(/#report$/);
   if (pageErrors.length) throw new Error(`Report page errors: ${pageErrors.join(' | ')}`);
-  await expect(page.getByText('Tailoring Report')).toBeVisible();
+  await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 }
 
 test('incomplete approval fails closed, then complete eligible approval is applied and report-visible', async ({ page }) => {
@@ -117,7 +118,7 @@ test('incomplete approval fails closed, then complete eligible approval is appli
   const form = page.locator('.right-sizing-approval-form[data-process-id="17"]');
   await form.locator('xpath=..').locator('summary').click();
   await form.locator('[name="rationale"]').fill('Bounded mission analysis scope supports the reduced activity set.');
-  await form.getByRole('button', { name: 'Record approval and re-evaluate' }).click();
+  await form.getByRole('button', { name: 'Record asserted approval and re-evaluate' }).click();
   await expect(page.getByText('Approval record saved but remains invalid or incomplete.')).toBeVisible();
   await expect(page.getByText(/Business\/Mission Analysis.*approval invalid/)).toBeVisible();
   await expect(page.getByText(/effective governed reduction approval/)).toHaveCount(0);
@@ -135,9 +136,9 @@ test('incomplete approval fails closed, then complete eligible approval is appli
   await updatedForm.locator('[name="accountableProcessOwner-basis"]').fill('Approved process responsibility assignment');
   await updatedForm.locator('[name="assessmentLead-identity"]').fill('Assessment lead');
   await updatedForm.locator('[name="assessmentLead-basis"]').fill('Delegated assessment governance authority');
-  await updatedForm.getByRole('button', { name: 'Record approval and re-evaluate' }).click();
+  await updatedForm.getByRole('button', { name: 'Record asserted approval and re-evaluate' }).click();
 
-  await expect(page.getByText('Governed reduction approved and mandatory closure rechecked.')).toBeVisible();
+  await expect(page.getByText('Asserted approval recorded and mandatory closure rechecked. External approval is not verified.')).toBeVisible();
   await expect(page.getByText(/Business\/Mission Analysis.*approval effective/)).toBeVisible();
   await expect(page.getByText('1 effective governed reduction approval(s)')).toBeVisible();
   const effectiveForm = page.locator('.right-sizing-approval-form[data-process-id="17"]');

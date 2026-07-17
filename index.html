@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:">
   <meta name="referrer" content="no-referrer" />
-  <title>SE Tailoring Model — Interactive Framework Explorer</title>
-  <meta name="description" content="Interactive visualization and assessment tool for the ISO/IEC/IEEE 15288 SE Process Tailoring Framework. Score 16 metrics, explore 22 processes, and generate tailoring reports." />
+  <title>SE Tailoring Model — Facilitated Research Instrument</title>
+  <meta name="description" content="Facilitated, standards-informed research instrument for explicit ordinal judgments and provisional systems-engineering process-tailoring recommendations." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 </head>
 <body>
@@ -16,7 +16,7 @@
     <div id="runtime-status" role="alert" aria-live="assertive"></div>
     <main id="main-content"></main>
   </div>
-  <div id="toast-container"></div>
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
   <div id="modal-overlay"></div>
   <script type="module" src="/src/main.js"></script>
 </body>

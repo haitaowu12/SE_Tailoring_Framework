@@ -12,7 +12,7 @@ import {
 } from '../src/data/metrics.js';
 
 test('semantic 4.1 retains exactly M1-M16 and all 102 mapping cells', () => {
-  assert.equal(FRAMEWORK_SEMANTIC_VERSION, '4.1.0');
+  assert.equal(FRAMEWORK_SEMANTIC_VERSION, '4.1.1');
   assert.equal(METRIC_DEFINITION_SET_ID, 'se-tailoring-m1-m16-v3');
   assert.deepEqual(METRICS.map(metric => metric.id), Array.from({ length: 16 }, (_, index) => `M${index + 1}`));
   assert.equal(Object.values(METRIC_PROCESS_MAP).reduce((count, map) => count + Object.keys(map).length, 0), 102);

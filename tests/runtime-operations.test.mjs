@@ -19,8 +19,8 @@ const appRoot = join(__dirname, '..');
 test('release identity is explicit, version-aligned, and honest for an unattested local build', () => {
   assert.deepEqual(APP_RUNTIME_META, {
     application: 'se-tailoring-app',
-    appRelease: '3.6.0',
-    frameworkVersion: '4.1.0',
+    appRelease: '3.6.1',
+    frameworkVersion: '4.1.1',
     metricDefinitionSet: 'se-tailoring-m1-m16-v3',
     exchangeSchemaVersion: '2.0',
     buildId: 'local-unattested',

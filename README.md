@@ -11,8 +11,8 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 
 ## Current Scope
 
-- Framework semantic version 4.1.0 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
-- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, explicit legacy-migration status, and producer release/build identity. Versionless, 3.x, and semantic 4.0 records are preserved through explicit migration handling and cannot be silently baselined under 4.1.0.
+- Framework semantic version 4.1.1 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
+- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, explicit legacy-migration status, and producer release/build identity. Versionless, 3.x, and semantic 4.0 records are preserved through explicit migration handling and cannot be silently baselined under 4.1.1.
 - Executable assessment: 16 project metrics mapped to 22 project-facing Technical and Technical Management processes.
 - Reference scope: 8 Agreement and Organizational Project-Enabling processes remain visible in the data model, but are not yet fully executable recommendations.
 - Traceability model: each process declares ISO/IEC/IEEE 15288:2023 process-group metadata and explicit executable-core vs reference scope. This is decision-support traceability, not a standalone ISO compliance or certification claim.

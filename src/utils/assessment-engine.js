@@ -592,11 +592,10 @@ export function deriveCSIResponseRequirement(scoresOrCsi = {}) {
 }
 
 /**
- * Compute Adoption Readiness Index (CRI) from culture metric.
- * CRI is derived by rule-based mapping from M16 categories
- * (Resistant/Tolerant/Supportive) into three readiness classes;
+ * Compute Adoption Readiness Index (CRI) from M16 enabling conditions.
+ * CRI is derived by rule-based mapping into three readiness classes;
  * no arithmetic aggregation across metrics is performed.
- * Maps M16 to 1-3 scale: 1-2→Resistant(1), 3→Tolerant(2), 4-5→Supportive(3).
+ * Maps M16 to 1-3 scale: 1-2 constrained, 3 mixed, 4-5 strong.
  * Returns 1-3 ordinal scale.
  */
 export function computeCRI(scores) {
@@ -675,7 +674,7 @@ export function assessAdoptionReadiness(levels, scores) {
  * Evaluate right-sizing: preserve normative levels and return governed reduction
  * proposals plus readiness-gap reporting. Proposals are never applied here;
  * accepting one requires a separate owner decision with justification and
- * output-sufficiency evidence.
+ * consequential evidence and authority records.
  */
 export function applyRightSizing(levels, scores, overridesApplied = [], context = {}) {
     const psi = computePSI(scores);

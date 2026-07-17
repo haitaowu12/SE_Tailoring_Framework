@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { clickSessionAction, openSessionMenu } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');
@@ -15,14 +16,15 @@ test('diagnostics disclose exact release identity and remain local-only', async 
     if (url.hostname !== '127.0.0.1') externalRequests.push(request.url());
   });
 
-  const diagnosticsButton = page.getByRole('button', { name: 'Diagnostics' });
+  const diagnosticsButton = page.getByRole('menuitem', { name: 'Diagnostics' });
+  await openSessionMenu(page);
   await diagnosticsButton.focus();
   await diagnosticsButton.click();
 
   const dialog = page.getByRole('dialog', { name: 'Release and local diagnostics' });
   await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('3.6.0');
-  await expect(dialog).toContainText('4.1.0');
+  await expect(dialog).toContainText('3.6.1');
+  await expect(dialog).toContainText('4.1.1');
   await expect(dialog).toContainText('se-tailoring-m1-m16-v3');
   await expect(dialog).toContainText(/(?:local-unattested|[0-9a-f]{40})/);
   await expect(dialog).toContainText('static-self-service-prototype');
@@ -37,13 +39,13 @@ test('diagnostics disclose exact release identity and remain local-only', async 
 
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(diagnosticsButton).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Session actions' })).toBeFocused();
   expect(externalRequests).toEqual([]);
 });
 
 test('minimum-data export carries release and build producer identity', async ({ page }) => {
   const downloadPromise = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Minimum-data Export' }).click();
+  await clickSessionAction(page, 'Minimum-data Export');
   const download = await downloadPromise;
   const stream = await download.createReadStream();
   let text = '';
@@ -52,8 +54,8 @@ test('minimum-data export carries release and build producer identity', async ({
 
   expect(config._producer).toMatchObject({
     application: 'se-tailoring-app',
-    appRelease: '3.6.0',
-    frameworkVersion: '4.1.0',
+    appRelease: '3.6.1',
+    frameworkVersion: '4.1.1',
     metricDefinitionSet: 'se-tailoring-m1-m16-v3',
     exchangeSchemaVersion: '2.0',
     operatingProfile: 'static-self-service-prototype',

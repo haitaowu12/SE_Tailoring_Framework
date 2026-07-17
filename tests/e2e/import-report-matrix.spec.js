@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { openSessionMenu } from './helpers.js';
 
 const metricScores = Object.fromEntries(
   Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 3])
@@ -49,6 +50,7 @@ async function importFixture(page, config, filename) {
   await page.reload();
 
   const fileChooserPromise = page.waitForEvent('filechooser');
+  await openSessionMenu(page);
   await page.locator('#btn-import').click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles(configPath);
@@ -57,8 +59,7 @@ async function importFixture(page, config, filename) {
 }
 
 async function openReportFromNavigation(page) {
-  await page.getByRole('button', { name: 'Output ▾' }).click();
-  await page.getByRole('menuitem', { name: 'Report' }).click();
+  await page.getByRole('button', { name: 'Report', exact: true }).click();
 }
 
 async function dispositionOtherTriggeredWarnings(page) {
@@ -88,7 +89,7 @@ test('legacy import is preserved but blocked pending M6/M8/M15 reassessment', as
   }, 'legacy-config.json');
 
   await expect(page.getByText('Older assessment needs review')).toBeVisible();
-  await expect(page.getByText(/older definitions for Mission and Operations, Security Consequence, and External Assurance/)).toBeVisible();
+  await expect(page.getByText(/Reassess M6, M8, M15 before software completeness can pass/)).toBeVisible();
 
   await openReportFromNavigation(page);
   await expect(page).toHaveURL(/#report$/);
@@ -100,7 +101,7 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -117,9 +118,17 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
 
   await openReportFromNavigation(page);
   await expect(page).toHaveURL(/#report$/);
-  await expect(page.getByText('Tailoring Report')).toBeVisible();
+  await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
   await expect(page.getByRole('cell', { name: 'Current Semantic Import Smoke' })).toBeVisible();
-  await expect(page.getByText('Ready for review')).toBeVisible();
+  await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
+
+  const reportSections = page.locator('details.report-section');
+  await expect(reportSections).not.toHaveCount(0);
+  expect(await reportSections.evaluateAll(sections => sections.some(section => !section.open))).toBe(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+  expect(await reportSections.evaluateAll(sections => sections.every(section => section.open))).toBe(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  expect(await reportSections.evaluateAll(sections => sections.some(section => !section.open))).toBe(true);
 
   await page.goto('./#matrix');
   await expect(page).toHaveURL(/#matrix$/);
@@ -135,7 +144,7 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
 
   await page.goto('./#report');
   await expect(page.locator('tr', { hasText: 'Project Planning' })).toContainText('C');
-  await expect(page.getByText('Ready for review')).toBeVisible();
+  await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
 });
 
 test('assessment UI exposes all M15 scopes while keeping binding detail optional', async ({ page }) => {
@@ -152,15 +161,15 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
   await expect(page.getByText(/Risk Management.*driver-only/)).toBeVisible();
   await expect(page.getByText(/Configuration Management.*floor-capable/)).toBeVisible();
   await expect(page.getByText(/Disposal.*driver-only/)).toBeVisible();
-  await expect(page.getByText('Assessed 1–5 score')).toHaveCount(4);
+  await expect(page.getByText(/Unreviewed — preview 3/)).toHaveCount(4);
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText('Assessment Results')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Complete Baseline/ })).toBeVisible();
+  await expect(page.getByText('Assessment results')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
 });
 
-test('Rule 11 warning remains visible and can be dispositioned before baselining', async ({ page }) => {
+test('Rule 11 warning remains visible and can be dispositioned before software completeness', async ({ page }) => {
   const rule11Scores = Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 1]));
   rule11Scores.M1 = 3;
   rule11Scores.M2 = 5;
@@ -174,7 +183,7 @@ test('Rule 11 warning remains visible and can be dispositioned before baselining
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -199,7 +208,7 @@ test('Rule 11 warning remains visible and can be dispositioned before baselining
   await page.locator('#rule11-rationale').fill('Basic operational evidence accepted with parent-level validation and interface acceptance controls.');
   await expect(page.getByText('Disposition complete.')).toBeVisible();
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: 'Complete Baseline' }).click();
+  await page.getByRole('button', { name: 'Pass Software Completeness Checks' }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText(/Rule 11 Disposition — Complete/)).toBeVisible();
   await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
@@ -219,7 +228,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -240,9 +249,9 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   await page.locator('#rule11-evidence').fill('VAL-ELEVATE-11');
   await page.locator('#rule11-date').fill('2026-07-10');
   await page.locator('#rule11-rationale').fill('Validation is elevated to Standard for stakeholder acceptance assurance.');
-  await expect(page.getByText(/Ready: completing the baseline will create an explicit governed manual adjustment/)).toBeVisible();
+  await expect(page.getByText(/Ready: passing software completeness will create an explicit governed manual adjustment/)).toBeVisible();
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: /Apply P27 Adjustment & Complete Baseline/ }).click();
+  await page.getByRole('button', { name: /Apply P27 Adjustment & Pass Software Checks/ }).click();
 
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText(/Rule 11 Disposition — Complete/)).toBeVisible();
@@ -262,7 +271,7 @@ for (const scenario of [
     }]));
     await importFixture(page, {
       _format: 'se-tailoring-config', _version: '2.0',
-      semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+      semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
       projectInfo: { name: `CSI ${scenario.csi} Smoke` },
       metricScores: scores, metricAssessments: assessments, processLevels,
       artifactHandoffs: [acceptedRequirementsArchitectureHandoff()],
@@ -276,11 +285,11 @@ for (const scenario of [
     await page.getByLabel('Add capacity').check();
     await page.getByLabel('CSI protected outputs and evidence').fill('Verification evidence and safety acceptance outputs');
     await page.getByLabel('CSI rationale and decision').fill('Add capacity and preserve the protected evidence set.');
-    await page.getByLabel('CSI owner or approver').fill(scenario.owner);
+    await page.getByLabel('CSI asserted owner or approver role').fill(scenario.owner);
     await page.getByLabel('CSI evidence reference').fill(`CSI-${scenario.csi}-DECISION`);
     await page.getByLabel('CSI review date').fill('2026-07-10');
     await expect(page.getByText('Constraint response complete.')).toBeVisible();
-    await page.getByRole('button', { name: 'Complete Baseline' }).click();
+    await page.getByRole('button', { name: 'Pass Software Completeness Checks' }).click();
 
     await expect(page).toHaveURL(/#report$/);
     await expect(page.getByText(new RegExp(`CSI ${scenario.csi} Constraint Response — Complete`))).toBeVisible();
@@ -292,7 +301,7 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
   await importFixture(page, {
     _format: 'se-tailoring-config',
     _version: '2.0',
-    semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
     projectInfo: { name: 'Output Sufficiency Gate Smoke' },
     metricScores,
     metricAssessments,
@@ -311,21 +320,21 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByRole('button', { name: /Complete Baseline/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Pass Software Completeness Checks/ })).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
-  await page.getByRole('button', { name: /Complete Baseline/ }).click();
+  await page.getByRole('button', { name: /Pass Software Completeness Checks/ }).click();
   await expect(page).toHaveURL(/#report$/);
-  await expect(page.getByText('Tailoring Report')).toBeVisible();
+  await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 });
 
-test('metric UI defaults to assessed scores, supports Unknown, and keeps imported N/A visible', async ({ page }) => {
+test('metric UI defaults to unreviewed previews, supports Unknown, and keeps imported N/A visible', async ({ page }) => {
   await page.goto('./');
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
   const m1Card = page.locator('.metric-item').filter({ hasText: 'Architectural Complexity' });
   const m1Unknown = page.getByLabel('Mark M1 Architectural Complexity as Unknown');
-  await expect(m1Card.getByText('Assessed 1–5 score')).toBeVisible();
+  await expect(m1Card.getByText('Unreviewed — preview 3')).toBeVisible();
   await expect(m1Unknown).not.toBeChecked();
   await m1Card.getByText('Justification note').click();
   await m1Card.getByLabel('Optional context for this score').fill('Neutral midpoint retained pending project-specific review.');
@@ -341,15 +350,15 @@ test('metric UI defaults to assessed scores, supports Unknown, and keeps importe
   const assessments = { ...metricAssessments, M7: { score: null, status: 'not-applicable', definitionVersion: 3, qualifiers: [], rationale: 'Legacy N/A', evidenceRefs: [] } };
   await importFixture(page, {
     _format: 'se-tailoring-config', _version: '2.0',
-    semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
     projectInfo: { name: 'Imported N-A Smoke' }, metricScores: scores, metricAssessments: assessments,
     processLevels, assessmentComplete: true
   }, 'imported-na.json');
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Safety & Criticality step' }).click();
-  await expect(page.getByText(/Imported N\/A cannot complete a current baseline/)).toBeVisible();
+  await expect(page.getByText(/Imported N\/A cannot pass software completeness/)).toBeVisible();
   const m7Card = page.locator('.metric-item').filter({ hasText: 'Environmental Impact' });
-  await expect(m7Card.getByText(/Imported N\/A cannot complete a current baseline/)).toBeVisible();
+  await expect(m7Card.getByText(/Imported N\/A cannot pass software completeness/)).toBeVisible();
   await expect(page.getByLabel('Mark M7 Environmental Impact as Unknown')).not.toBeChecked();
 });
 
