@@ -4,17 +4,18 @@
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
 import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
-import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, setElementAssessmentResult, markMetricManual } from '../state.js';
+import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, markMetricManual } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
-import { assessMetricCompleteness, getM15ScopeOptions } from '../utils/assessment-integrity.js';
+import { assessHierarchyCompleteness, assessMetricCompleteness, evaluateBaselineEligibility, getM15ScopeOptions } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
 import { propagateSafetyOverrides } from '../utils/inheritance-engine.js';
-import { renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
+import { renderOrdinalMetricProfile } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
+import { ASSESSOR_GUIDANCE, ASSESSOR_GUIDANCE_META } from '../data/generated-assessor-guidance.js';
 
 const STEPS = [
   { id: 'info', title: 'Project Info' },
@@ -27,6 +28,7 @@ const STEPS = [
 
 let currentStep = 0;
 let visitedSteps = new Set([0]);
+let assessmentViewMode = 'assess';
 let localScores = {};
 let localProject = {};
 let localMetricAssessments = {};
@@ -45,20 +47,12 @@ function makeMetricAssessment(metricId, updates = {}) {
     ...existing,
     ...updates,
     score: hasOwn(updates, 'score') ? updates.score : existing.score ?? localScores[metricId] ?? 3,
-    status: updates.status || existing.status || 'assessed',
+    status: updates.status || existing.status || 'unreviewed',
     definitionVersion: METRIC_DEFINITION_VERSION,
     qualifiers: Array.isArray(updates.qualifiers) ? updates.qualifiers : (existing.qualifiers || []),
     rationale: updates.rationale ?? existing.rationale ?? '',
     evidenceRefs: Array.isArray(updates.evidenceRefs) ? updates.evidenceRefs : (existing.evidenceRefs || [])
   };
-}
-
-function initializeMetricAssessments() {
-  METRICS.forEach(metric => {
-    if (!localMetricAssessments[metric.id]) {
-      localMetricAssessments[metric.id] = makeMetricAssessment(metric.id);
-    }
-  });
 }
 
 function persistAssessmentDraft() {
@@ -112,9 +106,16 @@ function isBasicExcluded(processId, scores, projectInfo = {}) {
   return { excluded: false, reason: null, minLevel: null };
 }
 
-export function renderAssessment(container) {
+export function renderAssessment(container, routeContext = null) {
   const isFreshLoad = !container.querySelector('.assessment-container');
   if (isFreshLoad) {
+    assessmentViewMode = ['review', 'issues'].includes(routeContext?.assessmentMode)
+      ? routeContext.assessmentMode
+      : 'assess';
+    if (assessmentViewMode !== 'assess') {
+      currentStep = STEPS.length - 1;
+      visitedSteps.add(currentStep);
+    }
     const state = getState();
     const activeNode = getActiveNode();
     // Load per-element scores if available, otherwise fall back to global
@@ -133,7 +134,6 @@ export function renderAssessment(container) {
         localScores[m.id] = 3;
       }
     });
-    initializeMetricAssessments();
   }
 
   const activeNode = getActiveNode();
@@ -156,12 +156,16 @@ export function renderAssessment(container) {
         </div>
       </div>` : ''}
       <div class="assessment-header">
-        <h2>${isHierarchical ? activeNodeName + ' — ' : ''}Assessment</h2>
+        <h2>${isHierarchical ? activeNodeName + ' — ' : ''}${assessmentViewMode === 'review' ? 'Review recommendations' : assessmentViewMode === 'issues' ? 'Resolve issues' : 'Assessment'}</h2>
         <p class="text-secondary">${isHierarchical
           ? `Scoring metrics for system element: ${activeNodeName} (${activeAssessmentType} assessment)`
-          : 'Score 16 metrics to get process-specific tailoring recommendations'}</p>
+          : assessmentViewMode === 'review'
+            ? 'Trace each provisional recommendation from ordinal judgment through floors, closure, and governed adjustments'
+            : assessmentViewMode === 'issues'
+              ? 'Work the unresolved completion and governance queue before passing software completeness checks'
+              : `Review ${METRICS.length} ordinal judgments to preview process-specific tailoring recommendations`}</p>
       </div>
-      <p class="assessment-guidance mb-lg">Set a 1–5 score for each metric. Scores drive the tailoring profile; optional justification notes are kept with the assessment record.</p>
+      <p class="assessment-guidance mb-lg">Each neutral midpoint is a preview only. Select or confirm an anchor before it counts as a reviewed judgment; optional justification notes stay with the pilot record.</p>
       <div class="step-progress">
         ${STEPS.map((s, i) => `
           <button class="step-dot ${visitedSteps.has(i) ? 'visited' : ''} ${i === currentStep ? 'current' : ''}" type="button" data-step="${i}" aria-label="Go to ${escapeHtml(s.title)} step" ${i === currentStep ? 'aria-current="step"' : ''}>
@@ -176,7 +180,7 @@ export function renderAssessment(container) {
         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
         <span class="step-indicator text-sm text-secondary">Step ${currentStep + 1} of ${STEPS.length}</span>
         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
-          ? completeness.complete ? 'Complete Baseline' : `Save Work in Progress (${completeness.completeCount}/16)`
+          ? completeness.complete ? 'Pass Software Completeness Checks' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
           : 'Next →'}</button>
       </div>
     </div>
@@ -198,15 +202,24 @@ export function renderAssessment(container) {
     .step-content { min-height: 400px; }
     .step-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
     .metric-group { margin-bottom: 24px; }
-    .metric-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; margin-bottom: 12px; transition: all 0.2s; }
+    .metric-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; margin-bottom: 12px; transition: border-color 0.2s; }
     .metric-item:hover { border-color: var(--border-medium); }
     .metric-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
     .metric-name { font-weight: 600; font-size: 15px; }
     .metric-id { font-size: 12px; font-weight: 700; color: var(--accent-primary-light); background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 4px; }
     .metric-score-display { font-size: 24px; font-weight: 800; min-width: 40px; text-align: center; transition: color 0.2s; }
-    .metric-anchors { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; font-size: 11px; color: var(--text-tertiary); margin-top: 6px; padding: 0 2px; }
-    .metric-anchors span { max-width: 48%; line-height: 1.35; }
-    .metric-anchors span:last-child { text-align: right; }
+    .metric-definition { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 12px; }
+    .metric-definition strong { color: var(--text-primary); }
+    .metric-anchor-choices { border: 0; padding: 0; margin: 0; display: grid; gap: 7px; }
+    .metric-anchor-card { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: start; gap: 9px; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 11px; cursor: pointer; background: var(--bg-secondary); }
+    .metric-anchor-card:hover { border-color: var(--border-medium); }
+    .metric-anchor-card:focus-within { outline: 3px solid color-mix(in srgb, var(--accent-primary) 35%, transparent); outline-offset: 2px; }
+    .metric-anchor-card.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-secondary)); }
+    .metric-anchor-card.preview { border-style: dashed; }
+    .metric-anchor-card input { margin-top: 4px; accent-color: var(--accent-primary); }
+    .metric-anchor-number { display: block; font-size: 18px; font-weight: 800; line-height: 1.1; }
+    .metric-anchor-text { display: block; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+    .metric-anchor-tag { font-size: 10px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
     .metric-description { font-size: 13px; color: var(--text-secondary); margin-top: 8px; padding: 6px 10px; background: rgba(99,102,241,0.05); border-radius: 6px; }
     .assessment-guidance { max-width: 680px; margin-inline: auto; color: var(--text-secondary); font-size: 13px; text-align: center; }
     .metric-assessment-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; }
@@ -223,6 +236,10 @@ export function renderAssessment(container) {
     .metric-justification[open] > summary::after, .metric-advanced[open] > summary::after { content: '−'; color: var(--accent-primary-light); }
     .metric-justification label { display: block; margin-top: 10px; color: var(--text-secondary); }
     .metric-justification-input { min-height: 74px; resize: vertical; }
+    .assessor-guidance { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+    .assessor-guidance > summary { cursor: pointer; color: var(--accent-primary-light); font-size: 12px; font-weight: 600; }
+    .assessor-guidance-grid { display: grid; gap: 7px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .result-guidance { max-width: 760px; color: var(--text-secondary); font-size: 13px; }
     .info-form { display: grid; gap: 16px; max-width: 500px; margin: 0 auto; }
     .form-group { display: flex; flex-direction: column; gap: 4px; }
@@ -238,12 +255,21 @@ export function renderAssessment(container) {
     .results-summary h4 { margin-bottom: 20px; }
     .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
     .results-summary .stat-value { font-size: 32px; }
-    .results-visual .spiderweb-figure { grid-template-columns: 1fr; gap: 12px; }
-    .results-visual .spiderweb-chart { max-width: 560px; }
+    .results-visual .ordinal-profile-note { margin-top: 0; }
     .results-breakdown { margin-top: 24px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card); }
     .results-breakdown > summary { padding: 16px 18px; cursor: pointer; color: var(--accent-primary-light); font-weight: 700; }
     .results-breakdown-body { padding: 0 18px 18px; }
-    @media (max-width: 760px) { .results-overview { grid-template-columns: 1fr; } .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .step-line { width: 10px; } .step-label { white-space: normal; text-align: center; max-width: 70px; } }
+    .action-queue { border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card); padding: 16px 18px; margin-bottom: 20px; }
+    .action-queue-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+    .action-queue-item { display: grid; grid-template-columns: minmax(160px,.7fr) auto minmax(220px,1.3fr); gap: 12px; align-items: start; padding: 9px 0; border-top: 1px solid var(--border-subtle); }
+    .action-queue-item:first-child { border-top: 0; }
+    .action-queue-status { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-warning); }
+    .action-queue-status.passed { color: var(--accent-success); }
+    .causality-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; margin-top: 10px; }
+    .causality-grid > div { padding: 7px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-secondary); }
+    .causality-grid dt { color: var(--text-tertiary); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .causality-grid dd { margin: 3px 0 0; font-size: 11px; font-weight: 700; }
+    @media (max-width: 760px) { .results-overview { grid-template-columns: 1fr; } .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .step-line { width: 10px; } .step-label { white-space: normal; text-align: center; max-width: 70px; } .action-queue-item { grid-template-columns: 1fr; gap: 3px; } .causality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
     .override-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .violation-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .fix-banner { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
@@ -343,8 +369,10 @@ function renderStep(container) {
     <div class="metric-group">
       ${dimMetrics.map(m => {
     const assessment = localMetricAssessments[m.id] || makeMetricAssessment(m.id);
+    const guidance = ASSESSOR_GUIDANCE[m.id];
     const val = localScores[m.id] ?? 3;
     const isUnknown = assessment.status === 'unknown';
+    const isUnreviewed = assessment.status === 'unreviewed';
     const isMigrationRequired = ['not-applicable', 'migration-required'].includes(assessment.status);
     const displayValue = isUnknown || isMigrationRequired ? '—' : val;
     const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
@@ -354,9 +382,11 @@ function renderStep(container) {
         ? 'Inherited score confirmed'
         : isMigrationRequired
           ? 'Reassessment required'
-          : 'Assessed 1–5 score';
+          : isUnreviewed
+            ? `Unreviewed — preview ${val}`
+            : 'Assessed 1–5 score';
     return `
-        <div class="metric-item">
+        <div class="metric-item" data-metric-id="${m.id}">
           <div class="metric-header">
             <div class="flex items-center gap-sm">
               <span class="metric-id">${m.id}</span>
@@ -367,17 +397,34 @@ function renderStep(container) {
               <div class="metric-score-display" id="score-${m.id}" style="color:${scoreColor}">${displayValue}</div>
             </div>
           </div>
-          <input type="range" class="range-slider" id="slider-${m.id}" min="1" max="5" step="1" value="${val}" aria-label="Score ${m.id}: ${escapeHtml(m.name)}" aria-describedby="desc-${m.id}">
-          <div class="metric-anchors">
-            <span>${m.anchors[1]}</span>
-            <span>${m.anchors[5]}</span>
-          </div>
-          <div class="metric-description" id="desc-${m.id}">${isUnknown ? 'Unknown — score 3 is used only to preview downstream behavior.' : isMigrationRequired ? 'Imported value needs a current 1–5 reassessment before it can be baselined.' : (m.anchors[val] || '')}</div>
+          <div class="metric-definition" id="guide-${m.id}"><strong>Definition:</strong> ${escapeHtml(guidance.definition)}<br><strong>Excludes:</strong> ${escapeHtml(guidance.exclusions)}</div>
+          <fieldset class="metric-anchor-choices" aria-describedby="guide-${m.id} desc-${m.id}">
+            <legend class="sr-only">Select one ordinal anchor for ${escapeHtml(m.id)} ${escapeHtml(m.name)}</legend>
+            ${[1, 2, 3, 4, 5].map(score => {
+              const selected = ['assessed', 'inherited-confirmed'].includes(assessment.status) && assessment.score === score;
+              const preview = isUnreviewed && val === score;
+              return `<label class="metric-anchor-card${selected ? ' selected' : ''}${preview ? ' preview' : ''}">
+                <input type="radio" class="metric-anchor-radio" name="metric-${m.id}" value="${score}" aria-label="${escapeHtml(m.id)} score ${score}: ${escapeHtml(guidance.anchors[score])}" ${selected ? 'checked' : ''}>
+                <span><span class="metric-anchor-number">${score}</span><span class="metric-anchor-text">${escapeHtml(guidance.anchors[score])}</span></span>
+                ${preview ? '<span class="metric-anchor-tag">Preview</span>' : ''}
+              </label>`;
+            }).join('')}
+          </fieldset>
+          <div class="metric-description" id="desc-${m.id}">${isUnknown ? 'Unknown — score 3 is used only to preview downstream behavior.' : isMigrationRequired ? 'Imported value needs a current 1–5 reassessment before software completeness can pass.' : isUnreviewed ? `Preview only: anchor ${val}. Select an anchor before this judgment counts as reviewed.` : `Confirmed anchor ${val}.`}</div>
           <div class="metric-assessment-meta mt-sm">
-            <span class="metric-status ${isUnknown ? 'unknown' : isMigrationRequired ? 'needs-review' : 'confirmed'}">${statusText}</span>
+            <span class="metric-status ${isUnknown || isUnreviewed ? 'unknown' : isMigrationRequired ? 'needs-review' : 'confirmed'}">${statusText}</span>
             <label class="metric-unknown-toggle"><input type="checkbox" class="metric-unknown" data-metric="${m.id}" aria-label="Mark ${m.id} ${escapeHtml(m.name)} as Unknown" ${isUnknown ? 'checked' : ''}> Unknown</label>
           </div>
-          ${assessment.status === 'not-applicable' ? '<div class="text-xs mt-sm" style="color:var(--accent-warning);">Imported N/A cannot complete a current baseline. Choose an assessed 1–5 score or explicitly record Unknown.</div>' : ''}
+          ${assessment.status === 'not-applicable' ? '<div class="text-xs mt-sm" style="color:var(--accent-warning);">Imported N/A cannot pass software completeness. Choose an assessed 1–5 score or explicitly record Unknown.</div>' : ''}
+          <details class="assessor-guidance mt-md">
+            <summary>Provisional assessor guidance · manual ${escapeHtml(ASSESSOR_GUIDANCE_META.manualVersion)}</summary>
+            <div class="assessor-guidance-grid">
+              <div><strong>Evidence examples:</strong> ${escapeHtml(guidance.evidenceExamples)}</div>
+              <div><strong>Counterexample:</strong> ${escapeHtml(guidance.counterexample)}</div>
+              <div><strong>Reassess when:</strong> ${escapeHtml(guidance.reassessWhen)}</div>
+              <div><strong>Status:</strong> provisional content-review instrument; not validated or frozen.</div>
+            </div>
+          </details>
           ${m.id === 'M15' ? renderAssuranceObligationControls() : ''}
           ${renderMetricJustificationControls(m.id)}
           <div class="metric-wizard hidden" id="wizard-${m.id}" style="display: none; margin-top: 12px; padding: 16px; background: rgba(99,102,241,0.05); border-radius: 8px; border: 1px solid var(--accent-primary-light);"></div>
@@ -386,13 +433,10 @@ function renderStep(container) {
     </div>
   `;
 
-  // Slider handlers
   dimMetrics.forEach(m => {
-    const slider = content.querySelector(`#slider-${m.id}`);
-    slider.addEventListener('input', (e) => {
-      setMetricScore(m.id, parseInt(e.target.value), content);
-    });
-
+    content.querySelectorAll(`input[name="metric-${m.id}"]`).forEach(input => input.addEventListener('change', event => {
+      setMetricScore(m.id, Number(event.target.value), content);
+    }));
     const wizardBtn = content.querySelector(`.wizard-btn[data-metric="${m.id}"]`);
     if (wizardBtn) {
       wizardBtn.addEventListener('click', () => startWizard(m.id, content));
@@ -403,7 +447,7 @@ function renderStep(container) {
     const metricId = input.dataset.metric;
     localMetricAssessments[metricId] = makeMetricAssessment(metricId, {
       score: input.checked ? null : (localScores[metricId] ?? 3),
-      status: input.checked ? 'unknown' : 'assessed'
+      status: input.checked ? 'unknown' : 'unreviewed'
     });
     renderAssessment(container);
   }));
@@ -447,8 +491,8 @@ function renderAssuranceObligationControls() {
       <div class="text-xs text-secondary mb-sm">M15≥4 activates assurance floors only when this record is confirmed, source-backed, and scoped to the affected process.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label class="text-xs">Assurance type<select class="select" id="assurance-type" aria-label="Primary assurance type">${floorTypes.map(item => `<option value="${item.id}" ${obligation.type === item.id ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>
-        <label class="text-xs" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="assurance-confirmed" ${obligation.bindingStatus === 'confirmed' ? 'checked' : ''}> Binding status confirmed</label>
-        <label class="text-xs">Named authority<input class="input" id="assurance-authority" aria-label="Named assurance authority" placeholder="Named authority" value="${escapeHtml(obligation.authority || '')}"></label>
+        <label class="text-xs" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="assurance-confirmed" ${obligation.bindingStatus === 'confirmed' ? 'checked' : ''}> Binding status asserted</label>
+        <label class="text-xs">Asserted authority role<input class="input" id="assurance-authority" aria-label="Asserted assurance authority role" placeholder="Asserted authority role (not verified)" value="${escapeHtml(obligation.authority || '')}"></label>
         <label class="text-xs">Source reference<input class="input" id="assurance-source" aria-label="Assurance source reference" placeholder="Instrument / source reference" value="${escapeHtml(obligation.sourceRef || '')}"></label>
       </div>
       <div class="text-xs mt-sm" style="margin-bottom:5px;color:var(--text-secondary);">Scope the obligation to every affected process. “Floor-capable” can enforce Standard; “driver-only” participates in derivation; “rule-severity only” can make the matching support warning mandatory without adding a metric driver or floor.</div>
@@ -475,7 +519,12 @@ function bindAssuranceControls(content) {
       localAssuranceObligations = [obligation, ...localAssuranceObligations.slice(1)];
       const qualifiers = new Set(localMetricAssessments.M15?.qualifiers || []);
       qualifiers.add(obligation.type);
-      localMetricAssessments.M15 = makeMetricAssessment('M15', { score: localScores.M15 ?? 3, status: 'assessed', qualifiers: [...qualifiers] });
+      const existingStatus = localMetricAssessments.M15?.status;
+      localMetricAssessments.M15 = makeMetricAssessment('M15', {
+        score: localScores.M15 ?? 3,
+        status: ['assessed', 'inherited-confirmed', 'unknown'].includes(existingStatus) ? existingStatus : 'unreviewed',
+        qualifiers: [...qualifiers]
+      });
     };
     assuranceInputs.forEach(id => content.querySelector(`#${id}`)?.addEventListener('change', update));
     content.querySelectorAll('.assurance-scope').forEach(input => input.addEventListener('change', update));
@@ -484,11 +533,19 @@ function bindAssuranceControls(content) {
 
 function setMetricScore(metricId, value, contentContainer) {
   const m = METRICS.find(x => x.id === metricId);
+  const guidance = ASSESSOR_GUIDANCE[metricId];
   const activeNode = getActiveNode();
   localScores[metricId] = value;
   localMetricAssessments[metricId] = makeMetricAssessment(metricId, { score: value, status: 'assessed' });
-  const slider = contentContainer.querySelector(`#slider-${metricId}`);
-  if (slider && slider.value != value) slider.value = value;
+  const metricItem = contentContainer.querySelector(`.metric-item[data-metric-id="${metricId}"]`);
+  metricItem?.querySelectorAll('.metric-anchor-card').forEach(card => {
+    const input = card.querySelector('.metric-anchor-radio');
+    const selected = Number(input?.value) === value;
+    if (input) input.checked = selected;
+    card.classList.toggle('selected', selected);
+    card.classList.remove('preview');
+    card.querySelector('.metric-anchor-tag')?.remove();
+  });
 
   const display = contentContainer.querySelector(`#score-${metricId}`);
   if (display) {
@@ -497,9 +554,8 @@ function setMetricScore(metricId, value, contentContainer) {
   }
 
   const desc = contentContainer.querySelector(`#desc-${metricId}`);
-  if (desc) desc.textContent = m.anchors[value] || '';
+  if (desc) desc.textContent = `Confirmed anchor ${value}: ${guidance?.anchors?.[value] || m.anchors[value] || ''}`;
 
-  const metricItem = slider?.closest('.metric-item');
   const status = metricItem?.querySelector('.metric-status');
   if (status) {
     status.className = 'metric-status confirmed';
@@ -516,6 +572,7 @@ function setMetricScore(metricId, value, contentContainer) {
 
 function startWizard(metricId, contentContainer) {
   const metric = METRICS.find(m => m.id === metricId);
+  const guidance = ASSESSOR_GUIDANCE[metricId];
   const wizardDiv = contentContainer.querySelector(`#wizard-${metricId}`);
   if (!wizardDiv) return;
 
@@ -526,14 +583,49 @@ function startWizard(metricId, contentContainer) {
 
   wizardDiv.style.display = 'block';
   let currentQ = 0;
+  const answers = [];
+
+  const renderRecommendation = () => {
+    const affirmativeScores = answers.filter(answer => answer.answer === 'yes').map(answer => answer.question.yesScore);
+    const recommendation = affirmativeScores.length ? Math.max(...affirmativeScores) : 1;
+    const higher = recommendation < 5
+      ? `Anchor ${recommendation + 1} was not selected because the recorded path did not support a higher-pressure indicator.`
+      : 'No higher adjacent anchor exists.';
+    const lower = recommendation > 1
+      ? `Anchor ${recommendation - 1} was not selected because at least one recorded indicator supports anchor ${recommendation}.`
+      : 'No lower adjacent anchor exists.';
+    wizardDiv.innerHTML = `
+      <div class="text-sm font-semibold mb-sm">Recommended anchor ${recommendation}</div>
+      <div class="text-xs text-secondary mb-md">${escapeHtml(guidance.anchors[recommendation])}</div>
+      <div class="text-xs mb-sm"><strong>Evidence path</strong></div>
+      <ol class="text-xs text-secondary" style="padding-left:18px;display:grid;gap:5px;">
+        ${answers.map(({ question, answer }) => `<li><strong>${answer === 'yes' ? 'Yes' : 'No'}:</strong> ${escapeHtml(question.text)}${answer === 'yes' ? ` — ${escapeHtml(question.rationale)}` : ''}</li>`).join('')}
+      </ol>
+      <div class="text-xs text-secondary mt-sm"><strong>Adjacent anchors:</strong> ${escapeHtml(lower)} ${escapeHtml(higher)}</div>
+      <div class="flex gap-sm mt-md" style="flex-wrap:wrap;">
+        <button class="btn btn-sm btn-primary confirm-wizard">Confirm anchor ${recommendation}</button>
+        <button class="btn btn-sm btn-outline edit-wizard">Edit anchors</button>
+        <button class="btn btn-sm btn-outline unknown-wizard">Mark Unknown</button>
+      </div>
+      <div class="text-xs text-secondary mt-sm">The recommendation does not create a judgment until you confirm it.</div>`;
+
+    wizardDiv.querySelector('.confirm-wizard').addEventListener('click', () => {
+      setMetricScore(metricId, recommendation, contentContainer);
+      wizardDiv.innerHTML = `<div class="text-sm font-semibold text-success">Anchor ${recommendation} confirmed.</div>`;
+    });
+    wizardDiv.querySelector('.edit-wizard').addEventListener('click', () => {
+      wizardDiv.style.display = 'none';
+      contentContainer.querySelector(`input[name="metric-${metricId}"]`)?.focus();
+    });
+    wizardDiv.querySelector('.unknown-wizard').addEventListener('click', () => {
+      const toggle = contentContainer.querySelector(`.metric-unknown[data-metric="${metricId}"]`);
+      if (toggle && !toggle.checked) toggle.click();
+    });
+  };
 
   const renderQ = () => {
     if (currentQ >= metric.guidedQuestions.length) {
-      setMetricScore(metricId, 1, contentContainer);
-      wizardDiv.innerHTML = `<div class="text-sm font-semibold mb-sm">Recommended Score: 1</div>
-                             <div class="text-xs text-secondary mb-md">You answered 'No' to all key indicators.</div>
-                             <button class="btn btn-sm btn-outline close-wizard">Done</button>`;
-      wizardDiv.querySelector('.close-wizard').addEventListener('click', () => wizardDiv.style.display = 'none');
+      renderRecommendation();
       return;
     }
 
@@ -548,14 +640,13 @@ function startWizard(metricId, contentContainer) {
     `;
 
     wizardDiv.querySelector('.yes-btn').addEventListener('click', () => {
-      setMetricScore(metricId, q.yesScore, contentContainer);
-      wizardDiv.innerHTML = `<div class="text-sm font-semibold text-success mb-sm">Recommended Score: ${q.yesScore}</div>
-                             <div class="text-xs text-secondary mb-md">Score automatically applied.</div>
-                             <button class="btn btn-sm btn-outline close-wizard">Done</button>`;
-      wizardDiv.querySelector('.close-wizard').addEventListener('click', () => wizardDiv.style.display = 'none');
+      answers.push({ question: q, answer: 'yes' });
+      currentQ++;
+      renderQ();
     });
 
     wizardDiv.querySelector('.no-btn').addEventListener('click', () => {
+      answers.push({ question: q, answer: 'no' });
       currentQ++;
       renderQ();
     });
@@ -634,6 +725,13 @@ function renderResults(content) {
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
   const processCard = (p) => {
     const level = result.levels[p.id] || 'basic';
+    const derivedLevel = result.derived?.[p.id] || 'basic';
+    const floorClosureLevel = result.normativeLevels?.[p.id] || level;
+    const manualAdjustment = state.manualAdjustments?.[p.id] || state.manualAdjustments?.[String(p.id)];
+    const governedAdjustment = manualAdjustment?.level
+      || (result.approvedRightSizedLevels?.[p.id] && result.approvedRightSizedLevels[p.id] !== floorClosureLevel
+        ? result.approvedRightSizedLevels[p.id]
+        : null);
     const detail = derivationDetails[p.id] || {};
     const drivers = getDriverAttribution(p.id, localScores, matrixMap, assessmentContext);
     const wasOverridden = result.overrides.some(o => o.processId === p.id);
@@ -653,6 +751,12 @@ function renderResults(content) {
       ${confidence === 'available-with-justification' ? '<div class="text-xs" style="color:var(--accent-warning)">Review and justify before choosing Comprehensive</div>' : ''}
       <div class="text-xs text-secondary mt-sm">Key input${triggerMetrics.includes(',') ? 's' : ''}: <strong>${escapeHtml(triggerMetrics)}</strong>${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</div>
       <div class="text-xs text-secondary">Support: <strong>${escapeHtml(confidenceLabel)}</strong></div>
+      <dl class="causality-grid" aria-label="Recommendation causality">
+        <div><dt>Derived</dt><dd>${escapeHtml(derivedLevel)}</dd></div>
+        <div><dt>Floor / closure</dt><dd>${escapeHtml(floorClosureLevel)}</dd></div>
+        <div><dt>Governed adjustment</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : '—'}</dd></div>
+        <div><dt>Final</dt><dd>${escapeHtml(level)}</dd></div>
+      </dl>
       <div class="drivers-list mt-sm">${drivers.slice(0, 3).map(d => `<div class="driver-item"><span class="driver-badge ${d.role === 'P' ? 'primary' : 'secondary'}">${d.role === 'P' ? 'Main' : 'Also'}</span><span>${escapeHtml(d.metric)}: ${escapeHtml(d.value)}</span></div>`).join('')}</div>
       <a class="btn btn-secondary btn-sm mt-sm process-detail-link" href="${escapeHtml(processDetailsHref(p.id, level, 'assessment'))}" aria-label="View ${escapeHtml(p.name)} ${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)} details">View guidance →</a>
     </div>`;
@@ -667,10 +771,81 @@ function renderResults(content) {
   const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id));
   const reviewFirst = priorityProcesses;
   const metricNotesCount = METRICS.filter(metric => String(localMetricAssessments?.[metric.id]?.rationale || '').trim()).length;
+  const hierarchyReadiness = assessHierarchyCompleteness(state.assessmentTree);
+  const softwareChecksReady = completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReadiness.complete;
+  const actionQueue = [
+    {
+      label: 'Baseline authority status',
+      status: softwareChecksReady ? 'software checks passed' : 'work in progress',
+      passed: softwareChecksReady,
+      detail: softwareChecksReady
+        ? 'Internal software checks can pass; external approval and operational authorization remain unverified.'
+        : 'This preview is not an authoritative organizational baseline.'
+    },
+    {
+      label: 'Unreviewed or Unknown metrics',
+      status: completeness.complete ? 'passed' : `${completeness.incompleteMetricIds.length} unresolved`,
+      passed: completeness.complete,
+      detail: completeness.complete ? `All ${METRICS.length} judgments are confirmed or inherited-confirmed.` : completeness.incompleteMetricIds.join(', ')
+    },
+    {
+      label: 'Critical floors',
+      status: activeFloors.length ? `${activeFloors.length} active` : 'none active',
+      passed: true,
+      detail: activeFloors.length ? 'Review each floor and its source condition below.' : 'No mandatory metric/context floors are active in this preview.'
+    },
+    {
+      label: 'Mandatory closure changes',
+      status: result.fixes.length ? `${result.fixes.length} applied` : 'none',
+      passed: true,
+      detail: result.fixes.length ? 'Dependency closure elevated one or more process levels.' : 'The profile already satisfies mandatory dependency closure.'
+    },
+    {
+      label: 'Warning dispositions',
+      status: warningDispositions.complete ? 'passed' : `${warningDispositions.incompleteRuleIds.length} unresolved`,
+      passed: warningDispositions.complete,
+      detail: warningDispositions.complete ? 'All triggered warnings are dispositioned.' : `Rules: ${warningDispositions.incompleteRuleIds.join(', ') || 'none identified'}`
+    },
+    {
+      label: 'CSI response',
+      status: csiReadiness.complete ? 'passed' : 'response required',
+      passed: csiReadiness.complete,
+      detail: csiReadiness.required ? `Constraint response at CSI ${csiReadiness.csi}.` : 'No special constraint response is triggered.'
+    },
+    {
+      label: 'Hierarchy exceptions',
+      status: hierarchyReadiness.complete ? 'passed' : `${hierarchyReadiness.incompleteElementIds.length} incomplete`,
+      passed: hierarchyReadiness.complete,
+      detail: hierarchyReadiness.enabled ? 'Advanced element mode is enabled.' : 'Advanced hierarchy mode is not enabled.'
+    },
+    {
+      label: 'Right-sizing proposals',
+      status: rightSizingProposals.length ? `${rightSizingProposals.length} proposed` : 'none',
+      passed: rightSizingProposals.length === 0,
+      detail: rightSizingProposals.length ? 'Each proposal needs an explicit governed decision; none is silently applied.' : 'No proposed reductions await disposition.'
+    },
+    {
+      label: 'Final process profile',
+      status: 'available for review',
+      passed: true,
+      detail: `${Object.values(result.levels).filter(level => level === 'basic').length} Basic, ${Object.values(result.levels).filter(level => level === 'standard').length} Standard, ${Object.values(result.levels).filter(level => level === 'comprehensive').length} Comprehensive.`
+    }
+  ];
+  const visibleActionQueue = assessmentViewMode === 'issues'
+    ? actionQueue.filter(item => !item.passed || item.label === 'Final process profile')
+    : actionQueue;
   content.innerHTML = `
+    <section class="action-queue" aria-labelledby="assessment-action-queue-title">
+      <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Unresolved action queue' : 'Assessment action queue'}</h3>
+      <p class="text-xs text-secondary mt-sm">Ordered from software state through governed decisions to the final profile. Software checks do not verify approval authority.</p>
+      <ol class="action-queue-list">
+        ${visibleActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
+      </ol>
+    </section>
     ${!completeness.complete ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
-      <strong>Work-in-progress preview — not a baseline</strong>
-      <div class="text-sm mt-sm">${completeness.incompleteMetricIds.length} metric judgment(s) remain unresolved: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}. Unknown or migrated values can preview behavior, but this profile cannot be baselined until they are resolved.</div>
+      <strong>Work in progress</strong>
+      <div class="text-sm mt-sm"><strong>${completeness.completeCount}/${completeness.totalCount} reviewed</strong></div>
+      <div class="text-sm mt-sm">${completeness.incompleteMetricIds.length} metric judgment(s) remain unresolved: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}. Unknown, unreviewed, or migrated values can preview behavior, but software completeness cannot pass until they are resolved.</div>
     </div>` : ''}
     ${correlatedEvidence.warningCount ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
       <strong>Correlated evidence review (${correlatedEvidence.warningCount})</strong>
@@ -679,13 +854,13 @@ function renderResults(content) {
     </div>` : ''}
     ${rule11Disposition.required ? `<fieldset class="mb-lg" style="border:2px solid ${rule11Disposition.complete ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
       <legend style="font-weight:700;padding:0 6px;">Rule 11 / P12 disposition ${rule11Disposition.complete ? '✓' : 'required'}</legend>
-      <div class="text-xs text-secondary mb-sm">Comprehensive Verification with Validation below Standard remains a warning, not an automatic elevation. Record the project disposition before baselining; the warning remains visible.</div>
+      <div class="text-xs text-secondary mb-sm">Comprehensive Verification with Validation below Standard remains a warning, not an automatic elevation. Record the project disposition before software completeness can pass; the warning remains visible.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <select class="select" id="rule11-outcome" aria-label="Rule 11 disposition outcome">
           <option value="">Select disposition...</option>
           ${RULE_11_OUTCOMES.map(option => `<option value="${option.id}" ${localRuleDispositions?.['11']?.outcome === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
         </select>
-        <input class="input" id="rule11-owner" aria-label="Rule 11 owner or approver" placeholder="Owner / approver" value="${escapeHtml(localRuleDispositions?.['11']?.ownerApprover || '')}">
+        <input class="input" id="rule11-owner" aria-label="Rule 11 asserted owner or approver role" placeholder="Asserted owner / approver role" value="${escapeHtml(localRuleDispositions?.['11']?.ownerApprover || '')}">
         <input class="input" id="rule11-evidence" aria-label="Rule 11 evidence reference" placeholder="Evidence reference" value="${escapeHtml(localRuleDispositions?.['11']?.evidenceRef || '')}">
         <input class="input" id="rule11-date" aria-label="Rule 11 review date" type="date" value="${escapeHtml(localRuleDispositions?.['11']?.reviewDate || '')}">
       </div>
@@ -693,12 +868,12 @@ function renderResults(content) {
       <div class="text-xs mt-sm" id="rule11-disposition-status" style="color:${rule11Disposition.complete || canApplyRule11Elevation ? 'var(--accent-success)' : 'var(--accent-warning)'};">${rule11Disposition.complete
         ? 'Disposition complete.'
         : canApplyRule11Elevation
-          ? 'Ready: completing the baseline will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure.'
+          ? 'Ready: passing software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
         : `Incomplete: ${escapeHtml(rule11Disposition.missingFields.join(', '))}${rule11Disposition.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`}</div>
     </fieldset>` : ''}
     ${generalWarningDispositions.length ? `<fieldset class="mb-lg" style="border:2px solid ${generalWarningDispositions.every(item => item.complete) ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
       <legend style="font-weight:700;padding:0 6px;">Other warning dispositions ${generalWarningDispositions.every(item => item.complete) ? '✓' : 'required'}</legend>
-      <div class="text-xs text-secondary mb-sm">Every triggered, unsatisfied warning must be consciously dispositioned before baselining. A disposition records governance only: it does not suppress the warning or change a process level.</div>
+      <div class="text-xs text-secondary mb-sm">Every triggered, unsatisfied warning must be consciously dispositioned before software completeness can pass. A disposition records governance only: it does not suppress the warning or change a process level.</div>
       ${generalWarningDispositions.map(assessment => {
         const id = escapeHtml(assessment.ruleId);
         const record = localRuleDispositions?.[assessment.ruleId] || {};
@@ -709,7 +884,7 @@ function renderResults(content) {
               <option value="">Select disposition...</option>
               ${GENERAL_WARNING_OUTCOMES.map(option => `<option value="${option.id}" ${record.outcome === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
             </select>
-            <input class="input warning-owner" aria-label="Rule ${id} owner or approver" placeholder="Owner / approver" value="${escapeHtml(record.ownerApprover || '')}">
+            <input class="input warning-owner" aria-label="Rule ${id} asserted owner or approver role" placeholder="Asserted owner / approver role" value="${escapeHtml(record.ownerApprover || '')}">
             <input class="input warning-evidence" aria-label="Rule ${id} evidence reference" placeholder="Evidence reference" value="${escapeHtml(record.evidenceRef || '')}">
             <input class="input warning-date" aria-label="Rule ${id} review date" type="date" value="${escapeHtml(record.reviewDate || '')}">
           </div>
@@ -728,7 +903,7 @@ function renderResults(content) {
       <textarea class="input mt-sm" id="csi-protected-outputs" aria-label="CSI protected outputs and evidence" rows="2" placeholder="Protected outputs/evidence that must not be reduced">${escapeHtml(localCsiResponse.protectedOutputs || '')}</textarea>
       <textarea class="input mt-sm" id="csi-rationale" aria-label="CSI rationale and decision" rows="2" placeholder="Feasibility rationale and decision">${escapeHtml(localCsiResponse.rationaleDecision || '')}</textarea>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" class="mt-sm">
-        <input class="input" id="csi-owner" aria-label="CSI owner or approver" placeholder="${csiReadiness.csi >= 5 ? 'Sponsor / approver' : 'Owner / approver'}" value="${escapeHtml(localCsiResponse.ownerApprover || '')}">
+        <input class="input" id="csi-owner" aria-label="CSI asserted owner or approver role" placeholder="Asserted ${csiReadiness.csi >= 5 ? 'sponsor / approver' : 'owner / approver'} role" value="${escapeHtml(localCsiResponse.ownerApprover || '')}">
         <input class="input" id="csi-evidence" aria-label="CSI evidence reference" placeholder="Evidence reference" value="${escapeHtml(localCsiResponse.evidenceRef || '')}">
         <input class="input" id="csi-date" aria-label="CSI review date" type="date" value="${escapeHtml(localCsiResponse.reviewDate || '')}">
       </div>
@@ -749,7 +924,7 @@ function renderResults(content) {
           ? `${reviewFirst.length} process${reviewFirst.length === 1 ? '' : 'es'} need focused review below.`
           : 'No priority process review is needed for this profile.'}</p>
       </section>
-      <section class="results-visual">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, { title: 'Assessment shape', description: 'Sixteen scores grouped across the four assessment dimensions.' })}</section>
+      <section class="results-visual">${renderOrdinalMetricProfile(localScores, localMetricAssessments, METRICS, DIMENSIONS)}</section>
     </div>
     ${reviewFirst.length ? `<section class="priority-guidance mb-lg"><h4 class="mb-md">Priority process guidance</h4><div class="results-grid">${reviewFirst.map(processCard).join('')}</div></section>` : ''}
     
@@ -839,12 +1014,12 @@ function renderResults(content) {
       completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
     } else if (!currentRule11Readiness.complete) {
       completeButton.textContent = currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')
-        ? 'Apply P27 Adjustment & Complete Baseline'
+        ? 'Apply P27 Adjustment & Pass Software Checks'
         : 'Save Work in Progress (Rule 11 disposition required)';
     } else if (!currentWarningReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
     } else {
-      completeButton.textContent = 'Complete Baseline';
+      completeButton.textContent = 'Pass Software Completeness Checks';
     }
   };
   content.querySelectorAll('.process-detail-link').forEach(link => {
@@ -879,7 +1054,7 @@ function renderResults(content) {
       statusNode.textContent = status.complete
         ? 'Disposition complete.'
         : readyToApplyElevation
-          ? 'Ready: completing the baseline will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure.'
+          ? 'Ready: passing software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
         : `Incomplete: ${status.missingFields.join(', ')}${status.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`;
     }
     updateCompleteButton();
@@ -989,7 +1164,37 @@ function finalizeAssessment(destinationHash = null) {
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
   const hierarchyReady = hierarchyInput.blockedMetrics.length === 0;
-  const canBaseline = effectiveResult.authoritative === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReady;
+  const existingHierarchy = assessHierarchyCompleteness(state.assessmentTree);
+  const otherIncompleteElementIds = existingHierarchy.incompleteElementIds.filter(elementId => elementId !== activeNode?.id);
+  const hierarchy = {
+    ...existingHierarchy,
+    complete: hierarchyReady && otherIncompleteElementIds.length === 0,
+    incompleteElementIds: hierarchyReady ? otherIncompleteElementIds : [...new Set([...otherIncompleteElementIds, activeNode?.id].filter(Boolean))]
+  };
+  const eligibility = evaluateBaselineEligibility({
+    ...state,
+    scores: localScores,
+    metricAssessments: localMetricAssessments,
+    violations: effectiveResult.violations,
+    ruleDispositions: localRuleDispositions,
+    levels: effectiveLevels,
+    csiResponse: localCsiResponse
+  }, { hierarchy, derivationAuthoritative: effectiveResult.authoritative === true });
+  const canBaseline = eligibility.softwareChecksPassed;
+  if (activeNode) {
+    activeNode.metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments ?? {}));
+    activeNode.assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations ?? []));
+    activeNode.ruleDispositions = JSON.parse(JSON.stringify(localRuleDispositions ?? {}));
+    activeNode.csiResponse = JSON.parse(JSON.stringify(localCsiResponse ?? {}));
+    activeNode.correlatedEvidenceWarnings = JSON.parse(JSON.stringify(correlatedEvidence.warnings ?? []));
+    activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(assessmentContext.rightSizingApprovalRecords ?? []));
+    activeNode.manualAdjustments = JSON.parse(JSON.stringify(manualAdjustments ?? {}));
+    activeNode.scores = { ...localScores };
+    activeNode.assessmentResult = effectiveResult;
+    activeNode.levels = { ...(effectiveResult.levels || {}) };
+    activeNode.status = canBaseline ? 'under_review' : 'draft';
+    activeNode.assessmentDisposition = canBaseline ? 'complete-baseline' : 'work-in-progress';
+  }
   // Store results globally (backward compat)
   setState({
     projectInfo: { ...localProject },
@@ -1029,21 +1234,9 @@ function finalizeAssessment(destinationHash = null) {
     assessmentDisposition: !navigationOnly && canBaseline ? 'complete-baseline' : 'work-in-progress'
   });
 
-  // Also store per-element (hierarchy)
-  if (activeNode) {
-    activeNode.metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments ?? {}));
-    activeNode.assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations ?? []));
-    activeNode.ruleDispositions = JSON.parse(JSON.stringify(localRuleDispositions ?? {}));
-    activeNode.csiResponse = JSON.parse(JSON.stringify(localCsiResponse ?? {}));
-    activeNode.correlatedEvidenceWarnings = JSON.parse(JSON.stringify(correlatedEvidence.warnings ?? []));
-    activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(assessmentContext.rightSizingApprovalRecords ?? []));
-    activeNode.manualAdjustments = JSON.parse(JSON.stringify(manualAdjustments ?? {}));
-    setElementScores(activeNode.id, { ...localScores });
-    setElementAssessmentResult(activeNode.id, effectiveResult);
-    if (navigationOnly) {
-      activeNode.status = 'draft';
-      activeNode.assessmentDisposition = 'work-in-progress';
-    }
+  if (activeNode && navigationOnly) {
+    activeNode.status = 'draft';
+    activeNode.assessmentDisposition = 'work-in-progress';
   }
 
   if (navigationOnly) {
@@ -1051,7 +1244,7 @@ function finalizeAssessment(destinationHash = null) {
     const destination = getCurrentRouteContext(destinationHash);
     navigateTo(destination.path, destination.params);
   } else if (canBaseline) {
-    showToast(`Assessment complete for "${activeNode?.name || 'Project'}"! Process levels calculated.`, 'success');
+    showToast(`Software completeness checks passed for "${activeNode?.name || 'Project'}". External approval is not verified.`, 'success');
     currentStep = 0;
     visitedSteps = new Set([0]);
     navigateTo('report');
@@ -1061,7 +1254,7 @@ function finalizeAssessment(destinationHash = null) {
     if (!warningDispositions.complete) remaining.push(`${warningDispositions.incompleteRuleIds.length} warning disposition(s)`);
     if (!csiReadiness.complete) remaining.push(`the CSI ${csiReadiness.csi} response`);
     if (!hierarchyReady) remaining.push(`${hierarchyInput.blockedMetrics.join('/')} child hierarchy disposition(s)`);
-    showToast(`Work in progress saved. Complete ${remaining.join(' and ')} before baselining.`, 'warning');
+    showToast(`Work in progress saved. Complete ${remaining.join(' and ')} before software completeness can pass.`, 'warning');
     renderAssessment(document.querySelector('.assessment-container')?.parentElement || document.getElementById('main-content'));
   }
 }

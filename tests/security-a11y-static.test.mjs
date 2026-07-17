@@ -75,8 +75,9 @@ test('assessment form controls expose explicit accessible names and button seman
 
   assert.match(text, /<button class="step-dot[^"]*"/, 'step navigation controls should be real buttons');
   assert.doesNotMatch(text, /<div class="step-dot/, 'step navigation should not use clickable divs');
-  assert.match(text, /aria-label="Score \$\{m\.id\}: \$\{escapeHtml\(m\.name\)\}"/, 'metric sliders need accessible labels');
-  assert.match(text, /aria-describedby="desc-\$\{m\.id\}"/, 'metric sliders should reference the current score description');
+  assert.match(text, /type="radio" class="metric-anchor-radio"/, 'metrics should expose discrete ordinal radio choices');
+  assert.match(text, /aria-label="\$\{escapeHtml\(m\.id\)\} score \$\{score\}:/, 'metric anchor radios need explicit accessible names');
+  assert.match(text, /aria-describedby="guide-\$\{m\.id\} desc-\$\{m\.id\}"/, 'metric anchor groups should reference guidance and current state');
 });
 
 test('vee lifecycle view provides non-visual table fallback', () => {
@@ -85,6 +86,20 @@ test('vee lifecycle view provides non-visual table fallback', () => {
   assert.match(text, /<table[^>]+class="[^"]*vee-fallback-table/, 'Vee view should render a table fallback');
   assert.match(text, /<caption>Vee lifecycle process table<\/caption>/, 'fallback table should identify its purpose');
   assert.match(text, /Open \$\{escapeHtml\(processName\(n\.processId\)\)\}/, 'fallback rows should expose process navigation actions');
+});
+
+test('pilot report stays visibly bounded and exposes a print-review stylesheet', () => {
+  const report = readFileSync(join(srcRoot, 'views', 'report.js'), 'utf8');
+  const styles = readFileSync(join(srcRoot, 'styles', 'index.css'), 'utf8');
+
+  assert.match(report, /Pilot record — not an authoritative organizational baseline/);
+  assert.match(report, /content:'PILOT \/ WIP'/);
+  assert.match(styles, /@media print/);
+  assert.match(styles, /details\.report-section:not\(\[open\]\) > :not\(summary\)/, 'print review should expose collapsed report sections');
+  assert.match(styles, /details\.report-section::details-content/, 'Chromium print review should expose the native details content wrapper');
+  assert.match(report, /addEventListener\('beforeprint', beforePrint\)/, 'print review should explicitly expand report disclosures before printing');
+  assert.match(report, /addEventListener\('afterprint', afterPrint\)/, 'print review should restore disclosure state after printing');
+  assert.match(styles, /\.data-table thead \{ display: table-header-group; \}/, 'long printed tables should repeat headings');
 });
 
 test('README verification wording distinguishes automated checks from manual browser smoke', () => {

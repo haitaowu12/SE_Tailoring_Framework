@@ -57,21 +57,3 @@ export const VEE_MGMT_PROCESSES = [
     { processId: 15, x: 55, y: -16, label: 'Measurement' },
     { processId: 16, x: 75, y: -16, label: 'Quality Assurance' }
 ];
-
-// Culture assessment data (from Symplifies SE)
-export const CULTURE_CHARACTERISTICS = [
-    { id: 1, name: 'Employee relationships', supportive: 'Support and encourage SE practices', tolerant: 'Encourage individuals to do what they think is best', resistant: 'Discourage SE as too bureaucratic' },
-    { id: 2, name: 'Engineer focus', supportive: 'Think broadly across the system', tolerant: 'Decide own focus', resistant: 'Focus narrowly on elements' },
-    { id: 3, name: 'Trade-offs', supportive: 'Systematic, documented', tolerant: 'At discretion of individual', resistant: 'Exclude viable options' },
-    { id: 4, name: 'Lessons learned', supportive: 'Analyzed and implemented across projects', tolerant: 'Kept by individuals', resistant: 'Rarely captured' },
-    { id: 5, name: 'Internal reviews', supportive: 'Routinely performed with checklists', tolerant: 'For significant cost impacts only', resistant: 'Discouraged for faster progress' },
-    { id: 6, name: 'Risk management', supportive: 'Systematically assessed and managed', tolerant: 'Individual initiative or informal', resistant: 'Not a focus of attention' },
-    { id: 7, name: 'Quality vs schedule', supportive: 'Continuously measured and monitored', tolerant: 'At discretion of individuals', resistant: 'Dictated by schedule/cost' },
-    { id: 8, name: 'Configuration control', supportive: 'Systematically done across system', tolerant: 'At discretion of individuals', resistant: 'Assumed to be okay' },
-    { id: 9, name: 'Interface management', supportive: 'Identified, owned, tested, managed', tolerant: 'At discretion of individuals', resistant: 'Not a focus of attention' },
-    { id: 10, name: 'New technology', supportive: 'Prototyped before production', tolerant: 'At discretion of individuals', resistant: 'Refused or embraced without understanding risks' },
-    { id: 11, name: 'Cross-subsystem problems', supportive: 'Cross-functional teams, defined processes', tolerant: 'Addressed by affected individuals', resistant: 'Quickest workaround' },
-    { id: 12, name: 'System-level V&V', supportive: 'Performed rigorously and systematically', tolerant: 'As individuals see fit', resistant: 'Limited to HW/SW level or verification only' },
-    { id: 13, name: 'Customer expectations', supportive: 'Managed pro-actively', tolerant: 'When individuals take initiative', resistant: 'Taken for granted' },
-    { id: 14, name: 'Openness to new methods', supportive: 'Piloted before widespread use', tolerant: 'Used by proactive individuals', resistant: 'Rare, reluctance to change' }
-];

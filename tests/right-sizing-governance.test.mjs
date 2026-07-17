@@ -38,7 +38,7 @@ const context = {
   activeFloors: [],
   normativeLevels: { 19: 'standard' },
   asOfDate: '2026-07-10',
-  frameworkVersion: '4.1.0',
+  frameworkVersion: '4.1.1',
   metricDefinitionSet: 'se-tailoring-m1-m16-v3'
 };
 
