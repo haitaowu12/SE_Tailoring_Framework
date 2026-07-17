@@ -1,7 +1,7 @@
 /**
  * SE Tailoring Model — Safety Assurance Methods Reference
- * _VERSION: 1.0 | _LAST_UPDATED: 2026-02
- * _SOURCE: 02-PRACTICAL/SA-Integration-Guide.md
+ * _CONTENT_SCHEMA_VERSION: 1.0 | _LAST_UPDATED: 2026-07-17
+ * _STATUS: Provisional reference-only content; not normative tailoring semantics or standards-conformance evidence.
  * 
  * Reference data for Safety Assurance (RAMS) analysis methods
  */

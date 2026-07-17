@@ -5,18 +5,18 @@
  * AI agents should update the individual data modules below.
  * This file re-exports everything for convenient import.
  *
- * Data modules and their explanatory documents:
+ * Data modules and their authority boundaries:
  *   processes.js       → 00-MASTER/SE-Tailoring-Model-Master-Index.md
- *   metrics.js         → 02-PRACTICAL/Assessment-Worksheet.md, Process-Metric-Applicability-Matrix.md
- *   process-details.js → 02-PRACTICAL/Process-Tailoring-Tables.md
+ *   metrics.js         → normative executable semantic registry
+ *   process-details.js → provisional authored implementation guidance
  *   vee-model-layout.js → Derived from process lifecycle positions
- *   sa-methods.js      → 02-PRACTICAL/SA-Integration-Guide.md
+ *   sa-methods.js      → provisional reference-only safety-method content
  *
  * _FRAMEWORK_VERSION: imported from metrics.js
  * _LAST_SYNC: 2026-07-16
  * _SYNC_CONTRACT:
  *   - Normative semantic registry: metrics.js
- *   - Paper and practitioner files explain or render registry semantics.
+ *   - The current paper, assessor manual, quick reference, and generated projection explain or render registry semantics.
  *   - Derivation model: max-tier with corroborated Comprehensive
  *   - Counts and identifiers below are computed from the normative registry.
  */

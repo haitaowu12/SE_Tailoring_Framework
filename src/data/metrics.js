@@ -3,8 +3,9 @@
  * _SEMANTIC_VERSION: 4.1.1 | _LAST_UPDATED: 2026-07-12
  * _SOURCE: This registry is authoritative for normative semantic fields.
  * _SYNC_CONTRACT:
- *   - 01-PAPER/03-Methodology.md explains the algorithm and map rationale.
- *   - 01-PAPER/06-Interdependencies.md explains override and rule rationale.
+ *   - 01-PAPER/SE-Tailoring-Framework-Conference-Methods-Paper-v4.1.1.md explains the current architecture and claim boundary.
+ *   - 00-MASTER/generated/semantic-projection.json is the generated human/machine projection.
+ *   - 02-PRACTICAL/Interdependency-Quick-Reference.md is an authored, parity-checked practitioner view.
  *   - Prose and practitioner views must not alter registry semantics.
  * 
  * CURRENT LOGIC:
@@ -519,7 +520,7 @@ export const METRICS = [
 // P/S designations are retained for traceability and corroboration logic.
 // The trigger tier uses all applicable metrics (P+S); a Comprehensive result
 // still requires corroboration before it becomes the default recommendation.
-// Source: 02-PRACTICAL/Process-Metric-Applicability-Matrix.md
+// Source: this normative registry; the generated semantic projection is exact-checked.
 // Semantic v4.1 note: M9 (Schedule Pressure) and M10 (Budget Constraints) are EXCLUDED
 // from process-level driving. High constraint scores mean "less budget/time available"
 // which should LIMIT rigor, not inflate it. M9/M10 feed into CSI (Constraint Stress
@@ -592,7 +593,7 @@ export const LEVEL_THRESHOLDS = Object.fromEntries(Object.entries(METRIC_PROCESS
 
 /**
  * Override Conditions (Process-Specific)
- * _SOURCE: 01-PAPER/06-Interdependencies.md §6.5, 02-PRACTICAL/Assessment-Worksheet.md
+ * _SOURCE: Normative registry decisions summarized in the current manuscript §3.5.
  * _SYNC_CONTRACT: Authoritative override baseline O1-O29, represented as process-specific floors.
  * 
  * CURRENT LOGIC:
@@ -619,7 +620,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M5=5 (fatality potential) requires comprehensive requirements rigor with formal hazard analysis integration',
         processes: [19],
         minLevel: 'comprehensive',
-        source: 'EN 50126/50129; IEC 61508; 01-PAPER/03-Methodology.md §3.4.4'
+        source: 'Framework policy summarized in the current manuscript §3.5; external standards are context, not direct score authority'
     },
     {
         id: 'life_safety_architecture',
@@ -911,7 +912,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M3≥4 requires traceable decisions for novel-technology trade-offs and uncertainty handling',
         processes: [11],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O16'
+        source: 'Framework policy summarized in the current manuscript §3.5'
     },
     {
         id: 'novel_tech_analysis',
@@ -931,7 +932,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M3≥4 requires stronger confirmation evidence for novel or unproven technology behavior',
         processes: [25],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O18'
+        source: 'Framework policy summarized in the current manuscript §3.5'
     },
     // =====================================================================
     // ENVIRONMENTAL OVERRIDES (M7-based)
@@ -944,7 +945,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M7=5 requires design choices to explicitly address environmental constraints',
         processes: [21],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O21'
+        source: 'Framework policy summarized in the current manuscript §3.5'
     },
     {
         id: 'env_critical_operation',
@@ -964,7 +965,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M7=5 requires maintenance discipline that preserves environmental compliance controls',
         processes: [29],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O23'
+        source: 'Framework policy summarized in the current manuscript §3.5'
     },
     {
         id: 'env_critical_disposal',
@@ -984,7 +985,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M7=5 requires traceable baselines for environmental obligations and constraints',
         processes: [13],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O25'
+        source: 'Framework policy summarized in the current manuscript §3.5'
     },
     {
         id: 'env_critical_info',
@@ -994,7 +995,7 @@ export const OVERRIDE_CONDITIONS = [
         description: 'M7=5 requires complete and retrievable environmental records',
         processes: [14],
         minLevel: 'standard',
-        source: '01-PAPER/06-Interdependencies.md §6.5 O26'
+        source: 'Framework policy summarized in the current manuscript §3.5'
     }
 ];
 
