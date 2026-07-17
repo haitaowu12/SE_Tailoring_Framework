@@ -4,7 +4,7 @@
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
 import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
-import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs, setElementScores, markMetricManual } from '../state.js';
+import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
 import { assessHierarchyCompleteness, assessMetricCompleteness, evaluateBaselineEligibility, getM15ScopeOptions } from '../utils/assessment-integrity.js';
@@ -55,21 +55,34 @@ function makeMetricAssessment(metricId, updates = {}) {
   };
 }
 
-function persistAssessmentDraft() {
+function commitAssessmentDraft({ manualMetricId = null } = {}) {
   const metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments));
   const assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations));
+  const ruleDispositions = JSON.parse(JSON.stringify(localRuleDispositions));
+  const csiResponse = JSON.parse(JSON.stringify(localCsiResponse));
   const scores = { ...localScores };
   const activeNode = getActiveNode();
   if (activeNode) {
+    activeNode.scores = { ...scores };
     activeNode.metricAssessments = JSON.parse(JSON.stringify(metricAssessments));
     activeNode.assuranceObligations = JSON.parse(JSON.stringify(assuranceObligations));
-    setElementScores(activeNode.id, scores);
+    activeNode.ruleDispositions = JSON.parse(JSON.stringify(ruleDispositions));
+    activeNode.csiResponse = JSON.parse(JSON.stringify(csiResponse));
+    if (manualMetricId && !(activeNode.manualMetrics || []).includes(manualMetricId)) {
+      activeNode.manualMetrics = [...(activeNode.manualMetrics || []), manualMetricId];
+    }
+    activeNode.status = 'draft';
+    activeNode.assessmentDisposition = 'work-in-progress';
   }
   setState({
     projectInfo: { ...localProject },
     scores,
     metricAssessments,
-    assuranceObligations
+    assuranceObligations,
+    ruleDispositions,
+    csiResponse,
+    assessmentComplete: false,
+    assessmentDisposition: 'work-in-progress'
   });
 }
 
@@ -265,6 +278,7 @@ export function renderAssessment(container, routeContext = null) {
     .action-queue-item:first-child { border-top: 0; }
     .action-queue-status { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-warning); }
     .action-queue-status.passed { color: var(--accent-success); }
+    .action-queue-status.neutral { color: var(--accent-primary-light); }
     .causality-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; margin-top: 10px; }
     .causality-grid > div { padding: 7px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-secondary); }
     .causality-grid dt { color: var(--text-tertiary); font-size: 9px; font-weight: 700; text-transform: uppercase; }
@@ -347,9 +361,11 @@ function renderStep(container) {
       </div>
     `;
     ['proj-name', 'proj-date', 'proj-team', 'proj-phase'].forEach(id => {
-      content.querySelector(`#${id}`).addEventListener('change', (e) => {
+      const input = content.querySelector(`#${id}`);
+      input.addEventListener(input.matches('select') ? 'change' : 'input', (e) => {
         const key = id.replace('proj-', '');
         localProject[key] = e.target.value;
+        commitAssessmentDraft();
       });
     });
     return;
@@ -449,12 +465,13 @@ function renderStep(container) {
       score: input.checked ? null : (localScores[metricId] ?? 3),
       status: input.checked ? 'unknown' : 'unreviewed'
     });
+    commitAssessmentDraft();
     renderAssessment(container);
   }));
   content.querySelectorAll('.metric-justification-input').forEach(input => input.addEventListener('input', () => {
     const metricId = input.dataset.metric;
     localMetricAssessments[metricId] = makeMetricAssessment(metricId, { rationale: input.value });
-    persistAssessmentDraft();
+    commitAssessmentDraft();
   }));
 }
 
@@ -525,8 +542,12 @@ function bindAssuranceControls(content) {
         status: ['assessed', 'inherited-confirmed', 'unknown'].includes(existingStatus) ? existingStatus : 'unreviewed',
         qualifiers: [...qualifiers]
       });
+      commitAssessmentDraft();
     };
-    assuranceInputs.forEach(id => content.querySelector(`#${id}`)?.addEventListener('change', update));
+    assuranceInputs.forEach(id => {
+      const input = content.querySelector(`#${id}`);
+      input?.addEventListener(input.matches('select, input[type="checkbox"]') ? 'change' : 'input', update);
+    });
     content.querySelectorAll('.assurance-scope').forEach(input => input.addEventListener('change', update));
   }
 }
@@ -534,9 +555,9 @@ function bindAssuranceControls(content) {
 function setMetricScore(metricId, value, contentContainer) {
   const m = METRICS.find(x => x.id === metricId);
   const guidance = ASSESSOR_GUIDANCE[metricId];
-  const activeNode = getActiveNode();
   localScores[metricId] = value;
   localMetricAssessments[metricId] = makeMetricAssessment(metricId, { score: value, status: 'assessed' });
+  commitAssessmentDraft({ manualMetricId: metricId });
   const metricItem = contentContainer.querySelector(`.metric-item[data-metric-id="${metricId}"]`);
   metricItem?.querySelectorAll('.metric-anchor-card').forEach(card => {
     const input = card.querySelector('.metric-anchor-radio');
@@ -564,10 +585,6 @@ function setMetricScore(metricId, value, contentContainer) {
   const unknownToggle = metricItem?.querySelector('.metric-unknown');
   if (unknownToggle) unknownToggle.checked = false;
 
-  // Track as manually set for the active element
-  if (activeNode) {
-    markMetricManual(activeNode.id, metricId);
-  }
 }
 
 function startWizard(metricId, contentContainer) {
@@ -820,8 +837,9 @@ function renderResults(content) {
     },
     {
       label: 'Right-sizing proposals',
-      status: rightSizingProposals.length ? `${rightSizingProposals.length} proposed` : 'none',
-      passed: rightSizingProposals.length === 0,
+      status: rightSizingProposals.length ? 'Decision available — non-blocking' : 'none',
+      passed: true,
+      neutral: rightSizingProposals.length > 0,
       detail: rightSizingProposals.length ? 'Each proposal needs an explicit governed decision; none is silently applied.' : 'No proposed reductions await disposition.'
     },
     {
@@ -839,7 +857,7 @@ function renderResults(content) {
       <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Unresolved action queue' : 'Assessment action queue'}</h3>
       <p class="text-xs text-secondary mt-sm">Ordered from software state through governed decisions to the final profile. Software checks do not verify approval authority.</p>
       <ol class="action-queue-list">
-        ${visibleActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
+        ${visibleActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
       </ol>
     </section>
     ${!completeness.complete ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
@@ -1042,6 +1060,7 @@ function renderResults(content) {
         reviewDate: content.querySelector('#rule11-date')?.value || ''
       }
     };
+    commitAssessmentDraft();
     const status = assessRule11Disposition(result.violations, localRuleDispositions, result.levels);
     const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
     const readyToApplyElevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && elevatedPreview.complete;
@@ -1077,6 +1096,7 @@ function renderResults(content) {
         reviewDate: section.querySelector('.warning-date')?.value || ''
       }
     };
+    commitAssessmentDraft();
     currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, result.levels);
     const assessment = currentWarningReadiness.assessments.find(item => item.ruleId === ruleId);
     const summary = section.querySelector('.warning-disposition-summary');
@@ -1099,6 +1119,7 @@ function renderResults(content) {
       evidenceRef: content.querySelector('#csi-evidence')?.value.trim() || '',
       reviewDate: content.querySelector('#csi-date')?.value || ''
     };
+    commitAssessmentDraft();
     currentCsiReadiness = assessCsiResponse(localScores, localCsiResponse);
     const statusNode = content.querySelector('#csi-response-status');
     if (statusNode) {

@@ -161,3 +161,19 @@ test('active safety floors are never exposed as approvable reduction forms', asy
   await expect(page.getByText('Active Mandatory Floors', { exact: true })).toBeVisible();
   await expect(page.getByText(/effective governed reduction approval/)).toHaveCount(0);
 });
+
+test('right-sizing proposals use a neutral non-blocking action-queue status', async ({ page }) => {
+  const config = currentConfig(makeScores(), 'Right-Sizing Action Queue E2E');
+  expect(config.rightSizingProposals.length).toBeGreaterThan(0);
+  await importFixture(page, config, 'right-sizing-action-queue.json');
+
+  await page.getByRole('button', { name: 'Assess', exact: true }).click();
+  await page.getByRole('button', { name: 'Go to Results step' }).click();
+  const queueItem = page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' });
+  await expect(queueItem).toContainText('Decision available — non-blocking');
+  await expect(queueItem.locator('.action-queue-status')).toHaveClass(/neutral/);
+  await expect(page.getByRole('button', { name: 'Pass Software Completeness Checks' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Resolve issues', exact: true }).click();
+  await expect(page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' })).toHaveCount(0);
+});
