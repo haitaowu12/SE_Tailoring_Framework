@@ -1,7 +1,7 @@
 /**
  * SE Tailoring Model — Process Activities & Deliverables
- * _VERSION: 4.0 | _LAST_UPDATED: 2026-07
- * _SOURCE: 02-PRACTICAL/Process-Tailoring-Tables.md
+ * _CONTENT_SCHEMA_VERSION: 1.0 | _LAST_UPDATED: 2026-07-17
+ * _STATUS: Provisional authored implementation guidance; non-normative and not professional-validity evidence.
  * 
  * Structure: { processId: { activities: {basic:[], standard:[], comprehensive:[]}, deliverables: {...}, outputs: [...] } }
  * Activities prefixed with (*) are essential/core even at Basic level.

@@ -5,7 +5,7 @@ export const PUBLICATION_CASES = {
     definitionSet: 'se-tailoring-m1-m16-v1',
     migrationStatus: 'reassessment-required',
     classification: 'constructed-illustrative-scenario',
-    source: '01-PAPER/07-Case-Studies.md §7.2',
+    source: '00-MASTER/ARCHIVE/pre-4.1.1/manuscript/07-Case-Studies.md §7.2',
     scores: {
       M1: 3, M2: 3, M3: 2, M4: 3,
       M5: 4, M6: 4, M7: 1, M8: 3,
@@ -22,7 +22,7 @@ export const PUBLICATION_CASES = {
     definitionSet: 'se-tailoring-m1-m16-v1',
     migrationStatus: 'reassessment-required',
     classification: 'constructed-illustrative-scenario',
-    source: '01-PAPER/07-Case-Studies.md §7.3',
+    source: '00-MASTER/ARCHIVE/pre-4.1.1/manuscript/07-Case-Studies.md §7.3',
     scores: {
       M1: 2, M2: 3, M3: 2, M4: 2,
       M5: 1, M6: 2, M7: 1, M8: 2,
