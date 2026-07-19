@@ -1,0 +1,142 @@
+on: { basic: 'Basic audits and reviews for compliance', standard: 'Structured assurance with evaluations per ISO 9001', comprehensive: 'Comprehensive program with trend analyses for proactive quality' },
+-        assumptions: 'QA limited to basic audits; non-conformances tracked informally.',
++        assumptions: 'QA limited to basic defined-criteria reviews; nonconformances are recorded with owners, actions, and closure status.',
+         whenToElevate: 'Elevate to Standard for regulated industries or quality-critical products.'
+     },
+     // --- Technical Processes (Core) ---
+diff --git a/src/main.js b/src/main.js
+index 1bd975c..5c14c81 100644
+--- a/src/main.js
++++ b/src/main.js
+@@ -20,6 +20,7 @@ import { renderSystemElements } from './views/system-elements.js';
+ import { escapeHtml } from './utils/safe-text.js';
+ import { FRAMEWORK_META } from './data/se-tailoring-data.js';
+ import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
++import { autosaveRestoreNotice, buildAutosaveImportConfig, isCurrentAutosaveSemantics } from './utils/autosave-restore.js';
+ 
+ const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
+ const PILOT_NOTICE_DISMISSED_KEY = 'se-tailoring-pilot-notice-dismissed';
+@@ -78,19 +79,19 @@ function buildNavbar() {
+       <button class="nav-link" data-route="issues">Resolve issues</button>
+       <button class="nav-link" data-route="report">Report</button>
+       <div class="nav-dropdown">
+-        <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Framework reference ▾</button>
+-        <div class="nav-dropdown-menu" role="menu">
+-          <button class="nav-link" data-route="processes" role="menuitem">Process Explorer</button>
+-          <button class="nav-link" data-route="vee-model" role="menuitem">Vee Model</button>
+-          <button class="nav-link" data-route="interdependency" role="menuitem">Dependencies</button>
+-          <button class="nav-link" data-route="matrix" role="menuitem">Matrix View</button>
+-          <button class="nav-link" data-route="elements" role="menuitem">System Elements (advanced)</button>
+-          <button class="nav-link" data-route="deliverables" role="menuitem">Reference Deliverables</button>
++        <button class="nav-dropdown-trigger" type="button" aria-expanded="false">Framework reference ▾</button>
++        <div class="nav-dropdown-menu">
++          <button class="nav-link" data-route="processes">Process Explorer</button>
++          <button class="nav-link" data-route="vee-model">Vee Model</button>
++          <button class="nav-link" data-route="interdependency">Dependencies</button>
++          <button class="nav-link" data-route="matrix">Matrix View</button>
++          <button class="nav-link" data-route="elements">System Elements (advanced)</button>
++          <button class="nav-link" data-route="deliverables">Reference Deliverables</button>
+         </div>
+       </div>
+     </div>
+-    <label class="mobile-route-select-label" for="mobile-route-select">Route</label>
+-    <select class="mobile-route-select" id="mobile-route-select" aria-label="Navigate app section">
++    <label class="mobile-route-select-label" for="mobile-route-select">Go to section</label>
++    <select class="mobile-route-select" id="mobile-route-select" aria-label="Go to section">
+       <option value="assessment">Assess</option>
+       <option value="review">Review recommendations</option>
+       <option value="issues">Resolve issues</option>
+@@ -109,12 +110,12 @@ function buildNavbar() {
+         aria-label="Know the author: Tony Wu, systems engineer and builder of this project"
+       >TW · About</a>
+       <div class="nav-dropdown session-menu">
+-        <button class="nav-dropdown-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Session actions">Session ▾</button>
+-        <div class="nav-dropdown-menu" role="menu">
+-          <button class="session-action" id="btn-import" data-session-action="import" type="button" role="menuitem">Import</button>
+-          <button class="session-action" id="btn-export" data-session-action="export" type="button" role="menuitem">Minimum-data Export</button>
+-          <button class="session-action" id="btn-diagnostics" data-session-action="diagnostics" type="button" role="menuitem">Diagnostics</button>
+-          <button class="session-action danger" id="btn-end-session" data-session-action="end-session" type="button" role="menuitem">End Session</button>
++        <button class="nav-dropdown-trigger" type="button" aria-expanded="false" aria-label="Session actions">Session ▾</button>
++        <div class="nav-dropdown-menu">
++          <button class="session-action" id="btn-import" data-session-action="import" type="button">Import</button>
++          <button class="session-action" id="btn-export" data-session-action="export" type="button">Minimum-data Export</button>
++          <button class="session-action" id="btn-diagnostics" data-session-action="diagnostics" type="button">Diagnostics</button>
++          <button class="session-action danger" id="btn-end-session" data-session-action="end-session" type="button">End Session</button>
+         </div>
+       </div>
+     </div>
+@@ -149,25 +150,13 @@ function buildNavbar() {
+             if (event.key === 'Escape') {
+                 closeMenu();
+                 trigger.focus();
+-            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+-                event.preventDefault();
+-                dropdown.classList.add('open');
+-                trigger.setAttribute('aria-expanded', 'true');
+-                const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
+-                (event.key === 'ArrowDown' ? items[0] : items.at(-1))?.focus();
+             }
+         });
+         dropdown.addEventListener('keydown', event => {
+-            const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
+-            const index = items.indexOf(document.activeElement);
+             if (event.key === 'Escape') {
+                 event.preventDefault();
+                 closeMenu();
+                 trigger?.focus();
+-            } else if (index >= 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+-                event.preventDefault();
+-                const direction = event.key === 'ArrowDown' ? 1 : -1;
+-                items[(index + direction + items.length) % items.length]?.focus();
+             }
+         });
+         dropdown.addEventListener('focusout', () => {
+@@ -175,7 +164,7 @@ function buildNavbar() {
+                 if (!dropdown.contains(document.activeElement)) closeMenu();
+             }, 0);
+         });
+-        dropdown.querySelectorAll('[role="menuitem"]').forEach(item => item.addEventListener('click', closeMenu));
++        dropdown.querySelectorAll('.nav-dropdown-menu button, .nav-dropdown-menu a').forEach(item => item.addEventListener('click', closeMenu));
+     });
+     document.addEventListener('pointerdown', event => {
+         if (!navbar.contains(event.target)) {
+@@ -373,7 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
+     window.addEventListener('app:storage-failure', event => showStorageFailure(event.detail?.operation || 'storage operation'));
+     buildNavbar();
+     buildPilotNotice();
+-    initRouter(document.getElementById('main-content'));
++    const mainContent = document.getElementById('main-content');
++    document.querySelector('.skip-link')?.addEventListener('click', event => {
++        event.preventDefault();
++        mainContent.focus();
++    });
++    initRouter(mainContent);
+ 
+     const saved = loadAutosave();
+     if (saved && (saved.assessmentComplete || saved.assessmentDisposition || Object.keys(saved.scores || {}).length > 0)) {
+@@ -385,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
+         overlay.setAttribute('aria-labelledby', 'autosave-restore-title');
+         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
+         overlay.innerHTML = `
+-            <div style="background:var(--bg-card);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
++            <div style="background:var(--bg-secondary);border:1px solid var(--border-medium);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+                 <div class="modal-kicker">Saved session</div>
+                 <h3 id="autosave-restore-title" style="margin-bottom:8px;">Saved Assessment Work Found</h3>
+                 <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">Auto-saved ${saved.assessmentComplete ? 'baseline work' : 'work in progress'} from <strong>${escapeHtml(savedDate)}</strong> was found in this browser. Restore it only if this is your session.</p>
+@@ -400,39 +394,14 @@ document.addEventListener('DOMContentLoaded', () => {
+         document.addEventListener('keydown', handleRestoreKeydown);
+ 
+         overlay.querySelector('#btn-restore-yes').addEventListener('click', () => {
+-            const isCurrentSemanticAutosave = saved.semantics?.metricDefinitionSet === FRAMEWORK_META.metricDefinitionSet;
++            const isCurrentSemanticAutosave = isCurrentAutosaveSemantics(saved);
++            let normalizedRestore = null;
+             if (!isCurrentSemanticAutosave) {
+-                setState(normalizeImportedConfig({
+-                    _format: 'se-tailoring-config',
+-                    _version: '1.1',
+-                    projectInfo: saved.projectInfo || {},
+-                    metricScores: saved.scores || {},
+-                    processLevels: saved.levels || {},
+-                    derivedLevels: saved.derived || {},
+-                    derivationDetails: saved.derivationDetails || {},
+-                    overrides: saved.overrid
