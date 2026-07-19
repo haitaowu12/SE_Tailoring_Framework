@@ -1,7 +1,7 @@
 /**
  * Export/Import — Configuration management (JSON)
  */
-import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from './report-visuals.js';
+import { renderOrdinalMetricProfile } from './report-visuals.js';
 import { escapeHtml, safeText } from './safe-text.js';
 import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION, METRIC_QUALIFIER_DEFINITIONS } from '../data/metrics.js';
 import { assessMetricCompleteness, getAssessmentDisposition, preserveUnconfirmedMetricAssessments } from './assessment-integrity.js';
@@ -20,7 +20,7 @@ const VALID_ASSESSMENT_TYPES = new Set(['full', 'quick', 'inherited']);
 const VALID_ELEMENT_STATUSES = new Set(['draft', 'under_review', 'approved', 'baselined']);
 const VALID_MATRIX_ROLES = new Set(['P', 'S']);
 const VALID_SA_TIERS = new Set(['I', 'II', 'III']);
-const VALID_METRIC_ASSESSMENT_STATUSES = new Set(['assessed', 'inherited-confirmed', 'unknown', 'not-applicable', 'legacy-unconfirmed', 'migration-required']);
+const VALID_METRIC_ASSESSMENT_STATUSES = new Set(['unreviewed', 'assessed', 'inherited-confirmed', 'unknown', 'not-applicable', 'legacy-unconfirmed', 'migration-required']);
 const VALID_M8_QUALIFIERS = new Set(METRIC_QUALIFIER_DEFINITIONS.M8.map(item => item.id));
 const VALID_M15_QUALIFIERS = new Set(METRIC_QUALIFIER_DEFINITIONS.M15.map(item => item.id));
 
@@ -279,7 +279,14 @@ function makeDefaultAssessmentTree(config, finalLevels, manualAdjustments) {
 
 function isCurrentSemanticConfig(config) {
     return config?._version === '2.0' &&
-        config?.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID;
+        config?.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID &&
+        config?.semantics?.frameworkVersion === FRAMEWORK_SEMANTIC_VERSION;
+}
+
+function isCoherencePredecessorConfig(config) {
+    return config?._version === '2.0' &&
+        config?.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID &&
+        config?.semantics?.frameworkVersion === '4.1.0';
 }
 
 function isV4PredecessorConfig(config) {
@@ -287,6 +294,28 @@ function isV4PredecessorConfig(config) {
 }
 
 function buildLegacySemanticMigration(config) {
+    if (isCoherencePredecessorConfig(config)) {
+        return {
+            fromFrameworkVersion: '4.1.0',
+            toFrameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
+            fromDefinitionSet: METRIC_DEFINITION_SET_ID,
+            toDefinitionSet: METRIC_DEFINITION_SET_ID,
+            status: 'review-required',
+            reason: 'completion-contract-coherence',
+            reassessmentMetrics: [...VALID_METRIC_IDS],
+            originalMetricScores: clonePlain(config.metricScores, {}),
+            preservedLegacyResult: {
+                processLevels: clonePlain(config.processLevels, {}),
+                derivedLevels: clonePlain(config.derivedLevels, {}),
+                overrides: clonePlain(config.overrides, []),
+                derivationStatus: clonePlain(config.derivationStatus || config.confidence, {})
+            },
+            warnings: [
+                'Version 4.1.0 could not distinguish untouched neutral defaults from explicit judgments.',
+                'All 16 scores are preserved for audit and preview but must be explicitly reconfirmed before software completeness can pass under 4.1.1.'
+            ]
+        };
+    }
     if (isV4PredecessorConfig(config)) {
         return {
             fromDefinitionSet: 'se-tailoring-m1-m16-v2',
@@ -300,7 +329,7 @@ function buildLegacySemanticMigration(config) {
                 overrides: clonePlain(config.overrides, []),
                 derivationStatus: clonePlain(config.derivationStatus || config.confidence, {})
             },
-            warnings: ['M3 requires reassessment under the application/configuration-aware definition before a current baseline can be approved.']
+            warnings: ['M3 requires reassessment under the application/configuration-aware definition before software completeness can pass.']
         };
     }
     const originalMetricScores = {
@@ -342,6 +371,22 @@ function normalizeMetricAssessments(config, legacyMigration) {
         }
         return normalized;
     }
+    if (legacyMigration?.reason === 'completion-contract-coherence') {
+        const normalized = preserveUnconfirmedMetricAssessments(
+            config.metricScores || {},
+            clonePlain(config.metricAssessments, {})
+        );
+        for (const metricId of VALID_METRIC_IDS) {
+            const assessment = normalized[metricId];
+            if (!assessment || !['assessed', 'inherited-confirmed', 'legacy-unconfirmed'].includes(assessment.status)) continue;
+            normalized[metricId] = {
+                ...assessment,
+                status: 'legacy-unconfirmed',
+                migrationNote: '4.1.0 interaction provenance is unavailable; explicitly reconfirm this anchor under the 4.1.1 completion contract.'
+            };
+        }
+        return normalized;
+    }
     const old = config.metricScores || {};
     if (legacyMigration?.reassessmentMetrics?.length === 1 && legacyMigration.reassessmentMetrics[0] === 'M3') {
         const normalized = preserveUnconfirmedMetricAssessments(old, clonePlain(config.metricAssessments, {}));
@@ -374,13 +419,14 @@ function normalizeMetricAssessments(config, legacyMigration) {
 
 export function normalizeImportedConfig(config, fallbackTree = null) {
     const currentSemantics = isCurrentSemanticConfig(config);
+    const coherencePredecessor = isCoherencePredecessorConfig(config);
     const v4Predecessor = isV4PredecessorConfig(config);
-    const structurallyCompatible = currentSemantics || v4Predecessor;
+    const structurallyCompatible = currentSemantics || coherencePredecessor || v4Predecessor;
     const semanticMigration = currentSemantics ? clonePlain(config.semanticMigration, null) : buildLegacySemanticMigration(config);
     const metricScores = { ...(config.metricScores || {}) };
     if (v4Predecessor) {
         delete metricScores.M3;
-    } else if (!currentSemantics) {
+    } else if (!currentSemantics && !coherencePredecessor) {
         delete metricScores.M6;
         delete metricScores.M8;
         delete metricScores.M15;
@@ -402,6 +448,18 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
             if (!isPlainObject(node)) continue;
             node.scores = { ...(node.scores || {}) };
             node.metricAssessments = preserveUnconfirmedMetricAssessments(node.scores, node.metricAssessments || {});
+            if (coherencePredecessor) {
+                for (const metricId of reassessmentMetrics) {
+                    const assessment = node.metricAssessments[metricId];
+                    if (!assessment || !['assessed', 'inherited-confirmed', 'legacy-unconfirmed'].includes(assessment.status)) continue;
+                    node.metricAssessments[metricId] = {
+                        ...assessment,
+                        status: 'legacy-unconfirmed',
+                        migrationNote: 'Explicit reconfirmation required under the 4.1.1 completion contract.'
+                    };
+                }
+                continue;
+            }
             for (const metricId of reassessmentMetrics) {
                 const legacyScore = node.scores[metricId] ?? node.metricAssessments?.[metricId]?.score ?? null;
                 delete node.scores[metricId];
@@ -489,9 +547,14 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         proposalClosureFixes: config.proposalClosureFixes || [],
         proposalBudgetStatus: config.proposalBudgetStatus || null,
         rightSizingApprovalEvaluations: config.rightSizingApprovalEvaluations || [],
-        approvedRightSizedLevels: config.approvedRightSizedLevels || {},
+        locallyAdjustedLevels: config.locallyAdjustedLevels || config.approvedRightSizedLevels || {},
+        localScenarioClosureFixes: config.localScenarioClosureFixes || [],
+        localScenarioBudgetStatus: config.localScenarioBudgetStatus || null,
+        locallyCompleteRightSizingRecordCount: Number(config.locallyCompleteRightSizingRecordCount) || Number(config.effectiveRightSizingApprovalCount) || 0,
+        // Historical authority fields are migrated into a separate unverified local scenario.
+        approvedRightSizedLevels: {},
         normativeLevels: config.normativeLevels || rootNode?.levels || finalLevels,
-        effectiveRightSizingApprovalCount: Number(config.effectiveRightSizingApprovalCount) || 0,
+        effectiveRightSizingApprovalCount: 0,
         rightSizingActions: config.rightSizingActions || [],
         budgetStatus: config.budgetStatus || null,
         adoptionRisks: config.adoptionRisks || [],
@@ -499,13 +562,11 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         tradeoffs: config.tradeoffs || [],
         matrixMap: config.matrixMap || null,
         assessmentTree,
-        cultureType: config.cultureType || null,
         saTier: config.saTier || null,
         indices: config.indices || {},
         notes: config.notes || '',
         derivationStatus: config.derivationStatus || config.confidence || {},
         confidence: config.confidence || config.derivationStatus || {},
-        deliverablesChecked: config.deliverablesChecked || [],
         assessmentComplete: currentSemantics && config.assessmentComplete === true && assessMetricCompleteness(metricScores, metricAssessments).complete && assessWarningDispositions(config.violations, ruleDispositions, rootNode?.levels || finalLevels).complete && assessCsiResponse(metricScores, csiResponse).complete,
         assessmentDisposition: config.assessmentDisposition === 'demo'
             ? 'demo'
@@ -604,6 +665,12 @@ function reduceConfigToMinimumData(config) {
         proposalClosureFixes: [],
         rightSizingApprovalRecords: [],
         rightSizingApprovalEvaluations: [],
+        locallyAdjustedLevels: {},
+        localScenarioClosureFixes: [],
+        localScenarioBudgetStatus: null,
+        locallyCompleteRightSizingRecordCount: 0,
+        approvedRightSizedLevels: {},
+        effectiveRightSizingApprovalCount: 0,
         rightSizingActions: [],
         adoptionRisks: [],
         manualAdjustments: {},
@@ -612,7 +679,6 @@ function reduceConfigToMinimumData(config) {
         assessmentComplete: false,
         assessmentDisposition: 'work-in-progress',
         assessmentIntegrity: { complete: false, reason: 'minimum-data-export-omits-governance-evidence' },
-        deliverablesChecked: [],
         notes: ''
     };
 }
@@ -665,9 +731,14 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
         proposalBudgetStatus: state.proposalBudgetStatus || null,
         rightSizingApprovalRecords: state.rightSizingApprovalRecords || [],
         rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations || [],
-        approvedRightSizedLevels: state.approvedRightSizedLevels || {},
+        locallyAdjustedLevels: state.locallyAdjustedLevels || {},
+        localScenarioClosureFixes: state.localScenarioClosureFixes || [],
+        localScenarioBudgetStatus: state.localScenarioBudgetStatus || null,
+        locallyCompleteRightSizingRecordCount: state.locallyCompleteRightSizingRecordCount || 0,
+        // The static app never exports browser-local assertions as verified approval.
+        approvedRightSizedLevels: {},
         normativeLevels: state.normativeLevels || state.levels || {},
-        effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount || 0,
+        effectiveRightSizingApprovalCount: 0,
         // Retained only when present in an imported historical record.
         rightSizingActions: state.rightSizingActions || [],
         budgetStatus: state.budgetStatus || null,
@@ -676,7 +747,6 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
         tradeoffs: state.tradeoffs || [],
         matrixMap: state.matrixMap || null,
         assessmentTree,
-        cultureType: state.cultureType || null,
         saTier: state.saTier || null,
         indices: state.indices || {},
         derivationStatus: state.derivationStatus || state.confidence || {},
@@ -693,7 +763,6 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
             warningDispositions: integrity.warningDispositions,
             csiResponse: integrity.csiResponse
         },
-        deliverablesChecked: state.deliverablesChecked || [],
         notes: state.notes || ''
     };
     return resolvedMode === 'minimum-data' ? reduceConfigToMinimumData(config) : config;
@@ -785,7 +854,7 @@ export function validateConfig(config) {
         validateLevelMap(config.processLevels, 'processLevels', errors);
     }
 
-    for (const field of ['saResponses', 'derivedLevels', 'manualAdjustments', 'derivationDetails', 'matrixMap', 'assessmentTree', 'saTier', 'indices', 'confidence', 'derivationStatus', 'semantics', 'metricAssessments', 'semanticMigration', 'assessmentIntegrity', 'proposedRightSizedLevels', 'approvedRightSizedLevels', 'normativeLevels', 'proposalBudgetStatus', 'ruleDispositions', 'csiResponse']) {
+    for (const field of ['saResponses', 'derivedLevels', 'manualAdjustments', 'derivationDetails', 'matrixMap', 'assessmentTree', 'saTier', 'indices', 'confidence', 'derivationStatus', 'semantics', 'metricAssessments', 'semanticMigration', 'assessmentIntegrity', 'proposedRightSizedLevels', 'locallyAdjustedLevels', 'approvedRightSizedLevels', 'normativeLevels', 'proposalBudgetStatus', 'localScenarioBudgetStatus', 'ruleDispositions', 'csiResponse']) {
         if (config[field] !== undefined && config[field] !== null && !isPlainObject(config[field])) {
             errors.push(`${field} must be an object`);
         }
@@ -795,7 +864,8 @@ export function validateConfig(config) {
     errors.push(...validateCsiResponse(config.csiResponse));
     errors.push(...validateRightSizingApprovalRecords(config.rightSizingApprovalRecords));
 
-    for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations']) {
+    // deliverablesChecked remains accepted and validated only for legacy import compatibility; it is ignored by normalization and never re-exported.
+    for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'localScenarioClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations']) {
         if (config[field] !== undefined && !Array.isArray(config[field])) {
             errors.push(`${field} must be an array`);
         }
@@ -804,9 +874,11 @@ export function validateConfig(config) {
     if (config._version === '2.0') {
         const current = config.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID
             && config.semantics?.frameworkVersion === FRAMEWORK_SEMANTIC_VERSION;
+        const coherencePredecessor = config.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID
+            && config.semantics?.frameworkVersion === '4.1.0';
         const v4Predecessor = config.semantics?.metricDefinitionSet === 'se-tailoring-m1-m16-v2'
             && config.semantics?.frameworkVersion === '4.0.0';
-        if (!current && !v4Predecessor) errors.push('Unsupported metric definition set or framework semantic version');
+        if (!current && !coherencePredecessor && !v4Predecessor) errors.push('Unsupported metric definition set or framework semantic version');
     }
 
     if (isPlainObject(config.metricAssessments)) {
@@ -1027,6 +1099,10 @@ export function validateConfig(config) {
 /** Generate HTML report */
 export function generateReport(state, data) {
     state = buildPilotSafeExportState(state);
+    const integrity = getAssessmentDisposition(state);
+    if (!integrity.complete) {
+        throw new Error('Completed-baseline report generation is unavailable until every eligibility gate passes.');
+    }
     const {
         projectInfo = {},
         scores = {},
@@ -1039,12 +1115,13 @@ export function generateReport(state, data) {
         confidence = {},
         adoptionRisks = [],
         ruleDispositions = {},
-        csiResponse = {}
+        csiResponse = {},
+        locallyAdjustedLevels = {}
     } = state;
-    const integrity = getAssessmentDisposition(state);
     const safeScores = scores || {};
     const safeLevels = levels || {};
     const safeDerived = derived || {};
+    const safeLocalScenarioLevels = locallyAdjustedLevels || {};
     const safeDerivationDetails = derivationDetails || {};
     const safeConfidence = confidence || {};
     const processMap = {};
@@ -1066,7 +1143,15 @@ export function generateReport(state, data) {
     const projectTeam = safeText(projectInfo.team, '—');
     const projectPhase = safeText(projectInfo.phase, '—');
 
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>SE Tailoring Report - ${escapeHtml(projectName)}</title>
+    const gateLabel = status => ({
+        passed: 'Passed',
+        incomplete: 'Incomplete',
+        'not-implemented': 'Not implemented',
+        'not-recorded': 'Not recorded',
+        'not-available': 'Not available'
+    }[status] || status);
+
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pilot Tailoring Record - ${escapeHtml(projectName)}</title>
 <style>
 body{font-family:Inter,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:40px;color:#1e293b;line-height:1.6}
 h1{color:#4f46e5;border-bottom:3px solid #6366f1;padding-bottom:10px}
@@ -1082,40 +1167,25 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 .violation{background:#fee2e2;border-left:3px solid #ef4444;padding:8px 12px;margin:5px 0;font-size:13px}
 .info{background:#f0f9ff;border-left:3px solid #3b82f6;padding:8px 12px;margin:10px 0;font-size:13px}
 .scope-note{background:#eff6ff;border-left:3px solid #3b82f6;padding:10px 12px;margin:16px 0;font-size:12px;color:#475569}
+.pilot-banner{background:#fff7ed;border:2px solid #f59e0b;padding:12px 14px;margin:16px 0;font-size:13px}
+.gate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0}.gate{border:1px solid #e2e8f0;border-radius:8px;padding:9px}.gate strong,.gate small{display:block}.gate small{color:#64748b}
 .report-overview-panel{border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:24px 0;background:#f8fafc}
-.spiderweb-figure{display:grid;grid-template-columns:260px 1fr;gap:18px;align-items:center;margin:0}
-.spiderweb-copy h4{margin:0 0 6px;color:#1e293b}
-.spiderweb-copy p,.spiderweb-figure figcaption{font-size:12px;color:#64748b;margin:0}
-.spiderweb-chart{width:100%;max-width:460px}
-.spiderweb-quadrant{fill:#ffffff}
-.spiderweb-quadrant.q1{fill:#fff1f2}.spiderweb-quadrant.q2{fill:#fffbeb}.spiderweb-quadrant.q3{fill:#f0fdfa}.spiderweb-quadrant.q4{fill:#faf5ff}
-.spiderweb-quadrant-line,.spiderweb-axis{stroke:#cbd5e1;stroke-width:1}
-.spiderweb-ring{fill:none;stroke:#cbd5e1;stroke-width:1}.spiderweb-ring-mid{stroke:#64748b;stroke-width:1.4}
-.spiderweb-profile{fill:rgba(14,165,233,.16);stroke:#0f766e;stroke-width:2}
-.spiderweb-point{fill:#0f766e;stroke:#fff;stroke-width:2}.spiderweb-metric-label,.spiderweb-scale-label{fill:#475569;font-size:11px;font-weight:700}.spiderweb-dimension-label{fill:#334155;font-size:12px;font-weight:800}
-.dimension-pattern-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
-.dimension-pattern-card{border-top:3px solid var(--dimension-color);background:#fff;border-radius:8px;padding:10px}
-.dimension-pattern-heading{font-size:12px;font-weight:700;color:#334155}.dimension-pattern-range{font-size:24px;font-weight:900;color:var(--dimension-color);line-height:1.1}.dimension-pattern-meta,.dimension-pattern-drivers{font-size:11px;color:#64748b}.dimension-pattern-drivers{display:flex;flex-direction:column;margin-top:5px}
+.ordinal-profile{display:grid;gap:24px}.ordinal-profile-note{font-size:12px;color:#64748b}.ordinal-dimension-group{border-top:3px solid var(--dimension-color);padding-top:12px}.ordinal-metric-row{border-top:1px solid #e2e8f0;padding:12px 0}.ordinal-metric-heading{display:flex;justify-content:space-between;gap:12px;font-size:13px}.ordinal-state{border:1px solid #cbd5e1;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}.ordinal-state.confirmed,.ordinal-state.inherited{color:#047857}.ordinal-state.unknown{color:#b45309}.ordinal-anchor-scale{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;list-style:none;margin:8px 0 0;padding:0}.ordinal-anchor{border:1px solid #e2e8f0;border-radius:6px;padding:6px;background:#fff}.ordinal-anchor.selected{border:2px solid var(--dimension-color)}.ordinal-anchor-number{font-weight:800}.ordinal-anchor-marker{display:none}.ordinal-anchor-label{display:block;font-size:9px;line-height:1.3;color:#475569;margin-top:4px}
 @media print{body{padding:20px}h1{font-size:24px}}
-@media (max-width:720px){.spiderweb-figure{grid-template-columns:1fr}.dimension-pattern-grid{grid-template-columns:1fr 1fr}}
+@media (max-width:720px){.ordinal-anchor-scale{grid-template-columns:1fr}}
 </style></head><body>
-<h1>SE Process Tailoring Report</h1>
-${!integrity.complete ? `<div class="violation"><strong>WORK-IN-PROGRESS PREVIEW — NOT A BASELINE</strong><br>${integrity.completeCount}/16 metric judgments are confirmed. Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', ') || 'semantic/governance review')}.</div>` : ''}
-<div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} (ISO/IEC/IEEE 15288:2023)</div>
+<h1>Pilot Tailoring Record</h1>
+<div class="pilot-banner"><strong>PILOT RECORD — NOT AN AUTHORITATIVE ORGANIZATIONAL BASELINE</strong><br>Software completeness checks passed. External approval not verified.</div>
+<div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} · Standards-informed process architecture</div>
 <div class="info"><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</div>
-<div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers 22 project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.</div>
+<div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.</div>
+<div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div>
 <table><tr><td><strong>Project</strong>: ${escapeHtml(projectName)}</td><td><strong>Date</strong>: ${escapeHtml(projectDate)}</td></tr>
 <tr><td><strong>Team</strong>: ${escapeHtml(projectTeam)}</td><td><strong>Phase</strong>: ${escapeHtml(projectPhase)}</td></tr></table>
 
 <h2>Assessment Overview</h2>
 <div class="report-overview-panel">
-    ${renderMetricSpiderwebSvg(safeScores, data.METRICS, data.DIMENSIONS, {
-    title: 'Assessment overview',
-    description: 'Sixteen metric scores plotted across four framework dimensions.'
-})}
-<div class="dimension-pattern-grid">
-${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
-</div>
+    ${renderOrdinalMetricProfile(safeScores, state.metricAssessments, data.METRICS, data.DIMENSIONS)}
 </div>
 
 <h2>Metric Scores</h2><table><tr><th>Metric</th><th>Score</th><th>Description</th></tr>`;
@@ -1138,10 +1208,11 @@ ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
         html += `<h2>CSI ${csiReadiness.csi} Constraint Response</h2><div class="${csiReadiness.complete ? 'info' : 'violation'}"><strong>${csiReadiness.complete ? 'Response complete' : 'Response incomplete'}</strong><br>Governance: ${escapeHtml(csiReadiness.expectedResponseType)}<br>Actions: ${escapeHtml(record.selectedActions.join(', ') || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Rationale/decision: ${escapeHtml(record.rationaleDecision || '—')}<br>Owner/approver: ${escapeHtml(record.ownerApprover || '—')}<br>Evidence reference: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br><em>This response does not alter process levels or accept right-sizing proposals.</em></div>`;
     }
 
-    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metrics</th><th>Evidence Status</th><th>Level</th></tr>';
+    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Pilot profile</th><th>Local reduction scenario</th><th>Trigger Metrics</th><th>Evidence Status</th><th>Level</th></tr>';
     for (const p of data.CORE_PROCESSES) {
         const d = safeDerived[p.id] || 'basic';
         const f = safeLevels[p.id] || 'basic';
+        const localScenario = safeLocalScenarioLevels[p.id] || f;
         const detail = safeDerivationDetails[p.id] || {};
         const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
             ? detail.triggerMetrics.join(', ')
@@ -1154,12 +1225,12 @@ ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
                     ? 'Floor applied'
                     : 'Supported by drivers/rules';
         const changed = d !== f ? ' ⬆️' : '';
-        html += `<tr><td>${p.id}. ${escapeHtml(p.name)}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${escapeHtml(triggerMetrics)}</td><td>${confidenceLabel}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
+        html += `<tr><td>${p.id}. ${escapeHtml(p.name)}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${localScenario !== f ? `<span class="badge ${localScenario}">${localScenario}</span><br><small>Unverified local scenario</small>` : '—'}</td><td>${escapeHtml(triggerMetrics)}</td><td>${confidenceLabel}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
     }
     html += '</table>';
 
     if ((state.rightSizingApprovalRecords || []).length > 0) {
-        html += '<h2>Right-Sizing Approval Governance</h2><div class="info">Approval records are role-based, snapshot-bound, time-limited, and rechecked against mandatory closure. They cannot override mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
+        html += '<h2>Right-Sizing Asserted Decision Records</h2><div class="info">These browser-local records capture asserted roles but cannot authenticate identities or verify external approval. A structurally complete record can produce a separately labelled local scenario after mandatory closure; it never changes the pilot process profile or overrides mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
         for (const record of state.rightSizingApprovalRecords) {
             const evaluation = (state.rightSizingApprovalEvaluations || [])
                 .find(item => Number(item.proposal?.processId) === Number(record.processId));
@@ -1167,7 +1238,7 @@ ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
             const authorities = Object.entries(record.approvals || {})
                 .map(([role, approval]) => `${role}: ${approval.identity || '—'} (${approval.authorityBasis || '—'})`)
                 .join('; ');
-            html += `<div class="${assessed?.valid ? 'info' : 'violation'}"><strong>Process ${escapeHtml(record.processId)}: ${escapeHtml(record.from)} → ${escapeHtml(record.to)} — ${escapeHtml(assessed?.status || 'not-current')}</strong><br>Rationale: ${escapeHtml(record.rationale || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Residual risks: ${escapeHtml(record.residualRisks || '—')}<br>Risk acceptance owner: ${escapeHtml(record.riskAcceptanceOwner || '—')}<br>Compensating controls: ${escapeHtml(record.compensatingControls || '—')}<br>Rejected alternatives: ${escapeHtml(record.rejectedAlternatives || '—')}<br>Authorities: ${escapeHtml(authorities || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br>Snapshot: ${escapeHtml(record.snapshot || '—')}${assessed?.reasons?.length ? `<br>Invalidation reasons: ${escapeHtml(assessed.reasons.join(', '))}` : ''}</div>`;
+            html += `<div class="${assessed?.locallyComplete ? 'info' : 'violation'}"><strong>Process ${escapeHtml(record.processId)}: ${escapeHtml(record.from)} → ${escapeHtml(record.to)} — ${escapeHtml(assessed?.status || 'not-current')}</strong><br>Rationale: ${escapeHtml(record.rationale || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Residual risks: ${escapeHtml(record.residualRisks || '—')}<br>Asserted risk acceptance owner: ${escapeHtml(record.riskAcceptanceOwner || '—')}<br>Compensating controls: ${escapeHtml(record.compensatingControls || '—')}<br>Rejected alternatives: ${escapeHtml(record.rejectedAlternatives || '—')}<br>Asserted authorities: ${escapeHtml(authorities || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br>Snapshot: ${escapeHtml(record.snapshot || '—')}${assessed?.reasons?.length ? `<br>Invalidation reasons: ${escapeHtml(assessed.reasons.join(', '))}` : ''}</div>`;
         }
     }
 
@@ -1194,16 +1265,16 @@ ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
     }
 
     if (rule11Disposition.required) {
-        html += `<h2>Rule 11 / P12 Disposition</h2><div class="${rule11Disposition.complete ? 'info' : 'violation'}"><strong>${rule11Disposition.complete ? 'Disposition complete' : 'Disposition incomplete'}</strong><br>Outcome: ${escapeHtml(rule11Record?.outcome || '—')}<br>Rationale / controls: ${escapeHtml(rule11Record?.rationale || '—')}<br>Owner / approver: ${escapeHtml(rule11Record?.ownerApprover || '—')}<br>Evidence: ${escapeHtml(rule11Record?.evidenceRef || '—')}<br>Review date: ${escapeHtml(rule11Record?.reviewDate || '—')}<br><em>The Rule 11 warning remains visible; this record does not create automatic closure.</em></div>`;
+        html += `<h2>Rule 11 / P12 Disposition</h2><div class="${rule11Disposition.complete ? 'info' : 'violation'}"><strong>${rule11Disposition.complete ? 'Disposition complete' : 'Disposition incomplete'}</strong><br>Outcome: ${escapeHtml(rule11Record?.outcome || '—')}<br>Rationale / controls: ${escapeHtml(rule11Record?.rationale || '—')}<br>Asserted owner / approver role: ${escapeHtml(rule11Record?.ownerApprover || '—')}<br>Evidence: ${escapeHtml(rule11Record?.evidenceRef || '—')}<br>Review date: ${escapeHtml(rule11Record?.reviewDate || '—')}<br><em>The Rule 11 warning remains visible; this record does not create automatic closure.</em></div>`;
     }
 
     const generalWarningAssessments = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
     if (generalWarningAssessments.length > 0) {
-        html += '<h2>Governed Warning Dispositions</h2><div class="info">Every triggered, unsatisfied warning requires a disposition before baselining. Dispositions document governance only; they do not elevate process levels or remove the warning.</div>';
+        html += '<h2>Governed Warning Dispositions</h2><div class="info">Every triggered, unsatisfied warning requires a disposition before software completeness can pass. Dispositions document governance only; they do not elevate process levels or remove the warning.</div>';
         for (const assessment of generalWarningAssessments) {
             const record = assessment.record || {};
             const outcomeLabel = GENERAL_WARNING_OUTCOMES.find(option => option.id === record.outcome)?.label || record.outcome || '—';
-            html += `<div class="${assessment.complete ? 'info' : 'violation'}"><strong>Rule ${escapeHtml(assessment.ruleId)} — ${assessment.complete ? 'Disposition complete' : 'Disposition incomplete'}</strong><br>Outcome: ${escapeHtml(outcomeLabel)}<br>Rationale / controls: ${escapeHtml(record.rationale || '—')}<br>Owner / approver: ${escapeHtml(record.ownerApprover || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br><em>The warning remains visible and no process level is changed by this record.</em></div>`;
+            html += `<div class="${assessment.complete ? 'info' : 'violation'}"><strong>Rule ${escapeHtml(assessment.ruleId)} — ${assessment.complete ? 'Disposition complete' : 'Disposition incomplete'}</strong><br>Outcome: ${escapeHtml(outcomeLabel)}<br>Rationale / controls: ${escapeHtml(record.rationale || '—')}<br>Asserted owner / approver role: ${escapeHtml(record.ownerApprover || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br><em>The warning remains visible and no process level is changed by this record.</em></div>`;
         }
     }
 
@@ -1214,7 +1285,7 @@ ${renderDimensionPatternCards(scores, data.METRICS, data.DIMENSIONS)}
         }
     }
 
-    html += `<hr><p style="font-size:12px;color:#94a3b8">Generated by SE Tailoring Model App on ${now}. Built by <a href="https://haitaowu12.github.io/tony-wu-home/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
+    html += `<hr><p style="font-size:12px;color:#94a3b8">Generated as a pilot research record by SE Tailoring Model App on ${now}. External approval not verified. Built by <a href="https://haitaowu12.github.io/tony-wu-home/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);

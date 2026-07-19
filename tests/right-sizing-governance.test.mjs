@@ -38,7 +38,7 @@ const context = {
   activeFloors: [],
   normativeLevels: { 19: 'standard' },
   asOfDate: '2026-07-10',
-  frameworkVersion: '4.1.0',
+  frameworkVersion: '4.1.1',
   metricDefinitionSet: 'se-tailoring-m1-m16-v3'
 };
 
@@ -92,13 +92,18 @@ test('role requirements are based on reduction depth, protected involvement, and
   assert.equal(findNearestCommonGoverningBoundary(tree, ['a1', 'a']), 'a');
 });
 
-test('complete role-based record becomes effective and applies only the approved proposal', () => {
+test('complete browser-local record creates an unverified scenario without changing normative levels', () => {
   const record = approvedRecord();
   const assessment = assessRightSizingApproval(record, baseProposal, context);
   assert.equal(assessment.valid, true);
+  assert.equal(assessment.locallyComplete, true);
+  assert.equal(assessment.externallyVerified, false);
+  assert.equal(assessment.status, 'locally-complete-unverified');
   const evaluated = evaluateRightSizingApprovals([baseProposal], [record], context);
-  assert.equal(evaluated.effectiveCount, 1);
-  assert.equal(evaluated.levels[19], 'basic');
+  assert.equal(evaluated.effectiveCount, 0);
+  assert.equal(evaluated.locallyCompleteCount, 1);
+  assert.equal(evaluated.levels[19], 'standard');
+  assert.equal(evaluated.scenarioLevels[19], 'basic');
 });
 
 test('approval expires and any relevant assessment change invalidates its snapshot', () => {
@@ -156,7 +161,7 @@ test('import validation rejects malformed approval containers and decisions', ()
   assert.ok(errors.some(error => error.includes('approvals must be an object')));
 });
 
-test('full engine applies a current approval then re-runs mandatory closure', () => {
+test('full engine re-closes a local scenario without applying it to the normative profile', () => {
   const scores = Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 5]));
   Object.assign(scores, { M1: 1, M2: 1, M4: 1, M5: 1, M6: 1, M7: 1, M8: 1, M11: 1, M12: 1, M16: 5 });
   const first = runFullAssessment(scores, undefined, { activeElementId: 'root', assessmentTree: tree });
@@ -186,7 +191,10 @@ test('full engine applies a current approval then re-runs mandatory closure', ()
     assessmentTree: tree,
     rightSizingApprovalRecords: [record]
   });
-  assert.equal(second.effectiveRightSizingApprovalCount, 1);
-  assert.equal(second.levels[proposal.processId], proposal.proposedTo);
+  assert.equal(second.effectiveRightSizingApprovalCount, 0);
+  assert.equal(second.locallyCompleteRightSizingRecordCount, 1);
+  assert.equal(second.levels[proposal.processId], proposal.from);
+  assert.equal(second.normativeLevels[proposal.processId], proposal.from);
+  assert.equal(second.locallyAdjustedLevels[proposal.processId], proposal.proposedTo);
   assert.equal(second.violations.filter(violation => violation.type === 'HC').length, 0);
 });

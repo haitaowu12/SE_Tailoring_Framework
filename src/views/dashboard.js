@@ -3,6 +3,7 @@ import { FRAMEWORK_META, CORE_PROCESSES, DIMENSIONS, ACTIVE_CONSISTENCY_RULES } 
 import { getState, getElementCount } from '../state.js';
 import { navigateTo } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
+import { assessMetricCompleteness } from '../utils/assessment-integrity.js';
 
 export function renderDashboard(container) {
     const state = getState();
@@ -11,18 +12,21 @@ export function renderDashboard(container) {
     const basicCount = Object.values(state.levels || {}).filter(level => level === 'basic').length;
     const standardCount = Object.values(state.levels || {}).filter(level => level === 'standard').length;
     const comprehensiveCount = Object.values(state.levels || {}).filter(level => level === 'comprehensive').length;
+    const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
 
     container.innerHTML = `
       ${state.semanticMigration?.status === 'review-required' ? `<section class="card migration-notice">
         <strong>Older assessment needs review</strong>
-        <p class="text-sm text-secondary mt-sm">This record used older definitions for Mission and Operations, Security Consequence, and External Assurance. Review those three answers before approving a current baseline.</p>
+        <p class="text-sm text-secondary mt-sm">${state.semanticMigration?.reason === 'completion-contract-coherence'
+          ? `This 4.1.0 record could not prove which neutral values were explicitly reviewed. Its scores remain available for preview, but all ${FRAMEWORK_META.metricCount} anchors must be reconfirmed before software completeness can pass.`
+          : `This record used an older semantic contract. Reassess ${escapeHtml((state.semanticMigration?.reassessmentMetrics || []).join(', ') || 'the flagged metrics')} before software completeness can pass.`}</p>
       </section>` : ''}
 
       <section class="dashboard-hero animate-fade-in-up">
-        <div class="hero-badge">Version ${FRAMEWORK_META.version} · aligned with ${FRAMEWORK_META.standard}</div>
+        <div class="hero-badge">Version ${FRAMEWORK_META.version} · Standards-informed process architecture</div>
         <p class="hero-kicker">Systems engineering process tailoring</p>
         <h1>Right-size the work.<br><span>Keep the reasoning visible.</span></h1>
-        <p class="hero-subtitle">Answer 16 project questions and get clear guidance for 22 systems engineering processes. A neutral score of 3 is a valid starting judgment; change only what is different for your project.</p>
+        <p class="hero-subtitle">Review ${FRAMEWORK_META.metricCount} provisional ordinal judgments and inspect recommendations for ${FRAMEWORK_META.coreProcessCount} systems engineering processes. Neutral score 3 is preview-only until explicitly confirmed.</p>
         <div class="hero-actions">
           <button class="btn btn-primary btn-lg" id="btn-start-assessment">${hasAssessment ? 'Continue assessment' : 'Start assessment'}</button>
           <button class="btn btn-secondary btn-lg" id="btn-explore">Explore process guidance</button>
@@ -30,15 +34,15 @@ export function renderDashboard(container) {
         <div class="framework-facts" aria-label="Framework scope">
           <span><strong>${FRAMEWORK_META.metricCount}</strong> project questions</span>
           <span><strong>${FRAMEWORK_META.coreProcessCount}</strong> process recommendations</span>
-          <span><strong>3</strong> tailoring levels</span>
+          <span><strong>${FRAMEWORK_META.tailoringLevels.length}</strong> tailoring levels</span>
         </div>
       </section>
 
       ${hasAssessment ? `<section class="card current-work animate-fade-in-up stagger-2">
         <div>
-          <span class="eyebrow">${state.assessmentComplete ? 'Completed assessment' : 'Work in progress'}</span>
+          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : 'Work in progress'}</span>
           <h2>${projectName}</h2>
-          <p class="text-sm text-secondary mt-sm">${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive recommendations.` : 'Your answers are saved in this browser. Continue when you are ready.'}</p>
+          <p class="text-sm text-secondary mt-sm">${completeness.completeCount}/${FRAMEWORK_META.metricCount} reviewed · ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive recommendations. External approval not verified.` : 'Saved in this browser. Continue with the next unreviewed judgment.'}</p>
         </div>
         <button class="btn btn-secondary" id="btn-current-work">${state.assessmentComplete ? 'View report' : 'Resume assessment'} →</button>
       </section>` : ''}
@@ -49,8 +53,8 @@ export function renderDashboard(container) {
           <h2>How it works</h2>
         </div>
         <div class="grid-3">
-          <article class="card step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Keep the neutral answers that fit. Adjust the scores that matter; notes remain optional.</p></article>
-          <article class="card step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">See the assessment shape and the processes needing attention before opening the complete breakdown.</p></article>
+          <article class="card step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Confirm each anchor or mark it Unknown. Untouched neutral previews never count as reviewed.</p></article>
+          <article class="card step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">Use the grouped ordinal profile and issue list before opening the complete process breakdown.</p></article>
           <article class="card step-card"><span>03</span><h3>Apply the guidance</h3><p class="text-sm text-secondary">Open a process to see the expected activities, outputs, and practical level guidance.</p></article>
         </div>
       </section>
@@ -73,11 +77,11 @@ export function renderDashboard(container) {
         <summary>Learn how the framework is organized</summary>
         <div class="method-details-body">
           <div>
-            <h3>Three levels</h3>
+            <h3>${FRAMEWORK_META.tailoringLevels.length} levels</h3>
             <p class="text-sm text-secondary"><strong>Basic</strong> keeps the essentials. <strong>Standard</strong> adds coordination and evidence. <strong>Comprehensive</strong> adds the highest rigor for demanding contexts.</p>
           </div>
           <div>
-            <h3>Four assessment areas</h3>
+            <h3>${DIMENSIONS.length} assessment areas</h3>
             <ul>${DIMENSIONS.map(dimension => `<li><strong>${escapeHtml(dimension.name)}</strong> · ${dimension.metrics.length} questions</li>`).join('')}</ul>
           </div>
           <div>
@@ -117,6 +121,11 @@ export function renderDashboard(container) {
       .method-details-body { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; padding-top:24px; margin-top:18px; border-top:1px solid var(--border-subtle); }
       .method-details-body h3 { font-size:16px; margin-bottom:8px; }
       .method-details-body ul { list-style:none; display:grid; gap:8px; color:var(--text-secondary); font-size:13px; }
+      @media (max-width: 520px) {
+        .hero-actions { flex-direction: column; align-items: stretch; }
+        .hero-actions .btn { width: 100%; }
+        #btn-explore { white-space: normal; }
+      }
       @media (max-width:760px) { .dashboard-hero { padding-top:38px; } .framework-facts { gap:14px; flex-direction:column; } .current-work { align-items:flex-start; flex-direction:column; } .method-details-body { grid-template-columns:1fr; } }
     `;
     container.appendChild(style);

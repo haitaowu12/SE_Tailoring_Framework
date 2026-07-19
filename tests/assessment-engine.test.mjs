@@ -22,7 +22,7 @@ import {
 } from '../src/utils/assessment-engine.js';
 import { CONSISTENCY_RULES, PROPAGATION_RULES, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CONSISTENCY_RULE_MIGRATION, PROPAGATION_RULE_MIGRATION, METRIC_PROCESS_MAP } from '../src/data/se-tailoring-data.js';
 import { buildExportConfig, validateConfig, normalizeImportedConfig } from '../src/utils/export-import.js';
-import { getReportReadiness } from '../src/views/report.js';
+import { evaluateBaselineEligibility } from '../src/utils/assessment-integrity.js';
 import { PUBLICATION_CASES, PUBLICATION_CASE_FIXTURE_VERSION } from './fixtures/publication-cases.mjs';
 import { CRITICALITY_DERIVATION_SCENARIOS } from './fixtures/criticality-derivation-scenarios.mjs';
 
@@ -466,7 +466,6 @@ test('export config preserves report-critical assessment state for round trip', 
     tradeoffs: [],
     matrixMap: null,
     assessmentTree: null,
-    cultureType: 'balanced',
     saTier: { tier: 'II', floor: 'standard' },
     indices: { psi: 3, csi: 4, cri: 2 },
     confidence: { 9: 'floor-applied' },
@@ -476,7 +475,7 @@ test('export config preserves report-critical assessment state for round trip', 
   });
 
   assert.equal(config._version, '2.0');
-  assert.equal(config.semantics.frameworkVersion, '4.1.0');
+  assert.equal(config.semantics.frameworkVersion, '4.1.1');
   assert.equal(config.semantics.metricDefinitionSet, 'se-tailoring-m1-m16-v3');
   assert.equal(config.saResponses.safetyCaseRequired, true);
   assert.equal(config.violations.length, 1);
@@ -487,12 +486,13 @@ test('export config preserves report-critical assessment state for round trip', 
   assert.equal(config.saTier.tier, 'II');
   assert.equal(config.indices.csi, 4);
   assert.equal(config.confidence[9], 'floor-applied');
-  assert.deepEqual(config.deliverablesChecked, ['9-basic-0']);
+  assert.equal(Object.hasOwn(config, 'deliverablesChecked'), false);
   assert.equal(config.assessmentComplete, true);
   assert.equal(validateConfig(config).valid, true);
 
   const normalized = normalizeImportedConfig(config);
   assert.equal(normalized.budgetStatus.withinBudget, false);
+  assert.equal(Object.hasOwn(normalized, 'deliverablesChecked'), false);
 });
 
 test('legacy imports preserve results but require semantic reassessment before review', () => {
@@ -515,7 +515,9 @@ test('legacy imports preserve results but require semantic reassessment before r
   assert.equal(state.scores.M8, undefined);
   assert.equal(state.scores.M15, undefined);
   assert.equal(state.metricAssessments.M8.status, 'migration-required');
-  assert.equal(getReportReadiness(state), 'Draft / incomplete');
+  const eligibility = evaluateBaselineEligibility(state);
+  assert.equal(eligibility.softwareChecksPassed, false);
+  assert.equal(eligibility.gates.find(gate => gate.id === 'input-completeness').status, 'incomplete');
 });
 
 test('schema 2.0 round-trips security qualifiers and scoped assurance obligations', () => {
@@ -656,7 +658,7 @@ test('config validation rejects import payloads that could poison rendered class
   assert.ok(validation.errors.includes('assessmentTree node root manualAdjustments[9] has invalid level'));
 });
 
-test('report readiness requires adoption gaps and weak evidence statuses to be reviewed', () => {
+test('baseline eligibility reports separate software and external-authority gates', () => {
   const completeScores = makeScores(3);
   const completeAssessment = {
     assessmentComplete: true,
@@ -668,7 +670,7 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
     scores: completeScores,
     metricAssessments: makeMetricAssessments(completeScores)
   };
-  assert.equal(getReportReadiness({
+  const eligible = evaluateBaselineEligibility({
     ...completeAssessment,
     assessmentTree: {
       nodes: {
@@ -678,9 +680,22 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
     violations: [],
     adoptionRisks: [],
     confidence: { 9: 'high' }
-  }), 'Ready for review');
+  });
+  assert.equal(eligible.softwareChecksPassed, true);
+  assert.deepEqual(
+    eligible.gates.map(gate => [gate.id, gate.status]),
+    [
+      ['input-completeness', 'passed'],
+      ['rule-warning-disposition', 'passed'],
+      ['evidence-completeness', 'not-implemented'],
+      ['hierarchy-completeness', 'passed'],
+      ['asserted-review', 'not-recorded'],
+      ['authenticated-approval', 'not-available'],
+      ['operational-release-authorization', 'not-available']
+    ]
+  );
 
-  assert.equal(getReportReadiness({
+  const incompleteHierarchy = evaluateBaselineEligibility({
     ...completeAssessment,
     assessmentTree: {
       nodes: {
@@ -691,31 +706,13 @@ test('report readiness requires adoption gaps and weak evidence statuses to be r
     violations: [],
     adoptionRisks: [],
     confidence: { 9: 'high' }
-  }), 'Draft / incomplete');
+  });
+  assert.equal(incompleteHierarchy.softwareChecksPassed, false);
+  assert.equal(incompleteHierarchy.gates.find(gate => gate.id === 'hierarchy-completeness').status, 'incomplete');
 
-  assert.equal(getReportReadiness({
-    ...completeAssessment,
-    assessmentTree: {
-      nodes: {
-        default: completeNode
-      }
-    },
-    violations: [],
-    adoptionRisks: [{ processId: 25, level: 'comprehensive' }],
-    confidence: { 9: 'high' }
-  }), 'Review required');
-
-  assert.equal(getReportReadiness({
-    ...completeAssessment,
-    assessmentTree: {
-      nodes: {
-        default: completeNode
-      }
-    },
-    violations: [],
-    adoptionRisks: [],
-    confidence: { 9: 'available-with-justification' }
-  }), 'Review required');
+  const incompleteInputs = evaluateBaselineEligibility({ ...completeAssessment, metricAssessments: {} });
+  assert.equal(incompleteInputs.softwareChecksPassed, false);
+  assert.equal(incompleteInputs.gates.find(gate => gate.id === 'input-completeness').status, 'incomplete');
 });
 
 test('override baseline separates security and source-backed binding assurance floors', () => {
@@ -963,16 +960,16 @@ test('CSI response requirements are non-reductive: 1-3 none, 4 feasibility revie
 });
 
 test('CRI computation maps M16 to 1-3', () => {
-  assert.equal(computeCRI({ M16: 1 }), 1, 'M16=1 → CRI=1 (Resistant)');
+  assert.equal(computeCRI({ M16: 1 }), 1, 'M16=1 → CRI=1 (constrained enabling conditions)');
   assert.equal(computeCRI({ M16: 2 }), 1, 'M16=2 → CRI=1');
-  assert.equal(computeCRI({ M16: 3 }), 2, 'M16=3 → CRI=2 (Tolerant)');
-  assert.equal(computeCRI({ M16: 4 }), 3, 'M16=4 → CRI=3 (Supportive)');
+  assert.equal(computeCRI({ M16: 3 }), 2, 'M16=3 → CRI=2 (mixed enabling conditions)');
+  assert.equal(computeCRI({ M16: 4 }), 3, 'M16=4 → CRI=3 (strong enabling conditions)');
   assert.equal(computeCRI({ M16: 5 }), 3, 'M16=5 → CRI=3');
 });
 
 test('CRI=1 preserves required rigor and flags adoption readiness gaps', () => {
   const scores = makeScores(5);
-  scores.M16 = 1; // Resistant org
+  scores.M16 = 1; // constrained enabling conditions
   scores.M5 = 1;  // No safety override
   const result = runFullAssessment(scores);
 
@@ -988,7 +985,7 @@ test('CRI=1 preserves required rigor and flags adoption readiness gaps', () => {
   assert.ok(result.adoptionRisks.length > 0, 'Low readiness should flag adoption support needs');
   assert.ok(
     result.adoptionRisks.some(risk => risk.level === 'comprehensive' && risk.severity === 'high'),
-    'Comprehensive rigor in resistant cultures should be a high-severity adoption gap'
+    'Comprehensive rigor with constrained enabling conditions should be a high-severity adoption gap'
   );
 });
 

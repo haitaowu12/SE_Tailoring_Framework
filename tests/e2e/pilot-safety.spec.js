@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSessionMenu } from './helpers.js';
 
 const AUTOSAVE_KEY = 'se-tailoring-autosave';
 const SECRET_PROJECT = 'CONFIDENTIAL-PROJECT-ALPHA';
@@ -48,6 +49,7 @@ test('end session confirmation erases the origin autosave and returns to a blank
     }));
   }, AUTOSAVE_KEY);
 
+  await openSessionMenu(page);
   await page.getByRole('button', { name: 'End Session' }).click();
   const dialog = page.getByRole('dialog', { name: 'End session and erase local assessment?' });
   await expect(dialog).toBeVisible();
@@ -58,11 +60,12 @@ test('end session confirmation erases the origin autosave and returns to a blank
 
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
-  await expect(page.getByText('Pilot prototype.')).toBeVisible();
+  await expect(page.getByText('Pilot research instrument.')).toBeVisible();
 });
 
 test('end-session critical path is keyboard operable and restores focus on Escape', async ({ page }) => {
   const endSession = page.getByRole('button', { name: 'End Session' });
+  await openSessionMenu(page);
   await endSession.focus();
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog', { name: 'End session and erase local assessment?' });
@@ -70,11 +73,11 @@ test('end-session critical path is keyboard operable and restores focus on Escap
   await expect(dialog.getByRole('button', { name: 'Keep working' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
-  await expect(endSession).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Session actions' })).toBeFocused();
 });
 
 test('pilot notice and non-identifying assessment guidance remain visible', async ({ page }) => {
-  await expect(page.getByText('Pilot prototype.')).toBeVisible();
+  await expect(page.getByText('Pilot research instrument.')).toBeVisible();
   await expect(page.getByText(/Use a non-identifying project code; do not enter sensitive information/)).toBeVisible();
   await page.getByRole('button', { name: 'Dismiss' }).click();
   await expect(page.getByRole('complementary', { name: 'Formative pilot privacy notice' })).toBeHidden();

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { openSessionMenu } from './helpers.js';
 
 const metricScores = Object.fromEntries(
   Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 3])
@@ -57,6 +58,7 @@ async function importFixture(page, config) {
   await resetApp(page);
 
   const fileChooserPromise = page.waitForEvent('filechooser');
+  await openSessionMenu(page);
   await page.locator('#btn-import').click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles(configPath);
@@ -68,7 +70,7 @@ function currentSemanticFixture() {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -102,7 +104,7 @@ test('report recommendation opens, reloads, and returns from the exact level det
 
   await page.goBack();
   await expect(page).toHaveURL(/#report$/);
-  await expect(page.getByRole('heading', { name: /Tailoring Report/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Pilot Tailoring Record/ })).toBeVisible();
 
   await page.goto('./#processes?process=20&level=comprehensive&source=report');
   await page.reload();
@@ -115,7 +117,7 @@ test('assessment recommendation saves work in progress before opening details', 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
 
-  await page.getByRole('slider', { name: 'Score M1: Architectural Complexity' }).fill('4');
+  await page.getByRole('radio', { name: /M1 score 4:/ }).check();
   await expect(page.locator('#score-M1')).toHaveText('4');
   await expect(page.getByText('Unable to render this section')).toHaveCount(0);
 
@@ -129,7 +131,7 @@ test('assessment recommendation saves work in progress before opening details', 
 
   await page.goBack();
   await expect(page).toHaveURL(/#assessment$/);
-  await expect(page.getByRole('button', { name: /Complete Baseline/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save Work in Progress (1/16)' })).toBeVisible();
 });
 
 test('malformed and unassessed direct links fail closed without a false assignment', async ({ page }) => {

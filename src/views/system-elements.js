@@ -41,7 +41,7 @@ function renderHierarchyDisposition(metricId, disposition, assessment, legacyMig
           <option value="">Select disposition outcome…</option>
           ${HIERARCHY_DISPOSITION_OUTCOMES[metricId].map(item => `<option value="${item.id}" ${disposition.outcome === item.id ? 'selected' : ''}>${item.label}</option>`).join('')}
         </select>
-        <input class="input" id="${key}-hierarchy-owner" placeholder="Accountable reviewer / approver" value="${escapeHtml(disposition.ownerApprover || '')}">
+        <input class="input" id="${key}-hierarchy-owner" placeholder="Asserted reviewer / approver role" value="${escapeHtml(disposition.ownerApprover || '')}">
         <input class="input" id="${key}-hierarchy-date" aria-label="${metricId} hierarchy review date" type="date" value="${escapeHtml(disposition.reviewDate || '')}">
         <input class="input" id="${key}-hierarchy-basis" placeholder="Decision-basis reference (optional)" value="${escapeHtml(disposition.decisionBasisRef || '')}">
         <input class="input" id="${key}-hierarchy-evidence" placeholder="Evidence reference (optional)" value="${escapeHtml(disposition.evidenceRef || '')}">
@@ -158,7 +158,7 @@ export function renderSystemElements(container) {
             ${safetyAllocationAssessment.legacyMigrationInput ? '<div class="text-xs mb-sm" style="color:var(--accent-warning);">Legacy independent-safety-analysis evidence was imported but is unconfirmed and cannot authorize a lower child safety allocation.</div>' : ''}
             <div class="text-xs mb-sm"><strong>Disposition:</strong> not allocated to child · <strong>Responsibility retained by:</strong> parent</div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <input class="input" id="safety-allocation-authority" placeholder="Decision authority" value="${escapeHtml(safetyAllocationDecision.authority || '')}">
+              <input class="input" id="safety-allocation-authority" placeholder="Asserted decision authority role" value="${escapeHtml(safetyAllocationDecision.authority || '')}">
               <input class="input" id="safety-allocation-evidence" placeholder="Allocation evidence reference" value="${escapeHtml(safetyAllocationDecision.evidenceRef || '')}">
               <input class="input" id="safety-allocation-interface" placeholder="Interface assumptions reference" value="${escapeHtml(safetyAllocationDecision.interfaceAssumptionsRef || '')}">
               <input class="input" id="safety-allocation-date" aria-label="Safety allocation review date" type="date" value="${escapeHtml(safetyAllocationDecision.reviewDate || '')}">
@@ -181,11 +181,10 @@ export function renderSystemElements(container) {
     const val = activeNode.scores?.[m.id] ?? 3;
     const isInherited = activeNode.inheritedMetrics?.[m.id];
     const isManual = activeNode.manualMetrics?.includes(m.id);
-    const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
     return `
                 <div class="se-metric-chip ${isInherited ? 'inherited' : ''} ${isManual ? 'manual' : ''}">
                   <span class="se-metric-id">${m.id}</span>
-                  <span class="se-metric-val" style="color:${scoreColor}">${val}</span>
+                  <span class="se-metric-val">${val}</span>
                   ${isInherited ? '<span class="se-inherit-icon" title="Inherited from parent">↑</span>' : ''}
                   ${isManual ? '<span class="se-manual-icon" title="Manually set (protected)">🔒</span>' : ''}
                 </div>`;

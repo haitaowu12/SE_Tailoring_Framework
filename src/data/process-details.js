@@ -1,7 +1,7 @@
 /**
  * SE Tailoring Model — Process Activities & Deliverables
- * _VERSION: 4.0 | _LAST_UPDATED: 2026-07
- * _SOURCE: 02-PRACTICAL/Process-Tailoring-Tables.md
+ * _CONTENT_SCHEMA_VERSION: 1.0 | _LAST_UPDATED: 2026-07-17
+ * _STATUS: Provisional authored implementation guidance; non-normative and not professional-validity evidence.
  * 
  * Structure: { processId: { activities: {basic:[], standard:[], comprehensive:[]}, deliverables: {...}, outputs: [...] } }
  * Activities prefixed with (*) are essential/core even at Basic level.
@@ -67,7 +67,7 @@ export const PROCESS_DETAILS = {
     },
     12: {
         activities: {
-            basic: ['(*) Register risks (incl. obvious hazards)', '(*) Assess using simple matrix (H/M/L)', '(*) Report risks basically', 'Monitor via informal methods'],
+            basic: ['(*) Register risks or hazards in an authorized team or project record', '(*) Assign and confirm a named owner', '(*) Assess using simple High/Medium/Low criteria', '(*) Route material concerns through the applicable risk, hazard, safety, ethics, regulatory, issue, or nonconformance channel'],
             standard: ['(*) Plan risk management formally', '(*) Detail risk register with probability/impact', '(*) Plan responses with triggers and owners', 'Report regularly to stakeholders', 'Review risks at milestones', 'Identify and assess safety hazards [Safety]', 'Develop SA risk responses [Safety]'],
             comprehensive: ['(*) Document risk management framework', '(*) Model/simulate risks with distributions', '(*) Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
         },
@@ -137,7 +137,7 @@ export const PROCESS_DETAILS = {
     },
     16: {
         activities: {
-            basic: ['(*) Plan basic quality assurance', '(*) Conduct audits (informal)', '(*) Report non-conformances', 'Track resolutions (simple)'],
+            basic: ['(*) Plan basic quality assurance against named criteria', '(*) Conduct a peer check or authorized review with recorded scope', '(*) Report nonconformances through the applicable controlled channel', 'Track owners, actions, and closure evidence'],
             standard: ['(*) Develop quality assurance plan', '(*) Perform evaluations with criteria', '(*) Report regularly to stakeholders', 'Initiate improvements with actions', 'Conduct SA audits [Safety]', 'Verify SA process compliance [Safety]'],
             comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct comprehensive audits with methodology', '(*) Analyze trends for early warning', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
         },
