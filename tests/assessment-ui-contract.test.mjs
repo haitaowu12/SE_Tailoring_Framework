@@ -99,3 +99,9 @@ test('finalization recomputes the displayed level layer within its own scope', (
   assert.match(assessmentSource, /\{ \.\.\.currentDisplayLevels, 27: 'standard' \}/);
   assert.doesNotMatch(assessmentSource, /function finalizeAssessment[\s\S]*\{ \.\.\.displayLevels, 27: 'standard' \}/);
 });
+
+
+test('unresolved-only queue excludes neutral right-sizing decisions', () => {
+  assert.match(assessmentSource, /assessmentViewMode === 'issues'[\s\S]*actionQueue\.filter\(item => !item\.passed \|\| item\.label === 'Pilot process profile'\)/);
+  assert.doesNotMatch(assessmentSource, /actionQueue\.filter\(item => !item\.passed \|\| item\.label === 'Pilot process profile' \|\| item\.neutral\)/);
+});

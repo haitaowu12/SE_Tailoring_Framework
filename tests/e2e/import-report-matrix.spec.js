@@ -164,7 +164,7 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
   await expect(page.getByText(/Unreviewed — preview 3/)).toHaveCount(4);
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText('Assessment results')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'No recommendation yet' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
 });
@@ -249,9 +249,9 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   await page.locator('#rule11-evidence').fill('VAL-ELEVATE-11');
   await page.locator('#rule11-date').fill('2026-07-10');
   await page.locator('#rule11-rationale').fill('Validation is elevated to Standard for stakeholder acceptance assurance.');
-  await expect(page.getByText(/Ready: passing software completeness will create an explicit governed manual adjustment/)).toBeVisible();
+  await expect(page.getByText(/Ready: checking software completeness will create an explicit governed manual adjustment/)).toBeVisible();
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: /Apply P27 Adjustment & Pass Software Checks/ }).click();
+  await page.getByRole('button', { name: /Apply P27 Adjustment & Check Completeness/ }).click();
 
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText(/Rule 11 Disposition — Complete/)).toBeVisible();

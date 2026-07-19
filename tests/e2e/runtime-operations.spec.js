@@ -16,7 +16,7 @@ test('diagnostics disclose exact release identity and remain local-only', async 
     if (url.hostname !== '127.0.0.1') externalRequests.push(request.url());
   });
 
-  const diagnosticsButton = page.getByRole('menuitem', { name: 'Diagnostics' });
+  const diagnosticsButton = page.getByRole('button', { name: 'Diagnostics' });
   await openSessionMenu(page);
   await diagnosticsButton.focus();
   await diagnosticsButton.click();
@@ -71,10 +71,10 @@ test('mobile session menu keeps operational controls available without horizonta
   const sessionMenu = page.getByRole('button', { name: 'Session actions' });
   await sessionMenu.click();
   await expect(sessionMenu).toHaveAttribute('aria-expanded', 'true');
-  await page.getByRole('menuitem', { name: 'Diagnostics' }).click();
+  await page.getByRole('button', { name: 'Diagnostics' }).click();
   await expect(page.getByRole('dialog', { name: 'Release and local diagnostics' })).toBeVisible();
   await page.keyboard.press('Escape');
 
   await sessionMenu.click();
-  await expect(page.getByRole('menuitem', { name: 'End Session' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'End Session' })).toBeVisible();
 });
