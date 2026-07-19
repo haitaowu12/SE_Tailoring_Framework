@@ -37,14 +37,17 @@ jobs:
           git checkout d8b9594d322b14e88f78cb113f154055dcf8f03a -- .github/workflows/ci.yml
           cat "${parts[@]}" > /tmp/remediation.patch
           git apply --index --whitespace=error /tmp/remediation.patch
+
+          # Keep workflow-file changes for the connected GitHub app, whose token
+          # is authorized to write workflow files. The Actions token publishes
+          # only the source remediation on a disposable branch.
+          git checkout HEAD -- .github/workflows/ci.yml .github/workflows/deploy.yml
           git rm "$ready" "${parts[@]}"
           git rm -f .github/remediation.patch.gz.b64.part-* || true
-          printf '%s\n' 'Delete this one-use marker to trigger exact-head verification.' > .github/remediation-applied.txt
-          git add .github/remediation-applied.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'fix: close 4.1.1 review blockers'
-          git push origin "HEAD:${{ github.head_ref }}"
+          git push --force origin HEAD:refs/heads/agent/4-1-1-remediation-applied
 
       - name: Capture immutable build identity
         run: echo "VITE_BUILD_ID=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
