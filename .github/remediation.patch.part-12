@@ -1,0 +1,194 @@
+ByRole('button', { name: 'Resolve issues', exact: true }).click();
+   await expect(page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' })).toHaveCount(0);
+diff --git a/tests/hierarchy-completeness.test.mjs b/tests/hierarchy-completeness.test.mjs
+new file mode 100644
+index 0000000..067440b
+--- /dev/null
++++ b/tests/hierarchy-completeness.test.mjs
+@@ -0,0 +1,76 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++
++import {
++  assessHierarchyCompleteness,
++  evaluateBaselineEligibility
++} from '../src/utils/assessment-integrity.js';
++
++const METRIC_IDS = Array.from({ length: 16 }, (_, index) => `M${index + 1}`);
++const makeScores = () => Object.fromEntries(METRIC_IDS.map(metricId => [metricId, 3]));
++const makeAssessments = scores => Object.fromEntries(METRIC_IDS.map(metricId => [metricId, {
++  score: scores[metricId],
++  status: 'assessed',
++  definitionVersion: 3,
++  qualifiers: [],
++  rationale: '',
++  evidenceRefs: []
++}]));
++
++function completeNode(id, parentId = null) {
++  const scores = makeScores();
++  return {
++    id,
++    parentId,
++    scores,
++    metricAssessments: makeAssessments(scores),
++    ruleDispositions: {},
++    csiResponse: {},
++    levels: {},
++    assessmentResult: { violations: [] }
++  };
++}
++
++test('active child cannot hide an incomplete root from hierarchy completeness', () => {
++  const child = completeNode('child', 'root');
++  const tree = {
++    rootId: 'root',
++    activeId: 'child',
++    nodes: {
++      root: { id: 'root', parentId: null, scores: {}, metricAssessments: {}, assessmentResult: null },
++      child
++    }
++  };
++
++  const hierarchy = assessHierarchyCompleteness(tree);
++  assert.equal(hierarchy.complete, false);
++  assert.deepEqual(hierarchy.incompleteElementIds, ['root']);
++
++  const eligibility = evaluateBaselineEligibility({
++    scores: child.scores,
++    metricAssessments: child.metricAssessments,
++    violations: [],
++    ruleDispositions: {},
++    levels: {},
++    csiResponse: {},
++    assessmentTree: tree
++  });
++  assert.equal(eligibility.softwareChecksPassed, false);
++  assert.deepEqual(eligibility.hierarchy.incompleteElementIds, ['root']);
++});
++
++test('active root is checked through top-level state while complete children are checked through the tree', () => {
++  const tree = {
++    rootId: 'root',
++    activeId: 'root',
++    nodes: {
++      root: { id: 'root', parentId: null, scores: {}, metricAssessments: {}, assessmentResult: null },
++      child: completeNode('child', 'root')
++    }
++  };
++
++  const hierarchy = assessHierarchyCompleteness(tree);
++  assert.equal(hierarchy.complete, true);
++  assert.deepEqual(hierarchy.incompleteElementIds, []);
++  assert.equal(hierarchy.assessedElementCount, 2);
++});
+diff --git a/tests/right-sizing-governance.test.mjs b/tests/right-sizing-governance.test.mjs
+index 56b134b..a4b5b4d 100644
+--- a/tests/right-sizing-governance.test.mjs
++++ b/tests/right-sizing-governance.test.mjs
+@@ -92,13 +92,18 @@ test('role requirements are based on reduction depth, protected involvement, and
+   assert.equal(findNearestCommonGoverningBoundary(tree, ['a1', 'a']), 'a');
+ });
+ 
+-test('complete role-based record becomes effective and applies only the approved proposal', () => {
++test('complete browser-local record creates an unverified scenario without changing normative levels', () => {
+   const record = approvedRecord();
+   const assessment = assessRightSizingApproval(record, baseProposal, context);
+   assert.equal(assessment.valid, true);
++  assert.equal(assessment.locallyComplete, true);
++  assert.equal(assessment.externallyVerified, false);
++  assert.equal(assessment.status, 'locally-complete-unverified');
+   const evaluated = evaluateRightSizingApprovals([baseProposal], [record], context);
+-  assert.equal(evaluated.effectiveCount, 1);
+-  assert.equal(evaluated.levels[19], 'basic');
++  assert.equal(evaluated.effectiveCount, 0);
++  assert.equal(evaluated.locallyCompleteCount, 1);
++  assert.equal(evaluated.levels[19], 'standard');
++  assert.equal(evaluated.scenarioLevels[19], 'basic');
+ });
+ 
+ test('approval expires and any relevant assessment change invalidates its snapshot', () => {
+@@ -156,7 +161,7 @@ test('import validation rejects malformed approval containers and decisions', ()
+   assert.ok(errors.some(error => error.includes('approvals must be an object')));
+ });
+ 
+-test('full engine applies a current approval then re-runs mandatory closure', () => {
++test('full engine re-closes a local scenario without applying it to the normative profile', () => {
+   const scores = Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 5]));
+   Object.assign(scores, { M1: 1, M2: 1, M4: 1, M5: 1, M6: 1, M7: 1, M8: 1, M11: 1, M12: 1, M16: 5 });
+   const first = runFullAssessment(scores, undefined, { activeElementId: 'root', assessmentTree: tree });
+@@ -186,7 +191,10 @@ test('full engine applies a current approval then re-runs mandatory closure', ()
+     assessmentTree: tree,
+     rightSizingApprovalRecords: [record]
+   });
+-  assert.equal(second.effectiveRightSizingApprovalCount, 1);
+-  assert.equal(second.levels[proposal.processId], proposal.proposedTo);
++  assert.equal(second.effectiveRightSizingApprovalCount, 0);
++  assert.equal(second.locallyCompleteRightSizingRecordCount, 1);
++  assert.equal(second.levels[proposal.processId], proposal.from);
++  assert.equal(second.normativeLevels[proposal.processId], proposal.from);
++  assert.equal(second.locallyAdjustedLevels[proposal.processId], proposal.proposedTo);
+   assert.equal(second.violations.filter(violation => violation.type === 'HC').length, 0);
+ });
+diff --git a/tests/security-a11y-static.test.mjs b/tests/security-a11y-static.test.mjs
+index 3e73cad..420f7c6 100644
+--- a/tests/security-a11y-static.test.mjs
++++ b/tests/security-a11y-static.test.mjs
+@@ -48,6 +48,48 @@ test('app shell enforces a local-resource CSP and does not contact third-party f
+   assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
+ });
+ 
++
++
++test('app shell provides a skip link and a focusable main destination', () => {
++  const html = readFileSync(join(appRoot, 'index.html'), 'utf8');
++  const styles = readFileSync(join(srcRoot, 'styles', 'index.css'), 'utf8');
++  assert.match(html, /class="skip-link" href="#main-content"/);
++  assert.match(html, /<main id="main-content" tabindex="-1"><\/main>/);
++  assert.match(styles, /\.skip-link:focus \{ transform: translateY\(0\); \}/);
++});
++
++test('primary navigation uses disclosure semantics rather than application-menu roles', () => {
++  const main = readFileSync(join(srcRoot, 'main.js'), 'utf8');
++  assert.doesNotMatch(main, /role="menu"|role="menuitem"|aria-haspopup="true"/);
++  assert.match(main, /aria-expanded="false">Framework reference/);
++  assert.match(main, />Go to section<\/label>/);
++  assert.match(main, /aria-label="Go to section"/);
++});
++
++test('route changes move focus to the rendered heading and status messages name their urgency', () => {
++  const router = readFileSync(join(srcRoot, 'router.js'), 'utf8');
++  const state = readFileSync(join(srcRoot, 'state.js'), 'utf8');
++  assert.match(router, /function focusRouteHeading/);
++  assert.match(router, /target\.focus\(\{ preventScroll: true \}\)/);
++  assert.match(state, /type === 'error' \? 'alert' : 'status'/);
++  assert.match(state, /aria-atomic', 'true'/);
++});
++
++test('dark-theme support text and error text use raised contrast tokens', () => {
++  const styles = readFileSync(join(srcRoot, 'styles', 'index.css'), 'utf8');
++  assert.match(styles, /--text-tertiary: oklch\(68% 0\.01 250\)/);
++  assert.match(styles, /--accent-error: oklch\(72% 0\.18 25\)/);
++});
++
++test('current practitioner copy does not authorize private or undefined informal substitutes', () => {
++  const details = readFileSync(join(srcRoot, 'data', 'process-details.js'), 'utf8');
++  const processes = readFileSync(join(srcRoot, 'data', 'processes.js'), 'utf8');
++  assert.doesNotMatch(details, /Monitor via informal methods|Conduct audits \(informal\)/);
++  assert.doesNotMatch(processes, /non-conformances tracked informally/);
++  assert.match(details, /authorized team or project record/);
++  assert.match(details, /applicable risk, hazard, safety, ethics, regulatory, issue, or nonconformance channel/);
++});
++
+ test('source templates avoid inline event handlers and javascript pseudo-links', () => {
+   const offenders = [];
+   const inlineEventPattern = /(?<!\.)\bon(?:click|error|load|mouseover|mouseenter|mouseleave)\s*=/i;
+@@ -110,6 +152,8 @@ test('README verification wording distinguishes automated checks from manual bro
+   assert.doesNotMatch(text, /Mobile Playwright smoke/, 'README should not imply mobile smoke is automated without a Playwright test script');
+   assert.doesNotMatch(text, /Browser smoke:/, 'README should not imply browser smoke is an automated verification gate');
+   assert.doesNotMatch(text, /expert-reviewed and case-demonstrated decision aid/, 'README should not overstate validation evidence');
++  assert.doesNotMatch(text, /opens as an assessed 1–5 score at the neutral midpoint/, 'README must distinguish midpoint previews from assessed judgments');
++  assert.match(text, /opens with a non-authoritative midpoint preview/);
+ });
+ 
+ test('stakeholder-facing copy does not present evidence status as calibrated confidence', () => {
