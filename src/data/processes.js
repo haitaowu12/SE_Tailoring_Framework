@@ -99,7 +99,7 @@ const BASE_PROCESSES = [
     {
         id: 16, name: 'Quality Assurance', group: 'tech_mgmt', purpose: 'Ensure processes and products meet quality requirements', extended: false,
         definition: { basic: 'Basic audits and reviews for compliance', standard: 'Structured assurance with evaluations per ISO 9001', comprehensive: 'Comprehensive program with trend analyses for proactive quality' },
-        assumptions: 'QA limited to basic audits; non-conformances tracked informally.',
+        assumptions: 'QA limited to basic defined-criteria reviews; nonconformances are recorded with owners, actions, and closure status.',
         whenToElevate: 'Elevate to Standard for regulated industries or quality-critical products.'
     },
     // --- Technical Processes (Core) ---

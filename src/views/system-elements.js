@@ -181,11 +181,10 @@ export function renderSystemElements(container) {
     const val = activeNode.scores?.[m.id] ?? 3;
     const isInherited = activeNode.inheritedMetrics?.[m.id];
     const isManual = activeNode.manualMetrics?.includes(m.id);
-    const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
     return `
                 <div class="se-metric-chip ${isInherited ? 'inherited' : ''} ${isManual ? 'manual' : ''}">
                   <span class="se-metric-id">${m.id}</span>
-                  <span class="se-metric-val" style="color:${scoreColor}">${val}</span>
+                  <span class="se-metric-val">${val}</span>
                   ${isInherited ? '<span class="se-inherit-icon" title="Inherited from parent">↑</span>' : ''}
                   ${isManual ? '<span class="se-manual-icon" title="Manually set (protected)">🔒</span>' : ''}
                 </div>`;

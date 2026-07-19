@@ -208,7 +208,7 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
   await page.locator('#rule11-rationale').fill('Basic operational evidence accepted with parent-level validation and interface acceptance controls.');
   await expect(page.getByText('Disposition complete.')).toBeVisible();
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: 'Pass Software Completeness Checks' }).click();
+  await page.getByRole('button', { name: 'Check Software Completeness' }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText(/Rule 11 Disposition — Complete/)).toBeVisible();
   await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
@@ -289,7 +289,7 @@ for (const scenario of [
     await page.getByLabel('CSI evidence reference').fill(`CSI-${scenario.csi}-DECISION`);
     await page.getByLabel('CSI review date').fill('2026-07-10');
     await expect(page.getByText('Constraint response complete.')).toBeVisible();
-    await page.getByRole('button', { name: 'Pass Software Completeness Checks' }).click();
+    await page.getByRole('button', { name: 'Check Software Completeness' }).click();
 
     await expect(page).toHaveURL(/#report$/);
     await expect(page.getByText(new RegExp(`CSI ${scenario.csi} Constraint Response — Complete`))).toBeVisible();
@@ -320,9 +320,9 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByRole('button', { name: /Pass Software Completeness Checks/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
-  await page.getByRole('button', { name: /Pass Software Completeness Checks/ }).click();
+  await page.getByRole('button', { name: /Check Software Completeness/ }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 });

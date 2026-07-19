@@ -133,9 +133,12 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
         return { complete: true, enabled: false, incompleteElementIds: [], assessedElementCount: entries.length };
     }
 
-    const rootId = assessmentTree?.rootId || entries[0][0];
-    const assessedNodes = entries.filter(([nodeId]) => nodeId !== rootId);
-    const incompleteElementIds = assessedNodes.filter(([, node]) => {
+    // The active node is evaluated through the top-level state by
+    // evaluateBaselineEligibility(). Every other represented node—including the
+    // root when a child is active—must independently satisfy the hierarchy gate.
+    const activeId = assessmentTree?.activeId || assessmentTree?.rootId || entries[0][0];
+    const nodesRequiringTreeCheck = entries.filter(([nodeId]) => nodeId !== activeId);
+    const incompleteElementIds = nodesRequiringTreeCheck.filter(([, node]) => {
         if (!node?.assessmentResult) return true;
         const metrics = assessMetricCompleteness(node.scores, node.metricAssessments);
         const warnings = assessWarningDispositions(node.assessmentResult.violations, node.ruleDispositions, node.levels);
@@ -147,7 +150,7 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
         complete: incompleteElementIds.length === 0,
         enabled: true,
         incompleteElementIds,
-        assessedElementCount: assessedNodes.length
+        assessedElementCount: entries.length
     };
 }
 

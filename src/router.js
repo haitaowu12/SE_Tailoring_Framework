@@ -83,6 +83,14 @@ export function getCurrentRoute() {
     return getCurrentRouteContext().path;
 }
 
+function focusRouteHeading(container) {
+    const heading = container.querySelector('h1, h2, h3');
+    const target = heading || container;
+    if (!(target instanceof HTMLElement)) return;
+    if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+    target.focus({ preventScroll: true });
+}
+
 export function initRouter(container) {
     function updateNavState(route) {
         document.querySelectorAll('.nav-link').forEach(el => {
@@ -103,6 +111,7 @@ export function initRouter(container) {
 
     async function handleRoute() {
         const sequence = ++navigationSequence;
+        const shouldMoveFocus = currentView !== null;
         const requestedContext = getCurrentRouteContext();
         const requestedRoute = requestedContext.path;
         const route = routes[requestedRoute] ? requestedRoute : 'dashboard';
@@ -145,6 +154,7 @@ export function initRouter(container) {
         window.dispatchEvent(new CustomEvent('app:route-rendered', {
             detail: { route, requestedRoute, params: requestedContext.params.toString() }
         }));
+        if (shouldMoveFocus) focusRouteHeading(container);
 
         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });

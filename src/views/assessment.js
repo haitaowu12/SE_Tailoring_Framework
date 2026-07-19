@@ -29,6 +29,7 @@ const STEPS = [
 let currentStep = 0;
 let visitedSteps = new Set([0]);
 let assessmentViewMode = 'assess';
+let showNeutralPreview = false;
 let localScores = {};
 let localProject = {};
 let localMetricAssessments = {};
@@ -193,7 +194,7 @@ export function renderAssessment(container, routeContext = null) {
         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
         <span class="step-indicator text-sm text-secondary">Step ${currentStep + 1} of ${STEPS.length}</span>
         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
-          ? completeness.complete ? 'Pass Software Completeness Checks' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
+          ? completeness.complete ? 'Check Software Completeness' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
           : 'Next →'}</button>
       </div>
     </div>
@@ -221,7 +222,7 @@ export function renderAssessment(container, routeContext = null) {
     .metric-name { font-weight: 600; font-size: 15px; }
     .metric-id { font-size: 12px; font-weight: 700; color: var(--accent-primary-light); background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 4px; }
     .metric-score-display { font-size: 24px; font-weight: 800; min-width: 40px; text-align: center; transition: color 0.2s; }
-    .metric-definition { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 12px; }
+    .metric-definition { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 12px; }
     .metric-definition strong { color: var(--text-primary); }
     .metric-anchor-choices { border: 0; padding: 0; margin: 0; display: grid; gap: 7px; }
     .metric-anchor-card { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: start; gap: 9px; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 11px; cursor: pointer; background: var(--bg-secondary); }
@@ -231,7 +232,7 @@ export function renderAssessment(container, routeContext = null) {
     .metric-anchor-card.preview { border-style: dashed; }
     .metric-anchor-card input { margin-top: 4px; accent-color: var(--accent-primary); }
     .metric-anchor-number { display: block; font-size: 18px; font-weight: 800; line-height: 1.1; }
-    .metric-anchor-text { display: block; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+    .metric-anchor-text { display: block; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
     .metric-anchor-tag { font-size: 10px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
     .metric-description { font-size: 13px; color: var(--text-secondary); margin-top: 8px; padding: 6px 10px; background: rgba(99,102,241,0.05); border-radius: 6px; }
     .assessment-guidance { max-width: 680px; margin-inline: auto; color: var(--text-secondary); font-size: 13px; text-align: center; }
@@ -254,6 +255,8 @@ export function renderAssessment(container, routeContext = null) {
     .assessor-guidance-grid { display: grid; gap: 7px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .result-guidance { max-width: 760px; color: var(--text-secondary); font-size: 13px; }
+    .empty-results-state { max-width: 680px; margin: 56px auto; padding: 36px 24px; text-align: center; border-block: 1px solid var(--border-subtle); }
+    .empty-results-state h3 { margin-top: 8px; }
     .info-form { display: grid; gap: 16px; max-width: 500px; margin: 0 auto; }
     .form-group { display: flex; flex-direction: column; gap: 4px; }
     .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
@@ -279,9 +282,9 @@ export function renderAssessment(container, routeContext = null) {
     .action-queue-status { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-warning); }
     .action-queue-status.passed { color: var(--accent-success); }
     .action-queue-status.neutral { color: var(--accent-primary-light); }
-    .causality-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; margin-top: 10px; }
+    .causality-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px; margin-top: 10px; }
     .causality-grid > div { padding: 7px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-secondary); }
-    .causality-grid dt { color: var(--text-tertiary); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+    .causality-grid dt { color: var(--text-tertiary); font-size: 10px; font-weight: 700; text-transform: uppercase; }
     .causality-grid dd { margin: 3px 0 0; font-size: 11px; font-weight: 700; }
     @media (max-width: 760px) { .results-overview { grid-template-columns: 1fr; } .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .step-line { width: 10px; } .step-label { white-space: normal; text-align: center; max-width: 70px; } .action-queue-item { grid-template-columns: 1fr; gap: 3px; } .causality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
     .override-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
@@ -391,7 +394,6 @@ function renderStep(container) {
     const isUnreviewed = assessment.status === 'unreviewed';
     const isMigrationRequired = ['not-applicable', 'migration-required'].includes(assessment.status);
     const displayValue = isUnknown || isMigrationRequired ? '—' : val;
-    const scoreColor = val >= 4 ? 'var(--level-comprehensive)' : val >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
     const statusText = isUnknown
       ? 'Unknown — preview only'
       : assessment.status === 'inherited-confirmed'
@@ -410,7 +412,7 @@ function renderStep(container) {
             </div>
             <div class="flex items-center gap-sm">
               ${m.guidedQuestions ? `<button class="btn btn-sm btn-outline wizard-btn" data-metric="${m.id}" style="font-size: 11px; padding: 2px 8px;">Help me choose</button>` : ''}
-              <div class="metric-score-display" id="score-${m.id}" style="color:${scoreColor}">${displayValue}</div>
+              <div class="metric-score-display" id="score-${m.id}">${displayValue}</div>
             </div>
           </div>
           <div class="metric-definition" id="guide-${m.id}"><strong>Definition:</strong> ${escapeHtml(guidance.definition)}<br><strong>Excludes:</strong> ${escapeHtml(guidance.exclusions)}</div>
@@ -571,7 +573,7 @@ function setMetricScore(metricId, value, contentContainer) {
   const display = contentContainer.querySelector(`#score-${metricId}`);
   if (display) {
     display.textContent = value;
-    display.style.color = value >= 4 ? 'var(--level-comprehensive)' : value >= 3 ? 'var(--level-standard)' : 'var(--level-basic)';
+    display.style.color = 'var(--text-primary)';
   }
 
   const desc = contentContainer.querySelector(`#desc-${metricId}`);
@@ -709,6 +711,29 @@ function renderResults(content) {
   const result = runFullAssessment(hierarchyInput.effectiveScores, matrixMap, assessmentContext);
   result.hierarchyWarnings = hierarchyInput.warnings;
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
+  if (completeness.completeCount === 0 && !showNeutralPreview) {
+    content.innerHTML = `
+      <section class="empty-results-state" aria-labelledby="empty-results-title">
+        <p class="eyebrow">0/${METRICS.length} reviewed</p>
+        <h3 id="empty-results-title">No recommendation yet</h3>
+        <p class="text-secondary mt-sm">The midpoint values are interface previews, not assessed judgments. Review at least one metric before using a partial preview, or open the neutral what-if view explicitly.</p>
+        <div class="flex gap-sm mt-lg" style="justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" type="button" id="btn-review-first-metric">Review the first metric</button>
+          <button class="btn btn-secondary" type="button" id="btn-open-neutral-preview">Explore neutral what-if preview</button>
+        </div>
+        <p class="text-xs text-secondary mt-md">Any neutral what-if profile remains non-authoritative and cannot produce a pilot record.</p>
+      </section>`;
+    content.querySelector('#btn-review-first-metric')?.addEventListener('click', () => {
+      currentStep = STEPS.findIndex(step => step.id === 'complexity');
+      visitedSteps.add(currentStep);
+      renderAssessment(document.getElementById('main-content'));
+    });
+    content.querySelector('#btn-open-neutral-preview')?.addEventListener('click', () => {
+      showNeutralPreview = true;
+      renderResults(content);
+    });
+    return;
+  }
   const derivationDetails = result.derivationDetails || {};
   const saTier = result.saTier;
 
@@ -733,22 +758,42 @@ function renderResults(content) {
   const blockedRightSizingCandidates = result.blockedRightSizingCandidates || [];
   const legacyRightSizingActions = result.rightSizingActions || [];
   const activeFloors = result.activeFloors || [];
-  const rule11Disposition = assessRule11Disposition(result.violations, localRuleDispositions, result.levels);
-  const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, result.levels);
-  const generalWarningDispositions = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
   const rule11ElevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
   const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.complete;
+  const rootManualAdjustments = state.manualAdjustments || {};
+  const activeManualAdjustments = activeNodeBeforeRun?.id === state.assessmentTree?.rootId
+    ? { ...rootManualAdjustments, ...(activeNodeBeforeRun?.manualAdjustments || {}) }
+    : activeNodeBeforeRun
+      ? { ...(activeNodeBeforeRun.manualAdjustments || {}) }
+      : { ...rootManualAdjustments };
+  const displayManualAdjustments = canApplyRule11Elevation && result.levels?.[27] === 'basic'
+    ? {
+      ...activeManualAdjustments,
+      27: {
+        level: 'standard',
+        source: 'rule-disposition-preview',
+        ruleId: 11,
+        propagationId: 'P12'
+      }
+    }
+    : activeManualAdjustments;
+  const displayLevels = applyManualAdjustmentsToLevels(result.levels, displayManualAdjustments);
+  const localScenarioLevels = result.locallyCompleteRightSizingRecordCount > 0
+    ? applyManualAdjustmentsToLevels(result.locallyAdjustedLevels || {}, displayManualAdjustments)
+    : {};
+  const rule11Disposition = assessRule11Disposition(result.violations, localRuleDispositions, displayLevels);
+  const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
+  const generalWarningDispositions = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
   const processCard = (p) => {
-    const level = result.levels[p.id] || 'basic';
+    const level = displayLevels[p.id] || result.levels[p.id] || 'basic';
     const derivedLevel = result.derived?.[p.id] || 'basic';
-    const floorClosureLevel = result.normativeLevels?.[p.id] || level;
-    const manualAdjustment = state.manualAdjustments?.[p.id] || state.manualAdjustments?.[String(p.id)];
-    const governedAdjustment = manualAdjustment?.level
-      || (result.approvedRightSizedLevels?.[p.id] && result.approvedRightSizedLevels[p.id] !== floorClosureLevel
-        ? result.approvedRightSizedLevels[p.id]
-        : null);
+    const floorClosureLevel = result.normativeLevels?.[p.id] || result.levels[p.id] || level;
+    const manualAdjustment = displayManualAdjustments?.[p.id] || displayManualAdjustments?.[String(p.id)];
+    const governedAdjustment = manualAdjustment?.level || null;
+    const localScenarioLevel = localScenarioLevels?.[p.id] || localScenarioLevels?.[String(p.id)] || null;
+    const localScenarioAdjustment = localScenarioLevel && localScenarioLevel !== level ? localScenarioLevel : null;
     const detail = derivationDetails[p.id] || {};
     const drivers = getDriverAttribution(p.id, localScores, matrixMap, assessmentContext);
     const wasOverridden = result.overrides.some(o => o.processId === p.id);
@@ -771,8 +816,9 @@ function renderResults(content) {
       <dl class="causality-grid" aria-label="Recommendation causality">
         <div><dt>Derived</dt><dd>${escapeHtml(derivedLevel)}</dd></div>
         <div><dt>Floor / closure</dt><dd>${escapeHtml(floorClosureLevel)}</dd></div>
-        <div><dt>Governed adjustment</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : '—'}</dd></div>
-        <div><dt>Final</dt><dd>${escapeHtml(level)}</dd></div>
+        <div><dt>Manual / disposition</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : '—'}</dd></div>
+        <div><dt>Local reduction scenario</dt><dd>${localScenarioAdjustment ? escapeHtml(localScenarioAdjustment) : '—'}</dd></div>
+        <div><dt>Pilot profile</dt><dd>${escapeHtml(level)}</dd></div>
       </dl>
       <div class="drivers-list mt-sm">${drivers.slice(0, 3).map(d => `<div class="driver-item"><span class="driver-badge ${d.role === 'P' ? 'primary' : 'secondary'}">${d.role === 'P' ? 'Main' : 'Also'}</span><span>${escapeHtml(d.metric)}: ${escapeHtml(d.value)}</span></div>`).join('')}</div>
       <a class="btn btn-secondary btn-sm mt-sm process-detail-link" href="${escapeHtml(processDetailsHref(p.id, level, 'assessment'))}" aria-label="View ${escapeHtml(p.name)} ${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)} details">View guidance →</a>
@@ -782,7 +828,8 @@ function renderResults(content) {
     ...result.overrides.map(item => item.processId),
     ...result.fixes.map(item => item.processId),
     ...result.violations.flatMap(item => [item.processId, ...(item.processes || [])]),
-    ...CORE_PROCESSES.filter(p => result.levels[p.id] === 'comprehensive').map(p => p.id),
+    ...CORE_PROCESSES.filter(p => displayLevels[p.id] === 'comprehensive').map(p => p.id),
+    ...CORE_PROCESSES.filter(p => localScenarioLevels[p.id] && localScenarioLevels[p.id] !== displayLevels[p.id]).map(p => p.id),
     ...CORE_PROCESSES.filter(p => result.confidence?.[p.id] === 'available-with-justification').map(p => p.id)
   ].filter(Boolean).map(Number));
   const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id));
@@ -840,22 +887,31 @@ function renderResults(content) {
       status: rightSizingProposals.length ? 'Decision available — non-blocking' : 'none',
       passed: true,
       neutral: rightSizingProposals.length > 0,
-      detail: rightSizingProposals.length ? 'Each proposal needs an explicit governed decision; none is silently applied.' : 'No proposed reductions await disposition.'
+      detail: rightSizingProposals.length ? 'Each proposal needs a recorded decision; no browser-local record changes the normative recommendation.' : 'No proposed reductions await disposition.'
     },
     {
-      label: 'Final process profile',
+      label: 'Local reduction records',
+      status: result.locallyCompleteRightSizingRecordCount > 0 ? `${result.locallyCompleteRightSizingRecordCount} locally complete` : 'none',
+      passed: true,
+      neutral: result.locallyCompleteRightSizingRecordCount > 0,
+      detail: result.locallyCompleteRightSizingRecordCount > 0
+        ? 'A separate unverified scenario is available. External approval is not authenticated, so the normative recommendation is unchanged.'
+        : 'No structurally complete local reduction record is active.'
+    },
+    {
+      label: 'Pilot process profile',
       status: 'available for review',
       passed: true,
-      detail: `${Object.values(result.levels).filter(level => level === 'basic').length} Basic, ${Object.values(result.levels).filter(level => level === 'standard').length} Standard, ${Object.values(result.levels).filter(level => level === 'comprehensive').length} Comprehensive.`
+      detail: `${Object.values(displayLevels).filter(level => level === 'basic').length} Basic, ${Object.values(displayLevels).filter(level => level === 'standard').length} Standard, ${Object.values(displayLevels).filter(level => level === 'comprehensive').length} Comprehensive.`
     }
   ];
   const visibleActionQueue = assessmentViewMode === 'issues'
-    ? actionQueue.filter(item => !item.passed || item.label === 'Final process profile')
+    ? actionQueue.filter(item => !item.passed || item.label === 'Pilot process profile' || item.neutral)
     : actionQueue;
   content.innerHTML = `
     <section class="action-queue" aria-labelledby="assessment-action-queue-title">
       <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Unresolved action queue' : 'Assessment action queue'}</h3>
-      <p class="text-xs text-secondary mt-sm">Ordered from software state through governed decisions to the final profile. Software checks do not verify approval authority.</p>
+      <p class="text-xs text-secondary mt-sm">Ordered from software state through recorded decisions to the pilot profile. Software checks do not verify approval authority.</p>
       <ol class="action-queue-list">
         ${visibleActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
       </ol>
@@ -886,7 +942,7 @@ function renderResults(content) {
       <div class="text-xs mt-sm" id="rule11-disposition-status" style="color:${rule11Disposition.complete || canApplyRule11Elevation ? 'var(--accent-success)' : 'var(--accent-warning)'};">${rule11Disposition.complete
         ? 'Disposition complete.'
         : canApplyRule11Elevation
-          ? 'Ready: passing software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
+          ? 'Ready: checking software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
         : `Incomplete: ${escapeHtml(rule11Disposition.missingFields.join(', '))}${rule11Disposition.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`}</div>
     </fieldset>` : ''}
     ${generalWarningDispositions.length ? `<fieldset class="mb-lg" style="border:2px solid ${generalWarningDispositions.every(item => item.complete) ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
@@ -961,8 +1017,14 @@ function renderResults(content) {
       <div class="override-banner" style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);">
         <strong>${rightSizingProposals.length} Right-Sizing Proposal${rightSizingProposals.length === 1 ? '' : 's'} — not applied</strong>
         <div class="text-xs text-secondary mt-sm mb-sm">Project scale: ${result.indices?.psi || '—'} · Delivery pressure: ${result.indices?.csi || '—'} · Adoption readiness: ${result.indices?.cri || '—'}</div>
-        <div class="text-xs text-secondary mb-sm">Each proposal requires an explicit accept/reject decision, rationale, approver, and residual-risk record. Final levels below remain unchanged.</div>
+        <div class="text-xs text-secondary mb-sm">Each proposal can be documented locally, but browser-local records cannot authenticate authority. The pilot profile below remains unchanged.</div>
         ${rightSizingProposals.map(a => `<div class="text-sm mt-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>`).join('')}
+      </div>` : ''}
+    ${result.locallyCompleteRightSizingRecordCount > 0 ? `
+      <div class="override-banner" style="background:rgba(34,211,238,.07);border-color:rgba(34,211,238,.3);">
+        <strong>Local reduction scenario — external approval unverified</strong>
+        <div class="text-xs text-secondary mt-sm">${result.locallyCompleteRightSizingRecordCount} record(s) are structurally complete and policy-consistent. They do not change the normative recommendation in this static app.</div>
+        ${CORE_PROCESSES.filter(process => localScenarioLevels[process.id] && localScenarioLevels[process.id] !== displayLevels[process.id]).map(process => `<div class="text-sm mt-sm">• <strong>${escapeHtml(process.name)}</strong>: pilot profile ${escapeHtml(displayLevels[process.id])} → local scenario ${escapeHtml(localScenarioLevels[process.id])}</div>`).join('')}
       </div>` : ''}
     ${legacyRightSizingActions.length ? `<div class="override-banner" style="background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.3);"><strong>Historical right-sizing records</strong><div class="text-xs text-secondary mt-sm">Imported pre-governance actions are retained for audit only and are not evidence of an approved v4 reduction.</div></div>` : ''}
     ${blockedRightSizingCandidates.length ? `<div class="override-banner" style="background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25);"><strong>Blocked Right-Sizing Candidates (${blockedRightSizingCandidates.length})</strong><div class="text-xs text-secondary mt-sm">These reductions are not approval candidates because mandatory closure would immediately restore the required level.</div></div>` : ''}
@@ -1032,12 +1094,12 @@ function renderResults(content) {
       completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
     } else if (!currentRule11Readiness.complete) {
       completeButton.textContent = currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')
-        ? 'Apply P27 Adjustment & Pass Software Checks'
+        ? 'Apply P27 Adjustment & Check Completeness'
         : 'Save Work in Progress (Rule 11 disposition required)';
     } else if (!currentWarningReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
     } else {
-      completeButton.textContent = 'Pass Software Completeness Checks';
+      completeButton.textContent = 'Check Software Completeness';
     }
   };
   content.querySelectorAll('.process-detail-link').forEach(link => {
@@ -1061,19 +1123,19 @@ function renderResults(content) {
       }
     };
     commitAssessmentDraft();
-    const status = assessRule11Disposition(result.violations, localRuleDispositions, result.levels);
-    const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
+    const status = assessRule11Disposition(result.violations, localRuleDispositions, displayLevels);
+    const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
     const readyToApplyElevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && elevatedPreview.complete;
     currentRule11Readiness = status;
     currentRule11ElevationReady = readyToApplyElevation;
-    currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, result.levels);
+    currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
     const statusNode = content.querySelector('#rule11-disposition-status');
     if (statusNode) {
       statusNode.style.color = status.complete || readyToApplyElevation ? 'var(--accent-success)' : 'var(--accent-warning)';
       statusNode.textContent = status.complete
         ? 'Disposition complete.'
         : readyToApplyElevation
-          ? 'Ready: passing software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
+          ? 'Ready: checking software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
         : `Incomplete: ${status.missingFields.join(', ')}${status.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`;
     }
     updateCompleteButton();
@@ -1097,7 +1159,7 @@ function renderResults(content) {
       }
     };
     commitAssessmentDraft();
-    currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, result.levels);
+    currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
     const assessment = currentWarningReadiness.assessments.find(item => item.ruleId === ruleId);
     const summary = section.querySelector('.warning-disposition-summary');
     if (summary && assessment) summary.textContent = assessment.complete ? 'complete' : `missing ${assessment.missingFields.join(', ')}`;
@@ -1152,7 +1214,7 @@ function finalizeAssessment(destinationHash = null) {
   result.hierarchyWarnings = hierarchyInput.warnings;
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
   const rule11Record = localRuleDispositions?.['11'];
-  const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
+  const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
   const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
   const rootManualAdjustments = state.manualAdjustments || {};
   const activeManualAdjustments = activeNode?.id === state.assessmentTree.rootId
@@ -1173,10 +1235,18 @@ function finalizeAssessment(destinationHash = null) {
   } : activeManualAdjustments;
   const rule11Levels = applyRule11Elevation ? { ...result.levels, 27: 'standard' } : result.levels;
   const effectiveLevels = applyManualAdjustmentsToLevels(rule11Levels, manualAdjustments);
+  const effectiveLocalScenarioLevels = result.locallyCompleteRightSizingRecordCount > 0
+    ? applyManualAdjustmentsToLevels(result.locallyAdjustedLevels || {}, manualAdjustments)
+    : {};
   const hasManualLevelChanges = Object.keys(manualAdjustments).length > 0;
   const effectiveResult = applyRule11Elevation || hasManualLevelChanges
-    ? { ...result, levels: effectiveLevels, budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores) }
-    : result;
+    ? {
+      ...result,
+      levels: effectiveLevels,
+      locallyAdjustedLevels: effectiveLocalScenarioLevels,
+      budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores)
+    }
+    : { ...result, locallyAdjustedLevels: effectiveLocalScenarioLevels };
   const globalManualAdjustments = activeNode?.id === state.assessmentTree.rootId
     ? manualAdjustments
     : rootManualAdjustments;
@@ -1239,9 +1309,13 @@ function finalizeAssessment(destinationHash = null) {
     proposalBudgetStatus: effectiveResult.proposalBudgetStatus || null,
     rightSizingApprovalRecords: assessmentContext.rightSizingApprovalRecords,
     rightSizingApprovalEvaluations: effectiveResult.rightSizingApprovalEvaluations || [],
-    approvedRightSizedLevels: effectiveResult.approvedRightSizedLevels || {},
+    locallyAdjustedLevels: effectiveResult.locallyAdjustedLevels || {},
+    localScenarioClosureFixes: effectiveResult.localScenarioClosureFixes || [],
+    localScenarioBudgetStatus: effectiveResult.localScenarioBudgetStatus || null,
+    locallyCompleteRightSizingRecordCount: effectiveResult.locallyCompleteRightSizingRecordCount || 0,
+    approvedRightSizedLevels: {},
     normativeLevels: effectiveResult.normativeLevels || {},
-    effectiveRightSizingApprovalCount: effectiveResult.effectiveRightSizingApprovalCount || 0,
+    effectiveRightSizingApprovalCount: 0,
     rightSizingActions: [],
     budgetStatus: effectiveResult.budgetStatus || null,
     adoptionRisks: effectiveResult.adoptionRisks || [],

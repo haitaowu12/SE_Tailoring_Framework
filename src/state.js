@@ -73,6 +73,11 @@ const state = {
     proposalBudgetStatus: null,
     rightSizingApprovalRecords: [],
     rightSizingApprovalEvaluations: [],
+    locallyAdjustedLevels: {},
+    localScenarioClosureFixes: [],
+    localScenarioBudgetStatus: null,
+    locallyCompleteRightSizingRecordCount: 0,
+    // Legacy external-authority fields remain empty in the static app.
     approvedRightSizedLevels: {},
     normativeLevels: {},
     effectiveRightSizingApprovalCount: 0,
@@ -131,6 +136,10 @@ function debounceAutosave() {
                 proposalBudgetStatus: state.proposalBudgetStatus,
                 rightSizingApprovalRecords: state.rightSizingApprovalRecords,
                 rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations,
+                locallyAdjustedLevels: state.locallyAdjustedLevels,
+                localScenarioClosureFixes: state.localScenarioClosureFixes,
+                localScenarioBudgetStatus: state.localScenarioBudgetStatus,
+                locallyCompleteRightSizingRecordCount: state.locallyCompleteRightSizingRecordCount,
                 approvedRightSizedLevels: state.approvedRightSizedLevels,
                 normativeLevels: state.normativeLevels,
                 effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount,
@@ -215,10 +224,13 @@ export function showToast(message, type = 'info') {
     if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    if (type === 'error') toast.setAttribute('role', 'alert');
-    toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span> ${escapeHtml(message)}`;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.innerHTML = `<span aria-hidden="true">${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span><span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    const timeout = type === 'error' ? 8000 : type === 'warning' ? 6000 : 4000;
+    setTimeout(() => toast.remove(), timeout);
 }
 
 // ===== Tree Manipulation Helpers (v3.3) =====

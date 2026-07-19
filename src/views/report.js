@@ -23,7 +23,7 @@ function renderRightSizingApprovalForm(proposal, state) {
   const target = proposal.proposedTo || proposal.to;
   const requirements = getRightSizingApprovalRequirements(proposal, state.assessmentTree);
   const evaluation = (state.rightSizingApprovalEvaluations || []).find(item => Number(item.proposal?.processId) === Number(proposal.processId));
-  const assessedRecord = evaluation?.effective || evaluation?.records?.[0];
+  const assessedRecord = evaluation?.locallyComplete || evaluation?.records?.[0];
   const record = assessedRecord?.record || (state.rightSizingApprovalRecords || []).find(item => Number(item.processId) === Number(proposal.processId)) || {};
   const status = assessedRecord?.assessment?.status || 'not-recorded';
   const reasons = assessedRecord?.assessment?.reasons || [];
@@ -34,7 +34,7 @@ function renderRightSizingApprovalForm(proposal, state) {
     </div>`).join('');
   return `
     <details class="mt-sm" style="border-top:1px solid rgba(99,102,241,.2);padding-top:8px;">
-      <summary class="text-sm"><strong>${escapeHtml(proposalProcessName)}</strong>: ${escapeHtml(proposal.from)} → ${escapeHtml(target)} · approval ${escapeHtml(status)}</summary>
+      <summary class="text-sm"><strong>${escapeHtml(proposalProcessName)}</strong>: ${escapeHtml(proposal.from)} → ${escapeHtml(target)} · local record ${escapeHtml(status)}</summary>
       <form class="right-sizing-approval-form mt-sm" data-process-id="${proposal.processId}">
         <div class="text-xs text-secondary mb-sm">Required asserted roles: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''} The static prototype cannot authenticate identities or verify external approval.</div>
         ${reasons.length ? `<div class="text-xs mb-sm" style="color:var(--accent-warning);">Current record: ${reasons.map(escapeHtml).join(', ')}</div>` : ''}
@@ -49,7 +49,7 @@ function renderRightSizingApprovalForm(proposal, state) {
           <label class="text-xs">Valid through / review date<input class="input" type="date" name="reviewDate" value="${escapeHtml(record.reviewDate || '')}"></label>
         </div>
         ${roleFields}
-        <button class="btn btn-primary btn-sm" type="submit">Record asserted approval and re-evaluate</button>
+        <button class="btn btn-primary btn-sm" type="submit">Record asserted decision and update local scenario</button>
       </form>
     </details>`;
 }
@@ -99,7 +99,7 @@ function enhanceReportSections(container) {
     {
       section: container.querySelector(':scope > .grid-2.mb-xl'),
       title: 'Project and Level Distribution',
-      description: 'Project metadata and final profile count.',
+      description: 'Project metadata and pilot profile count.',
       open: true
     },
     {
@@ -159,7 +159,7 @@ function enhanceReportSections(container) {
     {
       section: findDirectReportCard(container, 'Full Process Tailoring Profile'),
       title: 'Full Process Tailoring Profile',
-      description: 'One process view with derived, manual, governed, final, evidence, and driver context.',
+      description: 'One process view with derived, pilot-profile, local-scenario, evidence, and driver context.',
       open: false
     },
     {
@@ -233,6 +233,7 @@ export function renderReport(container) {
   const tree = state.assessmentTree;
   const scores = state.scores || {};
   const levels = state.levels || {};
+  const localScenarioLevels = state.locallyAdjustedLevels || {};
   const derivedLevels = state.derived || {};
   const derivationDetails = state.derivationDetails || {};
   const confidence = state.confidence || {};
@@ -244,6 +245,9 @@ export function renderReport(container) {
   const basicCount = Object.values(levels).filter(l => l === 'basic').length;
   const stdCount = Object.values(levels).filter(l => l === 'standard').length;
   const compCount = Object.values(levels).filter(l => l === 'comprehensive').length;
+  const localScenarioChanges = CORE_PROCESSES.filter(process =>
+    localScenarioLevels[process.id] && localScenarioLevels[process.id] !== levels[process.id]
+  );
 
   const ordinalOverview = renderOrdinalMetricProfile(scores, state.metricAssessments, METRICS, DIMENSIONS);
   const overrideCount = state.overrides?.length || 0;
@@ -332,13 +336,13 @@ export function renderReport(container) {
         </div>
       </div>
       <div class="report-summary-notes">
-        <span><strong>Final profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
+        <span><strong>Pilot process profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
         <span><strong>High-pressure metrics:</strong> ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None at 4 or 5'}.</span>
         <span><strong>Metric notes:</strong> ${metricNotesCount} of ${METRICS.length} recorded.</span>
         <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
       </div>
       <div class="report-scope-note">
-        <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.
+        <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
       </div>
       <div class="report-gate-grid" aria-label="Record gate statuses">
         ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
@@ -483,18 +487,18 @@ export function renderReport(container) {
       ${state.rightSizingProposals?.length > 0 ? `
       <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">${state.rightSizingProposals.length} Right-Sizing Proposal${state.rightSizingProposals.length === 1 ? '' : 's'} — Not Applied</div>
-        <div class="text-xs text-secondary mb-sm">The final profile remains normative. Each reduction requires an explicit accept/reject decision, rationale, approver, and residual-risk record.</div>
+        <div class="text-xs text-secondary mb-sm">The pilot process profile remains normative. A complete browser-local decision record produces only an unverified scenario; it cannot authenticate or apply external approval.</div>
         ${state.rightSizingProposals.map(a => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>${renderRightSizingApprovalForm(a, state)}`).join('')}
       </div>` : ''}
-      ${state.effectiveRightSizingApprovalCount > 0 ? `<div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);border-radius:8px;padding:12px;margin-top:8px;"><strong>${state.effectiveRightSizingApprovalCount} effective governed reduction approval(s)</strong><div class="text-xs text-secondary mt-sm">The displayed final profile includes these snapshot-bound decisions after mandatory closure was re-applied.</div></div>` : ''}
+      ${state.locallyCompleteRightSizingRecordCount > 0 ? `<div style="background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.3);border-radius:8px;padding:12px;margin-top:8px;"><strong>${state.locallyCompleteRightSizingRecordCount} structurally complete local reduction record(s)</strong><div class="text-xs text-secondary mt-sm">External approval is unverified. The pilot process profile remains unchanged; the separate local scenario has been re-closed against mandatory constraints.</div>${localScenarioChanges.map(process => `<div class="text-sm mt-sm">• <strong>${escapeHtml(process.name)}</strong>: pilot profile ${escapeHtml(levels[process.id])} → local scenario ${escapeHtml(localScenarioLevels[process.id])}</div>`).join('')}</div>` : ''}
       ${state.rightSizingActions?.length > 0 ? `<div style="background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.3);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Historical right-sizing actions (${state.rightSizingActions.length})</div><div class="text-xs text-secondary mt-sm">Preserved from a legacy import for audit only; not treated as approved v4 reductions.</div></div>` : ''}
       ${state.blockedRightSizingCandidates?.length > 0 ? `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Blocked reduction candidates (${state.blockedRightSizingCandidates.length})</div><div class="text-xs text-secondary mt-sm">Mandatory closure would restore these candidate levels, so they are not offered for approval.</div></div>` : ''}
       ${state.budgetStatus && !state.budgetStatus.withinBudget ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">Final Rigor-Budget Exception</div>
-        <div class="text-sm mt-sm">The final protected profile exceeds the configured PSI guidance by ${state.budgetStatus.comprehensiveExcess} Comprehensive and ${state.budgetStatus.standardExcess} Standard process(es). This exception requires governance review; it is not a failed safety or mandatory-rule closure.</div>
+        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">Pilot Profile Concentration Exception</div>
+        <div class="text-sm mt-sm">The pilot protected profile exceeds the configured PSI guidance by ${state.budgetStatus.comprehensiveExcess} Comprehensive and ${state.budgetStatus.standardExcess} Standard process(es). This exception requires governance review; it is not a failed safety or mandatory-rule closure.</div>
       </div>` : !state.rightSizingProposals?.length ? `
-      <div class="text-sm" style="color: #34d399;">✓ Final profile is within configured rigor-budget guidance; no reduction proposal is needed.</div>` : ''}
+      <div class="text-sm" style="color: #34d399;">✓ Pilot process profile is within configured concentration guidance; no reduction proposal is needed.</div>` : ''}
       ${state.adoptionRisks?.length > 0 ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 6px;">${state.adoptionRisks.length} Adoption Readiness Gap${state.adoptionRisks.length === 1 ? '' : 's'}</div>
@@ -590,7 +594,7 @@ export function renderReport(container) {
 
     <div class="card mb-xl">
       <h4 class="mb-md">Full Process Tailoring Profile</h4>
-      <p class="text-xs text-secondary mb-md">One process-level view: derived level, governed changes, final assignment, evidence status, and top drivers.</p>
+      <p class="text-xs text-secondary mb-md">One process-level view: derived level, pilot-profile assignment, separate unverified local scenario, evidence status, and top drivers.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
           <thead>
@@ -602,7 +606,8 @@ export function renderReport(container) {
               <th>Manual adjustment</th>
               <th>Override</th>
               <th>Fix</th>
-              <th>Final</th>
+              <th>Pilot profile</th>
+              <th>Local reduction scenario</th>
               <th>Evidence Status</th>
               <th>Top drivers</th>
             </tr>
@@ -611,6 +616,7 @@ export function renderReport(container) {
             ${CORE_PROCESSES.map(p => {
     const derived = derivedLevels[p.id] || 'basic';
     const final_ = levels[p.id] || 'basic';
+    const localScenario = localScenarioLevels[p.id] || final_;
     const manualAdjustment = state.manualAdjustments?.[p.id]
       || state.manualAdjustments?.[String(p.id)]
       || tree?.nodes?.[tree.rootId]?.manualAdjustments?.[p.id]
@@ -650,6 +656,7 @@ export function renderReport(container) {
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td><span class="level-badge ${final_}" style="font-weight:700;">${final_[0].toUpperCase()}</span></td>
+                <td>${localScenario !== final_ ? `<span class="level-badge ${localScenario}" style="font-weight:700;">${localScenario[0].toUpperCase()}</span><br><span class="text-xs text-secondary">Unverified local scenario</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${confBadge}</td>
                 <td class="text-xs text-secondary">${escapeHtml(triggerMetrics)}${detail.triggerScore ? ` (${detail.triggerScore})` : ''}<br>${escapeHtml(drivers.slice(0, 3).map(d => `${d.metric}=${d.value} (${d.role})`).join(', ') || '—')}</td>
               </tr>`;
@@ -863,22 +870,32 @@ export function renderReport(container) {
         activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
         activeNode.assessmentResult = result;
         activeNode.levels = { ...result.levels };
+        activeNode.locallyAdjustedLevels = { ...(result.locallyAdjustedLevels || {}) };
       }
       setState({
         levels: result.levels,
         normativeLevels: result.normativeLevels,
         rightSizingApprovalRecords: records,
         rightSizingApprovalEvaluations: result.rightSizingApprovalEvaluations,
-        approvedRightSizedLevels: result.approvedRightSizedLevels,
-        effectiveRightSizingApprovalCount: result.effectiveRightSizingApprovalCount,
+        locallyAdjustedLevels: result.locallyAdjustedLevels || {},
+        localScenarioClosureFixes: result.localScenarioClosureFixes || [],
+        localScenarioBudgetStatus: result.localScenarioBudgetStatus || null,
+        locallyCompleteRightSizingRecordCount: result.locallyCompleteRightSizingRecordCount || 0,
+        approvedRightSizedLevels: {},
+        effectiveRightSizingApprovalCount: 0,
         budgetStatus: result.budgetStatus,
         fixes: result.fixes,
         violations: result.violations,
         confidence: result.confidence,
         assessmentTree: current.assessmentTree
       });
-      const effective = result.rightSizingApprovalEvaluations?.find(item => Number(item.proposal?.processId) === processId)?.effective;
-      showToast(effective ? 'Asserted approval recorded and mandatory closure rechecked. External approval is not verified.' : 'Asserted approval record saved but remains invalid or incomplete.', effective ? 'success' : 'warning');
+      const localRecord = result.rightSizingApprovalEvaluations?.find(item => Number(item.proposal?.processId) === processId)?.locallyComplete;
+      showToast(
+        localRecord
+          ? 'Asserted decision record saved; the local scenario was rechecked. External approval remains unverified and the pilot profile is unchanged.'
+          : 'Asserted decision record saved but remains structurally incomplete or invalid.',
+        localRecord ? 'success' : 'warning'
+      );
       renderReport(container);
     });
   });
