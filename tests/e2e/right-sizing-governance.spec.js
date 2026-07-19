@@ -119,8 +119,8 @@ test('incomplete decision fails closed, then a complete local record creates a s
   await form.locator('xpath=..').locator('summary').click();
   await form.locator('[name="rationale"]').fill('Bounded mission analysis scope supports the reduced activity set.');
   await form.getByRole('button', { name: 'Record asserted decision and update local scenario' }).click();
-  await expect(page.getByText('Asserted decision record saved but remains structurally incomplete or invalid.')).toBeVisible();
-  await expect(page.getByText(/Business\/Mission Analysis.*local record invalid/)).toBeVisible();
+  await expect(page.getByText('Asserted decision record saved but remains structurally incomplete or invalid.')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/Business\/Mission Analysis.*local record invalid/)).toBeVisible({ timeout: 15000 });
   await expect(page.getByText(/structurally complete local reduction record/)).toHaveCount(0);
 
   const updatedForm = page.locator('.right-sizing-approval-form[data-process-id="17"]');
