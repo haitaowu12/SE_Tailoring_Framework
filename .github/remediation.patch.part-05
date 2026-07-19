@@ -1,0 +1,115 @@
+ecords || []).length > 0) {
+-        html += '<h2>Right-Sizing Asserted Approval Records</h2><div class="info">These records capture asserted roles but the static prototype cannot authenticate identities or verify external approval. Records are snapshot-bound, time-limited, and rechecked against mandatory closure. They cannot override mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
++        html += '<h2>Right-Sizing Asserted Decision Records</h2><div class="info">These browser-local records capture asserted roles but cannot authenticate identities or verify external approval. A structurally complete record can produce a separately labelled local scenario after mandatory closure; it never changes the pilot process profile or overrides mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
+         for (const record of state.rightSizingApprovalRecords) {
+             const evaluation = (state.rightSizingApprovalEvaluations || [])
+                 .find(item => Number(item.proposal?.processId) === Number(record.processId));
+@@ -1219,7 +1238,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
+             const authorities = Object.entries(record.approvals || {})
+                 .map(([role, approval]) => `${role}: ${approval.identity || '—'} (${approval.authorityBasis || '—'})`)
+                 .join('; ');
+-            html += `<div class="${assessed?.valid ? 'info' : 'violation'}"><strong>Process ${escapeHtml(record.processId)}: ${escapeHtml(record.from)} → ${escapeHtml(record.to)} — ${escapeHtml(assessed?.status || 'not-current')}</strong><br>Rationale: ${escapeHtml(record.rationale || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Residual risks: ${escapeHtml(record.residualRisks || '—')}<br>Asserted risk acceptance owner: ${escapeHtml(record.riskAcceptanceOwner || '—')}<br>Compensating controls: ${escapeHtml(record.compensatingControls || '—')}<br>Rejected alternatives: ${escapeHtml(record.rejectedAlternatives || '—')}<br>Asserted authorities: ${escapeHtml(authorities || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br>Snapshot: ${escapeHtml(record.snapshot || '—')}${assessed?.reasons?.length ? `<br>Invalidation reasons: ${escapeHtml(assessed.reasons.join(', '))}` : ''}</div>`;
++            html += `<div class="${assessed?.locallyComplete ? 'info' : 'violation'}"><strong>Process ${escapeHtml(record.processId)}: ${escapeHtml(record.from)} → ${escapeHtml(record.to)} — ${escapeHtml(assessed?.status || 'not-current')}</strong><br>Rationale: ${escapeHtml(record.rationale || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Residual risks: ${escapeHtml(record.residualRisks || '—')}<br>Asserted risk acceptance owner: ${escapeHtml(record.riskAcceptanceOwner || '—')}<br>Compensating controls: ${escapeHtml(record.compensatingControls || '—')}<br>Rejected alternatives: ${escapeHtml(record.rejectedAlternatives || '—')}<br>Asserted authorities: ${escapeHtml(authorities || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br>Snapshot: ${escapeHtml(record.snapshot || '—')}${assessed?.reasons?.length ? `<br>Invalidation reasons: ${escapeHtml(assessed.reasons.join(', '))}` : ''}</div>`;
+         }
+     }
+ 
+diff --git a/src/utils/right-sizing-governance.js b/src/utils/right-sizing-governance.js
+index 6eb29fe..f233017 100644
+--- a/src/utils/right-sizing-governance.js
++++ b/src/utils/right-sizing-governance.js
+@@ -158,9 +158,21 @@ export function assessRightSizingApproval(record = {}, proposal = {}, context =
+     if (proposal.allocationRuleProtected === true) reasons.push('safety-security-allocation-protected');
+     if (proposal.bindingAssuranceFloorProtected === true) reasons.push('binding-assurance-floor-protected');
+ 
++    const locallyComplete = reasons.length === 0;
+     return {
+-        valid: reasons.length === 0,
+-        status: reasons.length === 0 ? 'effective' : reasons.includes('approval-expired') ? 'expired' : reasons.includes('assessment-or-scope-changed') ? 'invalidated' : 'invalid',
++        // `valid` is retained for import/report compatibility. In the static
++        // prototype it means structurally complete and policy-consistent, not
++        // authenticated or externally approved.
++        valid: locallyComplete,
++        locallyComplete,
++        externallyVerified: false,
++        status: locallyComplete
++            ? 'locally-complete-unverified'
++            : reasons.includes('approval-expired')
++                ? 'expired'
++                : reasons.includes('assessment-or-scope-changed')
++                    ? 'invalidated'
++                    : 'invalid',
+         reasons: [...new Set(reasons)],
+         expectedSnapshot,
+         requirements
+@@ -171,14 +183,27 @@ export function evaluateRightSizingApprovals(proposals = [], records = [], conte
+     const evaluations = proposals.map(proposal => {
+         const candidates = records.filter(record => Number(record.processId) === Number(proposal.processId));
+         const assessed = candidates.map(record => ({ record, assessment: assessRightSizingApproval(record, proposal, context) }));
+-        const effective = assessed.find(item => item.assessment.valid) || null;
+-        return { proposal, records: assessed, effective };
++        const locallyComplete = assessed.find(item => item.assessment.locallyComplete) || null;
++        return { proposal, records: assessed, locallyComplete, effective: null };
+     });
++
+     const levels = { ...(context.normativeLevels || {}) };
++    const scenarioLevels = { ...levels };
+     for (const evaluation of evaluations) {
+-        if (evaluation.effective) levels[evaluation.proposal.processId] = evaluation.proposal.proposedTo || evaluation.proposal.to;
++        if (evaluation.locallyComplete) {
++            scenarioLevels[evaluation.proposal.processId] = evaluation.proposal.proposedTo || evaluation.proposal.to;
++        }
+     }
+-    return { levels, evaluations, effectiveCount: evaluations.filter(item => item.effective).length };
++
++    return {
++        levels,
++        scenarioLevels,
++        evaluations,
++        locallyCompleteCount: evaluations.filter(item => item.locallyComplete).length,
++        // Authentication and external approval are not implemented in this
++        // browser-local research artifact, so no record becomes effective.
++        effectiveCount: 0
++    };
+ }
+ 
+ export function validateRightSizingApprovalRecords(records) {
+diff --git a/src/views/assessment.js b/src/views/assessment.js
+index 3ae03bb..fc956eb 100644
+--- a/src/views/assessment.js
++++ b/src/views/assessment.js
+@@ -29,6 +29,7 @@ const STEPS = [
+ let currentStep = 0;
+ let visitedSteps = new Set([0]);
+ let assessmentViewMode = 'assess';
++let showNeutralPreview = false;
+ let localScores = {};
+ let localProject = {};
+ let localMetricAssessments = {};
+@@ -193,7 +194,7 @@ export function renderAssessment(container, routeContext = null) {
+         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
+         <span class="step-indicator text-sm text-secondary">Step ${currentStep + 1} of ${STEPS.length}</span>
+         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
+-          ? completeness.complete ? 'Pass Software Completeness Checks' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
++          ? completeness.complete ? 'Check Software Completeness' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
+           : 'Next →'}</button>
+       </div>
+     </div>
+@@ -221,7 +222,7 @@ export function renderAssessment(container, routeContext = null) {
+     .metric-name { font-weight: 600; font-size: 15px; }
+     .metric-id { font-size: 12px; font-weight: 700; color: var(--accent-primary-light); background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 4px; }
+     .metric-score-display { font-size: 24px; font-weight: 800; min-width: 40px; text-align: center; transition: color 0.2s; }
+-    .metric-definition { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 12px; }
++    .metric-definition { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 12px; }
+     .metric-definition strong { color: var(--text-primary); }
+     .metric-anchor-choices { border: 0; padding: 0; margin: 0; display: grid; gap: 7px; }
+     .metric-anchor-card { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: start; gap: 9px; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 11px; cursor: pointer; background: var(--bg-secondary); }
+@@ -231,7 +232,7 @@ export function renderAssessment(container, routeContext = null) {
+     .metric-anchor-card.preview { border-style: dashed; }
+     .metric-anchor-card input { margin-top: 4px; accent-color: var(--accent-primary); }
+     .metric-anchor-number { display: block; font-size: 18px; font-weight: 800; line-height: 1.1; }
+-    .metric-anchor-text { display: block; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
++    .metric-anchor-text { display: block; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+     .metric-anchor-tag { font-size: 10px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
+     .metric-description { font-size: 13px; color: var(--text-secondary); margin-top: 8px; padding: 6px 10px; background: rgba(99,102,241,0.05); border-radius: 6px; }
+     .assessment-guidance { max-width: 680px; margin-inline: auto; color: var(--text-secondary); font-size: 13px; text-align: center; }
+@@ -254,6 +255,8 @@ export function renderAssessm
