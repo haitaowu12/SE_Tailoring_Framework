@@ -6,37 +6,15 @@ on:
     branches: ["main"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - name: Checkout exact pull-request head
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-      - name: Apply staged finalization hotfix
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        shell: bash
-        run: |
-          set -euo pipefail
-          patch='.github/hotfix.patch'
-          if [[ ! -f "$patch" ]]; then
-            exit 0
-          fi
-
-          git apply --index --whitespace=error "$patch"
-          # Keep workflow changes for the connected GitHub app. The Actions
-          # token publishes only source and test changes on a disposable branch.
-          git checkout HEAD -- .github/workflows/ci.yml
-          git rm "$patch"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'fix: scope final recommendation layers during completion'
-          git push --force origin HEAD:refs/heads/agent/4-1-1-remediation-hotfix
 
       - name: Capture immutable build identity
         run: echo "VITE_BUILD_ID=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
