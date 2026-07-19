@@ -121,6 +121,11 @@ export function renderDashboard(container) {
       .method-details-body { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; padding-top:24px; margin-top:18px; border-top:1px solid var(--border-subtle); }
       .method-details-body h3 { font-size:16px; margin-bottom:8px; }
       .method-details-body ul { list-style:none; display:grid; gap:8px; color:var(--text-secondary); font-size:13px; }
+      @media (max-width: 520px) {
+        .hero-actions { flex-direction: column; align-items: stretch; }
+        .hero-actions .btn { width: 100%; }
+        #btn-explore { white-space: normal; }
+      }
       @media (max-width:760px) { .dashboard-hero { padding-top:38px; } .framework-facts { gap:14px; flex-direction:column; } .current-work { align-items:flex-start; flex-direction:column; } .method-details-body { grid-template-columns:1fr; } }
     `;
     container.appendChild(style);
