@@ -906,7 +906,7 @@ function renderResults(content) {
     }
   ];
   const visibleActionQueue = assessmentViewMode === 'issues'
-    ? actionQueue.filter(item => !item.passed || item.label === 'Pilot process profile' || item.neutral)
+    ? actionQueue.filter(item => !item.passed || item.label === 'Pilot process profile')
     : actionQueue;
   content.innerHTML = `
     <section class="action-queue" aria-labelledby="assessment-action-queue-title">

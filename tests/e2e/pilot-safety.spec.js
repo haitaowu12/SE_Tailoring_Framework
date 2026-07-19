@@ -50,7 +50,7 @@ test('end session confirmation erases the origin autosave and returns to a blank
   }, AUTOSAVE_KEY);
 
   await openSessionMenu(page);
-  await page.getByRole('menuitem', { name: 'End Session' }).click();
+  await page.getByRole('button', { name: 'End Session' }).click();
   const dialog = page.getByRole('dialog', { name: 'End session and erase local assessment?' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('starts a blank session');
@@ -64,7 +64,7 @@ test('end session confirmation erases the origin autosave and returns to a blank
 });
 
 test('end-session critical path is keyboard operable and restores focus on Escape', async ({ page }) => {
-  const endSession = page.getByRole('menuitem', { name: 'End Session' });
+  const endSession = page.getByRole('button', { name: 'End Session' });
   await openSessionMenu(page);
   await endSession.focus();
   await page.keyboard.press('Enter');

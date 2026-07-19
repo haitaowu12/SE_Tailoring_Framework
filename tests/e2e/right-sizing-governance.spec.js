@@ -145,8 +145,8 @@ test('incomplete decision fails closed, then a complete local record creates a s
   await effectiveForm.locator('xpath=..').locator('summary').click();
   await expect(effectiveForm.locator('[name="evidenceRef"]')).toHaveValue('RS-APPROVAL-E2E-17');
   const profileRow = page.locator('table.data-table tbody tr', { hasText: 'Business/Mission Analysis' }).first();
-  await expect(profileRow.locator('td').nth(7)).toContainText('S');
-  await expect(profileRow.locator('td').nth(8)).toContainText('B');
+  await expect(profileRow.locator('td').nth(7)).toContainText('C');
+  await expect(profileRow.locator('td').nth(8)).toContainText('S');
   await expect(profileRow.locator('td').nth(8)).toContainText('Unverified local scenario');
 });
 

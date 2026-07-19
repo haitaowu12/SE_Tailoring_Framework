@@ -7,5 +7,5 @@ export async function openSessionMenu(page) {
 
 export async function clickSessionAction(page, name) {
   await openSessionMenu(page);
-  await page.getByRole('menuitem', { name, exact: true }).click();
+  await page.getByRole('button', { name, exact: true }).click();
 }
