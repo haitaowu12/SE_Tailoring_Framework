@@ -1214,12 +1214,13 @@ function finalizeAssessment(destinationHash = null) {
   result.hierarchyWarnings = hierarchyInput.warnings;
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
   const rule11Record = localRuleDispositions?.['11'];
-  const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
-  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
   const rootManualAdjustments = state.manualAdjustments || {};
   const activeManualAdjustments = activeNode?.id === state.assessmentTree.rootId
     ? { ...rootManualAdjustments, ...(activeNode.manualAdjustments || {}) }
     : { ...(activeNode?.manualAdjustments || {}) };
+  const currentDisplayLevels = applyManualAdjustmentsToLevels(result.levels, activeManualAdjustments);
+  const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...currentDisplayLevels, 27: 'standard' });
+  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
   const manualAdjustments = applyRule11Elevation ? {
     ...activeManualAdjustments,
     27: {
