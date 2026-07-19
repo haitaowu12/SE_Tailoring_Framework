@@ -1,0 +1,188 @@
+Assessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
+         context.rightSizingApprovalRecords || [],
+         approvalContext
+     );
+-    // Approval can authorize a reduction, but cannot bypass mandatory closure.
+-    // Re-closing the approved profile makes that property executable rather than documentary.
+-    const approvedClosure = applyMandatoryClosure(approvalResult.levels, scores, context);
+-    final = approvedClosure.levels;
+-    const fixes = [...closure.fixes, ...approvedClosure.fixes];
+-    const remainingViolations = approvedClosure.violations;
++    // Browser-local approval records are asserted evidence only. They can
++    // produce a separately labelled scenario, but cannot mutate the normative
++    // recommendation because identities and external authority are not verified.
++    const localScenarioClosure = applyMandatoryClosure(approvalResult.scenarioLevels, scores, context);
++    final = normativeLevels;
++    const fixes = [...closure.fixes];
++    const remainingViolations = closure.violations;
+     const budgetStatus = computeRigorBudgetStatus(final, scores);
++    const localScenarioBudgetStatus = approvalResult.locallyCompleteCount > 0
++        ? computeRigorBudgetStatus(localScenarioClosure.levels, scores)
++        : null;
+ 
+     // Step 6: Compute evidence status for each process based on final levels.
+     // Metric corroboration, criticality/assurance floors, and explicit-justification
+@@ -962,9 +966,14 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
+         proposalClosureFixes: proposalClosureFixes || [],
+         proposalBudgetStatus: proposalBudgetStatus || null,
+         rightSizingApprovalEvaluations: approvalResult.evaluations || [],
+-        approvedRightSizedLevels: approvalResult.effectiveCount > 0 ? final : {},
++        locallyAdjustedLevels: approvalResult.locallyCompleteCount > 0 ? localScenarioClosure.levels : {},
++        localScenarioClosureFixes: approvalResult.locallyCompleteCount > 0 ? localScenarioClosure.fixes : [],
++        localScenarioBudgetStatus,
++        locallyCompleteRightSizingRecordCount: approvalResult.locallyCompleteCount || 0,
++        // Legacy authority fields remain empty in the static application.
++        approvedRightSizedLevels: {},
+         normativeLevels,
+-        effectiveRightSizingApprovalCount: approvalResult.effectiveCount || 0,
++        effectiveRightSizingApprovalCount: 0,
+         constraintResponseRequirement: constraintResponseRequirement || deriveCSIResponseRequirement(scores),
+         adoptionRisks: adoptionRisks || [],
+         indices: indices || {},
+@@ -975,7 +984,8 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
+         saTier,
+         confidence,
+         budgetStatus,
+-        closureIterations: closure.iterations + approvedClosure.iterations
++        closureIterations: closure.iterations,
++        localScenarioClosureIterations: approvalResult.locallyCompleteCount > 0 ? localScenarioClosure.iterations : 0
+     };
+ }
+ 
+diff --git a/src/utils/assessment-integrity.js b/src/utils/assessment-integrity.js
+index 84aad9d..dc74a61 100644
+--- a/src/utils/assessment-integrity.js
++++ b/src/utils/assessment-integrity.js
+@@ -133,9 +133,12 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
+         return { complete: true, enabled: false, incompleteElementIds: [], assessedElementCount: entries.length };
+     }
+ 
+-    const rootId = assessmentTree?.rootId || entries[0][0];
+-    const assessedNodes = entries.filter(([nodeId]) => nodeId !== rootId);
+-    const incompleteElementIds = assessedNodes.filter(([, node]) => {
++    // The active node is evaluated through the top-level state by
++    // evaluateBaselineEligibility(). Every other represented node—including the
++    // root when a child is active—must independently satisfy the hierarchy gate.
++    const activeId = assessmentTree?.activeId || assessmentTree?.rootId || entries[0][0];
++    const nodesRequiringTreeCheck = entries.filter(([nodeId]) => nodeId !== activeId);
++    const incompleteElementIds = nodesRequiringTreeCheck.filter(([, node]) => {
+         if (!node?.assessmentResult) return true;
+         const metrics = assessMetricCompleteness(node.scores, node.metricAssessments);
+         const warnings = assessWarningDispositions(node.assessmentResult.violations, node.ruleDispositions, node.levels);
+@@ -147,7 +150,7 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
+         complete: incompleteElementIds.length === 0,
+         enabled: true,
+         incompleteElementIds,
+-        assessedElementCount: assessedNodes.length
++        assessedElementCount: entries.length
+     };
+ }
+ 
+diff --git a/src/utils/autosave-restore.js b/src/utils/autosave-restore.js
+new file mode 100644
+index 0000000..b28ad13
+--- /dev/null
++++ b/src/utils/autosave-restore.js
+@@ -0,0 +1,88 @@
++import {
++  FRAMEWORK_SEMANTIC_VERSION,
++  METRIC_DEFINITION_SET_ID,
++  QUALIFIER_SCHEMA_VERSION
++} from '../data/metrics.js';
++
++export function isCurrentAutosaveSemantics(saved = {}) {
++  return saved?.semantics?.frameworkVersion === FRAMEWORK_SEMANTIC_VERSION
++    && saved?.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID;
++}
++
++export function buildAutosaveImportConfig(saved = {}) {
++  return {
++    _format: 'se-tailoring-config',
++    _version: '2.0',
++    semantics: {
++      frameworkVersion: saved?.semantics?.frameworkVersion || '',
++      metricDefinitionSet: saved?.semantics?.metricDefinitionSet || '',
++      qualifierSchemaVersion: saved?.semantics?.qualifierSchemaVersion || QUALIFIER_SCHEMA_VERSION
++    },
++    projectInfo: saved.projectInfo || {},
++    metricScores: saved.scores || {},
++    metricAssessments: saved.metricAssessments || {},
++    assuranceObligations: saved.assuranceObligations || [],
++    processLevels: saved.levels || {},
++    derivedLevels: saved.derived || {},
++    derivationDetails: saved.derivationDetails || {},
++    overrides: saved.overrides || [],
++    violations: saved.violations || [],
++    fixes: saved.fixes || [],
++    activeFloors: saved.activeFloors || [],
++    ruleDispositions: saved.ruleDispositions || {},
++    csiResponse: saved.csiResponse || {},
++    rightSizingProposals: saved.rightSizingProposals || [],
++    blockedRightSizingCandidates: saved.blockedRightSizingCandidates || [],
++    proposedRightSizedLevels: saved.proposedRightSizedLevels || {},
++    proposalClosureFixes: saved.proposalClosureFixes || [],
++    proposalBudgetStatus: saved.proposalBudgetStatus || null,
++    rightSizingApprovalRecords: saved.rightSizingApprovalRecords || [],
++    rightSizingApprovalEvaluations: saved.rightSizingApprovalEvaluations || [],
++    locallyAdjustedLevels: saved.locallyAdjustedLevels || saved.approvedRightSizedLevels || {},
++    locallyCompleteRightSizingRecordCount: saved.locallyCompleteRightSizingRecordCount || saved.effectiveRightSizingApprovalCount || 0,
++    localScenarioClosureFixes: saved.localScenarioClosureFixes || [],
++    localScenarioBudgetStatus: saved.localScenarioBudgetStatus || null,
++    approvedRightSizedLevels: {},
++    normativeLevels: saved.normativeLevels || saved.levels || {},
++    effectiveRightSizingApprovalCount: 0,
++    rightSizingActions: saved.rightSizingActions || [],
++    budgetStatus: saved.budgetStatus || null,
++    adoptionRisks: saved.adoptionRisks || [],
++    manualAdjustments: saved.manualAdjustments || {},
++    tradeoffs: saved.tradeoffs || [],
++    notes: saved.notes || '',
++    semanticMigration: saved.semanticMigration || null,
++    saResponses: saved.saResponses || {},
++    saTier: saved.saTier || null,
++    indices: saved.indices || {},
++    derivationStatus: saved.derivationStatus || saved.confidence || {},
++    confidence: saved.confidence || saved.derivationStatus || {},
++    assessmentComplete: saved.assessmentComplete === true,
++    assessmentDisposition: saved.assessmentDisposition || 'work-in-progress',
++    assessmentTree: saved.assessmentTree || null
++  };
++}
++
++export function autosaveRestoreNotice(currentSemantics, normalized = {}) {
++  if (currentSemantics) {
++    return { message: 'Assessment restored from auto-save.', type: 'success' };
++  }
++
++  const migration = normalized.semanticMigration || {};
++  if (migration.reason === 'completion-contract-coherence') {
++    return {
++      message: '4.1.0 assessment restored for preview. Reconfirm all 16 anchors before software completeness can pass.',
++      type: 'warning'
++    };
++  }
++
++  const metricIds = Array.isArray(migration.reassessmentMetrics)
++    ? migration.reassessmentMetrics.filter(Boolean)
++    : [];
++  return {
++    message: metricIds.length
++      ? `Legacy assessment restored for preview. Reassess ${metricIds.join(', ')} before software completeness can pass.`
++      : 'Legacy assessment restored for preview. Review the migration notice before continuing.',
++    type: 'warning'
++  };
++}
+diff --git a/src/utils/export-import.js b/src/utils/export-import.js
+index 84302ac..70c430a 100644
+--- a/src/utils/export-import.js
++++ b/src/utils/export-import.js
+@@ -547,9 +547,14 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
+         proposalClosureFixes: config.proposalClosureFixes || [],
+         proposalBudgetStatus: config.proposalBudgetStatus || null,
+         rightSizingApprovalEvaluations: config.rightSizingApprovalEvaluations || [],
+-        approvedRightSizedLevels: config.approvedRightSizedLevels || {},
++        locallyAdjustedLevels: config.locallyAdjustedLevels || config.approvedRightSizedLevels || {},
++        localScenarioClosureFixes: config.localScenarioClosureFixes || [],
++        localScenarioBudgetStatus: config.localScenarioBudgetStatus || null,
++        locallyCompleteRightSizingRecordCount: Number(config.locallyCompleteRightSizingRecordCount) || Number(config.effectiveRightSizingApprovalCount) || 0,
++        // Historical authority fields are migrated into a separate unverified lo
