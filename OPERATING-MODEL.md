@@ -2,9 +2,9 @@
 
 Status: controlled prototype operating contract
 
-App release: 3.6.0
+App release: 3.6.1
 
-Framework semantics: 4.1.0
+Framework semantics: 4.1.1
 
 Last reviewed: 2026-07-12
 

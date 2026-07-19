@@ -4,37 +4,39 @@
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
 import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig } from '../utils/export-import.js';
-import { renderDimensionPatternCards, renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
+import { renderOrdinalMetricProfile } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, setState, showToast, getElementsFlat } from '../state.js';
 import { navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
-import { assessMetricCompleteness } from '../utils/assessment-integrity.js';
+import { getAssessmentDisposition } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessSafetyAllocationDecision } from '../utils/inheritance-engine.js';
 import { assessHierarchyDisposition } from '../utils/hierarchy-dispositions.js';
 import { createRightSizingApprovalSnapshot, getRightSizingApprovalRequirements, RIGHT_SIZING_APPROVAL_ROLES } from '../utils/right-sizing-governance.js';
 
+let removeReportPrintHandlers = () => {};
+
 function renderRightSizingApprovalForm(proposal, state) {
   const proposalProcessName = CORE_PROCESSES.find(process => process.id === Number(proposal.processId))?.name || `Process ${proposal.processId}`;
   const target = proposal.proposedTo || proposal.to;
   const requirements = getRightSizingApprovalRequirements(proposal, state.assessmentTree);
   const evaluation = (state.rightSizingApprovalEvaluations || []).find(item => Number(item.proposal?.processId) === Number(proposal.processId));
-  const assessedRecord = evaluation?.effective || evaluation?.records?.[0];
+  const assessedRecord = evaluation?.locallyComplete || evaluation?.records?.[0];
   const record = assessedRecord?.record || (state.rightSizingApprovalRecords || []).find(item => Number(item.processId) === Number(proposal.processId)) || {};
   const status = assessedRecord?.assessment?.status || 'not-recorded';
   const reasons = assessedRecord?.assessment?.reasons || [];
   const roleFields = requirements.requiredRoles.map(role => `
     <div class="grid-2 mb-sm">
-      <label class="text-xs">${escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])}<input class="input" name="${role}-identity" placeholder="Named approver" value="${escapeHtml(record.approvals?.[role]?.identity || '')}"></label>
+      <label class="text-xs">${escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])} — asserted role<input class="input" name="${role}-identity" placeholder="Asserted approver role (not verified)" value="${escapeHtml(record.approvals?.[role]?.identity || '')}"></label>
       <label class="text-xs">Authority basis<input class="input" name="${role}-basis" placeholder="Role charter, delegation, or acceptance authority" value="${escapeHtml(record.approvals?.[role]?.authorityBasis || '')}"></label>
     </div>`).join('');
   return `
     <details class="mt-sm" style="border-top:1px solid rgba(99,102,241,.2);padding-top:8px;">
-      <summary class="text-sm"><strong>${escapeHtml(proposalProcessName)}</strong>: ${escapeHtml(proposal.from)} → ${escapeHtml(target)} · approval ${escapeHtml(status)}</summary>
+      <summary class="text-sm"><strong>${escapeHtml(proposalProcessName)}</strong>: ${escapeHtml(proposal.from)} → ${escapeHtml(target)} · local record ${escapeHtml(status)}</summary>
       <form class="right-sizing-approval-form mt-sm" data-process-id="${proposal.processId}">
-        <div class="text-xs text-secondary mb-sm">Required authorities: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''}</div>
+        <div class="text-xs text-secondary mb-sm">Required asserted roles: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''} The static prototype cannot authenticate identities or verify external approval.</div>
         ${reasons.length ? `<div class="text-xs mb-sm" style="color:var(--accent-warning);">Current record: ${reasons.map(escapeHtml).join(', ')}</div>` : ''}
         <label class="text-xs">Rationale<textarea class="input" name="rationale" rows="2">${escapeHtml(record.rationale || '')}</textarea></label>
         <label class="text-xs">Protected outputs and evidence<textarea class="input" name="protectedOutputs" rows="2">${escapeHtml(record.protectedOutputs || '')}</textarea></label>
@@ -47,7 +49,7 @@ function renderRightSizingApprovalForm(proposal, state) {
           <label class="text-xs">Valid through / review date<input class="input" type="date" name="reviewDate" value="${escapeHtml(record.reviewDate || '')}"></label>
         </div>
         ${roleFields}
-        <button class="btn btn-primary btn-sm" type="submit">Record approval and re-evaluate</button>
+        <button class="btn btn-primary btn-sm" type="submit">Record asserted decision and update local scenario</button>
       </form>
     </details>`;
 }
@@ -81,33 +83,6 @@ function makeReportSectionCollapsible(container, section, title, description, op
   body.appendChild(section);
 }
 
-export function getReportReadiness(state = {}) {
-  const nodes = Object.values(state.assessmentTree?.nodes || {});
-  const incompleteElementCount = nodes.filter(node => {
-    if (!node.assessmentResult) return true;
-    const metrics = assessMetricCompleteness(node.scores, node.metricAssessments);
-    const warnings = assessWarningDispositions(node.assessmentResult.violations, node.ruleDispositions, node.levels);
-    const csi = assessCsiResponse(node.scores, node.csiResponse);
-    return !metrics.complete || !warnings.complete || !csi.complete;
-  }).length;
-  const warningCount = state.violations?.length || 0;
-  const adoptionRiskCount = state.adoptionRisks?.length || 0;
-  const correlatedEvidenceWarningCount = assessCorrelatedEvidence(state.metricAssessments).warningCount;
-  const justificationCount = Object.values(state.confidence || {})
-    .filter(value => value === 'available-with-justification').length;
-
-  const metricCompleteness = assessMetricCompleteness(state.scores, state.metricAssessments);
-  const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
-  const csiResponse = assessCsiResponse(state.scores, state.csiResponse);
-  if (!state.assessmentComplete || !metricCompleteness.complete || !warningDispositions.complete || !csiResponse.complete || incompleteElementCount > 0 || state.semanticMigration?.status === 'review-required') {
-    return 'Draft / incomplete';
-  }
-
-  return warningCount === 0 && adoptionRiskCount === 0 && justificationCount === 0 && correlatedEvidenceWarningCount === 0
-    ? 'Ready for review'
-    : 'Review required';
-}
-
 function enhanceReportSections(container) {
   const summaryPanel = container.querySelector('.report-summary-panel');
   if (!summaryPanel) return;
@@ -124,7 +99,7 @@ function enhanceReportSections(container) {
     {
       section: container.querySelector(':scope > .grid-2.mb-xl'),
       title: 'Project and Level Distribution',
-      description: 'Project metadata and final profile count.',
+      description: 'Project metadata and pilot profile count.',
       open: true
     },
     {
@@ -147,8 +122,8 @@ function enhanceReportSections(container) {
     },
     {
       section: container.querySelector(':scope > .report-overview-panel'),
-      title: 'Assessment Overview Graphic',
-      description: 'Spiderweb view and dimension score ranges.',
+      title: 'Grouped Ordinal Profile',
+      description: 'Independent anchor positions and judgment states by dimension.',
       open: true
     },
     {
@@ -184,7 +159,7 @@ function enhanceReportSections(container) {
     {
       section: findDirectReportCard(container, 'Full Process Tailoring Profile'),
       title: 'Full Process Tailoring Profile',
-      description: 'One process view with derived, manual, governed, final, evidence, and driver context.',
+      description: 'One process view with derived, pilot-profile, local-scenario, evidence, and driver context.',
       open: false
     },
     {
@@ -218,13 +193,38 @@ function enhanceReportSections(container) {
   container.querySelector('#btn-collapse-report-sections')?.addEventListener('click', () => {
     container.querySelectorAll('.report-section').forEach(section => { section.open = false; });
   });
+
+  // Chromium's print engine does not reliably honor CSS that attempts to expose
+  // descendants of a closed <details> element. Expand every report section for
+  // printing, then restore the assessor's on-screen disclosure state.
+  removeReportPrintHandlers();
+  let prePrintOpenState = [];
+  const beforePrint = () => {
+    const sections = [...container.querySelectorAll('.report-section')];
+    prePrintOpenState = sections.map(section => section.open);
+    sections.forEach(section => { section.open = true; });
+  };
+  const afterPrint = () => {
+    const sections = [...container.querySelectorAll('.report-section')];
+    sections.forEach((section, index) => {
+      section.open = prePrintOpenState[index] ?? section.open;
+    });
+    prePrintOpenState = [];
+  };
+  window.addEventListener('beforeprint', beforePrint);
+  window.addEventListener('afterprint', afterPrint);
+  removeReportPrintHandlers = () => {
+    window.removeEventListener('beforeprint', beforePrint);
+    window.removeEventListener('afterprint', afterPrint);
+  };
 }
 
 export function renderReport(container) {
+  removeReportPrintHandlers();
   const state = getState();
-  if (!state.assessmentComplete) {
-    const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${completeness.completeCount}/16 metric judgments are confirmed. Preview values are not a completed baseline and cannot generate a publication report.</p>${completeness.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}</p>` : ''}<button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
+  const integrity = getAssessmentDisposition(state);
+  if (!integrity.complete) {
+    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. Preview values are not a completed pilot record and cannot generate a report.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
     container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment'));
     return;
   }
@@ -233,6 +233,7 @@ export function renderReport(container) {
   const tree = state.assessmentTree;
   const scores = state.scores || {};
   const levels = state.levels || {};
+  const localScenarioLevels = state.locallyAdjustedLevels || {};
   const derivedLevels = state.derived || {};
   const derivationDetails = state.derivationDetails || {};
   const confidence = state.confidence || {};
@@ -244,12 +245,11 @@ export function renderReport(container) {
   const basicCount = Object.values(levels).filter(l => l === 'basic').length;
   const stdCount = Object.values(levels).filter(l => l === 'standard').length;
   const compCount = Object.values(levels).filter(l => l === 'comprehensive').length;
+  const localScenarioChanges = CORE_PROCESSES.filter(process =>
+    localScenarioLevels[process.id] && localScenarioLevels[process.id] !== levels[process.id]
+  );
 
-  const spiderwebOverview = renderMetricSpiderwebSvg(scores, METRICS, DIMENSIONS, {
-    title: 'Assessment overview',
-    description: 'Sixteen metric scores plotted across four framework dimensions.'
-  });
-  const dimensionPatternCards = renderDimensionPatternCards(scores, METRICS, DIMENSIONS);
+  const ordinalOverview = renderOrdinalMetricProfile(scores, state.metricAssessments, METRICS, DIMENSIONS);
   const overrideCount = state.overrides?.length || 0;
   const warningCount = state.violations?.length || 0;
   const fixCount = state.fixes?.length || 0;
@@ -269,8 +269,14 @@ export function renderReport(container) {
   const highPressureMetrics = METRICS
     .filter(metric => (scores[metric.id] ?? 3) >= 4)
     .map(metric => metric.id);
-  const reportReadiness = getReportReadiness(state);
   const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
+  const gateLabel = status => ({
+    passed: 'Passed',
+    incomplete: 'Incomplete',
+    'not-implemented': 'Not implemented',
+    'not-recorded': 'Not recorded',
+    'not-available': 'Not available'
+  }[status] || status);
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
   const processRefName = (ref) => {
@@ -283,15 +289,21 @@ export function renderReport(container) {
   container.innerHTML = `
     <div class="flex justify-between items-center mb-lg">
       <div>
-        <h2>Tailoring Report</h2>
+        <h2>Pilot Tailoring Record</h2>
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
       </div>
       <div class="flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
-        <button class="btn btn-primary btn-sm" id="btn-export-html" title="Removes direct display labels but retains free text and evidence references; review before sharing">Identifier-reduced HTML (review required)</button>
+        <button class="btn btn-primary btn-sm" id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
       </div>
     </div>
 
+    <div class="pilot-record-banner mb-xl" role="note">
+      <strong>Pilot record — not an authoritative organizational baseline</strong>
+      <span>Software completeness checks passed. External approval not verified.</span>
+    </div>
+
+    <h3 class="report-layer-heading">1. Decision summary</h3>
     <div class="card mb-xl report-summary-panel">
       <div>
         <h4 class="mb-md">Executive Summary</h4>
@@ -299,8 +311,8 @@ export function renderReport(container) {
       </div>
       <div class="report-summary-grid">
         <div class="report-summary-item">
-          <span class="summary-value">${reportReadiness}</span>
-          <span class="summary-label">Report readiness</span>
+          <span class="summary-value">Passed</span>
+          <span class="summary-label">Software completeness checks</span>
         </div>
         <div class="report-summary-item">
           <span class="summary-value">${overrideCount}</span>
@@ -324,13 +336,16 @@ export function renderReport(container) {
         </div>
       </div>
       <div class="report-summary-notes">
-        <span><strong>Final profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
+        <span><strong>Pilot process profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
         <span><strong>High-pressure metrics:</strong> ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None at 4 or 5'}.</span>
         <span><strong>Metric notes:</strong> ${metricNotesCount} of ${METRICS.length} recorded.</span>
         <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
       </div>
       <div class="report-scope-note">
-        <strong>Scope and evidence maturity:</strong> This executable assessment covers 22 project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.
+        <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
+      </div>
+      <div class="report-gate-grid" aria-label="Record gate statuses">
+        ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
       </div>
     </div>
 
@@ -432,6 +447,7 @@ export function renderReport(container) {
       </div>
     </div>` : ''}
 
+    <h3 class="report-layer-heading">2. Action record</h3>
     ${csiReadiness.required ? `
     <div class="card mb-xl" style="border-left:3px solid ${csiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)'};">
       <h4 class="mb-md">CSI ${csiReadiness.csi} Constraint Response — ${csiReadiness.complete ? 'Complete' : 'Incomplete'}</h4>
@@ -440,7 +456,7 @@ export function renderReport(container) {
         <tr><th>Actions</th><td>${escapeHtml((csiRecord.selectedActions || []).map(action => csiActionLabels.get(action) || action).join(', ') || '—')}</td></tr>
         <tr><th>Protected outputs/evidence</th><td>${escapeHtml(csiRecord.protectedOutputs || '—')}</td></tr>
         <tr><th>Rationale/decision</th><td>${escapeHtml(csiRecord.rationaleDecision || '—')}</td></tr>
-        <tr><th>Owner/approver</th><td>${escapeHtml(csiRecord.ownerApprover || '—')}</td></tr>
+        <tr><th>Asserted owner/approver role</th><td>${escapeHtml(csiRecord.ownerApprover || '—')}</td></tr>
         <tr><th>Evidence reference</th><td>${escapeHtml(csiRecord.evidenceRef || '—')}</td></tr>
         <tr><th>Review date</th><td>${escapeHtml(csiRecord.reviewDate || '—')}</td></tr>
       </tbody></table>
@@ -462,7 +478,7 @@ export function renderReport(container) {
         <div style="text-align: center; padding: 12px;">
           <div style="font-size: 28px; font-weight: 900; color: #22d3ee;">${state.indices?.cri || '—'}</div>
           <div class="text-xs text-secondary">CRI (Adoption Readiness)</div>
-          <div class="text-xs" style="color: #888;">${(state.indices?.cri || 2) <= 1 ? 'Resistant' : (state.indices?.cri || 2) <= 2 ? 'Tolerant' : 'Supportive'}</div>
+          <div class="text-xs" style="color: #888;">${(state.indices?.cri || 2) <= 1 ? 'Constrained conditions' : (state.indices?.cri || 2) <= 2 ? 'Mixed conditions' : 'Strong conditions'}</div>
         </div>
       </div>
       <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
@@ -471,18 +487,18 @@ export function renderReport(container) {
       ${state.rightSizingProposals?.length > 0 ? `
       <div style="background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="font-weight: 700; color: #6366f1; font-size: 13px; margin-bottom: 6px;">${state.rightSizingProposals.length} Right-Sizing Proposal${state.rightSizingProposals.length === 1 ? '' : 's'} — Not Applied</div>
-        <div class="text-xs text-secondary mb-sm">The final profile remains normative. Each reduction requires an explicit accept/reject decision, rationale, approver, and residual-risk record.</div>
+        <div class="text-xs text-secondary mb-sm">The pilot process profile remains normative. A complete browser-local decision record produces only an unverified scenario; it cannot authenticate or apply external approval.</div>
         ${state.rightSizingProposals.map(a => `<div class="text-sm mb-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>${renderRightSizingApprovalForm(a, state)}`).join('')}
       </div>` : ''}
-      ${state.effectiveRightSizingApprovalCount > 0 ? `<div style="background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);border-radius:8px;padding:12px;margin-top:8px;"><strong>${state.effectiveRightSizingApprovalCount} effective governed reduction approval(s)</strong><div class="text-xs text-secondary mt-sm">The displayed final profile includes these snapshot-bound decisions after mandatory closure was re-applied.</div></div>` : ''}
+      ${state.locallyCompleteRightSizingRecordCount > 0 ? `<div style="background:rgba(34,211,238,.07);border:1px solid rgba(34,211,238,.3);border-radius:8px;padding:12px;margin-top:8px;"><strong>${state.locallyCompleteRightSizingRecordCount} structurally complete local reduction record(s)</strong><div class="text-xs text-secondary mt-sm">External approval is unverified. The pilot process profile remains unchanged; the separate local scenario has been re-closed against mandatory constraints.</div>${localScenarioChanges.map(process => `<div class="text-sm mt-sm">• <strong>${escapeHtml(process.name)}</strong>: pilot profile ${escapeHtml(levels[process.id])} → local scenario ${escapeHtml(localScenarioLevels[process.id])}</div>`).join('')}</div>` : ''}
       ${state.rightSizingActions?.length > 0 ? `<div style="background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.3);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Historical right-sizing actions (${state.rightSizingActions.length})</div><div class="text-xs text-secondary mt-sm">Preserved from a legacy import for audit only; not treated as approved v4 reductions.</div></div>` : ''}
       ${state.blockedRightSizingCandidates?.length > 0 ? `<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px;margin-top:8px;"><div style="font-weight:700;font-size:13px;">Blocked reduction candidates (${state.blockedRightSizingCandidates.length})</div><div class="text-xs text-secondary mt-sm">Mandatory closure would restore these candidate levels, so they are not offered for approval.</div></div>` : ''}
       ${state.budgetStatus && !state.budgetStatus.withinBudget ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">Final Rigor-Budget Exception</div>
-        <div class="text-sm mt-sm">The final protected profile exceeds the configured PSI guidance by ${state.budgetStatus.comprehensiveExcess} Comprehensive and ${state.budgetStatus.standardExcess} Standard process(es). This exception requires governance review; it is not a failed safety or mandatory-rule closure.</div>
+        <div style="font-weight: 700; color: #f59e0b; font-size: 13px;">Pilot Profile Concentration Exception</div>
+        <div class="text-sm mt-sm">The pilot protected profile exceeds the configured PSI guidance by ${state.budgetStatus.comprehensiveExcess} Comprehensive and ${state.budgetStatus.standardExcess} Standard process(es). This exception requires governance review; it is not a failed safety or mandatory-rule closure.</div>
       </div>` : !state.rightSizingProposals?.length ? `
-      <div class="text-sm" style="color: #34d399;">✓ Final profile is within configured rigor-budget guidance; no reduction proposal is needed.</div>` : ''}
+      <div class="text-sm" style="color: #34d399;">✓ Pilot process profile is within configured concentration guidance; no reduction proposal is needed.</div>` : ''}
       ${state.adoptionRisks?.length > 0 ? `
       <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 12px; margin-top: 8px;">
         <div style="font-weight: 700; color: #f59e0b; font-size: 13px; margin-bottom: 6px;">${state.adoptionRisks.length} Adoption Readiness Gap${state.adoptionRisks.length === 1 ? '' : 's'}</div>
@@ -506,13 +522,6 @@ export function renderReport(container) {
         </div>
       </div>
     </div>` : ''}
-
-    <div class="card mb-xl report-overview-panel">
-      ${spiderwebOverview}
-      <div class="dimension-pattern-grid">
-        ${dimensionPatternCards}
-      </div>
-    </div>
 
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
@@ -550,7 +559,7 @@ export function renderReport(container) {
       <table class="data-table"><tbody>
         <tr><th>Outcome</th><td>${escapeHtml(rule11OutcomeLabel)}</td></tr>
         <tr><th>Rationale / controls</th><td>${escapeHtml(rule11Record?.rationale || '—')}</td></tr>
-        <tr><th>Owner / approver</th><td>${escapeHtml(rule11Record?.ownerApprover || '—')}</td></tr>
+        <tr><th>Asserted owner / approver role</th><td>${escapeHtml(rule11Record?.ownerApprover || '—')}</td></tr>
         <tr><th>Evidence</th><td>${escapeHtml(rule11Record?.evidenceRef || '—')}</td></tr>
         <tr><th>Review date</th><td>${escapeHtml(rule11Record?.reviewDate || '—')}</td></tr>
         <tr><th>Final Validation level</th><td>${escapeHtml(levels[27] || '—')}</td></tr>
@@ -563,7 +572,7 @@ export function renderReport(container) {
     ${generalWarningAssessments.length ? `
     <div class="card mb-xl" style="border-left:3px solid ${generalWarningAssessments.every(item => item.complete) ? 'var(--accent-success)' : 'var(--accent-warning)'}">
       <h4 class="mb-md">Governed Warning Dispositions — ${generalWarningAssessments.every(item => item.complete) ? 'Complete' : 'Incomplete'}</h4>
-      <p class="text-xs text-secondary mb-md">Each triggered, unsatisfied warning is consciously dispositioned before baselining. The records do not suppress warnings or change process levels.</p>
+      <p class="text-xs text-secondary mb-md">Each triggered, unsatisfied warning is consciously dispositioned before software completeness can pass. The records do not suppress warnings or change process levels.</p>
       ${generalWarningAssessments.map(assessment => {
         const record = assessment.record || {};
         const outcome = GENERAL_WARNING_OUTCOMES.find(option => option.id === record.outcome)?.label || record.outcome || '—';
@@ -571,16 +580,21 @@ export function renderReport(container) {
           <table class="data-table mt-sm"><tbody>
             <tr><th>Outcome</th><td>${escapeHtml(outcome)}</td></tr>
             <tr><th>Rationale / controls</th><td>${escapeHtml(record.rationale || '—')}</td></tr>
-            <tr><th>Owner / approver</th><td>${escapeHtml(record.ownerApprover || '—')}</td></tr>
+            <tr><th>Asserted owner / approver role</th><td>${escapeHtml(record.ownerApprover || '—')}</td></tr>
             <tr><th>Evidence</th><td>${escapeHtml(record.evidenceRef || '—')}</td></tr>
             <tr><th>Review date</th><td>${escapeHtml(record.reviewDate || '—')}</td></tr>
           </tbody></table></details>`;
       }).join('')}
     </div>` : ''}
 
+    <h3 class="report-layer-heading">3. Trace appendix</h3>
+    <div class="card mb-xl report-overview-panel">
+      ${ordinalOverview}
+    </div>
+
     <div class="card mb-xl">
       <h4 class="mb-md">Full Process Tailoring Profile</h4>
-      <p class="text-xs text-secondary mb-md">One process-level view: derived level, governed changes, final assignment, evidence status, and top drivers.</p>
+      <p class="text-xs text-secondary mb-md">One process-level view: derived level, pilot-profile assignment, separate unverified local scenario, evidence status, and top drivers.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
           <thead>
@@ -592,7 +606,8 @@ export function renderReport(container) {
               <th>Manual adjustment</th>
               <th>Override</th>
               <th>Fix</th>
-              <th>Final</th>
+              <th>Pilot profile</th>
+              <th>Local reduction scenario</th>
               <th>Evidence Status</th>
               <th>Top drivers</th>
             </tr>
@@ -601,6 +616,7 @@ export function renderReport(container) {
             ${CORE_PROCESSES.map(p => {
     const derived = derivedLevels[p.id] || 'basic';
     const final_ = levels[p.id] || 'basic';
+    const localScenario = localScenarioLevels[p.id] || final_;
     const manualAdjustment = state.manualAdjustments?.[p.id]
       || state.manualAdjustments?.[String(p.id)]
       || tree?.nodes?.[tree.rootId]?.manualAdjustments?.[p.id]
@@ -640,6 +656,7 @@ export function renderReport(container) {
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td><span class="level-badge ${final_}" style="font-weight:700;">${final_[0].toUpperCase()}</span></td>
+                <td>${localScenario !== final_ ? `<span class="level-badge ${localScenario}" style="font-weight:700;">${localScenario[0].toUpperCase()}</span><br><span class="text-xs text-secondary">Unverified local scenario</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${confBadge}</td>
                 <td class="text-xs text-secondary">${escapeHtml(triggerMetrics)}${detail.triggerScore ? ` (${detail.triggerScore})` : ''}<br>${escapeHtml(drivers.slice(0, 3).map(d => `${d.metric}=${d.value} (${d.role})`).join(', ') || '—')}</td>
               </tr>`;
@@ -775,6 +792,16 @@ export function renderReport(container) {
     .manual-adjustment-cell { display:grid; gap:2px; min-width:160px; }
     .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+    .pilot-record-banner { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
+    .pilot-record-banner strong,.pilot-record-banner span { grid-column:1; }
+    .pilot-record-banner span { color:var(--text-secondary); font-size:12px; }
+    .pilot-record-banner::after { content:'PILOT / WIP'; grid-column:2; grid-row:1 / span 2; color:var(--accent-warning); font-size:11px; font-weight:800; letter-spacing:.1em; transform:rotate(-3deg); }
+    .report-layer-heading { margin:30px 0 12px; color:var(--text-primary); font-size:18px; }
+    .report-gate-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:14px; }
+    .report-gate { display:grid; gap:3px; padding:10px; border:1px solid var(--border-subtle); border-radius:8px; }
+    .report-gate > span,.report-gate small { color:var(--text-secondary); font-size:11px; }
+    .report-gate.passed strong { color:var(--accent-success); }
+    .report-gate.incomplete strong { color:var(--accent-warning); }
   `;
   container.appendChild(style);
   enhanceReportSections(container);
@@ -843,22 +870,32 @@ export function renderReport(container) {
         activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
         activeNode.assessmentResult = result;
         activeNode.levels = { ...result.levels };
+        activeNode.locallyAdjustedLevels = { ...(result.locallyAdjustedLevels || {}) };
       }
       setState({
         levels: result.levels,
         normativeLevels: result.normativeLevels,
         rightSizingApprovalRecords: records,
         rightSizingApprovalEvaluations: result.rightSizingApprovalEvaluations,
-        approvedRightSizedLevels: result.approvedRightSizedLevels,
-        effectiveRightSizingApprovalCount: result.effectiveRightSizingApprovalCount,
+        locallyAdjustedLevels: result.locallyAdjustedLevels || {},
+        localScenarioClosureFixes: result.localScenarioClosureFixes || [],
+        localScenarioBudgetStatus: result.localScenarioBudgetStatus || null,
+        locallyCompleteRightSizingRecordCount: result.locallyCompleteRightSizingRecordCount || 0,
+        approvedRightSizedLevels: {},
+        effectiveRightSizingApprovalCount: 0,
         budgetStatus: result.budgetStatus,
         fixes: result.fixes,
         violations: result.violations,
         confidence: result.confidence,
         assessmentTree: current.assessmentTree
       });
-      const effective = result.rightSizingApprovalEvaluations?.find(item => Number(item.proposal?.processId) === processId)?.effective;
-      showToast(effective ? 'Governed reduction approved and mandatory closure rechecked.' : 'Approval record saved but remains invalid or incomplete.', effective ? 'success' : 'warning');
+      const localRecord = result.rightSizingApprovalEvaluations?.find(item => Number(item.proposal?.processId) === processId)?.locallyComplete;
+      showToast(
+        localRecord
+          ? 'Asserted decision record saved; the local scenario was rechecked. External approval remains unverified and the pilot profile is unchanged.'
+          : 'Asserted decision record saved but remains structurally incomplete or invalid.',
+        localRecord ? 'success' : 'warning'
+      );
       renderReport(container);
     });
   });
@@ -866,7 +903,7 @@ export function renderReport(container) {
   // Export handlers
   container.querySelector('#btn-export-json').addEventListener('click', () => {
     exportConfig(state);
-    showToast('Minimum-data JSON exported. It is not a completed-baseline record.', 'success');
+    showToast('Minimum-data JSON exported. It is not an authoritative organizational record.', 'success');
   });
   container.querySelector('#btn-export-html').addEventListener('click', () => {
     generateReport(state, data);

@@ -200,7 +200,7 @@ export function detectDownTailoring(parentLevels, childLevels) {
  * Validate that all down-tailored processes have sufficient justifications.
  *
  * @param {Array} downTailored - Output from detectDownTailoring
- * @param {Array} justifications - Array of { processId, justification, outputSufficiency, approver }
+ * @param {Array} justifications - Array of { processId, justification, approver }
  * @returns {{ valid: boolean, missing: Array, incomplete: Array }}
  */
 export function validateDownTailoring(downTailored, justifications = [], governance = {}) {
@@ -213,7 +213,7 @@ export function validateDownTailoring(downTailored, justifications = [], governa
         if (!j) {
             missing.push(dt.processId);
         } else {
-            if (!j.justification || !j.outputSufficiency) {
+            if (!String(j.justification || '').trim()) {
                 incomplete.push(dt.processId);
             }
             if (dt.requiresSponsor && (!j.approver || j.approver === 'PM')) {
@@ -236,49 +236,6 @@ export function validateDownTailoring(downTailored, justifications = [], governa
         incomplete: [...new Set(incomplete)],
         safetyAllocationBlocked,
         safetyAllocationDecision
-    };
-}
-
-/**
- * Check output sufficiency for down-tailored processes.
- * Maps critical parent process inputs to what the child must still produce.
- *
- * @param {number} processId - The down-tailored process ID
- * @param {string} childLevel - The child's level for this process
- * @returns {{ outputRequired: string, childEquivalent: string }|null}
- */
-export function checkOutputSufficiency(processId, childLevel) {
-    const SUFFICIENCY_MAP = {
-        24: { // Integration
-            outputRequired: 'Interface Control Documents',
-            basicEquivalent: 'Interface descriptions in Project Notebook',
-            standardEquivalent: 'Interface specifications with verification criteria'
-        },
-        25: { // Verification
-            outputRequired: 'Verification evidence per element',
-            basicEquivalent: 'Test reports or acceptance records',
-            standardEquivalent: 'Verification reports with traceability'
-        },
-        13: { // Configuration Management
-            outputRequired: 'Baseline identification per element',
-            basicEquivalent: 'Version log or release notes',
-            standardEquivalent: 'Configuration item list with baseline IDs'
-        },
-        19: { // System Requirements
-            outputRequired: 'Allocated requirements trace',
-            basicEquivalent: 'Requirements allocation table',
-            standardEquivalent: 'Requirements database with traceability'
-        }
-    };
-
-    const map = SUFFICIENCY_MAP[processId];
-    if (!map) return null;
-
-    return {
-        outputRequired: map.outputRequired,
-        childEquivalent: childLevel === 'basic'
-            ? map.basicEquivalent
-            : map.standardEquivalent
     };
 }
 
@@ -570,16 +527,10 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
     // Step 4: Detect down-tailoring from parent
     const downTailored = detectDownTailoring(parentLevels, assessment.levels);
 
-    // Step 5: Check output sufficiency for down-tailored processes
-    const sufficiencyChecks = downTailored.map(dt => ({
-        ...dt,
-        sufficiency: checkOutputSufficiency(dt.processId, dt.childLevel)
-    }));
-
     return {
         ...assessment,
         effectiveScores,
-        downTailored: sufficiencyChecks,
+        downTailored,
         safetyCheck,
         safetyAllocationBlocks,
         inheritanceSummary: {

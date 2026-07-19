@@ -20,6 +20,7 @@ import { renderSystemElements } from './views/system-elements.js';
 import { escapeHtml } from './utils/safe-text.js';
 import { FRAMEWORK_META } from './data/se-tailoring-data.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
+import { autosaveRestoreNotice, buildAutosaveImportConfig, isCurrentAutosaveSemantics } from './utils/autosave-restore.js';
 
 const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
 const PILOT_NOTICE_DISMISSED_KEY = 'se-tailoring-pilot-notice-dismissed';
@@ -39,10 +40,23 @@ function keepFocusWithinDialog(event, dialog) {
     }
 }
 
+function restoreDialogInvokerFocus(invoker) {
+    if (!(invoker instanceof HTMLElement)) return;
+    const dropdown = invoker.closest('.nav-dropdown');
+    const trigger = dropdown?.querySelector('.nav-dropdown-trigger');
+    const target = dropdown && trigger instanceof HTMLElement ? trigger : invoker;
+    target.focus();
+    requestAnimationFrame(() => {
+        if (target.isConnected) target.focus();
+    });
+}
+
 // Register all routes
 registerRoute('dashboard', renderDashboard);
 registerRoute('elements', renderSystemElements);
 registerRoute('assessment', renderAssessment);
+registerRoute('review', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'review' }));
+registerRoute('issues', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'issues' }));
 registerRoute('processes', renderProcessExplorer);
 registerRoute('vee-model', renderVeeModel);
 registerRoute('interdependency', renderInterdependency);
@@ -60,39 +74,34 @@ function buildNavbar() {
       <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v${escapeHtml(FRAMEWORK_META.version)}</small></span>
     </button>
     <div class="nav-links">
-      <button class="nav-link" data-route="dashboard">Dashboard</button>
-      <button class="nav-link" data-route="elements">Elements</button>
-      <button class="nav-link" data-route="assessment">Assessment</button>
+      <button class="nav-link" data-route="assessment">Assess</button>
+      <button class="nav-link" data-route="review">Review recommendations</button>
+      <button class="nav-link" data-route="issues">Resolve issues</button>
+      <button class="nav-link" data-route="report">Report</button>
       <div class="nav-dropdown">
-        <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Analysis ▾</button>
-        <div class="nav-dropdown-menu" role="menu">
-          <button class="nav-link" data-route="processes" role="menuitem">Process Explorer</button>
-          <button class="nav-link" data-route="vee-model" role="menuitem">Vee Model</button>
-          <button class="nav-link" data-route="interdependency" role="menuitem">Dependencies</button>
-          <button class="nav-link" data-route="matrix" role="menuitem">Matrix View</button>
-        </div>
-      </div>
-      <div class="nav-dropdown">
-        <button class="nav-dropdown-trigger" aria-haspopup="true" aria-expanded="false">Output ▾</button>
-        <div class="nav-dropdown-menu" role="menu">
-          <button class="nav-link" data-route="adjust" role="menuitem">Manual Adjust</button>
-          <button class="nav-link" data-route="deliverables" role="menuitem">Deliverables</button>
-          <button class="nav-link" data-route="report" role="menuitem">Report</button>
+        <button class="nav-dropdown-trigger" type="button" aria-expanded="false">Framework reference ▾</button>
+        <div class="nav-dropdown-menu">
+          <button class="nav-link" data-route="processes">Process Explorer</button>
+          <button class="nav-link" data-route="vee-model">Vee Model</button>
+          <button class="nav-link" data-route="interdependency">Dependencies</button>
+          <button class="nav-link" data-route="matrix">Matrix View</button>
+          <button class="nav-link" data-route="elements">System Elements (advanced)</button>
+          <button class="nav-link" data-route="deliverables">Reference Deliverables</button>
         </div>
       </div>
     </div>
-    <label class="mobile-route-select-label" for="mobile-route-select">Route</label>
-    <select class="mobile-route-select" id="mobile-route-select" aria-label="Navigate app section">
-      <option value="dashboard">Dashboard</option>
-      <option value="elements">Elements</option>
-      <option value="assessment">Assessment</option>
+    <label class="mobile-route-select-label" for="mobile-route-select">Go to section</label>
+    <select class="mobile-route-select" id="mobile-route-select" aria-label="Go to section">
+      <option value="assessment">Assess</option>
+      <option value="review">Review recommendations</option>
+      <option value="issues">Resolve issues</option>
+      <option value="report">Report</option>
       <option value="processes">Process Explorer</option>
       <option value="vee-model">Vee Model</option>
       <option value="interdependency">Dependencies</option>
       <option value="matrix">Matrix View</option>
-      <option value="adjust">Manual Adjust</option>
-      <option value="deliverables">Deliverables</option>
-      <option value="report">Report</option>
+      <option value="elements">System Elements (advanced)</option>
+      <option value="deliverables">Reference Deliverables</option>
     </select>
     <div class="nav-actions">
       <a
@@ -100,17 +109,13 @@ function buildNavbar() {
         href="${AUTHOR_URL}"
         aria-label="Know the author: Tony Wu, systems engineer and builder of this project"
       >TW · About</a>
-      <button class="btn btn-ghost btn-sm desktop-session-action" id="btn-import" data-session-action="import" title="Import Config">Import</button>
-      <button class="btn btn-ghost btn-sm desktop-session-action" id="btn-export" data-session-action="export" title="Export a minimum-data configuration without identifiers, free text, evidence references, or asserted identities">Minimum-data Export</button>
-      <button class="btn btn-ghost btn-sm desktop-session-action" id="btn-diagnostics" data-session-action="diagnostics" type="button" title="View release identity and local-only runtime diagnostics">Diagnostics</button>
-      <button class="btn btn-danger btn-sm desktop-session-action" id="btn-end-session" data-session-action="end-session" type="button" title="Erase the assessment saved in this browser">End Session</button>
-      <div class="nav-dropdown mobile-session-menu">
-        <button class="nav-dropdown-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Session actions">Session ▾</button>
-        <div class="nav-dropdown-menu" role="menu">
-          <button class="mobile-session-action" data-session-action="import" type="button" role="menuitem">Import</button>
-          <button class="mobile-session-action" data-session-action="export" type="button" role="menuitem">Minimum-data Export</button>
-          <button class="mobile-session-action" data-session-action="diagnostics" type="button" role="menuitem">Diagnostics</button>
-          <button class="mobile-session-action danger" data-session-action="end-session" type="button" role="menuitem">End Session</button>
+      <div class="nav-dropdown session-menu">
+        <button class="nav-dropdown-trigger" type="button" aria-expanded="false" aria-label="Session actions">Session ▾</button>
+        <div class="nav-dropdown-menu">
+          <button class="session-action" id="btn-import" data-session-action="import" type="button">Import</button>
+          <button class="session-action" id="btn-export" data-session-action="export" type="button">Minimum-data Export</button>
+          <button class="session-action" id="btn-diagnostics" data-session-action="diagnostics" type="button">Diagnostics</button>
+          <button class="session-action danger" id="btn-end-session" data-session-action="end-session" type="button">End Session</button>
         </div>
       </div>
     </div>
@@ -145,25 +150,13 @@ function buildNavbar() {
             if (event.key === 'Escape') {
                 closeMenu();
                 trigger.focus();
-            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                dropdown.classList.add('open');
-                trigger.setAttribute('aria-expanded', 'true');
-                const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
-                (event.key === 'ArrowDown' ? items[0] : items.at(-1))?.focus();
             }
         });
         dropdown.addEventListener('keydown', event => {
-            const items = [...dropdown.querySelectorAll('[role="menuitem"]')];
-            const index = items.indexOf(document.activeElement);
             if (event.key === 'Escape') {
                 event.preventDefault();
                 closeMenu();
                 trigger?.focus();
-            } else if (index >= 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-                event.preventDefault();
-                const direction = event.key === 'ArrowDown' ? 1 : -1;
-                items[(index + direction + items.length) % items.length]?.focus();
             }
         });
         dropdown.addEventListener('focusout', () => {
@@ -171,7 +164,7 @@ function buildNavbar() {
                 if (!dropdown.contains(document.activeElement)) closeMenu();
             }, 0);
         });
-        dropdown.querySelectorAll('[role="menuitem"]').forEach(item => item.addEventListener('click', closeMenu));
+        dropdown.querySelectorAll('.nav-dropdown-menu button, .nav-dropdown-menu a').forEach(item => item.addEventListener('click', closeMenu));
     });
     document.addEventListener('pointerdown', event => {
         if (!navbar.contains(event.target)) {
@@ -244,8 +237,8 @@ function buildPilotNotice() {
     notice.innerHTML = `
       <div class="pilot-notice-inner">
         <div class="pilot-notice-copy">
-          <strong>Pilot prototype.</strong>
-          <span>Use a non-identifying project code; do not enter sensitive information.</span>
+          <strong>Pilot research instrument.</strong>
+          <span>Not an authoritative organizational baseline. Use a non-identifying project code; do not enter sensitive information.</span>
         </div>
         <button class="btn btn-ghost btn-sm pilot-notice-dismiss" id="btn-dismiss-pilot-notice" type="button">Dismiss</button>
       </div>
@@ -304,7 +297,7 @@ function showDiagnosticsDialog() {
         document.removeEventListener('keydown', handleKeydown);
         overlay.classList.remove('active');
         overlay.innerHTML = '';
-        if (invoker instanceof HTMLElement) invoker.focus();
+        restoreDialogInvokerFocus(invoker);
     };
     const handleKeydown = event => {
         if (event.key === 'Escape') close();
@@ -347,7 +340,7 @@ function showEndSessionDialog() {
         document.removeEventListener('keydown', handleKeydown);
         overlay.classList.remove('active');
         overlay.innerHTML = '';
-        if (invoker instanceof HTMLElement) invoker.focus();
+        restoreDialogInvokerFocus(invoker);
     };
     const handleKeydown = event => {
         if (event.key === 'Escape') close();
@@ -369,7 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('app:storage-failure', event => showStorageFailure(event.detail?.operation || 'storage operation'));
     buildNavbar();
     buildPilotNotice();
-    initRouter(document.getElementById('main-content'));
+    const mainContent = document.getElementById('main-content');
+    document.querySelector('.skip-link')?.addEventListener('click', event => {
+        event.preventDefault();
+        mainContent.focus();
+    });
+    initRouter(mainContent);
 
     const saved = loadAutosave();
     if (saved && (saved.assessmentComplete || saved.assessmentDisposition || Object.keys(saved.scores || {}).length > 0)) {
@@ -381,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlay.setAttribute('aria-labelledby', 'autosave-restore-title');
         overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;';
         overlay.innerHTML = `
-            <div style="background:var(--bg-card);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+            <div style="background:var(--bg-secondary);border:1px solid var(--border-medium);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
                 <div class="modal-kicker">Saved session</div>
                 <h3 id="autosave-restore-title" style="margin-bottom:8px;">Saved Assessment Work Found</h3>
                 <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">Auto-saved ${saved.assessmentComplete ? 'baseline work' : 'work in progress'} from <strong>${escapeHtml(savedDate)}</strong> was found in this browser. Restore it only if this is your session.</p>
@@ -396,39 +394,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', handleRestoreKeydown);
 
         overlay.querySelector('#btn-restore-yes').addEventListener('click', () => {
-            const isCurrentSemanticAutosave = saved.semantics?.metricDefinitionSet === FRAMEWORK_META.metricDefinitionSet;
+            const isCurrentSemanticAutosave = isCurrentAutosaveSemantics(saved);
+            let normalizedRestore = null;
             if (!isCurrentSemanticAutosave) {
-                setState(normalizeImportedConfig({
-                    _format: 'se-tailoring-config',
-                    _version: '1.1',
-                    projectInfo: saved.projectInfo || {},
-                    metricScores: saved.scores || {},
-                    processLevels: saved.levels || {},
-                    derivedLevels: saved.derived || {},
-                    derivationDetails: saved.derivationDetails || {},
-                    overrides: saved.overrides || [],
-                    violations: saved.violations || [],
-                    fixes: saved.fixes || [],
-                    activeFloors: saved.activeFloors || [],
-                    ruleDispositions: saved.ruleDispositions || {},
-                    csiResponse: saved.csiResponse || {},
-                    rightSizingProposals: saved.rightSizingProposals || [],
-                    blockedRightSizingCandidates: saved.blockedRightSizingCandidates || [],
-                    proposedRightSizedLevels: saved.proposedRightSizedLevels || {},
-                    proposalClosureFixes: saved.proposalClosureFixes || [],
-                    proposalBudgetStatus: saved.proposalBudgetStatus || null,
-                    rightSizingApprovalRecords: saved.rightSizingApprovalRecords || [],
-                    rightSizingApprovalEvaluations: saved.rightSizingApprovalEvaluations || [],
-                    approvedRightSizedLevels: saved.approvedRightSizedLevels || {},
-                    normativeLevels: saved.normativeLevels || saved.levels || {},
-                    effectiveRightSizingApprovalCount: saved.effectiveRightSizingApprovalCount || 0,
-                    rightSizingActions: saved.rightSizingActions || [],
-                    budgetStatus: saved.budgetStatus || null,
-                    adoptionRisks: saved.adoptionRisks || [],
-                    derivationStatus: saved.derivationStatus || saved.confidence || {},
-                    confidence: saved.confidence || saved.derivationStatus || {},
-                    assessmentComplete: saved.assessmentComplete || false
-                }, saved.assessmentTree || getState().assessmentTree));
+                normalizedRestore = normalizeImportedConfig(
+                    buildAutosaveImportConfig(saved),
+                    saved.assessmentTree || getState().assessmentTree
+                );
+                setState(normalizedRestore);
             } else setState({
                 projectInfo: saved.projectInfo || {},
                 scores: saved.scores || {},
@@ -453,26 +426,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 proposalBudgetStatus: saved.proposalBudgetStatus || null,
                 rightSizingApprovalRecords: saved.rightSizingApprovalRecords || [],
                 rightSizingApprovalEvaluations: saved.rightSizingApprovalEvaluations || [],
-                approvedRightSizedLevels: saved.approvedRightSizedLevels || {},
+                locallyAdjustedLevels: saved.locallyAdjustedLevels || {},
+                localScenarioClosureFixes: saved.localScenarioClosureFixes || [],
+                localScenarioBudgetStatus: saved.localScenarioBudgetStatus || null,
+                locallyCompleteRightSizingRecordCount: saved.locallyCompleteRightSizingRecordCount || 0,
+                approvedRightSizedLevels: {},
                 normativeLevels: saved.normativeLevels || saved.levels || {},
-                effectiveRightSizingApprovalCount: saved.effectiveRightSizingApprovalCount || 0,
+                effectiveRightSizingApprovalCount: 0,
                 rightSizingActions: saved.rightSizingActions || [],
                 budgetStatus: saved.budgetStatus || null,
                 adoptionRisks: saved.adoptionRisks || [],
                 manualAdjustments: saved.manualAdjustments || {},
                 tradeoffs: saved.tradeoffs || [],
-                cultureType: saved.cultureType || null,
                 notes: saved.notes || '',
                 assessmentComplete: saved.assessmentComplete || false,
                 assessmentDisposition: saved.assessmentDisposition || 'work-in-progress',
                 derivationStatus: saved.derivationStatus || saved.confidence || {},
                 confidence: saved.confidence || saved.derivationStatus || {},
-                assessmentTree: saved.assessmentTree || getState().assessmentTree,
-                deliverablesChecked: saved.deliverablesChecked || []
+                assessmentTree: saved.assessmentTree || getState().assessmentTree
             });
             document.removeEventListener('keydown', handleRestoreKeydown);
             overlay.remove();
-            showToast(isCurrentSemanticAutosave ? 'Assessment restored from auto-save!' : 'Legacy assessment preserved; M6, M8, and M15 require semantic reassessment.', isCurrentSemanticAutosave ? 'success' : 'warning');
+            const notice = autosaveRestoreNotice(isCurrentSemanticAutosave, normalizedRestore || {});
+            showToast(notice.message, notice.type);
             navigateTo('dashboard');
         });
 

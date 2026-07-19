@@ -592,11 +592,10 @@ export function deriveCSIResponseRequirement(scoresOrCsi = {}) {
 }
 
 /**
- * Compute Adoption Readiness Index (CRI) from culture metric.
- * CRI is derived by rule-based mapping from M16 categories
- * (Resistant/Tolerant/Supportive) into three readiness classes;
+ * Compute Adoption Readiness Index (CRI) from M16 enabling conditions.
+ * CRI is derived by rule-based mapping into three readiness classes;
  * no arithmetic aggregation across metrics is performed.
- * Maps M16 to 1-3 scale: 1-2→Resistant(1), 3→Tolerant(2), 4-5→Supportive(3).
+ * Maps M16 to 1-3 scale: 1-2 constrained, 3 mixed, 4-5 strong.
  * Returns 1-3 ordinal scale.
  */
 export function computeCRI(scores) {
@@ -675,7 +674,7 @@ export function assessAdoptionReadiness(levels, scores) {
  * Evaluate right-sizing: preserve normative levels and return governed reduction
  * proposals plus readiness-gap reporting. Proposals are never applied here;
  * accepting one requires a separate owner decision with justification and
- * output-sufficiency evidence.
+ * consequential evidence and authority records.
  */
 export function applyRightSizing(levels, scores, overridesApplied = [], context = {}) {
     const psi = computePSI(scores);
@@ -910,13 +909,17 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
         context.rightSizingApprovalRecords || [],
         approvalContext
     );
-    // Approval can authorize a reduction, but cannot bypass mandatory closure.
-    // Re-closing the approved profile makes that property executable rather than documentary.
-    const approvedClosure = applyMandatoryClosure(approvalResult.levels, scores, context);
-    final = approvedClosure.levels;
-    const fixes = [...closure.fixes, ...approvedClosure.fixes];
-    const remainingViolations = approvedClosure.violations;
+    // Browser-local approval records are asserted evidence only. They can
+    // produce a separately labelled scenario, but cannot mutate the normative
+    // recommendation because identities and external authority are not verified.
+    const localScenarioClosure = applyMandatoryClosure(approvalResult.scenarioLevels, scores, context);
+    final = normativeLevels;
+    const fixes = [...closure.fixes];
+    const remainingViolations = closure.violations;
     const budgetStatus = computeRigorBudgetStatus(final, scores);
+    const localScenarioBudgetStatus = approvalResult.locallyCompleteCount > 0
+        ? computeRigorBudgetStatus(localScenarioClosure.levels, scores)
+        : null;
 
     // Step 6: Compute evidence status for each process based on final levels.
     // Metric corroboration, criticality/assurance floors, and explicit-justification
@@ -963,9 +966,14 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
         proposalClosureFixes: proposalClosureFixes || [],
         proposalBudgetStatus: proposalBudgetStatus || null,
         rightSizingApprovalEvaluations: approvalResult.evaluations || [],
-        approvedRightSizedLevels: approvalResult.effectiveCount > 0 ? final : {},
+        locallyAdjustedLevels: approvalResult.locallyCompleteCount > 0 ? localScenarioClosure.levels : {},
+        localScenarioClosureFixes: approvalResult.locallyCompleteCount > 0 ? localScenarioClosure.fixes : [],
+        localScenarioBudgetStatus,
+        locallyCompleteRightSizingRecordCount: approvalResult.locallyCompleteCount || 0,
+        // Legacy authority fields remain empty in the static application.
+        approvedRightSizedLevels: {},
         normativeLevels,
-        effectiveRightSizingApprovalCount: approvalResult.effectiveCount || 0,
+        effectiveRightSizingApprovalCount: 0,
         constraintResponseRequirement: constraintResponseRequirement || deriveCSIResponseRequirement(scores),
         adoptionRisks: adoptionRisks || [],
         indices: indices || {},
@@ -976,7 +984,8 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
         saTier,
         confidence,
         budgetStatus,
-        closureIterations: closure.iterations + approvedClosure.iterations
+        closureIterations: closure.iterations,
+        localScenarioClosureIterations: approvalResult.locallyCompleteCount > 0 ? localScenarioClosure.iterations : 0
     };
 }
 

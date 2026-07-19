@@ -8,9 +8,7 @@
  */
 import { escapeHtml } from './utils/safe-text.js';
 import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION } from './data/metrics.js';
-import { assessMetricCompleteness, getAssessmentDisposition } from './utils/assessment-integrity.js';
-import { assessWarningDispositions } from './utils/rule-dispositions.js';
-import { assessCsiResponse } from './utils/csi-response.js';
+import { evaluateBaselineEligibility, getAssessmentDisposition } from './utils/assessment-integrity.js';
 import { assessCorrelatedEvidence } from './utils/correlated-evidence.js';
 import { recordRuntimeIssue } from './utils/runtime-operations.js';
 
@@ -28,7 +26,7 @@ const state = {
                 assessmentType: 'full',       // 'full' | 'quick' | 'inherited'
                 inheritedMetrics: {},          // { M7: true, M8: true, ... }
                 overriddenMetrics: {},         // { M1: { parentValue: 4, childValue: 2, rationale: '...' } }
-                downTailoringLog: [],          // [{ processId, parentLevel, childLevel, justification, outputSufficiency, approver }]
+                downTailoringLog: [],          // governed reduction rationale; legacy outputSufficiency fields are import-only
                 status: 'draft',              // 'draft' | 'under_review' | 'approved' | 'baselined'
                 scores: {},                   // per-node metric scores
                 metricAssessments: {},        // per-metric status, qualifiers, rationale, and evidence references
@@ -75,6 +73,11 @@ const state = {
     proposalBudgetStatus: null,
     rightSizingApprovalRecords: [],
     rightSizingApprovalEvaluations: [],
+    locallyAdjustedLevels: {},
+    localScenarioClosureFixes: [],
+    localScenarioBudgetStatus: null,
+    locallyCompleteRightSizingRecordCount: 0,
+    // Legacy external-authority fields remain empty in the static app.
     approvedRightSizedLevels: {},
     normativeLevels: {},
     effectiveRightSizingApprovalCount: 0,
@@ -84,13 +87,11 @@ const state = {
     adoptionRisks: [],
     manualAdjustments: {},
     tradeoffs: [],
-    cultureType: null,
     notes: '',
     assessmentComplete: false,
     assessmentDisposition: 'work-in-progress',
     confidence: {},
-    derivationStatus: {},
-    deliverablesChecked: []
+    derivationStatus: {}
 };
 
 const listeners = [];
@@ -135,6 +136,10 @@ function debounceAutosave() {
                 proposalBudgetStatus: state.proposalBudgetStatus,
                 rightSizingApprovalRecords: state.rightSizingApprovalRecords,
                 rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations,
+                locallyAdjustedLevels: state.locallyAdjustedLevels,
+                localScenarioClosureFixes: state.localScenarioClosureFixes,
+                localScenarioBudgetStatus: state.localScenarioBudgetStatus,
+                locallyCompleteRightSizingRecordCount: state.locallyCompleteRightSizingRecordCount,
                 approvedRightSizedLevels: state.approvedRightSizedLevels,
                 normativeLevels: state.normativeLevels,
                 effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount,
@@ -143,7 +148,6 @@ function debounceAutosave() {
                 adoptionRisks: state.adoptionRisks,
                 manualAdjustments: state.manualAdjustments,
                 tradeoffs: state.tradeoffs,
-                cultureType: state.cultureType,
                 notes: state.notes,
                 assessmentComplete: integrity.complete,
                 assessmentDisposition: integrity.disposition,
@@ -151,7 +155,6 @@ function debounceAutosave() {
                 confidence: state.confidence,
                 derivationStatus: state.derivationStatus || state.confidence,
                 assessmentTree: state.assessmentTree,
-                deliverablesChecked: state.deliverablesChecked,
                 savedAt: new Date().toISOString()
             });
             localStorage.setItem(AUTOSAVE_KEY, data);
@@ -170,11 +173,8 @@ export function getState() { return state; }
 export function setState(updates) {
     const next = { ...state, ...updates };
     if (updates.assessmentComplete === true) {
-        const completeness = assessMetricCompleteness(next.scores, next.metricAssessments);
-        const warningDispositions = assessWarningDispositions(next.violations, next.ruleDispositions, next.levels);
-        const csiResponse = assessCsiResponse(next.scores, next.csiResponse);
-        const migrationBlocked = next.semanticMigration?.status === 'review-required';
-        next.assessmentComplete = completeness.complete && warningDispositions.complete && csiResponse.complete && !migrationBlocked && next.assessmentDisposition !== 'demo';
+        const eligibility = evaluateBaselineEligibility(next);
+        next.assessmentComplete = eligibility.softwareChecksPassed;
         if (!next.assessmentComplete) next.assessmentDisposition = next.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
         else next.assessmentDisposition = 'complete-baseline';
     }
@@ -221,11 +221,16 @@ export function subscribe(fn) {
 
 export function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span> ${escapeHtml(message)}`;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.innerHTML = `<span aria-hidden="true">${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span><span>${escapeHtml(message)}</span>`;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    const timeout = type === 'error' ? 8000 : type === 'warning' ? 6000 : 4000;
+    setTimeout(() => toast.remove(), timeout);
 }
 
 // ===== Tree Manipulation Helpers (v3.3) =====
@@ -391,10 +396,18 @@ export function setElementAssessmentResult(elementId, result) {
     if (!node) return;
     node.assessmentResult = result;
     node.levels = result.levels || {};
-    const completeness = assessMetricCompleteness(node.scores, node.metricAssessments);
-    const warningDispositions = assessWarningDispositions(result.violations, node.ruleDispositions, node.levels);
-    const csiResponse = assessCsiResponse(node.scores, node.csiResponse);
-    const baselineReady = result?.authoritative === true && completeness.complete && warningDispositions.complete && csiResponse.complete;
+    const eligibility = evaluateBaselineEligibility({
+        scores: node.scores,
+        metricAssessments: node.metricAssessments,
+        violations: result.violations,
+        ruleDispositions: node.ruleDispositions,
+        levels: node.levels,
+        csiResponse: node.csiResponse
+    }, {
+        derivationAuthoritative: result?.authoritative === true,
+        hierarchy: { complete: true, enabled: false, incompleteElementIds: [], assessedElementCount: 1 }
+    });
+    const baselineReady = eligibility.softwareChecksPassed;
     node.status = baselineReady ? 'under_review' : 'draft';
     node.assessmentDisposition = baselineReady ? 'complete-baseline' : 'work-in-progress';
     notifyStateChanged();

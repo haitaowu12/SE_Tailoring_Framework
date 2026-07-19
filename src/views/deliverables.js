@@ -1,33 +1,22 @@
 /**
- * Deliverables View — Process-grouped checklist explorer
+ * Deliverables View — read-only process-grouped reference
  */
-import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
+import { CORE_PROCESSES, PROCESS_GROUPS } from '../data/se-tailoring-data.js';
 import { PROCESS_DETAILS } from '../data/process-details.js';
-import { getState, setState } from '../state.js';
+import { getState } from '../state.js';
 
 let filterLevel = 'all';
 
 export function renderDeliverables(container) {
     const state = getState();
-    const checkedItems = new Set(state.deliverablesChecked || []);
     const groupByGroup = {};
     CORE_PROCESSES.forEach(p => { if (!groupByGroup[p.group]) groupByGroup[p.group] = []; groupByGroup[p.group].push(p); });
-
-    // Count deliverables
-    let totalCount = 0, checkedCount = checkedItems.size;
-    CORE_PROCESSES.forEach(p => {
-        const details = PROCESS_DETAILS[p.id];
-        if (!details?.deliverables) return;
-        const lvl = filterLevel !== 'all' ? filterLevel : state.levels[p.id];
-        if (!lvl) return;
-        totalCount += (details.deliverables[lvl] || []).length;
-    });
 
     container.innerHTML = `
     <div class="flex justify-between items-center mb-lg deliverables-toolbar">
       <div>
-        <h2>Deliverables Checklist</h2>
-        <p class="text-secondary text-sm mt-sm">${checkedCount}/${totalCount} items checked</p>
+        <h2>Reference Deliverables</h2>
+        <p class="text-secondary text-sm mt-sm">Read-only practitioner guidance. These examples are not completion evidence and are not stored as assessment state.</p>
       </div>
       <div class="flex gap-sm items-center deliverables-filter">
         <span class="text-xs text-secondary">Filter:</span>
@@ -39,8 +28,6 @@ export function renderDeliverables(container) {
         </select>
       </div>
     </div>
-    <div class="progress-bar mb-xl"><div class="progress-bar-fill" style="width:${totalCount > 0 ? (checkedCount / totalCount * 100) : 0}%"></div></div>
-
     ${Object.entries(groupByGroup).map(([group, procs]) => `
       <div class="mb-xl">
         <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
@@ -60,7 +47,6 @@ export function renderDeliverables(container) {
         }
         const items = details.deliverables[lvl] || [];
         if (items.length === 0) return '';
-        const pChecked = items.filter((_, i) => checkedItems.has(`${p.id}-${lvl}-${i}`)).length;
         return `
           <details class="deliverable-group card mb-md" ${items.length <= 6 ? 'open' : ''}>
             <summary class="deliverable-summary">
@@ -70,18 +56,11 @@ export function renderDeliverables(container) {
                   <strong>${p.name}</strong>
                   <span class="level-badge ${lvl}">${lvl[0].toUpperCase()}</span>
                 </div>
-                <span class="text-xs text-secondary">${pChecked}/${items.length}</span>
+                <span class="text-xs text-secondary">${items.length} reference item${items.length === 1 ? '' : 's'}</span>
               </div>
             </summary>
             <div class="deliverable-items mt-md">
-              ${items.map((item, i) => {
-            const key = `${p.id}-${lvl}-${i}`;
-            return `
-                <label class="deliverable-check ${checkedItems.has(key) ? 'checked' : ''}">
-                  <input type="checkbox" ${checkedItems.has(key) ? 'checked' : ''} data-key="${key}">
-                  <span>${item}</span>
-                </label>`;
-        }).join('')}
+              ${items.map(item => `<div class="deliverable-reference-item"><span aria-hidden="true">•</span><span>${item}</span></div>`).join('')}
             </div>
           </details>`;
     }).join('')}
@@ -108,10 +87,7 @@ export function renderDeliverables(container) {
     }
     .deliverable-unassessed-row { min-width: 0; flex-wrap: wrap; }
     .deliverable-items { padding: 0 20px 16px; }
-    .deliverable-check { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: background 0.15s; font-size: 13px; color: var(--text-secondary); }
-    .deliverable-check:hover { background: rgba(99,102,241,0.05); }
-    .deliverable-check.checked span { text-decoration: line-through; opacity: 0.5; }
-    .deliverable-check input { margin-top: 2px; accent-color: var(--accent-primary); }
+    .deliverable-reference-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--text-secondary); }
     @media (max-width: 520px) {
       .deliverables-toolbar {
         align-items: flex-start;
@@ -136,15 +112,5 @@ export function renderDeliverables(container) {
     container.querySelector('#level-filter').addEventListener('change', (e) => {
         filterLevel = e.target.value;
         renderDeliverables(container);
-    });
-
-    // Checkbox handlers
-    container.querySelectorAll('.deliverable-check input').forEach(cb => {
-        cb.addEventListener('change', (e) => {
-            const key = e.target.dataset.key;
-            if (e.target.checked) checkedItems.add(key); else checkedItems.delete(key);
-            setState({ deliverablesChecked: [...checkedItems].sort() });
-            renderDeliverables(container);
-        });
     });
 }

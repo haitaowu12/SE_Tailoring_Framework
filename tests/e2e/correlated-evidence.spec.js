@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { openSessionMenu } from './helpers.js';
 
 import { METRIC_PROCESS_MAP } from '../../src/data/se-tailoring-data.js';
 import { runFullAssessment } from '../../src/utils/assessment-engine.js';
@@ -59,7 +60,7 @@ async function importCorrelatedFixture(page) {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -82,6 +83,7 @@ async function importCorrelatedFixture(page) {
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.reload();
   const chooser = page.waitForEvent('filechooser');
+  await openSessionMenu(page);
   await page.locator('#btn-import').click();
   await (await chooser).setFiles(configPath);
   await expect(page.getByText('Configuration imported successfully!')).toBeVisible();
@@ -115,7 +117,7 @@ test('correlated-evidence warning is visible and distinct consequence pathways r
     ['M6', 'Loss of passenger service, operational recovery capacity, and mission continuity.'],
     ['M8', 'Unauthorized control-state manipulation across the security boundary.']
   ]) {
-    const metricCard = page.locator('.metric-item').filter({ has: page.locator(`#slider-${metricId}`) });
+    const metricCard = page.locator(`.metric-item[data-metric-id="${metricId}"]`);
     await metricCard.getByText('Justification note').click();
     await page.locator(`#metric-note-${metricId}`).fill(note);
   }

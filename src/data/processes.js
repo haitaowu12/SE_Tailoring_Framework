@@ -4,11 +4,12 @@
  * AI SYNC: This file maps directly to the SE Tailoring Model Master Index.
  * When processes change, update this file to keep the web app in sync.
  *
- * _VERSION: 3.5.0
- * _LAST_UPDATED: 2026-04
+ * _CONTENT_SCHEMA_VERSION: 1.0
+ * _LAST_UPDATED: 2026-07-17
  * _SOURCE: 00-MASTER/SE-Tailoring-Model-Master-Index.md
  * _SYNC_CONTRACT:
  *   - Canonical core/extended process scope: 00-MASTER/SE-Tailoring-Model-Master-Index.md
+ *   - Definitions and examples are provisional authored guidance, not normative semantics or professional-validity evidence.
  */
 
 export const PROCESS_GROUPS = {
@@ -76,7 +77,6 @@ const BASE_PROCESSES = [
         definition: { basic: 'Simple risk register with high/medium/low assessment. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
         assumptions: 'Risks identified through experience and intuition; assessment is qualitative (H/M/L); monitoring is informal.',
         whenToElevate: 'Elevate to Standard for medium-complexity projects. Elevate to Comprehensive for safety-critical systems.',
-        cultureActions: { resistant: 'Frame risks as "What could go wrong?"; use lightweight informal capture if formal registers are not yet accepted', tolerant: 'Demonstrate ROI of risk management; use internal champions', supportive: 'Implement quantitative risk analysis; create risk dashboards' }
     },
     {
         id: 13, name: 'Configuration Management', group: 'tech_mgmt', purpose: 'Establish and maintain consistency of system attributes throughout the lifecycle', extended: false,
@@ -99,7 +99,7 @@ const BASE_PROCESSES = [
     {
         id: 16, name: 'Quality Assurance', group: 'tech_mgmt', purpose: 'Ensure processes and products meet quality requirements', extended: false,
         definition: { basic: 'Basic audits and reviews for compliance', standard: 'Structured assurance with evaluations per ISO 9001', comprehensive: 'Comprehensive program with trend analyses for proactive quality' },
-        assumptions: 'QA limited to basic audits; non-conformances tracked informally.',
+        assumptions: 'QA limited to basic defined-criteria reviews; nonconformances are recorded with owners, actions, and closure status.',
         whenToElevate: 'Elevate to Standard for regulated industries or quality-critical products.'
     },
     // --- Technical Processes (Core) ---

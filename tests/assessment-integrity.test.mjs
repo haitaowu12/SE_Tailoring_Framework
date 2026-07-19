@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   assessMetricCompleteness,
+  evaluateBaselineEligibility,
   getM15ScopeOptions,
   preserveUnconfirmedMetricAssessments
 } from '../src/utils/assessment-integrity.js';
-import { buildExportConfig, normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
+import { buildExportConfig, generateReport, normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
 import { assessRule11Disposition, assessWarningDispositions, normalizeRuleDispositions } from '../src/utils/rule-dispositions.js';
 import { assessCsiResponse } from '../src/utils/csi-response.js';
 import { assessSafetyAllocationDecision } from '../src/utils/inheritance-engine.js';
@@ -24,6 +25,13 @@ test('default preview scores do not count as confirmed baseline judgments', () =
   assert.equal(completeness.complete, false);
   assert.equal(completeness.completeCount, 0);
   assert.deepEqual(completeness.incompleteMetricIds, METRIC_IDS);
+});
+
+test('completed-baseline report generation rejects untouched preview values', () => {
+  assert.throws(
+    () => generateReport({ scores: makeScores(3), metricAssessments: {}, assessmentComplete: false }, {}),
+    /Completed-baseline report generation is unavailable/
+  );
 });
 
 test('all 16 explicitly assessed scores are baseline-complete', () => {
@@ -103,7 +111,7 @@ test('legacy schema-2 scores remain readable but become unconfirmed work in prog
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.0',
+      frameworkVersion: '4.1.1',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -120,7 +128,38 @@ test('legacy schema-2 scores remain readable but become unconfirmed work in prog
   assert.equal(normalized.levels[9], 'standard', 'Historical result is preserved as preview evidence');
 });
 
-test('retired artifact handoff data is ignored and no longer blocks a current baseline', () => {
+test('4.1.0 imports preserve scores but require explicit reconfirmation under the 4.1.1 completion contract', () => {
+  const scores = makeScores(3);
+  const config = {
+    _format: 'se-tailoring-config',
+    _version: '2.0',
+    semantics: {
+      frameworkVersion: '4.1.0',
+      metricDefinitionSet: 'se-tailoring-m1-m16-v3',
+      qualifierSchemaVersion: '1.1'
+    },
+    metricScores: scores,
+    metricAssessments: makeAssessments(scores),
+    processLevels: { 9: 'standard' },
+    assessmentComplete: true
+  };
+
+  assert.equal(validateConfig(config).valid, true);
+  const normalized = normalizeImportedConfig(config);
+  assert.equal(normalized.scores.M1, 3);
+  assert.equal(normalized.metricAssessments.M1.status, 'legacy-unconfirmed');
+  assert.equal(normalized.semanticMigration.reason, 'completion-contract-coherence');
+  assert.deepEqual(normalized.semanticMigration.reassessmentMetrics, METRIC_IDS);
+  assert.equal(normalized.assessmentComplete, false);
+  assert.equal(evaluateBaselineEligibility(normalized).migrationBlocked, true);
+
+  normalized.metricAssessments = makeAssessments(scores);
+  const reconfirmed = evaluateBaselineEligibility(normalized);
+  assert.equal(reconfirmed.migrationBlocked, false);
+  assert.equal(reconfirmed.softwareChecksPassed, true);
+});
+
+test('retired artifact handoff data is ignored and no longer blocks software completeness', () => {
   const scores = makeScores(3);
   const config = buildExportConfig({
     scores,
@@ -244,7 +283,7 @@ test('hierarchy disposition schema rejects malformed outcomes and impossible dat
   const scores = makeScores(3);
   const base = {
     _format: 'se-tailoring-config', _version: '2.0',
-    semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: 'se-tailoring-qualifiers-v1' },
+    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: 'se-tailoring-qualifiers-v1' },
     metricScores: scores, processLevels: {},
     assessmentTree: {
       rootId: 'root', activeId: 'child', nodes: {

@@ -13,7 +13,6 @@ import {
     getEffectiveScores,
     detectDownTailoring,
     validateDownTailoring,
-    checkOutputSufficiency,
     assessSafetyAllocationDecision,
     propagateSafetyOverrides,
     checkPeerInterfaceConsistency,
@@ -154,7 +153,7 @@ test('validateDownTailoring rejects missing justifications', () => {
         { processId: 18, delta: 1, requiresSponsor: false }
     ];
     const justifications = [
-        { processId: 9, justification: 'Simple element', outputSufficiency: 'Confirmed', approver: 'Sponsor' }
+        { processId: 9, justification: 'Simple element', approver: 'Sponsor' }
     ];
     const result = validateDownTailoring(downTailored, justifications);
     assert.equal(result.valid, false, 'Should be invalid — missing P18 justification');
@@ -164,7 +163,7 @@ test('validateDownTailoring rejects missing justifications', () => {
 test('validateDownTailoring rejects 2-level drop without sponsor', () => {
     const downTailored = [{ processId: 9, delta: 2, requiresSponsor: true }];
     const justifications = [
-        { processId: 9, justification: 'Reason', outputSufficiency: 'OK', approver: 'PM' }
+        { processId: 9, justification: 'Reason', approver: 'PM' }
     ];
     const result = validateDownTailoring(downTailored, justifications);
     assert.equal(result.valid, false, 'PM approval insufficient for 2-level drop');
@@ -177,8 +176,8 @@ test('validateDownTailoring accepts complete justifications', () => {
         { processId: 18, delta: 1, requiresSponsor: false }
     ];
     const justifications = [
-        { processId: 9, justification: 'Low complexity', outputSufficiency: 'Confirmed', approver: 'PM' },
-        { processId: 18, justification: 'Internal only', outputSufficiency: 'Confirmed', approver: 'PM' }
+        { processId: 9, justification: 'Low complexity', approver: 'PM' },
+        { processId: 18, justification: 'Internal only', approver: 'PM' }
     ];
     const result = validateDownTailoring(downTailored, justifications);
     assert.equal(result.valid, true, 'All justifications complete');
@@ -192,7 +191,6 @@ test('P19/P20 down-tailoring validation requires a confirmed safety-allocation d
     const justifications = downTailored.map(({ processId }) => ({
         processId,
         justification: 'Element boundary is narrower',
-        outputSufficiency: 'Confirmed',
         approver: 'Safety Authority'
     }));
 
@@ -397,20 +395,6 @@ test('No differences returns inherited recommendation', () => {
     const result = assessNeedForSeparateAssessment(parent, {});
     assert.equal(result.needsAssessment, false);
     assert.equal(result.recommendedType, 'inherited');
-});
-
-// ========== Output Sufficiency Tests ==========
-
-test('Output sufficiency returns equivalents for Integration', () => {
-    const result = checkOutputSufficiency(24, 'basic');
-    assert.ok(result);
-    assert.equal(result.outputRequired, 'Interface Control Documents');
-    assert.ok(result.childEquivalent.includes('Project Notebook'));
-});
-
-test('Output sufficiency returns null for unmapped processes', () => {
-    const result = checkOutputSufficiency(30, 'basic'); // Disposal
-    assert.equal(result, null, 'No sufficiency map for Disposal');
 });
 
 // ========== runChildAssessment Integration Test ==========

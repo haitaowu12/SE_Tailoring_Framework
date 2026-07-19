@@ -25,9 +25,9 @@ test('current UI judgments use the v3 metric definition version constant', () =>
   );
 });
 
-test('assessment UI keeps the default path lightweight and records optional notes', () => {
-  assert.match(assessmentSource, /function initializeMetricAssessments/);
-  assert.match(assessmentSource, /status: updates\.status \|\| existing\.status \|\| 'assessed'/);
+test('assessment UI keeps untouched preview values unreviewed and records optional notes', () => {
+  assert.doesNotMatch(assessmentSource, /function initializeMetricAssessments/);
+  assert.match(assessmentSource, /status: updates\.status \|\| existing\.status \|\| 'unreviewed'/);
   assert.match(assessmentSource, /class="metric-unknown"/);
   assert.match(assessmentSource, /class="input mt-sm metric-justification-input"/);
   assert.doesNotMatch(assessmentSource, /metric-assessment-status/);
@@ -40,10 +40,17 @@ test('assessment UI keeps recommendation logic out of each metric card', () => {
   assert.match(assessmentSource, /class="metric-justification/);
 });
 
-test('score changes resolve the active node within setMetricScore', () => {
+test('score changes use the unified active-node draft commit', () => {
+  const commitBody = assessmentSource.match(/function commitAssessmentDraft[\s\S]*?\n}\n\nfunction compareScore/)?.[0] || '';
   const functionBody = assessmentSource.match(/function setMetricScore[\s\S]*?\n}\n\nfunction startWizard/)?.[0] || '';
-  assert.match(functionBody, /const activeNode = getActiveNode\(\);/);
-  assert.match(functionBody, /if \(activeNode\)/);
+  assert.match(commitBody, /const activeNode = getActiveNode\(\);/);
+  assert.match(commitBody, /activeNode\.scores = \{ \.\.\.scores \}/);
+  assert.match(commitBody, /activeNode\.metricAssessments/);
+  assert.match(commitBody, /activeNode\.ruleDispositions/);
+  assert.match(commitBody, /activeNode\.csiResponse/);
+  assert.match(commitBody, /activeNode\.assessmentDisposition = 'work-in-progress'/);
+  assert.match(commitBody, /assessmentComplete: false/);
+  assert.match(functionBody, /commitAssessmentDraft\(\{ manualMetricId: metricId \}\)/);
 });
 
 test('assessment recommendations link to their exact process and computed level', () => {
@@ -64,4 +71,37 @@ test('opening recommendation details persists work in progress without silently 
   assert.match(assessmentSource, /assessmentDisposition: !navigationOnly && canBaseline \? 'complete-baseline' : 'work-in-progress'/);
   assert.match(assessmentSource, /const destination = getCurrentRouteContext\(destinationHash\)/);
   assert.match(assessmentSource, /navigateTo\(destination\.path, destination\.params\)/);
+});
+
+test('fresh results do not present a recommendation until preview is explicitly requested', () => {
+  assert.match(assessmentSource, /completeness\.completeCount === 0 && !showNeutralPreview/);
+  assert.match(assessmentSource, />No recommendation yet</);
+  assert.match(assessmentSource, />Explore neutral what-if preview</);
+  assert.match(assessmentSource, /Check Software Completeness/);
+  assert.doesNotMatch(assessmentSource, /Pass Software Completeness Checks/);
+});
+
+test('metric answer positions use neutral score styling rather than process-rigor colors', () => {
+  assert.match(assessmentSource, /display\.style\.color = 'var\(--text-primary\)'/);
+  assert.doesNotMatch(assessmentSource, /display\.style\.color = value >= 4/);
+  assert.doesNotMatch(assessmentSource, /const scoreColor = val >= 4/);
+});
+
+test('browser-local reduction records remain a separate unverified scenario', () => {
+  assert.match(assessmentSource, /Local reduction scenario — external approval unverified/);
+  assert.match(assessmentSource, /normative recommendation is unchanged/);
+  assert.match(assessmentSource, /locallyCompleteRightSizingRecordCount/);
+});
+
+
+test('finalization recomputes the displayed level layer within its own scope', () => {
+  assert.match(assessmentSource, /const currentDisplayLevels = applyManualAdjustmentsToLevels\(result\.levels, activeManualAdjustments\)/);
+  assert.match(assessmentSource, /\{ \.\.\.currentDisplayLevels, 27: 'standard' \}/);
+  assert.doesNotMatch(assessmentSource, /function finalizeAssessment[\s\S]*\{ \.\.\.displayLevels, 27: 'standard' \}/);
+});
+
+
+test('unresolved-only queue excludes neutral right-sizing decisions', () => {
+  assert.match(assessmentSource, /assessmentViewMode === 'issues'[\s\S]*actionQueue\.filter\(item => !item\.passed \|\| item\.label === 'Pilot process profile'\)/);
+  assert.doesNotMatch(assessmentSource, /actionQueue\.filter\(item => !item\.passed \|\| item\.label === 'Pilot process profile' \|\| item\.neutral\)/);
 });
