@@ -92,3 +92,10 @@ test('browser-local reduction records remain a separate unverified scenario', ()
   assert.match(assessmentSource, /normative recommendation is unchanged/);
   assert.match(assessmentSource, /locallyCompleteRightSizingRecordCount/);
 });
+
+
+test('finalization recomputes the displayed level layer within its own scope', () => {
+  assert.match(assessmentSource, /const currentDisplayLevels = applyManualAdjustmentsToLevels\(result\.levels, activeManualAdjustments\)/);
+  assert.match(assessmentSource, /\{ \.\.\.currentDisplayLevels, 27: 'standard' \}/);
+  assert.doesNotMatch(assessmentSource, /function finalizeAssessment[\s\S]*\{ \.\.\.displayLevels, 27: 'standard' \}/);
+});
