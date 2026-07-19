@@ -35,7 +35,21 @@ jobs:
         run: npm test
 
       - name: Run full Chromium e2e suite
-        run: npm run test:e2e -- --project=chromium
+        id: chromium_e2e
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
+        run: npm run test:e2e -- --project=chromium --reporter=list,json
+
+      - name: Upload Chromium failure evidence
+        if: failure() && steps.chromium_e2e.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: chromium-failure-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            playwright-results.json
+            test-results/
+          if-no-files-found: warn
+          retention-days: 3
 
       - name: Run Firefox and WebKit critical-path smoke
         run: >-
