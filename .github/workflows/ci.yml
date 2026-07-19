@@ -33,6 +33,7 @@ jobs:
             exit 1
           fi
 
+          git fetch --no-tags --depth=1 origin d8b9594d322b14e88f78cb113f154055dcf8f03a
           git checkout d8b9594d322b14e88f78cb113f154055dcf8f03a -- .github/workflows/ci.yml
           cat "${parts[@]}" > /tmp/remediation.patch
           git apply --index --whitespace=error /tmp/remediation.patch
