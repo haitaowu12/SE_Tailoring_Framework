@@ -1,0 +1,92 @@
+dLevel)}</dd></div>
+         <div><dt>Floor / closure</dt><dd>${escapeHtml(floorClosureLevel)}</dd></div>
+-        <div><dt>Governed adjustment</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : '—'}</dd></div>
+-        <div><dt>Final</dt><dd>${escapeHtml(level)}</dd></div>
++        <div><dt>Manual / disposition</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : '—'}</dd></div>
++        <div><dt>Local reduction scenario</dt><dd>${localScenarioAdjustment ? escapeHtml(localScenarioAdjustment) : '—'}</dd></div>
++        <div><dt>Pilot profile</dt><dd>${escapeHtml(level)}</dd></div>
+       </dl>
+       <div class="drivers-list mt-sm">${drivers.slice(0, 3).map(d => `<div class="driver-item"><span class="driver-badge ${d.role === 'P' ? 'primary' : 'secondary'}">${d.role === 'P' ? 'Main' : 'Also'}</span><span>${escapeHtml(d.metric)}: ${escapeHtml(d.value)}</span></div>`).join('')}</div>
+       <a class="btn btn-secondary btn-sm mt-sm process-detail-link" href="${escapeHtml(processDetailsHref(p.id, level, 'assessment'))}" aria-label="View ${escapeHtml(p.name)} ${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)} details">View guidance →</a>
+@@ -782,7 +828,8 @@ function renderResults(content) {
+     ...result.overrides.map(item => item.processId),
+     ...result.fixes.map(item => item.processId),
+     ...result.violations.flatMap(item => [item.processId, ...(item.processes || [])]),
+-    ...CORE_PROCESSES.filter(p => result.levels[p.id] === 'comprehensive').map(p => p.id),
++    ...CORE_PROCESSES.filter(p => displayLevels[p.id] === 'comprehensive').map(p => p.id),
++    ...CORE_PROCESSES.filter(p => localScenarioLevels[p.id] && localScenarioLevels[p.id] !== displayLevels[p.id]).map(p => p.id),
+     ...CORE_PROCESSES.filter(p => result.confidence?.[p.id] === 'available-with-justification').map(p => p.id)
+   ].filter(Boolean).map(Number));
+   const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id));
+@@ -840,22 +887,31 @@ function renderResults(content) {
+       status: rightSizingProposals.length ? 'Decision available — non-blocking' : 'none',
+       passed: true,
+       neutral: rightSizingProposals.length > 0,
+-      detail: rightSizingProposals.length ? 'Each proposal needs an explicit governed decision; none is silently applied.' : 'No proposed reductions await disposition.'
++      detail: rightSizingProposals.length ? 'Each proposal needs a recorded decision; no browser-local record changes the normative recommendation.' : 'No proposed reductions await disposition.'
+     },
+     {
+-      label: 'Final process profile',
++      label: 'Local reduction records',
++      status: result.locallyCompleteRightSizingRecordCount > 0 ? `${result.locallyCompleteRightSizingRecordCount} locally complete` : 'none',
++      passed: true,
++      neutral: result.locallyCompleteRightSizingRecordCount > 0,
++      detail: result.locallyCompleteRightSizingRecordCount > 0
++        ? 'A separate unverified scenario is available. External approval is not authenticated, so the normative recommendation is unchanged.'
++        : 'No structurally complete local reduction record is active.'
++    },
++    {
++      label: 'Pilot process profile',
+       status: 'available for review',
+       passed: true,
+-      detail: `${Object.values(result.levels).filter(level => level === 'basic').length} Basic, ${Object.values(result.levels).filter(level => level === 'standard').length} Standard, ${Object.values(result.levels).filter(level => level === 'comprehensive').length} Comprehensive.`
++      detail: `${Object.values(displayLevels).filter(level => level === 'basic').length} Basic, ${Object.values(displayLevels).filter(level => level === 'standard').length} Standard, ${Object.values(displayLevels).filter(level => level === 'comprehensive').length} Comprehensive.`
+     }
+   ];
+   const visibleActionQueue = assessmentViewMode === 'issues'
+-    ? actionQueue.filter(item => !item.passed || item.label === 'Final process profile')
++    ? actionQueue.filter(item => !item.passed || item.label === 'Pilot process profile' || item.neutral)
+     : actionQueue;
+   content.innerHTML = `
+     <section class="action-queue" aria-labelledby="assessment-action-queue-title">
+       <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Unresolved action queue' : 'Assessment action queue'}</h3>
+-      <p class="text-xs text-secondary mt-sm">Ordered from software state through governed decisions to the final profile. Software checks do not verify approval authority.</p>
++      <p class="text-xs text-secondary mt-sm">Ordered from software state through recorded decisions to the pilot profile. Software checks do not verify approval authority.</p>
+       <ol class="action-queue-list">
+         ${visibleActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
+       </ol>
+@@ -886,7 +942,7 @@ function renderResults(content) {
+       <div class="text-xs mt-sm" id="rule11-disposition-status" style="color:${rule11Disposition.complete || canApplyRule11Elevation ? 'var(--accent-success)' : 'var(--accent-warning)'};">${rule11Disposition.complete
+         ? 'Disposition complete.'
+         : canApplyRule11Elevation
+-          ? 'Ready: passing software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
++          ? 'Ready: checking software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
+         : `Incomplete: ${escapeHtml(rule11Disposition.missingFields.join(', '))}${rule11Disposition.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`}</div>
+     </fieldset>` : ''}
+     ${generalWarningDispositions.length ? `<fieldset class="mb-lg" style="border:2px solid ${generalWarningDispositions.every(item => item.complete) ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
+@@ -961,9 +1017,15 @@ function renderResults(content) {
+       <div class="override-banner" style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3);">
+         <strong>${rightSizingProposals.length} Right-Sizing Proposal${rightSizingProposals.length === 1 ? '' : 's'} — not applied</strong>
+         <div class="text-xs text-secondary mt-sm mb-sm">Project scale: ${result.indices?.psi || '—'} · Delivery pressure: ${result.indices?.csi || '—'} · Adoption readiness: ${result.indices?.cri || '—'}</div>
+-        <div class="text-xs text-secondary mb-sm">Each proposal requires an explicit accept/reject decision, rationale, approver, and residual-risk record. Final levels below remain unchanged.</div>
++        <div class="text-xs text-secondary mb-sm">Each proposal can be documented locally, but browser-local records cannot authenticate authority. The pilot profile below remains unchanged.</div>
+         ${rightSizingProposals.map(a => `<div class="text-sm mt-sm">• <strong>${escapeHtml(processName(a.processId))}</strong>: ${escapeHtml(a.from)} → proposed ${escapeHtml(a.proposedTo || a.to)} <span class="text-xs text-secondary">(${escapeHtml(a.reason)})</span></div>`).join('')}
+       </div>` : ''}
++    ${result.locallyCompleteRightSizingRecordCount > 0 ? `
++      <div class="override-banner" style="background:rgba(34,211,238,.07);border-color:rgba(34,211,238,.3);">
++        <strong>Local reduction scenario — external approval unverified</strong>
++        <div class="text-xs text-secondary mt-sm">${result.locallyCompleteRightSizingRecordCount} record(s) are structurally complete and policy-consistent. They do not change the normative recommendation in this static app.</div>
++        ${CORE_PROCESSES.filter(process => localScenarioLevels[process.id] && localScenarioLevels[process.id] !== displayLevels[process.id]).map(process => `<div class="text-sm mt-sm">• <strong>${escapeHtml(process.name)}</strong>: pilot profile ${escapeHtml(displayLevels[process.id])} → local scenario ${escapeHtml(localScenarioLevels[process.id])}</div>`).join('')}
++      </div>` : ''}
+     ${legacyRightSizingActions.length ? `<div class="override-banner" style="background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.3);"><strong>Historical right-sizing records</strong><div class="text-xs text-secondary mt-sm">Imported pre-governance actions are retained for audit only and are not evidence of an approved v4 reduction.</div></div>` : ''}
+     ${blockedRightSizingCandidates.length ? `<div class="override-banner" style="background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25);"><strong>Blocked Right-Sizing Candidates (${blockedRightSizingCandidates.length})</strong><div class="text-xs text-secondary mt-sm">These reductions are not approval candidates because mandatory closure would immediately restore the required level.</div></div>` : ''}
+     ${result.budgetStatus && !result.budgetStatus.withinBudget ? `
+@@ -1032,12 +1094,12 @@ function renderResults(content) {
+       completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
+     } else if (!currentRule11Readiness.complete) {
+       completeButton.textContent = currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')
+-        ? 'Apply P27 Adjustment & Pass Software Checks'
++        ? 'Apply P27 Adjustment & Check Completeness'
+         : 'Save Work in Progress (Rule 11 disposition required)';
+     } else if (!currentWarningReadiness.complete) {
+       completeButton.textContent = `Save Work in Progress (${current
