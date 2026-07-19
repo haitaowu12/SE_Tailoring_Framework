@@ -547,9 +547,14 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         proposalClosureFixes: config.proposalClosureFixes || [],
         proposalBudgetStatus: config.proposalBudgetStatus || null,
         rightSizingApprovalEvaluations: config.rightSizingApprovalEvaluations || [],
-        approvedRightSizedLevels: config.approvedRightSizedLevels || {},
+        locallyAdjustedLevels: config.locallyAdjustedLevels || config.approvedRightSizedLevels || {},
+        localScenarioClosureFixes: config.localScenarioClosureFixes || [],
+        localScenarioBudgetStatus: config.localScenarioBudgetStatus || null,
+        locallyCompleteRightSizingRecordCount: Number(config.locallyCompleteRightSizingRecordCount) || Number(config.effectiveRightSizingApprovalCount) || 0,
+        // Historical authority fields are migrated into a separate unverified local scenario.
+        approvedRightSizedLevels: {},
         normativeLevels: config.normativeLevels || rootNode?.levels || finalLevels,
-        effectiveRightSizingApprovalCount: Number(config.effectiveRightSizingApprovalCount) || 0,
+        effectiveRightSizingApprovalCount: 0,
         rightSizingActions: config.rightSizingActions || [],
         budgetStatus: config.budgetStatus || null,
         adoptionRisks: config.adoptionRisks || [],
@@ -660,6 +665,12 @@ function reduceConfigToMinimumData(config) {
         proposalClosureFixes: [],
         rightSizingApprovalRecords: [],
         rightSizingApprovalEvaluations: [],
+        locallyAdjustedLevels: {},
+        localScenarioClosureFixes: [],
+        localScenarioBudgetStatus: null,
+        locallyCompleteRightSizingRecordCount: 0,
+        approvedRightSizedLevels: {},
+        effectiveRightSizingApprovalCount: 0,
         rightSizingActions: [],
         adoptionRisks: [],
         manualAdjustments: {},
@@ -720,9 +731,14 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
         proposalBudgetStatus: state.proposalBudgetStatus || null,
         rightSizingApprovalRecords: state.rightSizingApprovalRecords || [],
         rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations || [],
-        approvedRightSizedLevels: state.approvedRightSizedLevels || {},
+        locallyAdjustedLevels: state.locallyAdjustedLevels || {},
+        localScenarioClosureFixes: state.localScenarioClosureFixes || [],
+        localScenarioBudgetStatus: state.localScenarioBudgetStatus || null,
+        locallyCompleteRightSizingRecordCount: state.locallyCompleteRightSizingRecordCount || 0,
+        // The static app never exports browser-local assertions as verified approval.
+        approvedRightSizedLevels: {},
         normativeLevels: state.normativeLevels || state.levels || {},
-        effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount || 0,
+        effectiveRightSizingApprovalCount: 0,
         // Retained only when present in an imported historical record.
         rightSizingActions: state.rightSizingActions || [],
         budgetStatus: state.budgetStatus || null,
@@ -838,7 +854,7 @@ export function validateConfig(config) {
         validateLevelMap(config.processLevels, 'processLevels', errors);
     }
 
-    for (const field of ['saResponses', 'derivedLevels', 'manualAdjustments', 'derivationDetails', 'matrixMap', 'assessmentTree', 'saTier', 'indices', 'confidence', 'derivationStatus', 'semantics', 'metricAssessments', 'semanticMigration', 'assessmentIntegrity', 'proposedRightSizedLevels', 'approvedRightSizedLevels', 'normativeLevels', 'proposalBudgetStatus', 'ruleDispositions', 'csiResponse']) {
+    for (const field of ['saResponses', 'derivedLevels', 'manualAdjustments', 'derivationDetails', 'matrixMap', 'assessmentTree', 'saTier', 'indices', 'confidence', 'derivationStatus', 'semantics', 'metricAssessments', 'semanticMigration', 'assessmentIntegrity', 'proposedRightSizedLevels', 'locallyAdjustedLevels', 'approvedRightSizedLevels', 'normativeLevels', 'proposalBudgetStatus', 'localScenarioBudgetStatus', 'ruleDispositions', 'csiResponse']) {
         if (config[field] !== undefined && config[field] !== null && !isPlainObject(config[field])) {
             errors.push(`${field} must be an object`);
         }
@@ -849,7 +865,7 @@ export function validateConfig(config) {
     errors.push(...validateRightSizingApprovalRecords(config.rightSizingApprovalRecords));
 
     // deliverablesChecked remains accepted and validated only for legacy import compatibility; it is ignored by normalization and never re-exported.
-    for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations']) {
+    for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'localScenarioClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations']) {
         if (config[field] !== undefined && !Array.isArray(config[field])) {
             errors.push(`${field} must be an array`);
         }
@@ -1099,11 +1115,13 @@ export function generateReport(state, data) {
         confidence = {},
         adoptionRisks = [],
         ruleDispositions = {},
-        csiResponse = {}
+        csiResponse = {},
+        locallyAdjustedLevels = {}
     } = state;
     const safeScores = scores || {};
     const safeLevels = levels || {};
     const safeDerived = derived || {};
+    const safeLocalScenarioLevels = locallyAdjustedLevels || {};
     const safeDerivationDetails = derivationDetails || {};
     const safeConfidence = confidence || {};
     const processMap = {};
@@ -1160,7 +1178,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 <div class="pilot-banner"><strong>PILOT RECORD — NOT AN AUTHORITATIVE ORGANIZATIONAL BASELINE</strong><br>Software completeness checks passed. External approval not verified.</div>
 <div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} · Standards-informed process architecture</div>
 <div class="info"><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</div>
-<div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports structured decision aid use; empirical project-outcome effectiveness is not yet demonstrated.</div>
+<div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.</div>
 <div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div>
 <table><tr><td><strong>Project</strong>: ${escapeHtml(projectName)}</td><td><strong>Date</strong>: ${escapeHtml(projectDate)}</td></tr>
 <tr><td><strong>Team</strong>: ${escapeHtml(projectTeam)}</td><td><strong>Phase</strong>: ${escapeHtml(projectPhase)}</td></tr></table>
@@ -1190,10 +1208,11 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
         html += `<h2>CSI ${csiReadiness.csi} Constraint Response</h2><div class="${csiReadiness.complete ? 'info' : 'violation'}"><strong>${csiReadiness.complete ? 'Response complete' : 'Response incomplete'}</strong><br>Governance: ${escapeHtml(csiReadiness.expectedResponseType)}<br>Actions: ${escapeHtml(record.selectedActions.join(', ') || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Rationale/decision: ${escapeHtml(record.rationaleDecision || '—')}<br>Owner/approver: ${escapeHtml(record.ownerApprover || '—')}<br>Evidence reference: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br><em>This response does not alter process levels or accept right-sizing proposals.</em></div>`;
     }
 
-    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Final</th><th>Trigger Metrics</th><th>Evidence Status</th><th>Level</th></tr>';
+    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Pilot profile</th><th>Local reduction scenario</th><th>Trigger Metrics</th><th>Evidence Status</th><th>Level</th></tr>';
     for (const p of data.CORE_PROCESSES) {
         const d = safeDerived[p.id] || 'basic';
         const f = safeLevels[p.id] || 'basic';
+        const localScenario = safeLocalScenarioLevels[p.id] || f;
         const detail = safeDerivationDetails[p.id] || {};
         const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
             ? detail.triggerMetrics.join(', ')
@@ -1206,12 +1225,12 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
                     ? 'Floor applied'
                     : 'Supported by drivers/rules';
         const changed = d !== f ? ' ⬆️' : '';
-        html += `<tr><td>${p.id}. ${escapeHtml(p.name)}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${escapeHtml(triggerMetrics)}</td><td>${confidenceLabel}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
+        html += `<tr><td>${p.id}. ${escapeHtml(p.name)}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${localScenario !== f ? `<span class="badge ${localScenario}">${localScenario}</span><br><small>Unverified local scenario</small>` : '—'}</td><td>${escapeHtml(triggerMetrics)}</td><td>${confidenceLabel}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
     }
     html += '</table>';
 
     if ((state.rightSizingApprovalRecords || []).length > 0) {
-        html += '<h2>Right-Sizing Asserted Approval Records</h2><div class="info">These records capture asserted roles but the static prototype cannot authenticate identities or verify external approval. Records are snapshot-bound, time-limited, and rechecked against mandatory closure. They cannot override mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
+        html += '<h2>Right-Sizing Asserted Decision Records</h2><div class="info">These browser-local records capture asserted roles but cannot authenticate identities or verify external approval. A structurally complete record can produce a separately labelled local scenario after mandatory closure; it never changes the pilot process profile or overrides mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
         for (const record of state.rightSizingApprovalRecords) {
             const evaluation = (state.rightSizingApprovalEvaluations || [])
                 .find(item => Number(item.proposal?.processId) === Number(record.processId));
@@ -1219,7 +1238,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
             const authorities = Object.entries(record.approvals || {})
                 .map(([role, approval]) => `${role}: ${approval.identity || '—'} (${approval.authorityBasis || '—'})`)
                 .join('; ');
-            html += `<div class="${assessed?.valid ? 'info' : 'violation'}"><strong>Process ${escapeHtml(record.processId)}: ${escapeHtml(record.from)} → ${escapeHtml(record.to)} — ${escapeHtml(assessed?.status || 'not-current')}</strong><br>Rationale: ${escapeHtml(record.rationale || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Residual risks: ${escapeHtml(record.residualRisks || '—')}<br>Asserted risk acceptance owner: ${escapeHtml(record.riskAcceptanceOwner || '—')}<br>Compensating controls: ${escapeHtml(record.compensatingControls || '—')}<br>Rejected alternatives: ${escapeHtml(record.rejectedAlternatives || '—')}<br>Asserted authorities: ${escapeHtml(authorities || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br>Snapshot: ${escapeHtml(record.snapshot || '—')}${assessed?.reasons?.length ? `<br>Invalidation reasons: ${escapeHtml(assessed.reasons.join(', '))}` : ''}</div>`;
+            html += `<div class="${assessed?.locallyComplete ? 'info' : 'violation'}"><strong>Process ${escapeHtml(record.processId)}: ${escapeHtml(record.from)} → ${escapeHtml(record.to)} — ${escapeHtml(assessed?.status || 'not-current')}</strong><br>Rationale: ${escapeHtml(record.rationale || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Residual risks: ${escapeHtml(record.residualRisks || '—')}<br>Asserted risk acceptance owner: ${escapeHtml(record.riskAcceptanceOwner || '—')}<br>Compensating controls: ${escapeHtml(record.compensatingControls || '—')}<br>Rejected alternatives: ${escapeHtml(record.rejectedAlternatives || '—')}<br>Asserted authorities: ${escapeHtml(authorities || '—')}<br>Evidence: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br>Snapshot: ${escapeHtml(record.snapshot || '—')}${assessed?.reasons?.length ? `<br>Invalidation reasons: ${escapeHtml(assessed.reasons.join(', '))}` : ''}</div>`;
         }
     }
 

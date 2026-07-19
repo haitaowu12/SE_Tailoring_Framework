@@ -72,3 +72,23 @@ test('opening recommendation details persists work in progress without silently 
   assert.match(assessmentSource, /const destination = getCurrentRouteContext\(destinationHash\)/);
   assert.match(assessmentSource, /navigateTo\(destination\.path, destination\.params\)/);
 });
+
+test('fresh results do not present a recommendation until preview is explicitly requested', () => {
+  assert.match(assessmentSource, /completeness\.completeCount === 0 && !showNeutralPreview/);
+  assert.match(assessmentSource, />No recommendation yet</);
+  assert.match(assessmentSource, />Explore neutral what-if preview</);
+  assert.match(assessmentSource, /Check Software Completeness/);
+  assert.doesNotMatch(assessmentSource, /Pass Software Completeness Checks/);
+});
+
+test('metric answer positions use neutral score styling rather than process-rigor colors', () => {
+  assert.match(assessmentSource, /display\.style\.color = 'var\(--text-primary\)'/);
+  assert.doesNotMatch(assessmentSource, /display\.style\.color = value >= 4/);
+  assert.doesNotMatch(assessmentSource, /const scoreColor = val >= 4/);
+});
+
+test('browser-local reduction records remain a separate unverified scenario', () => {
+  assert.match(assessmentSource, /Local reduction scenario — external approval unverified/);
+  assert.match(assessmentSource, /normative recommendation is unchanged/);
+  assert.match(assessmentSource, /locallyCompleteRightSizingRecordCount/);
+});

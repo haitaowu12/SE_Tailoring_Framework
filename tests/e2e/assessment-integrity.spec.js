@@ -47,7 +47,7 @@ test('untouched preview values remain 0 of 16 reviewed and cannot produce a pilo
 
   await expect(page.getByText('0/16 reviewed')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Pass Software Completeness Checks/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toHaveCount(0);
 
   await page.goto('./#report');
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
@@ -140,7 +140,7 @@ test('partial CSI response survives autosave restore without passing completenes
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByLabel('CSI rationale and decision')).toHaveValue('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
-  await expect(page.getByRole('button', { name: /Pass Software Completeness Checks/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Save Work in Progress (CSI 4 response required)' })).toBeVisible();
 });
 
@@ -148,7 +148,7 @@ test('editing a completed baseline immediately demotes it to work in progress', 
   await startFreshAssessment(page);
   await confirmAllMetrics(page);
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByRole('button', { name: 'Pass Software Completeness Checks' }).click();
+  await page.getByRole('button', { name: 'Check Software Completeness' }).click();
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 
   await page.getByRole('button', { name: 'Assess', exact: true }).click();

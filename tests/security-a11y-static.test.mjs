@@ -48,6 +48,48 @@ test('app shell enforces a local-resource CSP and does not contact third-party f
   assert.doesNotMatch(html, /fonts\.googleapis\.com|fonts\.gstatic\.com/);
 });
 
+
+
+test('app shell provides a skip link and a focusable main destination', () => {
+  const html = readFileSync(join(appRoot, 'index.html'), 'utf8');
+  const styles = readFileSync(join(srcRoot, 'styles', 'index.css'), 'utf8');
+  assert.match(html, /class="skip-link" href="#main-content"/);
+  assert.match(html, /<main id="main-content" tabindex="-1"><\/main>/);
+  assert.match(styles, /\.skip-link:focus \{ transform: translateY\(0\); \}/);
+});
+
+test('primary navigation uses disclosure semantics rather than application-menu roles', () => {
+  const main = readFileSync(join(srcRoot, 'main.js'), 'utf8');
+  assert.doesNotMatch(main, /role="menu"|role="menuitem"|aria-haspopup="true"/);
+  assert.match(main, /aria-expanded="false">Framework reference/);
+  assert.match(main, />Go to section<\/label>/);
+  assert.match(main, /aria-label="Go to section"/);
+});
+
+test('route changes move focus to the rendered heading and status messages name their urgency', () => {
+  const router = readFileSync(join(srcRoot, 'router.js'), 'utf8');
+  const state = readFileSync(join(srcRoot, 'state.js'), 'utf8');
+  assert.match(router, /function focusRouteHeading/);
+  assert.match(router, /target\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(state, /type === 'error' \? 'alert' : 'status'/);
+  assert.match(state, /aria-atomic', 'true'/);
+});
+
+test('dark-theme support text and error text use raised contrast tokens', () => {
+  const styles = readFileSync(join(srcRoot, 'styles', 'index.css'), 'utf8');
+  assert.match(styles, /--text-tertiary: oklch\(68% 0\.01 250\)/);
+  assert.match(styles, /--accent-error: oklch\(72% 0\.18 25\)/);
+});
+
+test('current practitioner copy does not authorize private or undefined informal substitutes', () => {
+  const details = readFileSync(join(srcRoot, 'data', 'process-details.js'), 'utf8');
+  const processes = readFileSync(join(srcRoot, 'data', 'processes.js'), 'utf8');
+  assert.doesNotMatch(details, /Monitor via informal methods|Conduct audits \(informal\)/);
+  assert.doesNotMatch(processes, /non-conformances tracked informally/);
+  assert.match(details, /authorized team or project record/);
+  assert.match(details, /applicable risk, hazard, safety, ethics, regulatory, issue, or nonconformance channel/);
+});
+
 test('source templates avoid inline event handlers and javascript pseudo-links', () => {
   const offenders = [];
   const inlineEventPattern = /(?<!\.)\bon(?:click|error|load|mouseover|mouseenter|mouseleave)\s*=/i;
@@ -110,6 +152,8 @@ test('README verification wording distinguishes automated checks from manual bro
   assert.doesNotMatch(text, /Mobile Playwright smoke/, 'README should not imply mobile smoke is automated without a Playwright test script');
   assert.doesNotMatch(text, /Browser smoke:/, 'README should not imply browser smoke is an automated verification gate');
   assert.doesNotMatch(text, /expert-reviewed and case-demonstrated decision aid/, 'README should not overstate validation evidence');
+  assert.doesNotMatch(text, /opens as an assessed 1–5 score at the neutral midpoint/, 'README must distinguish midpoint previews from assessed judgments');
+  assert.match(text, /opens with a non-authoritative midpoint preview/);
 });
 
 test('stakeholder-facing copy does not present evidence status as calibrated confidence', () => {

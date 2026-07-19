@@ -158,9 +158,21 @@ export function assessRightSizingApproval(record = {}, proposal = {}, context = 
     if (proposal.allocationRuleProtected === true) reasons.push('safety-security-allocation-protected');
     if (proposal.bindingAssuranceFloorProtected === true) reasons.push('binding-assurance-floor-protected');
 
+    const locallyComplete = reasons.length === 0;
     return {
-        valid: reasons.length === 0,
-        status: reasons.length === 0 ? 'effective' : reasons.includes('approval-expired') ? 'expired' : reasons.includes('assessment-or-scope-changed') ? 'invalidated' : 'invalid',
+        // `valid` is retained for import/report compatibility. In the static
+        // prototype it means structurally complete and policy-consistent, not
+        // authenticated or externally approved.
+        valid: locallyComplete,
+        locallyComplete,
+        externallyVerified: false,
+        status: locallyComplete
+            ? 'locally-complete-unverified'
+            : reasons.includes('approval-expired')
+                ? 'expired'
+                : reasons.includes('assessment-or-scope-changed')
+                    ? 'invalidated'
+                    : 'invalid',
         reasons: [...new Set(reasons)],
         expectedSnapshot,
         requirements
@@ -171,14 +183,27 @@ export function evaluateRightSizingApprovals(proposals = [], records = [], conte
     const evaluations = proposals.map(proposal => {
         const candidates = records.filter(record => Number(record.processId) === Number(proposal.processId));
         const assessed = candidates.map(record => ({ record, assessment: assessRightSizingApproval(record, proposal, context) }));
-        const effective = assessed.find(item => item.assessment.valid) || null;
-        return { proposal, records: assessed, effective };
+        const locallyComplete = assessed.find(item => item.assessment.locallyComplete) || null;
+        return { proposal, records: assessed, locallyComplete, effective: null };
     });
+
     const levels = { ...(context.normativeLevels || {}) };
+    const scenarioLevels = { ...levels };
     for (const evaluation of evaluations) {
-        if (evaluation.effective) levels[evaluation.proposal.processId] = evaluation.proposal.proposedTo || evaluation.proposal.to;
+        if (evaluation.locallyComplete) {
+            scenarioLevels[evaluation.proposal.processId] = evaluation.proposal.proposedTo || evaluation.proposal.to;
+        }
     }
-    return { levels, evaluations, effectiveCount: evaluations.filter(item => item.effective).length };
+
+    return {
+        levels,
+        scenarioLevels,
+        evaluations,
+        locallyCompleteCount: evaluations.filter(item => item.locallyComplete).length,
+        // Authentication and external approval are not implemented in this
+        // browser-local research artifact, so no record becomes effective.
+        effectiveCount: 0
+    };
 }
 
 export function validateRightSizingApprovalRecords(records) {
