@@ -22,15 +22,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          payload='.github/remediation.patch.gz.b64'
-          if [[ ! -f "$payload" ]]; then
+          ready='.github/remediation.ready'
+          if [[ ! -f "$ready" ]]; then
             exit 0
           fi
 
+          mapfile -t parts < <(compgen -G '.github/remediation.patch.gz.b64.part-*' | sort)
+          if [[ ${#parts[@]} -eq 0 ]]; then
+            echo 'Remediation sentinel exists but no payload parts were found.' >&2
+            exit 1
+          fi
+
           git checkout d8b9594d322b14e88f78cb113f154055dcf8f03a -- .github/workflows/ci.yml
-          base64 --decode "$payload" | gzip --decompress > /tmp/remediation.patch
+          cat "${parts[@]}" | base64 --decode | gzip --decompress > /tmp/remediation.patch
           git apply --index --whitespace=error /tmp/remediation.patch
-          git rm "$payload"
+          git rm "$ready" "${parts[@]}"
           printf '%s\n' 'Delete this one-use marker to trigger exact-head verification.' > .github/remediation-applied.txt
           git add .github/remediation-applied.txt
           git config user.name 'github-actions[bot]'
