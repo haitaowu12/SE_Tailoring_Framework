@@ -1,0 +1,35 @@
+diff --git a/src/views/assessment.js b/src/views/assessment.js
+index fc956eb..783a79e 100644
+--- a/src/views/assessment.js
++++ b/src/views/assessment.js
+@@ -1214,12 +1214,13 @@ function finalizeAssessment(destinationHash = null) {
+   result.hierarchyWarnings = hierarchyInput.warnings;
+   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
+   const rule11Record = localRuleDispositions?.['11'];
+-  const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
+-  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
+   const rootManualAdjustments = state.manualAdjustments || {};
+   const activeManualAdjustments = activeNode?.id === state.assessmentTree.rootId
+     ? { ...rootManualAdjustments, ...(activeNode.manualAdjustments || {}) }
+     : { ...(activeNode?.manualAdjustments || {}) };
++  const currentDisplayLevels = applyManualAdjustmentsToLevels(result.levels, activeManualAdjustments);
++  const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...currentDisplayLevels, 27: 'standard' });
++  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
+   const manualAdjustments = applyRule11Elevation ? {
+     ...activeManualAdjustments,
+     27: {
+diff --git a/tests/assessment-ui-contract.test.mjs b/tests/assessment-ui-contract.test.mjs
+index 9ca7066..dbaf855 100644
+--- a/tests/assessment-ui-contract.test.mjs
++++ b/tests/assessment-ui-contract.test.mjs
+@@ -92,3 +92,10 @@ test('browser-local reduction records remain a separate unverified scenario', ()
+   assert.match(assessmentSource, /normative recommendation is unchanged/);
+   assert.match(assessmentSource, /locallyCompleteRightSizingRecordCount/);
+ });
++
++
++test('finalization recomputes the displayed level layer within its own scope', () => {
++  assert.match(assessmentSource, /const currentDisplayLevels = applyManualAdjustmentsToLevels\(result\.levels, activeManualAdjustments\)/);
++  assert.match(assessmentSource, /\{ \.\.\.currentDisplayLevels, 27: 'standard' \}/);
++  assert.doesNotMatch(assessmentSource, /function finalizeAssessment[\s\S]*\{ \.\.\.displayLevels, 27: 'standard' \}/);
++});
