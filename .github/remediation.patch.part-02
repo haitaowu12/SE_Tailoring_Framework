@@ -1,0 +1,197 @@
+es || [],
+-                    violations: saved.violations || [],
+-                    fixes: saved.fixes || [],
+-                    activeFloors: saved.activeFloors || [],
+-                    ruleDispositions: saved.ruleDispositions || {},
+-                    csiResponse: saved.csiResponse || {},
+-                    rightSizingProposals: saved.rightSizingProposals || [],
+-                    blockedRightSizingCandidates: saved.blockedRightSizingCandidates || [],
+-                    proposedRightSizedLevels: saved.proposedRightSizedLevels || {},
+-                    proposalClosureFixes: saved.proposalClosureFixes || [],
+-                    proposalBudgetStatus: saved.proposalBudgetStatus || null,
+-                    rightSizingApprovalRecords: saved.rightSizingApprovalRecords || [],
+-                    rightSizingApprovalEvaluations: saved.rightSizingApprovalEvaluations || [],
+-                    approvedRightSizedLevels: saved.approvedRightSizedLevels || {},
+-                    normativeLevels: saved.normativeLevels || saved.levels || {},
+-                    effectiveRightSizingApprovalCount: saved.effectiveRightSizingApprovalCount || 0,
+-                    rightSizingActions: saved.rightSizingActions || [],
+-                    budgetStatus: saved.budgetStatus || null,
+-                    adoptionRisks: saved.adoptionRisks || [],
+-                    derivationStatus: saved.derivationStatus || saved.confidence || {},
+-                    confidence: saved.confidence || saved.derivationStatus || {},
+-                    assessmentComplete: saved.assessmentComplete || false
+-                }, saved.assessmentTree || getState().assessmentTree));
++                normalizedRestore = normalizeImportedConfig(
++                    buildAutosaveImportConfig(saved),
++                    saved.assessmentTree || getState().assessmentTree
++                );
++                setState(normalizedRestore);
+             } else setState({
+                 projectInfo: saved.projectInfo || {},
+                 scores: saved.scores || {},
+@@ -457,9 +426,13 @@ document.addEventListener('DOMContentLoaded', () => {
+                 proposalBudgetStatus: saved.proposalBudgetStatus || null,
+                 rightSizingApprovalRecords: saved.rightSizingApprovalRecords || [],
+                 rightSizingApprovalEvaluations: saved.rightSizingApprovalEvaluations || [],
+-                approvedRightSizedLevels: saved.approvedRightSizedLevels || {},
++                locallyAdjustedLevels: saved.locallyAdjustedLevels || {},
++                localScenarioClosureFixes: saved.localScenarioClosureFixes || [],
++                localScenarioBudgetStatus: saved.localScenarioBudgetStatus || null,
++                locallyCompleteRightSizingRecordCount: saved.locallyCompleteRightSizingRecordCount || 0,
++                approvedRightSizedLevels: {},
+                 normativeLevels: saved.normativeLevels || saved.levels || {},
+-                effectiveRightSizingApprovalCount: saved.effectiveRightSizingApprovalCount || 0,
++                effectiveRightSizingApprovalCount: 0,
+                 rightSizingActions: saved.rightSizingActions || [],
+                 budgetStatus: saved.budgetStatus || null,
+                 adoptionRisks: saved.adoptionRisks || [],
+@@ -474,7 +447,8 @@ document.addEventListener('DOMContentLoaded', () => {
+             });
+             document.removeEventListener('keydown', handleRestoreKeydown);
+             overlay.remove();
+-            showToast(isCurrentSemanticAutosave ? 'Assessment restored from auto-save!' : 'Legacy assessment preserved; M6, M8, and M15 require semantic reassessment.', isCurrentSemanticAutosave ? 'success' : 'warning');
++            const notice = autosaveRestoreNotice(isCurrentSemanticAutosave, normalizedRestore || {});
++            showToast(notice.message, notice.type);
+             navigateTo('dashboard');
+         });
+ 
+diff --git a/src/router.js b/src/router.js
+index 28d708a..4276173 100644
+--- a/src/router.js
++++ b/src/router.js
+@@ -83,6 +83,14 @@ export function getCurrentRoute() {
+     return getCurrentRouteContext().path;
+ }
+ 
++function focusRouteHeading(container) {
++    const heading = container.querySelector('h1, h2, h3');
++    const target = heading || container;
++    if (!(target instanceof HTMLElement)) return;
++    if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
++    target.focus({ preventScroll: true });
++}
++
+ export function initRouter(container) {
+     function updateNavState(route) {
+         document.querySelectorAll('.nav-link').forEach(el => {
+@@ -103,6 +111,7 @@ export function initRouter(container) {
+ 
+     async function handleRoute() {
+         const sequence = ++navigationSequence;
++        const shouldMoveFocus = currentView !== null;
+         const requestedContext = getCurrentRouteContext();
+         const requestedRoute = requestedContext.path;
+         const route = routes[requestedRoute] ? requestedRoute : 'dashboard';
+@@ -145,6 +154,7 @@ export function initRouter(container) {
+         window.dispatchEvent(new CustomEvent('app:route-rendered', {
+             detail: { route, requestedRoute, params: requestedContext.params.toString() }
+         }));
++        if (shouldMoveFocus) focusRouteHeading(container);
+ 
+         const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+         window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+diff --git a/src/state.js b/src/state.js
+index 0761854..cf3bf4f 100644
+--- a/src/state.js
++++ b/src/state.js
+@@ -73,6 +73,11 @@ const state = {
+     proposalBudgetStatus: null,
+     rightSizingApprovalRecords: [],
+     rightSizingApprovalEvaluations: [],
++    locallyAdjustedLevels: {},
++    localScenarioClosureFixes: [],
++    localScenarioBudgetStatus: null,
++    locallyCompleteRightSizingRecordCount: 0,
++    // Legacy external-authority fields remain empty in the static app.
+     approvedRightSizedLevels: {},
+     normativeLevels: {},
+     effectiveRightSizingApprovalCount: 0,
+@@ -131,6 +136,10 @@ function debounceAutosave() {
+                 proposalBudgetStatus: state.proposalBudgetStatus,
+                 rightSizingApprovalRecords: state.rightSizingApprovalRecords,
+                 rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations,
++                locallyAdjustedLevels: state.locallyAdjustedLevels,
++                localScenarioClosureFixes: state.localScenarioClosureFixes,
++                localScenarioBudgetStatus: state.localScenarioBudgetStatus,
++                locallyCompleteRightSizingRecordCount: state.locallyCompleteRightSizingRecordCount,
+                 approvedRightSizedLevels: state.approvedRightSizedLevels,
+                 normativeLevels: state.normativeLevels,
+                 effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount,
+@@ -215,10 +224,13 @@ export function showToast(message, type = 'info') {
+     if (!container) return;
+     const toast = document.createElement('div');
+     toast.className = `toast ${type}`;
+-    if (type === 'error') toast.setAttribute('role', 'alert');
+-    toast.innerHTML = `<span>${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span> ${escapeHtml(message)}`;
++    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
++    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
++    toast.setAttribute('aria-atomic', 'true');
++    toast.innerHTML = `<span aria-hidden="true">${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warning' ? '⚠' : 'ℹ'}</span><span>${escapeHtml(message)}</span>`;
+     container.appendChild(toast);
+-    setTimeout(() => toast.remove(), 3000);
++    const timeout = type === 'error' ? 8000 : type === 'warning' ? 6000 : 4000;
++    setTimeout(() => toast.remove(), timeout);
+ }
+ 
+ // ===== Tree Manipulation Helpers (v3.3) =====
+diff --git a/src/styles/index.css b/src/styles/index.css
+index 9f00c06..b2d09c9 100644
+--- a/src/styles/index.css
++++ b/src/styles/index.css
+@@ -26,7 +26,7 @@
+   --accent-tertiary: oklch(65% 0.15 320); /* Magenta/Pink */
+   --accent-success: oklch(75% 0.15 150); /* Green */
+   --accent-warning: oklch(75% 0.15 70);  /* Amber */
+-  --accent-error: oklch(60% 0.20 20);    /* Crimson */
++  --accent-error: oklch(72% 0.18 25);    /* Accessible error text on dark surfaces */
+   --accent-info: oklch(70% 0.15 200);     /* Cyan */
+   --accent-danger: var(--accent-error);
+ 
+@@ -56,7 +56,7 @@
+   /* Text */
+   --text-primary: oklch(95% 0.01 250);
+   --text-secondary: oklch(75% 0.01 250);
+-  --text-tertiary: oklch(55% 0.01 250);
++  --text-tertiary: oklch(68% 0.01 250);
+   --text-accent: oklch(85% 0.10 200);
+   --text-inverse: oklch(15% 0.01 250);
+ 
+@@ -159,6 +159,22 @@ body::before {
+ a { color: var(--accent-primary-light); text-decoration: none; transition: color var(--transition-fast); }
+ a:hover { color: var(--accent-secondary); }
+ 
++.skip-link {
++  position: fixed;
++  top: var(--space-sm);
++  left: var(--space-sm);
++  z-index: 10000;
++  transform: translateY(-180%);
++  padding: var(--space-sm) var(--space-md);
++  border: 2px solid var(--accent-primary-light);
++  border-radius: var(--radius-md);
++  background: var(--bg-secondary);
++  color: var(--text-primary);
++  font-weight: 700;
++  transition: transform var(--transition-fast);
++}
++.skip-link:focus { transform: translateY(0); }
++
+ h1, h2, h3, h4, h5, h6 {
+   font-weight: 700;
+   line-height: 1.2;
+@@ -909,8 +925,8 @@ h4 { font-size: var(--font-size-lg); }
+   display: block;
+   margin-top: 6px;
+   color: var(--text-secondary);
+-  font-size: 10px;
+-  line-height: 1.35;
++  font-size: var(--font-size-xs);
++  line-height: 1.45;
+ }
+ 
+ /* --- Inputs --- */
+diff --git a/src/utils/assessment-engine.js b/src/utils/assessment-engine.js
+index 1fde2b1..c41150d 100644
+--- a/src/utils/assessment-engine.js
++++ b/src/utils/assessment-engine.js
+@@ -909,13 +909,17 @@ function execute
