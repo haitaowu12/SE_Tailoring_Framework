@@ -1,0 +1,148 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 659db57..06902d5 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -14,19 +14,6 @@ jobs:
+     steps:
+       - name: Checkout
+         uses: actions/checkout@v4
+-        with:
+-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+-
+-      - name: Package review source
+-        run: tar --exclude=.git --exclude=node_modules --exclude=dist --exclude=playwright-report --exclude=test-results -czf /tmp/se-tailoring-source.tgz .
+-
+-      - name: Upload review source
+-        uses: actions/upload-artifact@v4
+-        with:
+-          name: review-source-${{ github.event.pull_request.head.sha || github.sha }}
+-          path: /tmp/se-tailoring-source.tgz
+-          if-no-files-found: error
+-          retention-days: 1
+ 
+       - name: Capture immutable build identity
+         run: echo "VITE_BUILD_ID=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+@@ -41,12 +28,12 @@ jobs:
+         run: npm ci
+ 
+       - name: Install Playwright browser dependencies
+-        run: npx playwright install --with-deps chromium
++        run: npx playwright install --with-deps chromium firefox webkit
+ 
+       - name: Run unit and static tests
+         run: npm test
+ 
+-      - name: Run browser e2e smoke
++      - name: Run cross-browser e2e smoke
+         run: npm run test:e2e
+ 
+       - name: Build production bundle
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index 062d474..e4080fc 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -41,12 +41,12 @@ jobs:
+         run: npm ci
+ 
+       - name: Install Playwright browser dependencies
+-        run: npx playwright install --with-deps chromium
++        run: npx playwright install --with-deps chromium firefox webkit
+ 
+       - name: Run unit and static tests
+         run: npm test
+ 
+-      - name: Run browser e2e smoke
++      - name: Run cross-browser e2e smoke
+         run: npm run test:e2e
+ 
+       - name: Audit production dependencies
+diff --git a/README.md b/README.md
+index c261bc3..665385a 100644
+--- a/README.md
++++ b/README.md
+@@ -17,7 +17,7 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
+ - Reference scope: 8 Agreement and Organizational Project-Enabling processes remain visible in the data model, but are not yet fully executable recommendations.
+ - Traceability model: each process declares ISO/IEC/IEEE 15288:2023 process-group metadata and explicit executable-core vs reference scope. This is decision-support traceability, not a standalone ISO compliance or certification claim.
+ - Evidence maturity: reviewed and exercised through illustrative cases, automated unit/static checks, and manual browser smoke checks. Not yet empirically validated against a statistically meaningful set of completed projects.
+-- Assessment integrity: each metric opens as an assessed 1–5 score at the neutral midpoint to keep the first pass lightweight. Marking a metric Unknown keeps the profile previewable but blocks a completed baseline until the judgment is resolved. Metric-level N/A is prohibited; downstream artifacts and activities may use N/A only with a documented applicability rationale.
++- Assessment integrity: each metric opens with a non-authoritative midpoint preview. It becomes an assessed 1–5 judgment only after the assessor selects an anchor; explicitly recording Unknown keeps the profile previewable but blocks a completed baseline until the judgment is resolved. Metric-level N/A is prohibited; downstream artifacts and activities may use N/A only with a documented applicability rationale.
+ - Right-sizing governance: PSI budget analysis produces non-binding reduction proposals. It never silently lowers the derived, floor-protected, mandatory-closure recommendation.
+ - Practitioner content: existing M8 and scoped M15 mappings activate conditional Security and Assurance evidence overlays in Process Explorer without creating additional metric-process relationships.
+ - Operating scope: the static browser build supports internal/synthetic prototype use. Facilitated pilot use remains conditional on the study authorization gates; a persistent governed service is not implemented. See [Operating Model](OPERATING-MODEL.md).
+@@ -55,7 +55,7 @@ Current verified gates:
+ 
+ - `npm test`: includes algorithm, semantic migration, qualifier-aware binding-assurance floors, import/export, inheritance, process-catalog schema, and static security/accessibility guardrails.
+ - `npm run test:e2e`: builds the production bundle and runs a browser import/report/matrix smoke for legacy JSON hydration and manual-adjustment preservation.
+-- GitHub Actions CI and Pages deploy gates run `npm ci`, install Playwright Chromium dependencies, then execute unit/static tests, e2e smoke, production dependency audit, and build before deployment.
++- GitHub Actions CI and Pages deploy gates run `npm ci`, install Playwright Chromium, Firefox, and WebKit dependencies, then execute unit/static tests, cross-browser e2e smoke, production dependency audit, and build before deployment.
+ - `npm run build`: production Vite bundle passes.
+ - Manual browser smoke: Dashboard/app shell, Vee Model, Process Explorer, Matrix, Deliverables, and Report guard render without console errors; Vee process nodes and table fallback support navigation into Process Explorer; checked routes have no inline click handlers or `javascript:` pseudo-links.
+ - Manual mobile viewport smoke (390px): Dashboard, Assessment, Vee Model, Deliverables, and Report guard render without framework overlays or page-level horizontal overflow; mobile route selector is visible; Vee table fallback opens Project Planning in Process Explorer.
+diff --git a/index.html b/index.html
+index 3ee7332..2c5a9c4 100644
+--- a/index.html
++++ b/index.html
+@@ -10,13 +10,14 @@
+   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+ </head>
+ <body>
++  <a class="skip-link" href="#main-content">Skip to main content</a>
+   <div id="app">
+-    <nav id="navbar"></nav>
++    <nav id="navbar" aria-label="Primary"></nav>
+     <aside id="pilot-notice" aria-label="Formative pilot privacy notice"></aside>
+     <div id="runtime-status" role="alert" aria-live="assertive"></div>
+-    <main id="main-content"></main>
++    <main id="main-content" tabindex="-1"></main>
+   </div>
+-  <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
++  <div id="toast-container"></div>
+   <div id="modal-overlay"></div>
+   <script type="module" src="/src/main.js"></script>
+ </body>
+diff --git a/playwright.config.js b/playwright.config.js
+index 9c509f1..71781ee 100644
+--- a/playwright.config.js
++++ b/playwright.config.js
+@@ -3,6 +3,11 @@ import { defineConfig } from '@playwright/test';
+ export default defineConfig({
+   testDir: './tests/e2e',
+   reporter: 'list',
++  projects: [
++    { name: 'chromium', use: { browserName: 'chromium' } },
++    { name: 'firefox', use: { browserName: 'firefox' } },
++    { name: 'webkit', use: { browserName: 'webkit' } }
++  ],
+   use: {
+     baseURL: 'http://127.0.0.1:4173/SE_Tailoring_Framework/',
+     trace: 'retain-on-failure'
+diff --git a/src/data/process-details.js b/src/data/process-details.js
+index b9aa97f..d15f5c4 100644
+--- a/src/data/process-details.js
++++ b/src/data/process-details.js
+@@ -67,7 +67,7 @@ export const PROCESS_DETAILS = {
+     },
+     12: {
+         activities: {
+-            basic: ['(*) Register risks (incl. obvious hazards)', '(*) Assess using simple matrix (H/M/L)', '(*) Report risks basically', 'Monitor via informal methods'],
++            basic: ['(*) Register risks or hazards in an authorized team or project record', '(*) Assign and confirm a named owner', '(*) Assess using simple High/Medium/Low criteria', '(*) Route material concerns through the applicable risk, hazard, safety, ethics, regulatory, issue, or nonconformance channel'],
+             standard: ['(*) Plan risk management formally', '(*) Detail risk register with probability/impact', '(*) Plan responses with triggers and owners', 'Report regularly to stakeholders', 'Review risks at milestones', 'Identify and assess safety hazards [Safety]', 'Develop SA risk responses [Safety]'],
+             comprehensive: ['(*) Document risk management framework', '(*) Model/simulate risks with distributions', '(*) Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
+         },
+@@ -137,7 +137,7 @@ export const PROCESS_DETAILS = {
+     },
+     16: {
+         activities: {
+-            basic: ['(*) Plan basic quality assurance', '(*) Conduct audits (informal)', '(*) Report non-conformances', 'Track resolutions (simple)'],
++            basic: ['(*) Plan basic quality assurance against named criteria', '(*) Conduct a peer check or authorized review with recorded scope', '(*) Report nonconformances through the applicable controlled channel', 'Track owners, actions, and closure evidence'],
+             standard: ['(*) Develop quality assurance plan', '(*) Perform evaluations with criteria', '(*) Report regularly to stakeholders', 'Initiate improvements with actions', 'Conduct SA audits [Safety]', 'Verify SA process compliance [Safety]'],
+             comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct comprehensive audits with methodology', '(*) Analyze trends for early warning', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
+         },
+diff --git a/src/data/processes.js b/src/data/processes.js
+index 803b1ef..ba86b06 100644
+--- a/src/data/processes.js
++++ b/src/data/processes.js
+@@ -99,7 +99,7 @@ const BASE_PROCESSES = [
+     {
+         id: 16, name: 'Quality Assurance', group: 'tech_mgmt', purpose: 'Ensure processes and products meet quality requirements', extended: false,
+         definiti
