@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { clickSessionAction, openSessionMenu } from './helpers.js';
+import { clickSessionAction } from './helpers.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');
@@ -16,10 +16,7 @@ test('diagnostics disclose exact release identity and remain local-only', async 
     if (url.hostname !== '127.0.0.1') externalRequests.push(request.url());
   });
 
-  const diagnosticsButton = page.getByRole('button', { name: 'Diagnostics' });
-  await openSessionMenu(page);
-  await diagnosticsButton.focus();
-  await diagnosticsButton.click();
+  await clickSessionAction(page, 'Diagnostics');
 
   const dialog = page.getByRole('dialog', { name: 'Release and local diagnostics' });
   await expect(dialog).toBeVisible();

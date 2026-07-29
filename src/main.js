@@ -74,14 +74,13 @@ function buildNavbar() {
       <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v${escapeHtml(FRAMEWORK_META.version)}</small></span>
     </button>
     <div class="nav-links">
-      <button class="nav-link" data-route="assessment">Assess</button>
-      <button class="nav-link" data-route="review">Review recommendations</button>
-      <button class="nav-link" data-route="issues">Resolve issues</button>
+      <button class="nav-link" data-route="dashboard">Workspace</button>
+      <button class="nav-link" data-route="assessment">Assessment</button>
+      <button class="nav-link" data-route="processes">Guidance</button>
       <button class="nav-link" data-route="report">Report</button>
       <div class="nav-dropdown">
         <button class="nav-dropdown-trigger" type="button" aria-expanded="false">Framework reference ▾</button>
         <div class="nav-dropdown-menu">
-          <button class="nav-link" data-route="processes">Process Explorer</button>
           <button class="nav-link" data-route="vee-model">Vee Model</button>
           <button class="nav-link" data-route="interdependency">Dependencies</button>
           <button class="nav-link" data-route="matrix">Matrix View</button>
@@ -92,11 +91,10 @@ function buildNavbar() {
     </div>
     <label class="mobile-route-select-label" for="mobile-route-select">Go to section</label>
     <select class="mobile-route-select" id="mobile-route-select" aria-label="Go to section">
-      <option value="assessment">Assess</option>
-      <option value="review">Review recommendations</option>
-      <option value="issues">Resolve issues</option>
+      <option value="dashboard">Workspace</option>
+      <option value="assessment">Assessment</option>
+      <option value="processes">Guidance</option>
       <option value="report">Report</option>
-      <option value="processes">Process Explorer</option>
       <option value="vee-model">Vee Model</option>
       <option value="interdependency">Dependencies</option>
       <option value="matrix">Matrix View</option>
@@ -216,8 +214,9 @@ function buildNavbar() {
 
     window.addEventListener('app:route-rendered', (event) => {
         const route = event.detail?.route || 'dashboard';
-        if (mobileRouteSelect.value !== route) {
-            mobileRouteSelect.value = route;
+        const primaryRoute = ['review', 'issues'].includes(route) ? 'assessment' : route;
+        if (mobileRouteSelect.value !== primaryRoute) {
+            mobileRouteSelect.value = primaryRoute;
         }
     });
 }
@@ -263,10 +262,10 @@ function downloadDiagnostics(diagnostics) {
     URL.revokeObjectURL(url);
 }
 
-function showDiagnosticsDialog() {
+function showDiagnosticsDialog(event) {
     const diagnostics = getLocalDiagnostics();
     const overlay = document.getElementById('modal-overlay');
-    const invoker = document.activeElement;
+    const invoker = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement;
     const issueRows = diagnostics.issues.length
         ? diagnostics.issues.map(issue => `<tr><td>${escapeHtml(issue.time)}</td><td>${escapeHtml(issue.operation)}</td><td>${escapeHtml(issue.id)}</td></tr>`).join('')
         : '<tr><td colspan="3">No runtime issues captured in this page session.</td></tr>';
@@ -320,9 +319,9 @@ function showStorageFailure(operation) {
     status.classList.add('active');
 }
 
-function showEndSessionDialog() {
+function showEndSessionDialog(event) {
     const overlay = document.getElementById('modal-overlay');
-    const invoker = document.activeElement;
+    const invoker = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement;
     overlay.innerHTML = `
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="end-session-title" aria-describedby="end-session-description">
         <h2 id="end-session-title">End session and erase local assessment?</h2>

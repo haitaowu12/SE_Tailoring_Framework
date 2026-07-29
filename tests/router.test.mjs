@@ -129,11 +129,11 @@ test('process detail routing uses one active-element context and applies its man
   assert.equal(selection.viewContext.levels[20], 'standard');
 });
 
-test('an unassessed process has no false assignment and uses Basic only as browse content', () => {
+test('an unassessed process has no false assignment and uses Standard as neutral browse content', () => {
   const context = getCurrentRouteContext('#processes?process=20');
   const selection = resolveProcessExplorerRoute(context, { levels: {}, scores: {}, assessmentTree: null });
   assert.equal(selection.assignedLevel, null);
-  assert.equal(selection.viewLevel, 'basic');
+  assert.equal(selection.viewLevel, 'standard');
 
   const comparison = resolveProcessExplorerRoute(
     getCurrentRouteContext('#processes?process=20&level=comprehensive&source=direct'),

@@ -67,6 +67,9 @@ async function dispositionOtherTriggeredWarnings(page) {
   const count = await sections.count();
   for (let index = 0; index < count; index += 1) {
     const section = sections.nth(index);
+    if (!(await section.evaluate(element => element.open))) {
+      await section.locator('summary').click();
+    }
     await section.locator('.warning-outcome').selectOption('accept-current');
     await section.locator('.warning-owner').fill('Programme Chief Engineer');
     await section.locator('.warning-evidence').fill(`WARN-E2E-${index + 1}`);
@@ -130,6 +133,12 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
   await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   expect(await reportSections.evaluateAll(sections => sections.some(section => !section.open))).toBe(true);
 
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth
+  )).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   await page.goto('./#matrix');
   await expect(page).toHaveURL(/#matrix$/);
   await expect(page.getByText(/Read-only canonical 102-cell process–metric map/)).toBeVisible();
@@ -143,7 +152,14 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
     .toHaveAttribute('href', '#processes?process=9&level=comprehensive&source=matrix');
 
   await page.goto('./#report');
-  await expect(page.locator('tr', { hasText: 'Project Planning' })).toContainText('C');
+  const profileSection = page.locator('details.report-section').filter({
+    has: page.locator('.report-section-title', { hasText: 'Full Process Tailoring Profile' })
+  });
+  await profileSection.locator(':scope > summary').click();
+  const projectPlanningRow = profileSection.getByRole('row').filter({
+    has: page.getByRole('link', { name: 'View Comprehensive details for Project Planning' })
+  });
+  await expect(projectPlanningRow).toContainText('C');
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
 });
 
@@ -156,6 +172,8 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
   await page.goto('./#assessment');
 
   await page.getByRole('button', { name: 'Go to Stakeholder Context step' }).click();
+  const m15 = page.locator('.metric-item[data-metric-id="M15"]');
+  await m15.locator('summary.metric-header').click();
   await page.getByText('Binding assurance detail', { exact: true }).click();
   await expect(page.locator('.assurance-scope')).toHaveCount(8);
   await expect(page.getByText(/Risk Management.*driver-only/)).toBeVisible();
@@ -198,21 +216,30 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText(/Rule 11 \/ P12 disposition required/)).toBeVisible();
-  await expect(page.getByText(/Rule 11 \[WN\]/)).toBeVisible();
+  await page.getByRole('button', { name: /Decisions/ }).click();
+  await expect(page.getByText('Rule 11 · verification and validation')).toBeVisible();
+  await expect(page.getByText('Align validation evidence with the verification level')).toBeVisible();
 
   await page.locator('#rule11-outcome').selectOption('basic-evidence-justified');
   await page.locator('#rule11-owner').fill('Programme Chief Engineer');
   await page.locator('#rule11-evidence').fill('VAL-NOTE-11');
   await page.locator('#rule11-date').fill('2026-07-10');
   await page.locator('#rule11-rationale').fill('Basic operational evidence accepted with parent-level validation and interface acceptance controls.');
-  await expect(page.getByText('Disposition complete.')).toBeVisible();
+  await expect(page.locator('.rule11-decision .decision-state')).toHaveText('Recorded');
   await dispositionOtherTriggeredWarnings(page);
   await page.getByRole('button', { name: 'Check Software Completeness' }).click();
   await expect(page).toHaveURL(/#report$/);
+  const rule11ReportSection = page.locator('.report-section', {
+    has: page.getByText('Rule 11 Disposition', { exact: true })
+  });
+  await rule11ReportSection.locator(':scope > summary').click();
   await expect(page.getByText(/Rule 11 Disposition — Complete/)).toBeVisible();
-  await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
   await expect(page.getByText('VAL-NOTE-11')).toBeVisible();
+  const warningReportSection = page.locator('.report-section', {
+    has: page.getByText('Consistency Warnings', { exact: true })
+  });
+  await warningReportSection.locator(':scope > summary').click();
+  await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
 });
 
 test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjustment', async ({ page }) => {
@@ -242,22 +269,30 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText(/Rule 11 \/ P12 disposition required/)).toBeVisible();
+  await page.getByRole('button', { name: /Decisions/ }).click();
+  await expect(page.getByText('Align validation evidence with the verification level')).toBeVisible();
 
   await page.locator('#rule11-outcome').selectOption('elevated-validation');
   await page.locator('#rule11-owner').fill('Programme Chief Engineer');
   await page.locator('#rule11-evidence').fill('VAL-ELEVATE-11');
   await page.locator('#rule11-date').fill('2026-07-10');
   await page.locator('#rule11-rationale').fill('Validation is elevated to Standard for stakeholder acceptance assurance.');
-  await expect(page.getByText(/Ready: checking software completeness will create an explicit governed manual adjustment/)).toBeVisible();
   await dispositionOtherTriggeredWarnings(page);
   await page.getByRole('button', { name: /Apply P27 Adjustment & Check Completeness/ }).click();
 
   await expect(page).toHaveURL(/#report$/);
+  const rule11ReportSection = page.locator('.report-section', {
+    has: page.getByText('Rule 11 Disposition', { exact: true })
+  });
+  await rule11ReportSection.locator(':scope > summary').click();
   await expect(page.getByText(/Rule 11 Disposition — Complete/)).toBeVisible();
-  await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
   await expect(page.getByRole('row', { name: /Final Validation level standard/ })).toBeVisible();
   await expect(page.getByRole('row', { name: /Adjustment provenance rule-disposition · Rule 11 \/ P12/ })).toBeVisible();
+  const warningReportSection = page.locator('.report-section', {
+    has: page.getByText('Consistency Warnings', { exact: true })
+  });
+  await warningReportSection.locator(':scope > summary').click();
+  await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
 });
 
 for (const scenario of [
@@ -280,7 +315,12 @@ for (const scenario of [
 
     await page.goto('./#assessment');
     await page.getByRole('button', { name: 'Go to Results step' }).click();
-    await expect(page.getByRole('group', { name: new RegExp(`CSI ${scenario.csi} ${scenario.responseLabel} required`, 'i') })).toBeVisible();
+    await page.getByRole('button', { name: /Decisions/ }).click();
+    const csiDecision = page.locator('.csi-decision');
+    await expect(csiDecision.getByText(`Delivery feasibility · CSI ${scenario.csi}`)).toBeVisible();
+    if (!(await csiDecision.evaluate(element => element.open))) {
+      await csiDecision.locator('summary').click();
+    }
     await expect(page.getByRole('button', { name: new RegExp(`Save Work in Progress \\(CSI ${scenario.csi} response required\\)`) })).toBeVisible();
     await page.getByLabel('Add capacity').check();
     await page.getByLabel('CSI protected outputs and evidence').fill('Verification evidence and safety acceptance outputs');
@@ -288,10 +328,13 @@ for (const scenario of [
     await page.getByLabel('CSI asserted owner or approver role').fill(scenario.owner);
     await page.getByLabel('CSI evidence reference').fill(`CSI-${scenario.csi}-DECISION`);
     await page.getByLabel('CSI review date').fill('2026-07-10');
-    await expect(page.getByText('Constraint response complete.')).toBeVisible();
-    await page.getByRole('button', { name: 'Check Software Completeness' }).click();
+    await expect(csiDecision.locator('.decision-state.complete')).toHaveText('Recorded');
+    const completenessButton = page.getByRole('button', { name: 'Check Software Completeness' });
+    await expect(completenessButton).toBeVisible();
+    await completenessButton.click();
 
     await expect(page).toHaveURL(/#report$/);
+    await page.getByRole('button', { name: 'Expand all' }).click();
     await expect(page.getByText(new RegExp(`CSI ${scenario.csi} Constraint Response — Complete`))).toBeVisible();
     await expect(page.getByText(/does not change the process profile or approve right-sizing proposals/)).toBeVisible();
   });
@@ -333,14 +376,14 @@ test('metric UI defaults to unreviewed previews, supports Unknown, and keeps imp
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
   const m1Card = page.locator('.metric-item').filter({ hasText: 'Architectural Complexity' });
-  const m1Unknown = page.getByLabel('Mark M1 Architectural Complexity as Unknown');
+  const m1Unknown = page.getByLabel('Mark M1 Architectural Complexity as cannot assess yet');
   await expect(m1Card.getByText('Unreviewed — preview 3')).toBeVisible();
   await expect(m1Unknown).not.toBeChecked();
   await m1Card.getByText('Justification note').click();
   await m1Card.getByLabel('Optional context for this score').fill('Neutral midpoint retained pending project-specific review.');
   await m1Unknown.check();
   await expect(m1Unknown).toBeChecked();
-  await expect(m1Card.getByText('Unknown — preview only')).toBeVisible();
+  await expect(m1Card.getByText('Cannot assess yet — preview only')).toBeVisible();
   await page.goto('./#dashboard');
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
@@ -359,7 +402,7 @@ test('metric UI defaults to unreviewed previews, supports Unknown, and keeps imp
   await expect(page.getByText(/Imported N\/A cannot pass software completeness/)).toBeVisible();
   const m7Card = page.locator('.metric-item').filter({ hasText: 'Environmental Impact' });
   await expect(m7Card.getByText(/Imported N\/A cannot pass software completeness/)).toBeVisible();
-  await expect(page.getByLabel('Mark M7 Environmental Impact as Unknown')).not.toBeChecked();
+  await expect(page.getByLabel('Mark M7 Environmental Impact as cannot assess yet')).not.toBeChecked();
 });
 
 test('child hierarchy records a structured parent-retained safety allocation decision', async ({ page }) => {

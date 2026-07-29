@@ -89,18 +89,25 @@ function currentSemanticFixture() {
 test('report recommendation opens, reloads, and returns from the exact level details', async ({ page }) => {
   await importFixture(page, currentSemanticFixture());
   await page.goto('./#report');
-  await page.getByRole('button', { name: 'Expand all' }).click();
+  await expect(page.locator('#main-content')).not.toHaveClass(/view-enter/);
 
-  const profile = page.locator('.card', {
-    has: page.getByRole('heading', { name: 'Full Process Tailoring Profile' })
+  const profileSection = page.locator('details.report-section').filter({
+    has: page.locator('.report-section-title', { hasText: 'Full Process Tailoring Profile' })
   });
-  await profile.getByRole('link', { name: 'View Comprehensive details for Architecture Definition' }).click();
+  await profileSection.locator(':scope > summary').click();
+  const architectureDetailsLink = profileSection.getByRole('link', {
+    name: 'View Comprehensive details for Architecture Definition'
+  });
+  await expect(architectureDetailsLink).toBeVisible();
+  await Promise.all([
+    page.waitForURL(/#processes\?process=20&level=comprehensive&source=report$/),
+    architectureDetailsLink.click()
+  ]);
 
-  await expect(page).toHaveURL(/#processes\?process=20&level=comprehensive&source=report$/);
   await expect(page.locator('#process-detail-heading')).toHaveText('Architecture Definition');
   await expect(page.locator('#process-detail-heading')).toBeFocused();
   await expect(page.getByText('Recommended: Comprehensive')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Definition at Comprehensive' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What Comprehensive means here' })).toBeVisible();
 
   await page.goBack();
   await expect(page).toHaveURL(/#report$/);
@@ -109,7 +116,7 @@ test('report recommendation opens, reloads, and returns from the exact level det
   await page.goto('./#processes?process=20&level=comprehensive&source=report');
   await page.reload();
   await expect(page).toHaveURL(/#processes\?process=20&level=comprehensive&source=report$/);
-  await expect(page.getByRole('heading', { name: 'Definition at Comprehensive' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What Comprehensive means here' })).toBeVisible();
 });
 
 test('assessment recommendation saves work in progress before opening details', async ({ page }) => {
@@ -122,11 +129,11 @@ test('assessment recommendation saves work in progress before opening details', 
   await expect(page.getByText('Unable to render this section')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.locator('.results-breakdown > summary').click();
+  await page.getByText('Open the full 22-process profile', { exact: true }).click();
   await page.getByRole('link', { name: 'View Architecture Definition Standard details' }).click();
 
   await expect(page).toHaveURL(/#processes\?process=20&level=standard&source=assessment$/);
-  await expect(page.getByRole('heading', { name: 'Definition at Standard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What Standard means here' })).toBeVisible();
   await expect(page.getByText('Work in progress saved before opening process details.')).toBeVisible();
 
   await page.goBack();
@@ -142,8 +149,8 @@ test('malformed and unassessed direct links fail closed without a false assignme
 
   await page.goto('./#processes?process=20');
   await expect(page.getByText('No assessment assignment')).toBeVisible();
-  await expect(page.getByText('No recommendation is assigned. Basic is shown for browsing only.')).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Definition at Basic' })).toBeVisible();
+  await expect(page.getByText('No recommendation is assigned. Standard is shown for browsing only.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What Standard means here' })).toBeVisible();
   await expect(page.getByText('Security evidence overlay')).toHaveCount(0);
 });
 
@@ -157,9 +164,12 @@ test('search retains focus and a targeted mobile detail is brought into view', a
   await expect(page.getByRole('link', { name: /Open Project Planning/ })).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('./#processes');
+  await expect(page.getByRole('heading', { name: 'Process work aids' })).toBeInViewport();
+
   await page.goto('./#processes?process=20&level=standard&source=report');
   const heading = page.locator('#process-detail-heading');
   await expect(heading).toBeFocused();
   await expect(heading).toBeInViewport();
-  await expect(page.getByRole('heading', { name: 'Definition at Standard' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'What Standard means here' })).toBeVisible();
 });
