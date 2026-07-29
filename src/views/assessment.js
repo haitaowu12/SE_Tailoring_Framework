@@ -1453,7 +1453,8 @@ function renderResults(content) {
   content.querySelectorAll('.csi-action').forEach(input => input.addEventListener('change', refreshCsiResponse));
   for (const id of ['csi-protected-outputs', 'csi-rationale', 'csi-owner', 'csi-evidence', 'csi-date']) {
     const input = content.querySelector(`#${id}`);
-    input?.addEventListener(id === 'csi-date' ? 'change' : 'input', refreshCsiResponse);
+    input?.addEventListener('input', refreshCsiResponse);
+    if (id === 'csi-date') input?.addEventListener('change', refreshCsiResponse);
   }
   updateCompleteButton();
 }
