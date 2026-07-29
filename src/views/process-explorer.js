@@ -12,6 +12,7 @@ let searchQuery = '';
 
 const LEVEL_KEYS = ['basic', 'standard', 'comprehensive'];
 const LEVEL_SET = new Set(LEVEL_KEYS);
+const DEFAULT_BROWSE_LEVEL = 'standard';
 const PROCESS_ID_SET = new Set(CORE_PROCESSES.map(process => process.id));
 const ROUTE_PARAM_KEYS = new Set(['process', 'level', 'source']);
 const VALID_PROCESS_SOURCES = new Set([
@@ -141,7 +142,7 @@ export function resolveProcessExplorerRoute(routeContext = getCurrentRouteContex
   return {
     processId,
     assignedLevel,
-    viewLevel: processId ? (requestedLevel || assignedLevel || 'basic') : null,
+    viewLevel: processId ? (requestedLevel || assignedLevel || DEFAULT_BROWSE_LEVEL) : null,
     source,
     issues,
     viewContext
@@ -162,7 +163,7 @@ function renderProcessListMarkup(selection) {
   if (!filtered.length) return '<div class="empty-state process-list-empty"><p class="text-secondary">No processes match this filter.</p></div>';
   return filtered.map(process => {
     const assignedLevel = getAssignedProcessLevel(selection.viewContext, process.id);
-    const browseLevel = assignedLevel || 'basic';
+    const browseLevel = assignedLevel || DEFAULT_BROWSE_LEVEL;
     return `
       <a class="process-list-card ${selection.processId === process.id ? 'selected' : ''} hover-lift"
          href="${escapeHtml(processDetailsHref(process.id, browseLevel, selection.source))}"
@@ -188,9 +189,28 @@ function updateProcessList(container, selection) {
 export function renderProcessExplorer(container, routeContext = getCurrentRouteContext()) {
   const state = getState();
   const selection = resolveProcessExplorerRoute(routeContext, state);
+  const hasExplicitProcess = Boolean(selection.processId);
+  if (!selection.processId && selection.issues.length === 0) {
+    const assignedProcesses = CORE_PROCESSES.filter(process =>
+      getAssignedProcessLevel(selection.viewContext, process.id)
+    );
+    const defaultProcess = assignedProcesses.find(process =>
+      getAssignedProcessLevel(selection.viewContext, process.id) === 'comprehensive'
+    ) || assignedProcesses.find(process =>
+      getAssignedProcessLevel(selection.viewContext, process.id) !== 'standard'
+    ) || assignedProcesses[0] || CORE_PROCESSES[0];
+    selection.processId = defaultProcess.id;
+    selection.assignedLevel = getAssignedProcessLevel(selection.viewContext, defaultProcess.id);
+    selection.viewLevel = selection.assignedLevel || DEFAULT_BROWSE_LEVEL;
+    selection.source = selection.source || 'process-explorer';
+  }
 
   container.innerHTML = `
-    <h2 class="mb-lg">🔍 Process Explorer</h2>
+    <div class="mb-lg">
+      <p class="eyebrow">Framework reference</p>
+      <h2>Process work aids</h2>
+      <p class="text-sm text-secondary mt-sm">Open a process to compare levels, plan activities, and identify the deliverables the team needs.</p>
+    </div>
     ${selection.issues.length ? `
       <div class="callout process-route-warning mb-lg" role="status">
         <strong>Some process-detail link information was ignored.</strong>
@@ -233,6 +253,7 @@ export function renderProcessExplorer(container, routeContext = getCurrentRouteC
       .empty-state { display: flex; align-items: center; justify-content: center; min-height: 400px; }
       .detail-section { margin-bottom: var(--space-xl); }
       .detail-section h4 { margin-bottom: var(--space-md); color: var(--accent-primary-light); }
+      .process-work-aid { padding: clamp(18px, 3vw, 32px); }
       .process-detail-header { align-items: flex-start; gap: var(--space-lg); }
       .process-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
       .process-meta-pill { border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 9px; font-size: 11px; color: var(--text-secondary); }
@@ -243,6 +264,12 @@ export function renderProcessExplorer(container, routeContext = getCurrentRouteC
       .level-tab.active-standard { background: var(--level-standard-bg); color: var(--level-standard); border-color: var(--level-standard-border); }
       .level-tab.active-comprehensive { background: var(--level-comprehensive-bg); color: var(--level-comprehensive); border-color: var(--level-comprehensive-border); }
       .level-tab:focus-visible { outline: 2px solid var(--accent-primary-light); outline-offset: 2px; }
+      .practitioner-work-aid { display: grid; grid-template-columns: minmax(180px, .65fr) minmax(320px, 1.35fr); gap: 22px; margin-bottom: var(--space-xl); padding: 18px 0; border-block: 1px solid var(--border-subtle); }
+      .practitioner-work-aid h4 { margin-top: 4px; color: var(--text-primary); }
+      .practitioner-work-aid ol { display: grid; gap: 10px; margin: 0; padding-left: 22px; }
+      .practitioner-work-aid li { padding-left: 4px; color: var(--text-secondary); font-size: var(--font-size-xs); line-height: 1.5; }
+      .practitioner-work-aid li strong, .practitioner-work-aid li span { display: block; }
+      .practitioner-work-aid li strong { color: var(--text-primary); }
       .detail-empty-line { color: var(--text-tertiary); font-size: var(--font-size-sm); padding: 8px 0; }
       .activity-item { padding: 6px 0; font-size: var(--font-size-xs); color: var(--text-secondary); border-bottom: 1px solid rgba(99,102,241,0.06); }
       .activity-item.essential { color: var(--text-primary); font-weight: 500; }
@@ -251,7 +278,14 @@ export function renderProcessExplorer(container, routeContext = getCurrentRouteC
       .metric-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; margin: 3px; }
       .metric-tag.P { background: rgba(99,102,241,0.2); color: var(--accent-primary-light); }
       .metric-tag.S { background: rgba(148,163,184,0.12); color: var(--text-secondary); }
-      @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
+      .technical-context { border-top: 1px solid var(--border-subtle); padding-top: 14px; }
+      .technical-context > summary { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-xs); font-weight: 700; }
+      .technical-context-body { margin-top: 18px; }
+      @media (max-width: 900px) { .explorer-layout, .practitioner-work-aid { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
+      @media (max-width: 480px) {
+        #group-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: visible; }
+        #group-tabs .tab { min-width: 0; padding: 8px 4px; font-size: 11px; line-height: 1.25; white-space: normal; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -273,7 +307,7 @@ export function renderProcessExplorer(container, routeContext = getCurrentRouteC
     });
   });
 
-  if (selection.processId && selection.source) {
+  if (hasExplicitProcess && selection.processId && selection.source) {
     window.requestAnimationFrame(() => {
       const heading = container.querySelector('#process-detail-heading');
       if (!heading) return;
@@ -342,10 +376,9 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
   const levelLabel = FRAMEWORK_META.levelLabels[level] || level;
   const viewLevelLabel = FRAMEWORK_META.levelLabels[viewLevel] || viewLevel;
   const groupLabel = PROCESS_GROUPS[p.group.toUpperCase()]?.name || p.group;
-  const scopeLabel = p.iso?.scope === 'executable-core' ? 'Executable core' : 'Reference scope';
 
   return `
-    <div class="card animate-fade-in">
+    <div class="card process-work-aid animate-fade-in">
       <div class="flex justify-between process-detail-header mb-lg">
         <div>
           <h3 id="process-detail-heading" tabindex="-1">${escapeHtml(p.name)}</h3>
@@ -353,9 +386,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
           <div class="process-meta-row">
             <span class="process-meta-pill">P${p.id}</span>
             <span class="process-meta-pill">${escapeHtml(groupLabel)}</span>
-            <span class="process-meta-pill">${escapeHtml(scopeLabel)}</span>
             <span class="process-meta-pill">Context: ${escapeHtml(viewContext.elementName)}</span>
-            <span class="process-meta-pill">${activities.length} activities · ${deliverables.length} deliverables at ${escapeHtml(viewLevelLabel)}</span>
           </div>
         </div>
         ${level
@@ -380,28 +411,40 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         </nav>
       </div>
 
+      <section class="practitioner-work-aid" aria-labelledby="work-aid-title-${p.id}">
+        <div>
+          <div class="text-xs text-secondary">Workshop work aid</div>
+          <h4 id="work-aid-title-${p.id}">Turn this recommendation into a team plan</h4>
+        </div>
+        <ol>
+          <li><strong>Confirm the level.</strong><span>Compare Basic, Standard, and Comprehensive against the project context.</span></li>
+          <li><strong>Assign the work.</strong><span>Agree owners for the activities and deliverables listed below.</span></li>
+          <li><strong>Set the evidence.</strong><span>Record what will demonstrate that the selected level has been applied.</span></li>
+        </ol>
+      </section>
+
       ${p.definition ? `
       <div class="detail-section">
-        <h4>Definition at ${escapeHtml(viewLevelLabel)}</h4>
+        <h4>What ${escapeHtml(viewLevelLabel)} means here</h4>
         <p class="text-sm text-secondary">${escapeHtml(p.definition[viewLevel] || '—')}</p>
       </div>` : ''}
 
       <div class="detail-section">
-        <h4>Activities (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(Essential core activities are marked)</span></h4>
+        <h4>Do at this level (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(core activities are marked)</span></h4>
         ${activities.length ? activities.map(a => {
     let isEssential = a.startsWith('(*)');
     let text = isEssential ? a.slice(4) : a;
     const contentState = getConditionalContentState(text, viewContext);
     const { disabled } = contentState;
     return `<div class="activity-item ${isEssential ? 'essential' : ''}" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
-            <span class="activity-marker" aria-hidden="true">${isEssential ? '◆' : '•'}</span> <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
+            <span class="activity-marker" aria-hidden="true">${isEssential ? '◆' : '•'}</span>${isEssential ? '<span class="sr-only">Essential: </span>' : ''} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
             ${renderContextNote(contentState.note, disabled)}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No activity detail is defined for this process level yet.</div>'}
       </div>
 
       <div class="detail-section">
-        <h4>Deliverables (${deliverables.length})</h4>
+        <h4>Produce or update (${deliverables.length})</h4>
         ${deliverables.length ? deliverables.map(d => {
     let text = d;
     const contentState = getConditionalContentState(text, viewContext);
@@ -414,7 +457,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
       </div>
 
       <div class="detail-section">
-        <h4>Outputs & Feeds Into</h4>
+        <h4>Coordinate these handoffs</h4>
         ${outputs.length ? outputs.map(o => `<div class="output-item"><strong>${escapeHtml(o.name)}</strong> → ${escapeHtml(o.feedsInto)}</div>`).join('') : '<div class="detail-empty-line">No output flow detail is defined for this process yet.</div>'}
       </div>
 
@@ -431,17 +474,19 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         `).join('')}
       </div>` : ''}
 
-      ${renderRegistryDependencyContext(processId)}
-
-      <div class="detail-section">
-        <h4>Metric Applicability</h4>
-        <div class="flex" style="flex-wrap:wrap">
-          ${Object.entries(map).map(([mid, role]) => {
+      <details class="technical-context detail-section">
+        <summary>Why this process is connected to the assessment</summary>
+        ${renderRegistryDependencyContext(processId)}
+        <div class="technical-context-body">
+          <h4>Metric applicability</h4>
+          <div class="flex" style="flex-wrap:wrap">
+            ${Object.entries(map).map(([mid, role]) => {
     const m = METRICS.find(x => x.id === mid);
     return `<span class="metric-tag ${escapeHtml(role)}">${escapeHtml(role)} ${escapeHtml(mid)}: ${escapeHtml(m?.name || mid)}</span>`;
   }).join('')}
+          </div>
         </div>
-      </div>
+      </details>
 
       ${p.whenToElevate ? `
       <div class="detail-section">

@@ -100,6 +100,10 @@ test('correlated-evidence warning is visible and distinct consequence pathways r
   await importCorrelatedFixture(page);
   await page.goto('./#report');
 
+  const correlatedEvidenceSection = page.locator('details.report-section').filter({
+    has: page.locator('.report-section-title', { hasText: 'Correlated Evidence Review' })
+  });
+  await correlatedEvidenceSection.locator(':scope > summary').click();
   await expect(page.getByRole('heading', { name: /Correlated Evidence Review \(1\)/ })).toBeVisible();
   await expect(page.getByText(/M5, M6, M8 reuse the same evidence context/)).toBeVisible();
   await expect(page.getByText(/does not change scores, recommended levels, or closure/)).toBeVisible();
@@ -118,6 +122,9 @@ test('correlated-evidence warning is visible and distinct consequence pathways r
     ['M8', 'Unauthorized control-state manipulation across the security boundary.']
   ]) {
     const metricCard = page.locator(`.metric-item[data-metric-id="${metricId}"]`);
+    if (!(await metricCard.evaluate(element => element.open))) {
+      await metricCard.locator('summary.metric-header').click();
+    }
     await metricCard.getByText('Justification note').click();
     await page.locator(`#metric-note-${metricId}`).fill(note);
   }

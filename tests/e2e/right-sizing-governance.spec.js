@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { openSessionMenu } from './helpers.js';
 import { runFullAssessment } from '../../src/utils/assessment-engine.js';
 
+test.setTimeout(60_000);
+
 function acceptedHandoff() {
   return {
     artifactId: 'ART:REQ-ARCH:default:right-sizing-e2e',
@@ -144,7 +146,10 @@ test('incomplete decision fails closed, then a complete local record creates a s
   const effectiveForm = page.locator('.right-sizing-approval-form[data-process-id="17"]');
   await effectiveForm.locator('xpath=..').locator('summary').click();
   await expect(effectiveForm.locator('[name="evidenceRef"]')).toHaveValue('RS-APPROVAL-E2E-17');
-  const profileRow = page.locator('table.data-table tbody tr', { hasText: 'Business/Mission Analysis' }).first();
+  const fullProfile = page.locator('.report-section', {
+    has: page.getByText('Full Process Tailoring Profile', { exact: true })
+  });
+  const profileRow = fullProfile.locator('table.data-table tbody tr', { hasText: 'Business/Mission Analysis' }).first();
   await expect(profileRow.locator('td').nth(7)).toContainText('C');
   await expect(profileRow.locator('td').nth(8)).toContainText('S');
   await expect(profileRow.locator('td').nth(8)).toContainText('Unverified local scenario');
@@ -169,13 +174,13 @@ test('right-sizing proposals use a neutral non-blocking action-queue status', as
   expect(config.rightSizingProposals.length).toBeGreaterThan(0);
   await importFixture(page, config, 'right-sizing-action-queue.json');
 
-  await page.getByRole('button', { name: 'Assess', exact: true }).click();
+  await page.getByRole('button', { name: 'Assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   const queueItem = page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' });
   await expect(queueItem).toContainText('Decision available — non-blocking');
   await expect(queueItem.locator('.action-queue-status')).toHaveClass(/neutral/);
   await expect(page.getByRole('button', { name: 'Check Software Completeness' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Resolve issues', exact: true }).click();
+  await page.getByRole('button', { name: /Decisions/ }).click();
   await expect(page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' })).toHaveCount(0);
 });

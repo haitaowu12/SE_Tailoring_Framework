@@ -4,10 +4,10 @@
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
 import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig } from '../utils/export-import.js';
-import { renderOrdinalMetricProfile } from '../utils/report-visuals.js';
+import { renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, setState, showToast, getElementsFlat } from '../state.js';
-import { navigateTo, processDetailsHref } from '../router.js';
+import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
 import { getAssessmentDisposition } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
@@ -106,24 +106,24 @@ function enhanceReportSections(container) {
       section: findDirectReportCard(container, 'System Element Tailoring Overview'),
       title: 'System Element Tailoring Overview',
       description: 'Hierarchy and element-level assessment status.',
-      open: true
+      open: false
     },
     {
       section: findDirectReportCard(container, 'Right-Sizing Analysis'),
       title: 'Right-Sizing Analysis',
       description: 'PSI, CSI, CRI, and non-binding right-sizing proposals.',
-      open: true
+      open: container.querySelectorAll('.right-sizing-approval-form').length > 0
     },
     {
       section: findDirectReportCard(container, 'Safety Assurance Criticality'),
       title: 'Safety Assurance Criticality',
       description: 'Safety tier and rigor floor.',
-      open: true
+      open: false
     },
     {
       section: container.querySelector(':scope > .report-overview-panel'),
-      title: 'Grouped Ordinal Profile',
-      description: 'Independent anchor positions and judgment states by dimension.',
+      title: 'Assessment Shape',
+      description: 'A visual overview of confirmed scores, with a compact accessible score list.',
       open: true
     },
     {
@@ -142,19 +142,31 @@ function enhanceReportSections(container) {
       section: findDirectReportCard(container, 'Correlated Evidence Review'),
       title: 'Correlated Evidence Review',
       description: 'Warning-only review of shared M5, M6, and M8 evidence.',
-      open: true
+      open: false
     },
     {
       section: findDirectReportCard(container, 'Consistency Warnings'),
       title: 'Consistency Warnings',
       description: 'Rules that need review or follow-up.',
-      open: true
+      open: false
     },
     {
       section: findDirectReportCard(container, 'Rule 11 Disposition'),
       title: 'Rule 11 Disposition',
       description: 'Recorded outcome, rationale, authority, evidence, and review date.',
-      open: true
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Constraint Response'),
+      title: 'Delivery Feasibility Response',
+      description: 'Recorded feasibility actions, owner, rationale, and evidence.',
+      open: false
+    },
+    {
+      section: findDirectReportCard(container, 'Governed Warning Dispositions'),
+      title: 'Warning Decision Records',
+      description: 'Recorded warning outcomes and supporting decision records.',
+      open: false
     },
     {
       section: findDirectReportCard(container, 'Full Process Tailoring Profile'),
@@ -249,7 +261,12 @@ export function renderReport(container) {
     localScenarioLevels[process.id] && localScenarioLevels[process.id] !== levels[process.id]
   );
 
-  const ordinalOverview = renderOrdinalMetricProfile(scores, state.metricAssessments, METRICS, DIMENSIONS);
+  const assessmentShape = renderMetricSpiderwebSvg(scores, METRICS, DIMENSIONS, {
+    idPrefix: 'report-profile',
+    metricAssessments: state.metricAssessments,
+    title: 'Assessment shape',
+    description: 'The sixteen confirmed metric scores grouped into four assessment areas.'
+  });
   const overrideCount = state.overrides?.length || 0;
   const warningCount = state.violations?.length || 0;
   const fixCount = state.fixes?.length || 0;
@@ -269,6 +286,9 @@ export function renderReport(container) {
   const highPressureMetrics = METRICS
     .filter(metric => (scores[metric.id] ?? 3) >= 4)
     .map(metric => metric.id);
+  const processExceptions = CORE_PROCESSES.filter(process =>
+    (levels[process.id] || levels[String(process.id)] || 'basic') !== 'standard'
+  );
   const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
   const gateLabel = status => ({
     passed: 'Passed',
@@ -279,6 +299,18 @@ export function renderReport(container) {
   }[status] || status);
 
   const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
+  const processPlanReason = process => {
+    const processId = process.id;
+    const detail = derivationDetails[processId] || {};
+    const manualAdjustment = state.manualAdjustments?.[processId] || state.manualAdjustments?.[String(processId)];
+    const override = state.overrides?.find(item => item.processId === processId);
+    const fix = state.fixes?.find(item => item.processId === processId);
+    if (manualAdjustment) return `Recorded adjustment: ${manualAdjustment.justification || 'no justification recorded'}`;
+    if (override) return `Mandatory floor: ${override.reason}`;
+    if (fix) return `Dependency closure: ${fix.reason}`;
+    const drivers = Array.isArray(detail.triggerMetrics) ? detail.triggerMetrics.join(', ') : '';
+    return drivers ? `Driven by ${drivers}${detail.triggerScore ? ` at ${detail.triggerScore}` : ''}` : 'Assessment mapping and active rules';
+  };
   const processRefName = (ref) => {
     if (ref === 'any_technical') return 'Any Technical Process';
     if (ref === 'all_technical') return 'All Technical Processes';
@@ -287,12 +319,12 @@ export function renderReport(container) {
   };
 
   container.innerHTML = `
-    <div class="flex justify-between items-center mb-lg">
+    <div class="report-page-header flex justify-between items-center mb-lg">
       <div>
         <h2>Pilot Tailoring Record</h2>
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
       </div>
-      <div class="flex gap-sm">
+      <div class="report-export-actions flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
         <button class="btn btn-primary btn-sm" id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
       </div>
@@ -341,12 +373,19 @@ export function renderReport(container) {
         <span><strong>Metric notes:</strong> ${metricNotesCount} of ${METRICS.length} recorded.</span>
         <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
       </div>
-      <div class="report-scope-note">
-        <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
-      </div>
-      <div class="report-gate-grid" aria-label="Record gate statuses">
-        ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
-      </div>
+      <details class="report-summary-trace">
+        <summary>Method scope and completion details</summary>
+        <div class="report-scope-note">
+          <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
+        </div>
+        <div class="report-gate-grid" aria-label="Record gate statuses">
+          ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
+        </div>
+      </details>
+    </div>
+
+    <div class="card mb-xl report-overview-panel">
+      ${assessmentShape}
     </div>
 
     <div class="grid-2 mb-xl">
@@ -448,6 +487,32 @@ export function renderReport(container) {
     </div>` : ''}
 
     <h3 class="report-layer-heading">2. Action record</h3>
+    <div class="card mb-xl">
+      <div class="flex justify-between items-center gap-lg mb-md" style="flex-wrap:wrap;">
+        <div>
+          <h4>Process plan</h4>
+          <p class="text-xs text-secondary mt-sm">${processExceptions.length
+            ? `${processExceptions.length} process recommendation${processExceptions.length === 1 ? '' : 's'} differ from the Standard baseline.`
+            : `No exceptions — all ${CORE_PROCESSES.length} processes follow the Standard baseline.`}</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="button" id="btn-open-process-guidance">Open process work aids</button>
+      </div>
+      ${processExceptions.length ? `<div style="overflow-x:auto;">
+        <table class="data-table">
+          <caption class="sr-only">Processes that differ from the Standard baseline</caption>
+          <thead><tr><th scope="col">Process</th><th scope="col">Level</th><th scope="col">Why</th><th scope="col">Work aid</th></tr></thead>
+          <tbody>${processExceptions.map(process => {
+            const level = levels[process.id] || levels[String(process.id)] || 'basic';
+            return `<tr>
+              <th scope="row">${escapeHtml(process.name)}</th>
+              <td><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span></td>
+              <td class="text-sm text-secondary">${escapeHtml(processPlanReason(process))}</td>
+              <td><a href="${escapeHtml(processDetailsHref(process.id, level, 'report'))}" class="process-detail-link">Open →</a></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>` : ''}
+    </div>
     ${csiReadiness.required ? `
     <div class="card mb-xl" style="border-left:3px solid ${csiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)'};">
       <h4 class="mb-md">CSI ${csiReadiness.csi} Constraint Response — ${csiReadiness.complete ? 'Complete' : 'Incomplete'}</h4>
@@ -588,10 +653,6 @@ export function renderReport(container) {
     </div>` : ''}
 
     <h3 class="report-layer-heading">3. Trace appendix</h3>
-    <div class="card mb-xl report-overview-panel">
-      ${ordinalOverview}
-    </div>
-
     <div class="card mb-xl">
       <h4 class="mb-md">Full Process Tailoring Profile</h4>
       <p class="text-xs text-secondary mb-md">One process-level view: derived level, pilot-profile assignment, separate unverified local scenario, evidence status, and top drivers.</p>
@@ -792,6 +853,8 @@ export function renderReport(container) {
     .manual-adjustment-cell { display:grid; gap:2px; min-width:160px; }
     .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+    .report-summary-trace { margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:12px; }
+    .report-summary-trace > summary { cursor:pointer; color:var(--text-secondary); font-size:12px; font-weight:700; }
     .pilot-record-banner { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
     .pilot-record-banner strong,.pilot-record-banner span { grid-column:1; }
     .pilot-record-banner span { color:var(--text-secondary); font-size:12px; }
@@ -805,6 +868,15 @@ export function renderReport(container) {
   `;
   container.appendChild(style);
   enhanceReportSections(container);
+  container.querySelector('#btn-open-process-guidance')?.addEventListener('click', () => navigateTo('processes'));
+  container.querySelectorAll('a[href^="#processes?"]').forEach(link => {
+    link.addEventListener('click', event => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      const destination = getCurrentRouteContext(link.getAttribute('href'));
+      navigateTo(destination.path, destination.params);
+    });
+  });
 
   container.querySelectorAll('.right-sizing-approval-form').forEach(form => {
     form.addEventListener('submit', event => {

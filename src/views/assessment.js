@@ -12,18 +12,18 @@ import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUT
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
 import { propagateSafetyOverrides } from '../utils/inheritance-engine.js';
-import { renderOrdinalMetricProfile } from '../utils/report-visuals.js';
+import { renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
 import { ASSESSOR_GUIDANCE, ASSESSOR_GUIDANCE_META } from '../data/generated-assessor-guidance.js';
 
 const STEPS = [
-  { id: 'info', title: 'Project Info' },
-  { id: 'complexity', title: 'System Complexity' },
-  { id: 'safety', title: 'Safety & Criticality' },
-  { id: 'constraints', title: 'Project Constraints' },
-  { id: 'stakeholder', title: 'Stakeholder Context' },
-  { id: 'results', title: 'Results' }
+  { id: 'info', title: 'Project Info', shortTitle: 'Setup' },
+  { id: 'complexity', title: 'System Complexity', shortTitle: 'Complexity' },
+  { id: 'safety', title: 'Safety & Criticality', shortTitle: 'Criticality' },
+  { id: 'constraints', title: 'Project Constraints', shortTitle: 'Constraints' },
+  { id: 'stakeholder', title: 'Stakeholder Context', shortTitle: 'Context' },
+  { id: 'results', title: 'Results', shortTitle: 'Review' }
 ];
 
 let currentStep = 0;
@@ -156,6 +156,25 @@ export function renderAssessment(container, routeContext = null) {
   const activeNodeName = escapeHtml(activeNode?.name || '');
   const activeAssessmentType = ['full', 'quick', 'inherited'].includes(activeNode?.assessmentType) ? activeNode.assessmentType : 'full';
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
+  const activeStep = STEPS[currentStep];
+  const pageTitle = assessmentViewMode === 'review'
+    ? 'Tailoring recommendations'
+    : assessmentViewMode === 'issues'
+      ? 'Decisions needed'
+      : activeStep.id === 'info'
+        ? 'Set up the assessment'
+        : activeStep.id === 'results'
+          ? 'Review the tailoring profile'
+          : activeStep.title;
+  const pageDescription = assessmentViewMode === 'review'
+    ? 'Start with exceptions and priorities. Open a process only when you need its work aid or derivation detail.'
+    : assessmentViewMode === 'issues'
+      ? 'Resolve only the items that prevent this assessment from being completed.'
+      : activeStep.id === 'info'
+        ? 'Identify the project context. You can return and edit this later.'
+        : activeStep.id === 'results'
+          ? 'Use the assessment shape and process priorities to focus the tailoring conversation.'
+          : 'Choose the closest anchor for each metric. Open scoring guidance only when you need help deciding.';
 
   container.innerHTML = `
     <div class="assessment-container">
@@ -170,72 +189,79 @@ export function renderAssessment(container, routeContext = null) {
         </div>
       </div>` : ''}
       <div class="assessment-header">
-        <h2>${isHierarchical ? activeNodeName + ' — ' : ''}${assessmentViewMode === 'review' ? 'Review recommendations' : assessmentViewMode === 'issues' ? 'Resolve issues' : 'Assessment'}</h2>
-        <p class="text-secondary">${isHierarchical
-          ? `Scoring metrics for system element: ${activeNodeName} (${activeAssessmentType} assessment)`
-          : assessmentViewMode === 'review'
-            ? 'Trace each provisional recommendation from ordinal judgment through floors, closure, and governed adjustments'
-            : assessmentViewMode === 'issues'
-              ? 'Work the unresolved completion and governance queue before passing software completeness checks'
-              : `Review ${METRICS.length} ordinal judgments to preview process-specific tailoring recommendations`}</p>
+        <div>
+          <p class="eyebrow">${assessmentViewMode === 'assess' ? 'Tailoring assessment' : assessmentViewMode === 'review' ? 'Recommendation review' : 'Completion review'}</p>
+          <h2>${isHierarchical ? activeNodeName + ' — ' : ''}${pageTitle}</h2>
+          <p class="text-secondary">${pageDescription}</p>
+        </div>
+        <div class="assessment-coverage" aria-label="${completeness.completeCount} of ${METRICS.length} metrics reviewed" aria-live="polite">
+          <strong>${completeness.completeCount}/${METRICS.length}</strong>
+          <span>reviewed</span>
+        </div>
       </div>
-      <p class="assessment-guidance mb-lg">Each neutral midpoint is a preview only. Select or confirm an anchor before it counts as a reviewed judgment; optional justification notes stay with the pilot record.</p>
-      <div class="step-progress">
+      <nav class="step-progress" aria-label="Assessment sections">
         ${STEPS.map((s, i) => `
           <button class="step-dot ${visitedSteps.has(i) ? 'visited' : ''} ${i === currentStep ? 'current' : ''}" type="button" data-step="${i}" aria-label="Go to ${escapeHtml(s.title)} step" ${i === currentStep ? 'aria-current="step"' : ''}>
             <span class="step-index">${i + 1}</span>
-            <span class="step-label">${s.title}</span>
+            <span class="step-label">${s.shortTitle}</span>
           </button>
-        `).join('<div class="step-line"></div>')}
-      </div>
-      <p class="step-progress-note text-xs text-secondary">The marker shows where you are; previously opened sections are marked as visited, not completed.</p>
+        `).join('')}
+      </nav>
       <div id="step-content" class="step-content"></div>
       <div class="step-actions">
         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
-        <span class="step-indicator text-sm text-secondary">Step ${currentStep + 1} of ${STEPS.length}</span>
+        <span class="step-indicator text-sm text-secondary">${activeStep.shortTitle} · ${currentStep + 1}/${STEPS.length}</span>
         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
           ? completeness.complete ? 'Check Software Completeness' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
-          : 'Next →'}</button>
+          : `Next: ${STEPS[currentStep + 1].shortTitle} →`}</button>
       </div>
     </div>
   `;
 
   const style = document.createElement('style');
   style.textContent = `
-    .assessment-container { max-width: 900px; margin: 0 auto; }
-    .assessment-header { text-align: center; margin-bottom: 32px; }
-    .step-progress { display: flex; align-items: center; justify-content: center; gap: 0; margin-bottom: 16px; flex-wrap: wrap; }
-    .step-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; cursor: pointer; opacity: 0.4; transition: all 0.3s; border: 0; background: transparent; color: inherit; font: inherit; }
-    .step-dot.visited { opacity: .75; }
-    .step-dot.current { opacity: 1; }
-    .step-dot.current .step-index { background: var(--accent-primary); border-color: var(--accent-primary); color: var(--bg-primary); transform: scale(1.1); }
-    .step-index { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--bg-tertiary); border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 12px; font-weight: 700; transition: all 0.3s; }
-    .step-label { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
-    .step-line { width: 24px; height: 2px; background: var(--border-subtle); margin-bottom: 18px; }
-    .step-progress-note { text-align: center; margin: -6px 0 28px; }
-    .step-content { min-height: 400px; }
+    .assessment-container { max-width: 1040px; margin: 0 auto; }
+    .assessment-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+    .assessment-header h2 { margin-top: 3px; }
+    .assessment-header p:last-child { max-width: 720px; margin-top: 6px; }
+    .assessment-coverage { flex: 0 0 auto; display: grid; justify-items: end; padding-left: 20px; border-left: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .assessment-coverage strong { color: var(--text-primary); font-size: 22px; line-height: 1; letter-spacing: 0; }
+    .step-progress { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-bottom: 28px; padding: 4px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-secondary); }
+    .step-dot { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 8px 9px; cursor: pointer; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: inherit; transition: color .15s ease, background .15s ease; }
+    .step-dot:hover { color: var(--text-primary); background: var(--bg-tertiary); }
+    .step-dot.current { color: var(--text-primary); background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-tertiary)); }
+    .step-index { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border: 1px solid var(--border-medium); border-radius: 50%; color: inherit; font-size: 10px; font-weight: 800; }
+    .step-dot.current .step-index { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
+    .step-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .step-content { min-height: 360px; }
     .step-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
     .metric-group { margin-bottom: 24px; }
-    .metric-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; margin-bottom: 12px; transition: border-color 0.2s; }
+    .dimension-context { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 2px solid var(--dimension-color); color: var(--text-secondary); font-size: 12px; }
+    .metric-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0; margin-bottom: 10px; transition: border-color 0.2s; overflow: clip; }
     .metric-item:hover { border-color: var(--border-medium); }
-    .metric-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .metric-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin: 0; padding: 16px 18px; cursor: pointer; list-style: none; }
+    .metric-header::-webkit-details-marker { display: none; }
+    .metric-header::after { content: '+'; align-self: center; color: var(--text-tertiary); font-size: 18px; line-height: 1; }
+    .metric-item[open] .metric-header { border-bottom: 1px solid var(--border-subtle); }
+    .metric-item[open] .metric-header::after { content: '−'; color: var(--accent-primary-light); }
+    .metric-body { padding: 16px 18px 18px; }
     .metric-name { font-weight: 600; font-size: 15px; }
+    .metric-header .metric-status { display: block; margin-top: 3px; font-size: 11px; font-weight: 500; }
     .metric-id { font-size: 12px; font-weight: 700; color: var(--accent-primary-light); background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 4px; }
-    .metric-score-display { font-size: 24px; font-weight: 800; min-width: 40px; text-align: center; transition: color 0.2s; }
-    .metric-definition { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 8px 0 12px; }
+    .metric-score-display { margin-left: auto; align-self: center; font-size: 20px; font-weight: 800; min-width: 32px; text-align: right; transition: color 0.2s; }
+    .metric-definition { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 12px 0; }
     .metric-definition strong { color: var(--text-primary); }
-    .metric-anchor-choices { border: 0; padding: 0; margin: 0; display: grid; gap: 7px; }
-    .metric-anchor-card { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: start; gap: 9px; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 10px 11px; cursor: pointer; background: var(--bg-secondary); }
+    .metric-anchor-choices { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .metric-anchor-card { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: start; gap: 10px; min-height: 44px; border: 1px solid var(--border-subtle); border-radius: 7px; padding: 9px 11px; cursor: pointer; background: var(--bg-secondary); }
     .metric-anchor-card:hover { border-color: var(--border-medium); }
     .metric-anchor-card:focus-within { outline: 3px solid color-mix(in srgb, var(--accent-primary) 35%, transparent); outline-offset: 2px; }
     .metric-anchor-card.selected { border-color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-secondary)); }
     .metric-anchor-card.preview { border-style: dashed; }
-    .metric-anchor-card input { margin-top: 4px; accent-color: var(--accent-primary); }
-    .metric-anchor-number { display: block; font-size: 18px; font-weight: 800; line-height: 1.1; }
-    .metric-anchor-text { display: block; font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
-    .metric-anchor-tag { font-size: 10px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
-    .metric-description { font-size: 13px; color: var(--text-secondary); margin-top: 8px; padding: 6px 10px; background: rgba(99,102,241,0.05); border-radius: 6px; }
-    .assessment-guidance { max-width: 680px; margin-inline: auto; color: var(--text-secondary); font-size: 13px; text-align: center; }
+    .metric-anchor-card input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--accent-primary); cursor: pointer; }
+    .metric-anchor-number { display: inline; margin-right: 8px; color: var(--text-primary); font-size: 13px; font-weight: 800; line-height: 1.1; }
+    .metric-anchor-text { display: inline; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+    .metric-anchor-tag { align-self: start; font-size: 8px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
+    .metric-description { min-height: 44px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; padding: 8px 10px; border-left: 2px solid var(--border-medium); background: transparent; }
     .metric-assessment-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; }
     .metric-status { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-success); }
     .metric-status::before { content: '✓'; font-weight: 800; }
@@ -243,16 +269,15 @@ export function renderAssessment(container, routeContext = null) {
     .metric-status.unknown::before, .metric-status.needs-review::before { content: '•'; }
     .metric-unknown-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); cursor: pointer; }
     .metric-unknown-toggle input { accent-color: var(--accent-warning); }
-    .metric-justification, .metric-advanced { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
-    .metric-justification > summary, .metric-advanced > summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--accent-primary-light); font-size: 12px; font-weight: 600; list-style: none; }
+    .metric-secondary-actions { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
+    .metric-justification, .metric-advanced, .assessor-guidance { flex: 1 1 240px; }
+    .metric-justification > summary, .metric-advanced > summary, .assessor-guidance > summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 600; list-style: none; }
     .metric-justification > summary::-webkit-details-marker, .metric-advanced > summary::-webkit-details-marker { display: none; }
-    .metric-justification > summary::after, .metric-advanced > summary::after { content: '+'; color: var(--text-tertiary); font-size: 16px; line-height: 1; }
-    .metric-justification[open] > summary::after, .metric-advanced[open] > summary::after { content: '−'; color: var(--accent-primary-light); }
+    .metric-justification > summary::after, .metric-advanced > summary::after, .assessor-guidance > summary::after { content: '+'; color: var(--text-tertiary); font-size: 16px; line-height: 1; }
+    .metric-justification[open] > summary::after, .metric-advanced[open] > summary::after, .assessor-guidance[open] > summary::after { content: '−'; color: var(--accent-primary-light); }
     .metric-justification label { display: block; margin-top: 10px; color: var(--text-secondary); }
     .metric-justification-input { min-height: 74px; resize: vertical; }
-    .assessor-guidance { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
-    .assessor-guidance > summary { cursor: pointer; color: var(--accent-primary-light); font-size: 12px; font-weight: 600; }
-    .assessor-guidance-grid { display: grid; gap: 7px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+    .assessor-guidance-grid { display: grid; gap: 9px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-size: 12px; color: var(--text-secondary); }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     .result-guidance { max-width: 760px; color: var(--text-secondary); font-size: 13px; }
     .empty-results-state { max-width: 680px; margin: 56px auto; padding: 36px 24px; text-align: center; border-block: 1px solid var(--border-subtle); }
@@ -260,22 +285,44 @@ export function renderAssessment(container, routeContext = null) {
     .info-form { display: grid; gap: 16px; max-width: 500px; margin: 0 auto; }
     .form-group { display: flex; flex-direction: column; gap: 4px; }
     .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
-    .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-    .result-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px; }
-    .result-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .result-process { font-weight: 600; font-size: 14px; }
-    .drivers-list { font-size: 12px; color: var(--text-secondary); }
-    .driver-item { display: flex; gap: 6px; align-items: center; padding: 2px 0; }
-    .results-overview { display: grid; grid-template-columns: minmax(280px, .8fr) minmax(360px, 1.2fr); gap: 24px; align-items: stretch; }
-    .results-summary, .results-visual { border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); padding: 20px 0; }
-    .results-summary h4 { margin-bottom: 20px; }
-    .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    .results-summary .stat-value { font-size: 32px; }
-    .results-visual .ordinal-profile-note { margin-top: 0; }
+    .setup-context { margin-top: 4px; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+    .setup-context > summary { display: flex; justify-content: space-between; gap: 16px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
+    .setup-context > summary span { color: var(--text-tertiary); font-weight: 500; }
+    .setup-context-fields { display: grid; gap: 14px; margin-top: 16px; }
+    .section-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+    .section-heading-row .eyebrow { margin-bottom: 3px; }
+    .status-count { flex: 0 0 auto; border: 1px solid var(--border-subtle); border-radius: 999px; padding: 3px 9px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
+    .assessment-result-tabs { display: inline-flex; gap: 3px; margin-bottom: 24px; padding: 3px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary); }
+    .assessment-result-tabs button { border: 0; border-radius: 6px; padding: 7px 11px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .assessment-result-tabs button.active { background: var(--bg-tertiary); color: var(--text-primary); }
+    .issues-hidden { display: none; }
+    .results-overview { display: grid; grid-template-columns: minmax(220px, .55fr) minmax(460px, 1.45fr); gap: 30px; align-items: stretch; border-block: 1px solid var(--border-subtle); padding: 22px 0; }
+    .results-summary { padding-right: 24px; border-right: 1px solid var(--border-subtle); }
+    .results-visual { min-width: 0; }
+    .result-stat { display: flex; align-items: baseline; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
+    .result-stat strong { min-width: 54px; color: var(--text-primary); font-size: 26px; line-height: 1; }
+    .result-stat span { color: var(--text-secondary); font-size: 12px; }
+    .priority-guidance { padding-top: 6px; }
+    .process-guidance-list { margin-top: 14px; border-top: 1px solid var(--border-subtle); }
+    .result-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 15px 12px 15px 16px; border-bottom: 1px solid var(--border-subtle); border-left: 3px solid var(--recommendation-level); background: transparent; }
+    .result-card-main { min-width: 0; }
+    .result-card-header { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 5px; }
+    .result-process { font-weight: 700; font-size: 14px; }
+    .result-process-id { margin-left: 7px; color: var(--text-tertiary); font-size: 10px; font-weight: 700; }
+    .result-why { display: flex; gap: 6px 14px; flex-wrap: wrap; color: var(--text-secondary); font-size: 11px; }
+    .result-signals { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+    .result-signals span { border: 1px solid color-mix(in srgb, var(--accent-warning) 45%, var(--border-subtle)); border-radius: 999px; padding: 2px 7px; color: var(--accent-warning); font-size: 9px; font-weight: 700; }
+    .drivers-list { display: flex; gap: 7px 12px; flex-wrap: wrap; margin-top: 7px; color: var(--text-secondary); font-size: 11px; }
+    .driver-item { display: inline-flex; gap: 5px; align-items: center; }
+    .result-derivation { margin-top: 7px; }
+    .result-derivation > summary { cursor: pointer; color: var(--text-tertiary); font-size: 10px; font-weight: 700; }
+    .baseline-guidance-empty { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 14px; padding: 16px 0; border-block: 1px solid var(--border-subtle); }
+    .baseline-guidance-empty p { max-width: 650px; color: var(--text-secondary); font-size: 13px; }
     .results-breakdown { margin-top: 24px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card); }
     .results-breakdown > summary { padding: 16px 18px; cursor: pointer; color: var(--accent-primary-light); font-weight: 700; }
     .results-breakdown-body { padding: 0 18px 18px; }
-    .action-queue { border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card); padding: 16px 18px; margin-bottom: 20px; }
+    .governance-detail { background: transparent; }
+    .action-queue { border-block: 1px solid var(--border-subtle); padding: 14px 0; margin-bottom: 20px; }
     .action-queue-list { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
     .action-queue-item { display: grid; grid-template-columns: minmax(160px,.7fr) auto minmax(220px,1.3fr); gap: 12px; align-items: start; padding: 9px 0; border-top: 1px solid var(--border-subtle); }
     .action-queue-item:first-child { border-top: 0; }
@@ -286,7 +333,26 @@ export function renderAssessment(container, routeContext = null) {
     .causality-grid > div { padding: 7px; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-secondary); }
     .causality-grid dt { color: var(--text-tertiary); font-size: 10px; font-weight: 700; text-transform: uppercase; }
     .causality-grid dd { margin: 3px 0 0; font-size: 11px; font-weight: 700; }
-    @media (max-width: 760px) { .results-overview { grid-template-columns: 1fr; } .results-summary .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .step-line { width: 10px; } .step-label { white-space: normal; text-align: center; max-width: 70px; } .action-queue-item { grid-template-columns: 1fr; gap: 3px; } .causality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+    .decision-workspace { margin-top: 26px; padding-block: 20px; border-block: 1px solid var(--border-subtle); }
+    .decision-item { border-top: 1px solid var(--border-subtle); }
+    .decision-item:first-of-type { margin-top: 16px; }
+    .decision-item > summary { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 0; cursor: pointer; list-style: none; }
+    .decision-item > summary::-webkit-details-marker { display: none; }
+    .decision-item > summary > span:first-child { display: grid; gap: 2px; }
+    .decision-item > summary small { color: var(--text-tertiary); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .decision-item > summary strong { font-size: 13px; }
+    .decision-state { flex: 0 0 auto; border-radius: 999px; padding: 3px 8px; background: color-mix(in srgb, var(--accent-warning) 12%, transparent); color: var(--accent-warning); font-size: 10px; font-weight: 800; }
+    .decision-state.complete { background: color-mix(in srgb, var(--accent-success) 12%, transparent); color: var(--accent-success); }
+    .decision-body { max-width: 780px; padding: 0 0 18px; }
+    .decision-record-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; margin-top: 12px; }
+    .decision-record-fields.is-pending { display: none; }
+    .decision-field { display: grid; gap: 5px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
+    .decision-field-wide { grid-column: 1 / -1; }
+    .decision-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; border: 0; margin: 0; padding: 0; color: var(--text-secondary); font-size: 11px; }
+    .decision-actions legend { grid-column: 1 / -1; margin-bottom: 4px; color: var(--text-primary); font-weight: 700; }
+    .decision-feedback { margin-top: 10px; color: var(--text-secondary); font-size: 11px; }
+    @media (max-width: 760px) { .assessment-header { align-items: flex-start; } .assessment-coverage { padding-left: 12px; } .step-progress { grid-template-columns: 1fr; } .step-dot { display: none; } .step-dot.current { display: flex; } .results-overview { grid-template-columns: 1fr; } .results-summary { padding-right: 0; border-right: 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 18px; } .result-card { grid-template-columns: 1fr; } .baseline-guidance-empty { align-items: flex-start; flex-direction: column; } .step-label { white-space: normal; text-align: center; } .action-queue-item { grid-template-columns: 1fr; gap: 3px; } .causality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .decision-record-fields, .decision-actions { grid-template-columns: 1fr; } .decision-field-wide { grid-column: auto; } }
+    @media (max-width: 480px) { .assessment-header { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; } .assessment-coverage { grid-auto-flow: column; justify-content: start; justify-items: start; align-items: baseline; gap: 4px; padding-left: 0; border-left: 0; } .step-actions { gap: 8px; } .step-indicator { display: none; } .step-actions .btn { min-width: 0; padding-inline: 11px; } #btn-next { margin-left: auto; } }
     .override-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .violation-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .fix-banner { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
@@ -311,23 +377,28 @@ export function renderAssessment(container, routeContext = null) {
     if (currentStep < STEPS.length - 1) {
       currentStep++;
       visitedSteps.add(currentStep);
-      renderAssessment(container);
+      renderAssessmentAtTop(container);
     } else {
       finalizeAssessment();
     }
   });
   container.querySelector('#btn-prev').addEventListener('click', () => {
-    if (currentStep > 0) { currentStep--; visitedSteps.add(currentStep); renderAssessment(container); }
+    if (currentStep > 0) { currentStep--; visitedSteps.add(currentStep); renderAssessmentAtTop(container); }
   });
   container.querySelectorAll('.step-dot').forEach(dot => {
     dot.addEventListener('click', () => {
       currentStep = parseInt(dot.dataset.step);
       visitedSteps.add(currentStep);
-      renderAssessment(container);
+      renderAssessmentAtTop(container);
     });
   });
   // Back to elements tree (hierarchy context)
   container.querySelector('#btn-back-to-tree')?.addEventListener('click', () => navigateTo('elements'));
+}
+
+function renderAssessmentAtTop(container) {
+  renderAssessment(container);
+  window.scrollTo(0, 0);
 }
 
 function renderStep(container) {
@@ -336,7 +407,6 @@ function renderStep(container) {
 
   if (step.id === 'info') {
     content.innerHTML = `
-      <h3 class="mb-lg">Project Information</h3>
       <div class="info-form">
         <div class="form-group">
           <label class="form-label" for="proj-name">Project code</label>
@@ -361,9 +431,34 @@ function renderStep(container) {
             <option value="disposal" ${localProject.phase === 'disposal' ? 'selected' : ''}>Retirement / Disposal</option>
           </select>
         </div>
+        <details class="setup-context">
+          <summary>Workshop context <span>Optional</span></summary>
+          <div class="setup-context-fields">
+            <div class="form-group">
+              <label class="form-label" for="proj-boundary">Assessed boundary</label>
+              <input class="input" id="proj-boundary" autocomplete="off" placeholder="System, service, or element in scope" value="${escapeHtml(localProject.boundary || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="proj-purpose">Tailoring decision</label>
+              <input class="input" id="proj-purpose" autocomplete="off" placeholder="What this assessment will help decide" value="${escapeHtml(localProject.purpose || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="proj-evidenceCutoff">Evidence cutoff</label>
+              <input class="input" id="proj-evidenceCutoff" type="date" value="${escapeHtml(localProject.evidenceCutoff || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="proj-facilitator">Facilitator</label>
+              <input class="input" id="proj-facilitator" autocomplete="off" value="${escapeHtml(localProject.facilitator || '')}">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="proj-owner">Accountable owner</label>
+              <input class="input" id="proj-owner" autocomplete="off" value="${escapeHtml(localProject.owner || '')}">
+            </div>
+          </div>
+        </details>
       </div>
     `;
-    ['proj-name', 'proj-date', 'proj-team', 'proj-phase'].forEach(id => {
+    ['proj-name', 'proj-date', 'proj-team', 'proj-phase', 'proj-boundary', 'proj-purpose', 'proj-evidenceCutoff', 'proj-facilitator', 'proj-owner'].forEach(id => {
       const input = content.querySelector(`#${id}`);
       input.addEventListener(input.matches('select') ? 'change' : 'input', (e) => {
         const key = id.replace('proj-', '');
@@ -381,12 +476,19 @@ function renderStep(container) {
   // Metric scoring step
   const dim = DIMENSIONS.find(d => d.id === step.id);
   const dimMetrics = METRICS.filter(m => m.dimension === step.id);
+  const reviewedInDimension = dimMetrics.filter(metric =>
+    ['assessed', 'inherited-confirmed'].includes(localMetricAssessments?.[metric.id]?.status)
+  ).length;
+  const firstUnresolvedMetricIndex = Math.max(0, dimMetrics.findIndex(metric =>
+    !['assessed', 'inherited-confirmed'].includes(localMetricAssessments?.[metric.id]?.status)
+  ));
   content.innerHTML = `
-    <div class="mb-lg">
-      <h3 style="color: ${dim.color}">${dim.name}</h3>
+    <div class="dimension-context mb-md" style="--dimension-color:${dim.color}">
+      <span>${dimMetrics.length} metrics</span>
+      <span class="dimension-review-count" aria-live="polite">${reviewedInDimension}/${dimMetrics.length} reviewed in this section</span>
     </div>
     <div class="metric-group">
-      ${dimMetrics.map(m => {
+      ${dimMetrics.map((m, metricIndex) => {
     const assessment = localMetricAssessments[m.id] || makeMetricAssessment(m.id);
     const guidance = ASSESSOR_GUIDANCE[m.id];
     const val = localScores[m.id] ?? 3;
@@ -395,7 +497,7 @@ function renderStep(container) {
     const isMigrationRequired = ['not-applicable', 'migration-required'].includes(assessment.status);
     const displayValue = isUnknown || isMigrationRequired ? '—' : val;
     const statusText = isUnknown
-      ? 'Unknown — preview only'
+      ? 'Cannot assess yet — preview only'
       : assessment.status === 'inherited-confirmed'
         ? 'Inherited score confirmed'
         : isMigrationRequired
@@ -404,18 +506,18 @@ function renderStep(container) {
             ? `Unreviewed — preview ${val}`
             : 'Assessed 1–5 score';
     return `
-        <div class="metric-item" data-metric-id="${m.id}">
-          <div class="metric-header">
+        <details class="metric-item" name="assessment-metric" data-metric-id="${m.id}" ${metricIndex === firstUnresolvedMetricIndex ? 'open' : ''}>
+          <summary class="metric-header">
             <div class="flex items-center gap-sm">
               <span class="metric-id">${m.id}</span>
-              <span class="metric-name">${m.name}</span>
+              <span>
+                <span class="metric-name">${m.name}</span>
+                <span class="metric-status ${isUnknown || isUnreviewed ? 'unknown' : isMigrationRequired ? 'needs-review' : 'confirmed'}">${statusText}</span>
+              </span>
             </div>
-            <div class="flex items-center gap-sm">
-              ${m.guidedQuestions ? `<button class="btn btn-sm btn-outline wizard-btn" data-metric="${m.id}" style="font-size: 11px; padding: 2px 8px;">Help me choose</button>` : ''}
-              <div class="metric-score-display" id="score-${m.id}">${displayValue}</div>
-            </div>
-          </div>
-          <div class="metric-definition" id="guide-${m.id}"><strong>Definition:</strong> ${escapeHtml(guidance.definition)}<br><strong>Excludes:</strong> ${escapeHtml(guidance.exclusions)}</div>
+            <div class="metric-score-display" id="score-${m.id}">${displayValue}</div>
+          </summary>
+          <div class="metric-body">
           <fieldset class="metric-anchor-choices" aria-describedby="guide-${m.id} desc-${m.id}">
             <legend class="sr-only">Select one ordinal anchor for ${escapeHtml(m.id)} ${escapeHtml(m.name)}</legend>
             ${[1, 2, 3, 4, 5].map(score => {
@@ -428,25 +530,35 @@ function renderStep(container) {
               </label>`;
             }).join('')}
           </fieldset>
-          <div class="metric-description" id="desc-${m.id}">${isUnknown ? 'Unknown — score 3 is used only to preview downstream behavior.' : isMigrationRequired ? 'Imported value needs a current 1–5 reassessment before software completeness can pass.' : isUnreviewed ? `Preview only: anchor ${val}. Select an anchor before this judgment counts as reviewed.` : `Confirmed anchor ${val}.`}</div>
+          <div class="metric-description" id="desc-${m.id}">${isUnknown
+            ? 'A neutral preview is shown for orientation. Resolve this metric before finalizing.'
+            : isMigrationRequired
+              ? 'Imported value needs a current 1–5 reassessment before software completeness can pass.'
+              : isUnreviewed
+                ? `<strong>Preview ${val}:</strong> ${escapeHtml(guidance.anchors[val])}`
+                : `<strong>Anchor ${val}:</strong> ${escapeHtml(guidance.anchors[val])}`}</div>
           <div class="metric-assessment-meta mt-sm">
-            <span class="metric-status ${isUnknown || isUnreviewed ? 'unknown' : isMigrationRequired ? 'needs-review' : 'confirmed'}">${statusText}</span>
-            <label class="metric-unknown-toggle"><input type="checkbox" class="metric-unknown" data-metric="${m.id}" aria-label="Mark ${m.id} ${escapeHtml(m.name)} as Unknown" ${isUnknown ? 'checked' : ''}> Unknown</label>
+            <span class="text-xs text-secondary">Select the closest evidence-backed anchor.</span>
+            <label class="metric-unknown-toggle"><input type="checkbox" class="metric-unknown" data-metric="${m.id}" aria-label="Mark ${m.id} ${escapeHtml(m.name)} as cannot assess yet" ${isUnknown ? 'checked' : ''}> Cannot assess yet</label>
           </div>
           ${assessment.status === 'not-applicable' ? '<div class="text-xs mt-sm" style="color:var(--accent-warning);">Imported N/A cannot pass software completeness. Choose an assessed 1–5 score or explicitly record Unknown.</div>' : ''}
-          <details class="assessor-guidance mt-md">
-            <summary>Provisional assessor guidance · manual ${escapeHtml(ASSESSOR_GUIDANCE_META.manualVersion)}</summary>
-            <div class="assessor-guidance-grid">
-              <div><strong>Evidence examples:</strong> ${escapeHtml(guidance.evidenceExamples)}</div>
-              <div><strong>Counterexample:</strong> ${escapeHtml(guidance.counterexample)}</div>
-              <div><strong>Reassess when:</strong> ${escapeHtml(guidance.reassessWhen)}</div>
-              <div><strong>Status:</strong> provisional content-review instrument; not validated or frozen.</div>
-            </div>
-          </details>
-          ${m.id === 'M15' ? renderAssuranceObligationControls() : ''}
-          ${renderMetricJustificationControls(m.id)}
+          <div class="metric-secondary-actions">
+            <details class="assessor-guidance">
+              <summary>Provisional assessor guidance · manual ${escapeHtml(ASSESSOR_GUIDANCE_META.manualVersion)}</summary>
+              <div class="assessor-guidance-grid" id="guide-${m.id}">
+                <div class="metric-definition"><strong>Definition:</strong> ${escapeHtml(guidance.definition)}<br><strong>Excludes:</strong> ${escapeHtml(guidance.exclusions)}</div>
+                <div><strong>Evidence examples:</strong> ${escapeHtml(guidance.evidenceExamples)}</div>
+                <div><strong>Counterexample:</strong> ${escapeHtml(guidance.counterexample)}</div>
+                <div><strong>Reassess when:</strong> ${escapeHtml(guidance.reassessWhen)}</div>
+                ${m.guidedQuestions ? `<div><button class="btn btn-sm btn-outline wizard-btn" data-metric="${m.id}" type="button">Help me choose</button></div>` : ''}
+              </div>
+            </details>
+            ${renderMetricJustificationControls(m.id)}
+            ${m.id === 'M15' ? renderAssuranceObligationControls() : ''}
+          </div>
           <div class="metric-wizard hidden" id="wizard-${m.id}" style="display: none; margin-top: 12px; padding: 16px; background: rgba(99,102,241,0.05); border-radius: 8px; border: 1px solid var(--accent-primary-light);"></div>
-        </div>`;
+          </div>
+        </details>`;
   }).join('')}
     </div>
   `;
@@ -587,6 +699,27 @@ function setMetricScore(metricId, value, contentContainer) {
   const unknownToggle = metricItem?.querySelector('.metric-unknown');
   if (unknownToggle) unknownToggle.checked = false;
 
+  refreshMetricReviewProgress(contentContainer);
+}
+
+function refreshMetricReviewProgress(contentContainer) {
+  const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
+  const assessmentRoot = contentContainer.closest('.assessment-container');
+  const coverage = assessmentRoot?.querySelector('.assessment-coverage');
+  if (coverage) {
+    coverage.setAttribute('aria-label', `${completeness.completeCount} of ${METRICS.length} metrics reviewed`);
+    const total = coverage.querySelector('strong');
+    if (total) total.textContent = `${completeness.completeCount}/${METRICS.length}`;
+  }
+
+  const metricItems = [...contentContainer.querySelectorAll('.metric-item[data-metric-id]')];
+  const dimensionReviewCount = contentContainer.querySelector('.dimension-review-count');
+  if (dimensionReviewCount && metricItems.length) {
+    const reviewed = metricItems.filter(item =>
+      ['assessed', 'inherited-confirmed'].includes(localMetricAssessments?.[item.dataset.metricId]?.status)
+    ).length;
+    dimensionReviewCount.textContent = `${reviewed}/${metricItems.length} reviewed in this section`;
+  }
 }
 
 function startWizard(metricId, contentContainer) {
@@ -726,7 +859,7 @@ function renderResults(content) {
     content.querySelector('#btn-review-first-metric')?.addEventListener('click', () => {
       currentStep = STEPS.findIndex(step => step.id === 'complexity');
       visitedSteps.add(currentStep);
-      renderAssessment(document.getElementById('main-content'));
+      renderAssessmentAtTop(document.getElementById('main-content'));
     });
     content.querySelector('#btn-open-neutral-preview')?.addEventListener('click', () => {
       showNeutralPreview = true;
@@ -766,7 +899,11 @@ function renderResults(content) {
     : activeNodeBeforeRun
       ? { ...(activeNodeBeforeRun.manualAdjustments || {}) }
       : { ...rootManualAdjustments };
-  const displayManualAdjustments = canApplyRule11Elevation && result.levels?.[27] === 'basic'
+  const existingP27Adjustment = activeManualAdjustments?.[27] || activeManualAdjustments?.['27'];
+  const rule11ElevationPending = canApplyRule11Elevation
+    && result.levels?.[27] === 'basic'
+    && existingP27Adjustment?.level !== 'standard';
+  const displayManualAdjustments = rule11ElevationPending
     ? {
       ...activeManualAdjustments,
       27: {
@@ -785,6 +922,11 @@ function renderResults(content) {
   const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
   const generalWarningDispositions = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
+  const openDecisionCount = (rule11Disposition.required && (!rule11Disposition.complete || rule11ElevationPending) ? 1 : 0)
+    + generalWarningDispositions.filter(assessment => !assessment.complete).length
+    + (csiReadiness.required && !csiReadiness.complete ? 1 : 0);
+  const firstIncompleteGeneralIndex = generalWarningDispositions.findIndex(assessment => !assessment.complete);
+  const hasDecisionWorkspace = rule11Disposition.required || generalWarningDispositions.length > 0 || csiReadiness.required;
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
   const processCard = (p) => {
     const level = displayLevels[p.id] || result.levels[p.id] || 'basic';
@@ -805,24 +947,39 @@ function renderResults(content) {
       ? (detail.triggerScore === 5 && detail.triggerMetrics?.some(metric => metric === 'M5' || metric === 'M7') ? 'Directly supported by a high-impact score' : 'Supported by more than one input')
       : confidence === 'available-with-justification' ? 'Needs a justification before using Comprehensive'
         : confidence === 'floor-applied' ? 'Minimum level set by a rule' : 'Supported by assessment inputs and rules';
-    return `<div class="result-card" style="border-left:3px solid var(--level-${level})">
-      <div class="result-card-header"><span class="result-process">${escapeHtml(p.name)}</span><span class="level-badge ${level}">${escapeHtml(level)}</span></div>
-      ${basicExcluded.excluded ? `<div class="text-xs" style="color:var(--accent-danger)">Basic is unavailable (${escapeHtml(basicExcluded.reason)})</div>` : ''}
-      ${wasOverridden ? '<div class="text-xs" style="color:var(--accent-warning)">Minimum level rule applied</div>' : ''}
-      ${wasFixed ? '<div class="text-xs" style="color:var(--accent-success)">Dependency consistency adjustment applied</div>' : ''}
-      ${confidence === 'available-with-justification' ? '<div class="text-xs" style="color:var(--accent-warning)">Review and justify before choosing Comprehensive</div>' : ''}
-      <div class="text-xs text-secondary mt-sm">Key input${triggerMetrics.includes(',') ? 's' : ''}: <strong>${escapeHtml(triggerMetrics)}</strong>${detail.triggerScore ? ` (score ${detail.triggerScore})` : ''}</div>
-      <div class="text-xs text-secondary">Support: <strong>${escapeHtml(confidenceLabel)}</strong></div>
-      <dl class="causality-grid" aria-label="Recommendation causality">
-        <div><dt>Derived</dt><dd>${escapeHtml(derivedLevel)}</dd></div>
-        <div><dt>Floor / closure</dt><dd>${escapeHtml(floorClosureLevel)}</dd></div>
-        <div><dt>Manual / disposition</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : '—'}</dd></div>
-        <div><dt>Local reduction scenario</dt><dd>${localScenarioAdjustment ? escapeHtml(localScenarioAdjustment) : '—'}</dd></div>
-        <div><dt>Pilot profile</dt><dd>${escapeHtml(level)}</dd></div>
-      </dl>
-      <div class="drivers-list mt-sm">${drivers.slice(0, 3).map(d => `<div class="driver-item"><span class="driver-badge ${d.role === 'P' ? 'primary' : 'secondary'}">${d.role === 'P' ? 'Main' : 'Also'}</span><span>${escapeHtml(d.metric)}: ${escapeHtml(d.value)}</span></div>`).join('')}</div>
-      <a class="btn btn-secondary btn-sm mt-sm process-detail-link" href="${escapeHtml(processDetailsHref(p.id, level, 'assessment'))}" aria-label="View ${escapeHtml(p.name)} ${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)} details">View guidance →</a>
-    </div>`;
+    const attentionLabels = [
+      basicExcluded.excluded ? 'Basic unavailable' : '',
+      wasOverridden ? 'Mandatory floor' : '',
+      wasFixed ? 'Dependency closure' : '',
+      confidence === 'available-with-justification' ? 'Justification needed' : '',
+      governedAdjustment ? 'Manual adjustment' : '',
+      localScenarioAdjustment ? 'Local scenario differs' : ''
+    ].filter(Boolean);
+    return `<article class="result-card" style="--recommendation-level:var(--level-${level})">
+      <div class="result-card-main">
+        <div class="result-card-header">
+          <div><span class="result-process">${escapeHtml(p.name)}</span><span class="result-process-id">P${escapeHtml(p.id)}</span></div>
+          <span class="level-badge ${level}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>
+        </div>
+        <div class="result-why">
+          <span>Driven by <strong>${escapeHtml(triggerMetrics)}</strong>${detail.triggerScore ? ` at ${detail.triggerScore}` : ''}</span>
+          <span>${escapeHtml(confidenceLabel)}</span>
+        </div>
+        ${attentionLabels.length ? `<div class="result-signals">${attentionLabels.map(label => `<span>${escapeHtml(label)}</span>`).join('')}</div>` : ''}
+        <div class="drivers-list">${drivers.slice(0, 2).map(d => `<span class="driver-item"><span class="driver-badge ${d.role === 'P' ? 'primary' : 'secondary'}">${d.role === 'P' ? 'Main' : 'Also'}</span>${escapeHtml(d.metric)} ${escapeHtml(d.value)}</span>`).join('')}</div>
+        <details class="result-derivation">
+          <summary>How this level was derived</summary>
+          <dl class="causality-grid" aria-label="Recommendation causality">
+            <div><dt>Metric result</dt><dd>${escapeHtml(derivedLevel)}</dd></div>
+            <div><dt>Rules and closure</dt><dd>${escapeHtml(floorClosureLevel)}</dd></div>
+            <div><dt>Recorded adjustment</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : 'None'}</dd></div>
+            <div><dt>Local scenario</dt><dd>${localScenarioAdjustment ? escapeHtml(localScenarioAdjustment) : 'No change'}</dd></div>
+            <div><dt>Recommended level</dt><dd>${escapeHtml(level)}</dd></div>
+          </dl>
+        </details>
+      </div>
+      <a class="btn btn-secondary btn-sm process-detail-link" href="${escapeHtml(processDetailsHref(p.id, level, 'assessment'))}" aria-label="View ${escapeHtml(p.name)} ${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)} details">View guidance →</a>
+    </article>`;
   };
   const priorityIds = new Set([
     ...result.overrides.map(item => item.processId),
@@ -834,7 +991,6 @@ function renderResults(content) {
   ].filter(Boolean).map(Number));
   const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id));
   const reviewFirst = priorityProcesses;
-  const metricNotesCount = METRICS.filter(metric => String(localMetricAssessments?.[metric.id]?.rationale || '').trim()).length;
   const hierarchyReadiness = assessHierarchyCompleteness(state.assessmentTree);
   const softwareChecksReady = completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReadiness.complete;
   const actionQueue = [
@@ -847,10 +1003,10 @@ function renderResults(content) {
         : 'This preview is not an authoritative organizational baseline.'
     },
     {
-      label: 'Unreviewed or Unknown metrics',
+      label: 'Metrics still to resolve',
       status: completeness.complete ? 'passed' : `${completeness.incompleteMetricIds.length} unresolved`,
       passed: completeness.complete,
-      detail: completeness.complete ? `All ${METRICS.length} judgments are confirmed or inherited-confirmed.` : completeness.incompleteMetricIds.join(', ')
+      detail: completeness.complete ? `All ${METRICS.length} judgments are confirmed.` : completeness.incompleteMetricIds.join(', ')
     },
     {
       label: 'Critical floors',
@@ -908,100 +1064,160 @@ function renderResults(content) {
   const visibleActionQueue = assessmentViewMode === 'issues'
     ? actionQueue.filter(item => !item.passed || item.label === 'Pilot process profile')
     : actionQueue;
-  content.innerHTML = `
+  const compactActionQueue = visibleActionQueue.filter(item =>
+    (!item.passed && item.label !== 'Baseline authority status')
+      || item.label === 'Pilot process profile'
+      || (assessmentViewMode !== 'issues' && item.neutral)
+  );
+  const statusMarkup = `
     <section class="action-queue" aria-labelledby="assessment-action-queue-title">
-      <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Unresolved action queue' : 'Assessment action queue'}</h3>
-      <p class="text-xs text-secondary mt-sm">Ordered from software state through recorded decisions to the pilot profile. Software checks do not verify approval authority.</p>
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">${assessmentViewMode === 'issues' ? 'Completion' : 'Status'}</p>
+          <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Items to resolve' : 'Review status'}</h3>
+        </div>
+        <span class="status-count">${compactActionQueue.filter(item => !item.passed).length} open</span>
+      </div>
       <ol class="action-queue-list">
-        ${visibleActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
+        ${compactActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
       </ol>
     </section>
     ${!completeness.complete ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
       <strong>Work in progress</strong>
       <div class="text-sm mt-sm"><strong>${completeness.completeCount}/${completeness.totalCount} reviewed</strong></div>
-      <div class="text-sm mt-sm">${completeness.incompleteMetricIds.length} metric judgment(s) remain unresolved: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}. Unknown, unreviewed, or migrated values can preview behavior, but software completeness cannot pass until they are resolved.</div>
+      <div class="text-sm mt-sm">${completeness.incompleteMetricIds.length} metric judgment(s) remain unresolved: ${escapeHtml(completeness.incompleteMetricIds.join(', '))}. Preview values help with orientation but cannot be finalized until they are resolved.</div>
     </div>` : ''}
     ${correlatedEvidence.warningCount ? `<div class="override-banner" style="background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4);">
       <strong>Correlated evidence review (${correlatedEvidence.warningCount})</strong>
       ${correlatedEvidence.warnings.map(warning => `<div class="text-sm mt-sm">${escapeHtml(warning.message)}</div>`).join('')}
       <div class="text-xs text-secondary mt-sm">Warning only: scores, recommended process levels, and closure are unchanged. If shared evidence is appropriate, add a distinct consequence analysis in the affected metrics' optional Justification note.</div>
-    </div>` : ''}
-    ${rule11Disposition.required ? `<fieldset class="mb-lg" style="border:2px solid ${rule11Disposition.complete ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
-      <legend style="font-weight:700;padding:0 6px;">Rule 11 / P12 disposition ${rule11Disposition.complete ? '✓' : 'required'}</legend>
-      <div class="text-xs text-secondary mb-sm">Comprehensive Verification with Validation below Standard remains a warning, not an automatic elevation. Record the project disposition before software completeness can pass; the warning remains visible.</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <select class="select" id="rule11-outcome" aria-label="Rule 11 disposition outcome">
-          <option value="">Select disposition...</option>
-          ${RULE_11_OUTCOMES.map(option => `<option value="${option.id}" ${localRuleDispositions?.['11']?.outcome === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-        </select>
-        <input class="input" id="rule11-owner" aria-label="Rule 11 asserted owner or approver role" placeholder="Asserted owner / approver role" value="${escapeHtml(localRuleDispositions?.['11']?.ownerApprover || '')}">
-        <input class="input" id="rule11-evidence" aria-label="Rule 11 evidence reference" placeholder="Evidence reference" value="${escapeHtml(localRuleDispositions?.['11']?.evidenceRef || '')}">
-        <input class="input" id="rule11-date" aria-label="Rule 11 review date" type="date" value="${escapeHtml(localRuleDispositions?.['11']?.reviewDate || '')}">
+    </div>` : ''}`;
+  const decisionWorkspaceMarkup = hasDecisionWorkspace ? `
+    <section class="decision-workspace mb-lg" aria-labelledby="decision-workspace-title">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">Decisions</p>
+          <h3 id="decision-workspace-title">${openDecisionCount ? `${openDecisionCount} item${openDecisionCount === 1 ? ' needs' : 's need'} attention` : 'Decision record complete'}</h3>
+          <p class="text-sm text-secondary mt-sm">Work one item at a time. The additional record fields appear after you choose a disposition.</p>
+        </div>
+        <span class="status-count">${openDecisionCount} open</span>
       </div>
-      <textarea class="input mt-sm" id="rule11-rationale" aria-label="Rule 11 disposition rationale" rows="3" placeholder="Rationale and compensating controls">${escapeHtml(localRuleDispositions?.['11']?.rationale || '')}</textarea>
-      <div class="text-xs mt-sm" id="rule11-disposition-status" style="color:${rule11Disposition.complete || canApplyRule11Elevation ? 'var(--accent-success)' : 'var(--accent-warning)'};">${rule11Disposition.complete
-        ? 'Disposition complete.'
-        : canApplyRule11Elevation
-          ? 'Ready: checking software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
-        : `Incomplete: ${escapeHtml(rule11Disposition.missingFields.join(', '))}${rule11Disposition.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`}</div>
-    </fieldset>` : ''}
-    ${generalWarningDispositions.length ? `<fieldset class="mb-lg" style="border:2px solid ${generalWarningDispositions.every(item => item.complete) ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
-      <legend style="font-weight:700;padding:0 6px;">Other warning dispositions ${generalWarningDispositions.every(item => item.complete) ? '✓' : 'required'}</legend>
-      <div class="text-xs text-secondary mb-sm">Every triggered, unsatisfied warning must be consciously dispositioned before software completeness can pass. A disposition records governance only: it does not suppress the warning or change a process level.</div>
-      ${generalWarningDispositions.map(assessment => {
+      ${rule11Disposition.required ? `<details class="decision-item rule11-decision" ${rule11ElevationPending || !rule11Disposition.complete ? 'open' : ''}>
+        <summary>
+          <span><small>Rule 11 · verification and validation</small><strong>Align validation evidence with the verification level</strong></span>
+          <span class="decision-state ${rule11Disposition.complete || rule11ElevationPending ? 'complete' : ''}">${rule11ElevationPending ? 'Ready to apply' : rule11Disposition.complete ? 'Recorded' : 'Decision needed'}</span>
+        </summary>
+        <div class="decision-body">
+          <p class="text-sm text-secondary">Verification is Comprehensive while Validation is below Standard. Choose whether the current evidence is sufficient or Validation should be raised. The warning remains visible either way.</p>
+          <label class="decision-field mt-md">
+            <span>Disposition</span>
+            <select class="select" id="rule11-outcome" aria-label="Rule 11 disposition outcome">
+              <option value="">Choose an outcome...</option>
+              ${RULE_11_OUTCOMES.map(option => `<option value="${option.id}" ${localRuleDispositions?.['11']?.outcome === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
+            </select>
+          </label>
+          <div class="decision-record-fields ${localRuleDispositions?.['11']?.outcome ? '' : 'is-pending'}" id="rule11-record-fields">
+            <label class="decision-field"><span>Owner or approver role</span><input class="input" id="rule11-owner" aria-label="Rule 11 asserted owner or approver role" value="${escapeHtml(localRuleDispositions?.['11']?.ownerApprover || '')}"></label>
+            <label class="decision-field"><span>Evidence reference</span><input class="input" id="rule11-evidence" aria-label="Rule 11 evidence reference" value="${escapeHtml(localRuleDispositions?.['11']?.evidenceRef || '')}"></label>
+            <label class="decision-field"><span>Review date</span><input class="input" id="rule11-date" aria-label="Rule 11 review date" type="date" value="${escapeHtml(localRuleDispositions?.['11']?.reviewDate || '')}"></label>
+            <label class="decision-field decision-field-wide"><span>Rationale and controls</span><textarea class="input" id="rule11-rationale" aria-label="Rule 11 disposition rationale" rows="3">${escapeHtml(localRuleDispositions?.['11']?.rationale || '')}</textarea></label>
+          </div>
+          <div class="decision-feedback" id="rule11-disposition-status" role="status" aria-live="polite">${rule11ElevationPending
+            ? 'Ready to apply the explicit Process 27 adjustment when completeness is checked.'
+            : rule11Disposition.complete
+              ? 'Decision recorded.'
+              : 'Choose an outcome and complete its decision record.'}</div>
+        </div>
+      </details>` : ''}
+      ${generalWarningDispositions.map((assessment, index) => {
         const id = escapeHtml(assessment.ruleId);
         const record = localRuleDispositions?.[assessment.ruleId] || {};
-        return `<details class="warning-disposition" data-rule-id="${id}" open style="border-top:1px solid rgba(245,158,11,.25);padding:10px 0;">
-          <summary class="text-sm"><strong>Rule ${id}</strong>: ${escapeHtml(assessment.violation?.label || 'Triggered warning')} — <span class="warning-disposition-summary">${assessment.complete ? 'complete' : `missing ${escapeHtml(assessment.missingFields.join(', '))}`}</span></summary>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" class="mt-sm">
-            <select class="select warning-outcome" aria-label="Rule ${id} disposition outcome">
-              <option value="">Select disposition...</option>
+        return `<details class="warning-disposition decision-item" data-rule-id="${id}" ${(!rule11Disposition.required || rule11Disposition.complete) && index === firstIncompleteGeneralIndex ? 'open' : ''}>
+          <summary>
+            <span><small>Rule ${id}</small><strong>${escapeHtml(assessment.violation?.label || 'Triggered warning')}</strong></span>
+            <span class="warning-disposition-summary decision-state ${assessment.complete ? 'complete' : ''}" aria-live="polite">${assessment.complete ? 'complete' : 'needs decision'}</span>
+          </summary>
+          <div class="decision-body">
+            <p class="text-sm text-secondary">Record how the project will handle this warning. The choice documents governance; it does not hide the warning or change a process level.</p>
+            <label class="decision-field mt-md"><span>Disposition</span><select class="select warning-outcome" aria-label="Rule ${id} disposition outcome">
+              <option value="">Choose an outcome...</option>
               ${GENERAL_WARNING_OUTCOMES.map(option => `<option value="${option.id}" ${record.outcome === option.id ? 'selected' : ''}>${escapeHtml(option.label)}</option>`).join('')}
-            </select>
-            <input class="input warning-owner" aria-label="Rule ${id} asserted owner or approver role" placeholder="Asserted owner / approver role" value="${escapeHtml(record.ownerApprover || '')}">
-            <input class="input warning-evidence" aria-label="Rule ${id} evidence reference" placeholder="Evidence reference" value="${escapeHtml(record.evidenceRef || '')}">
-            <input class="input warning-date" aria-label="Rule ${id} review date" type="date" value="${escapeHtml(record.reviewDate || '')}">
+            </select></label>
+            <div class="decision-record-fields ${record.outcome ? '' : 'is-pending'}">
+              <label class="decision-field"><span>Owner or approver role</span><input class="input warning-owner" aria-label="Rule ${id} asserted owner or approver role" value="${escapeHtml(record.ownerApprover || '')}"></label>
+              <label class="decision-field"><span>Evidence reference</span><input class="input warning-evidence" aria-label="Rule ${id} evidence reference" value="${escapeHtml(record.evidenceRef || '')}"></label>
+              <label class="decision-field"><span>Review date</span><input class="input warning-date" aria-label="Rule ${id} review date" type="date" value="${escapeHtml(record.reviewDate || '')}"></label>
+              <label class="decision-field decision-field-wide"><span>Rationale and controls</span><textarea class="input warning-rationale" aria-label="Rule ${id} rationale and controls" rows="2">${escapeHtml(record.rationale || '')}</textarea></label>
+            </div>
           </div>
-          <textarea class="input mt-sm warning-rationale" aria-label="Rule ${id} rationale and controls" rows="2" placeholder="Rationale and compensating controls">${escapeHtml(record.rationale || '')}</textarea>
         </details>`;
       }).join('')}
-    </fieldset>` : ''}
-    ${csiReadiness.required ? `<fieldset class="mb-lg" style="border:2px solid ${csiReadiness.complete ? 'rgba(52,211,153,.45)' : 'rgba(245,158,11,.45)'};border-radius:10px;padding:14px 16px;">
-      <legend style="font-weight:700;padding:0 6px;">CSI ${csiReadiness.csi} ${csiReadiness.expectedResponseType === 'sponsor-escalation' ? 'sponsor escalation' : 'feasibility review'} ${csiReadiness.complete ? '✓' : 'required'}</legend>
-      <div class="text-xs text-secondary mb-sm">High schedule/budget pressure requires a governed feasibility response. This record cannot change process levels or accept right-sizing proposals.</div>
-      <input type="hidden" id="csi-response-type" value="${csiReadiness.expectedResponseType}">
-      <div class="text-xs mb-sm" style="font-weight:700;">Selected response actions</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:6px 12px;">
-        ${CSI_RESPONSE_ACTIONS.map(action => `<label class="text-xs"><input type="checkbox" class="csi-action" value="${action.id}" ${(localCsiResponse.selectedActions || []).includes(action.id) ? 'checked' : ''}> ${escapeHtml(action.label)}</label>`).join('')}
-      </div>
-      <textarea class="input mt-sm" id="csi-protected-outputs" aria-label="CSI protected outputs and evidence" rows="2" placeholder="Protected outputs/evidence that must not be reduced">${escapeHtml(localCsiResponse.protectedOutputs || '')}</textarea>
-      <textarea class="input mt-sm" id="csi-rationale" aria-label="CSI rationale and decision" rows="2" placeholder="Feasibility rationale and decision">${escapeHtml(localCsiResponse.rationaleDecision || '')}</textarea>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;" class="mt-sm">
-        <input class="input" id="csi-owner" aria-label="CSI asserted owner or approver role" placeholder="Asserted ${csiReadiness.csi >= 5 ? 'sponsor / approver' : 'owner / approver'} role" value="${escapeHtml(localCsiResponse.ownerApprover || '')}">
-        <input class="input" id="csi-evidence" aria-label="CSI evidence reference" placeholder="Evidence reference" value="${escapeHtml(localCsiResponse.evidenceRef || '')}">
-        <input class="input" id="csi-date" aria-label="CSI review date" type="date" value="${escapeHtml(localCsiResponse.reviewDate || '')}">
-      </div>
-      <div class="text-xs mt-sm" id="csi-response-status" style="color:${csiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)'};">${csiReadiness.complete ? 'Constraint response complete.' : `Incomplete: ${escapeHtml(csiReadiness.missingFields.join(', '))}`}</div>
-    </fieldset>` : ''}
-    <h3 class="mb-sm">Assessment results</h3>
-    <p class="result-guidance mb-lg">Review the profile at a glance, then open the complete process breakdown when you need the supporting inputs.</p>
+      ${csiReadiness.required ? `<details class="decision-item csi-decision" ${(!rule11Disposition.required || rule11Disposition.complete) && firstIncompleteGeneralIndex === -1 && !csiReadiness.complete ? 'open' : ''}>
+        <summary>
+          <span><small>Delivery feasibility · CSI ${csiReadiness.csi}</small><strong>${csiReadiness.expectedResponseType === 'sponsor-escalation' ? 'Escalate delivery feasibility' : 'Agree the feasibility response'}</strong></span>
+          <span class="decision-state ${csiReadiness.complete ? 'complete' : ''}">${csiReadiness.complete ? 'Recorded' : 'Response needed'}</span>
+        </summary>
+        <div class="decision-body">
+          <p class="text-sm text-secondary">High schedule or budget pressure needs an explicit response. This record does not lower required process rigor.</p>
+          <input type="hidden" id="csi-response-type" value="${csiReadiness.expectedResponseType}">
+          <fieldset class="decision-actions mt-md">
+            <legend>Response actions</legend>
+            ${CSI_RESPONSE_ACTIONS.map(action => `<label><input type="checkbox" class="csi-action" value="${action.id}" ${(localCsiResponse.selectedActions || []).includes(action.id) ? 'checked' : ''}> ${escapeHtml(action.label)}</label>`).join('')}
+          </fieldset>
+          <div class="decision-record-fields">
+            <label class="decision-field decision-field-wide"><span>Protected outputs and evidence</span><textarea class="input" id="csi-protected-outputs" aria-label="CSI protected outputs and evidence" rows="2">${escapeHtml(localCsiResponse.protectedOutputs || '')}</textarea></label>
+            <label class="decision-field decision-field-wide"><span>Feasibility rationale and decision</span><textarea class="input" id="csi-rationale" aria-label="CSI rationale and decision" rows="2">${escapeHtml(localCsiResponse.rationaleDecision || '')}</textarea></label>
+            <label class="decision-field"><span>${csiReadiness.csi >= 5 ? 'Sponsor or approver role' : 'Owner or approver role'}</span><input class="input" id="csi-owner" aria-label="CSI asserted owner or approver role" value="${escapeHtml(localCsiResponse.ownerApprover || '')}"></label>
+            <label class="decision-field"><span>Evidence reference</span><input class="input" id="csi-evidence" aria-label="CSI evidence reference" value="${escapeHtml(localCsiResponse.evidenceRef || '')}"></label>
+            <label class="decision-field"><span>Review date</span><input class="input" id="csi-date" aria-label="CSI review date" type="date" value="${escapeHtml(localCsiResponse.reviewDate || '')}"></label>
+          </div>
+          <div class="decision-feedback" id="csi-response-status" role="status" aria-live="polite">${csiReadiness.complete ? 'Response recorded.' : 'Incomplete: finish the response record.'}</div>
+        </div>
+      </details>` : ''}
+    </section>` : '';
+  content.innerHTML = `
+    <nav class="assessment-result-tabs" aria-label="Assessment review sections">
+      <button type="button" class="${assessmentViewMode !== 'issues' ? 'active' : ''}" data-result-route="review" aria-pressed="${assessmentViewMode !== 'issues'}">Recommendations</button>
+      <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Decisions${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
+    </nav>
+    <div class="recommendation-overview ${assessmentViewMode === 'issues' ? 'issues-hidden' : ''}">
+    <h3 class="mb-sm">Tailoring profile</h3>
+    <p class="result-guidance mb-lg">Use the shape to spot pressure areas, then review only the processes that depart from the baseline or need a decision.</p>
     <div class="results-overview mb-lg">
       <section class="results-summary">
-        <h4>Assessment at a glance</h4>
-        <div class="grid-3">
-          <div><div class="stat-value" style="color:var(--level-comprehensive)">${Object.values(result.levels).filter(l => l === 'comprehensive').length}</div><div class="stat-label">Comprehensive processes</div></div>
-          <div><div class="stat-value" style="color:var(--accent-warning)">${result.violations.length}</div><div class="stat-label">Warnings to review</div></div>
-          <div><div class="stat-value">${metricNotesCount}/${METRICS.length}</div><div class="stat-label">Optional notes added</div></div>
-        </div>
-        <p class="text-xs text-secondary mt-md">Notes are optional. Metrics without notes still use the score you selected.</p>
+        <p class="eyebrow">At a glance</p>
+        <div class="result-stat"><strong>${reviewFirst.length}</strong><span>process${reviewFirst.length === 1 ? '' : 'es'} to review first</span></div>
+        <div class="result-stat"><strong>${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1)}</strong><span>decision${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1) === 1 ? '' : 's'} still needed</span></div>
+        <div class="result-stat"><strong>${completeness.completeCount}/${METRICS.length}</strong><span>metric judgments confirmed</span></div>
         <p class="result-priority-note text-sm mt-lg">${reviewFirst.length
-          ? `${reviewFirst.length} process${reviewFirst.length === 1 ? '' : 'es'} need focused review below.`
-          : 'No priority process review is needed for this profile.'}</p>
+          ? 'Start with the process list below. Routine recommendations remain in the full profile.'
+          : 'No process needs focused review. Continue with the baseline profile or open a work aid as needed.'}</p>
       </section>
-      <section class="results-visual">${renderOrdinalMetricProfile(localScores, localMetricAssessments, METRICS, DIMENSIONS)}</section>
+      <section class="results-visual">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, {
+        idPrefix: 'assessment-profile',
+        metricAssessments: localMetricAssessments,
+        description: 'The sixteen metric scores grouped into four assessment areas.'
+      })}</section>
     </div>
-    ${reviewFirst.length ? `<section class="priority-guidance mb-lg"><h4 class="mb-md">Priority process guidance</h4><div class="results-grid">${reviewFirst.map(processCard).join('')}</div></section>` : ''}
-    
+    <section class="priority-guidance mb-lg">
+      <div class="section-heading-row">
+        <div>
+          <p class="eyebrow">Recommendations</p>
+          <h4>${reviewFirst.length ? 'Review these processes first' : 'No exceptions to review first'}</h4>
+        </div>
+        <span class="text-xs text-secondary">${reviewFirst.length ? `${reviewFirst.length} of ${CORE_PROCESSES.length}` : 'Baseline profile'}</span>
+      </div>
+      ${reviewFirst.length
+        ? `<div class="process-guidance-list">${reviewFirst.map(processCard).join('')}</div>`
+        : `<div class="baseline-guidance-empty"><p>The assessment does not create a special priority list. Use the full process profile below when you need a specific work aid.</p><a class="btn btn-secondary btn-sm process-detail-link" href="${escapeHtml(processDetailsHref(CORE_PROCESSES[0].id, displayLevels[CORE_PROCESSES[0].id] || 'standard', 'assessment'))}">Open process work aids →</a></div>`}
+    </section>
+    </div>
+    ${statusMarkup}
+    ${decisionWorkspaceMarkup}
+
+    <details class="results-breakdown governance-detail">
+      <summary>Technical checks and governance trace</summary>
+      <div class="results-breakdown-body">
     <div class="sa-tier-result mb-lg" style="background: ${tierColors[saTier.tier]}15; border: 2px solid ${tierColors[saTier.tier]}; border-radius: 12px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
       <div>
         <div class="text-sm text-secondary">Safety Assurance Criticality Tier (derived from M5: Safety Impact = ${m5Val})</div>
@@ -1069,13 +1285,15 @@ function renderResults(content) {
         <strong>Remaining Warnings (${result.violations.length})</strong>
         ${result.violations.map(v => `<div class="text-sm mt-sm">• Rule ${v.ruleId} [${v.type}]: ${v.label}</div>`).join('')}
       </div>` : ''}
+      </div>
+    </details>
     <details class="results-breakdown">
-      <summary>Review all ${CORE_PROCESSES.length} process recommendations</summary>
+      <summary>Open the full ${CORE_PROCESSES.length}-process profile</summary>
       <div class="results-breakdown-body">
-        <p class="text-sm text-secondary mb-lg">Use this complete breakdown to verify every recommendation, supporting input, and detailed level guide.</p>
+        <p class="text-sm text-secondary mb-lg">Use the work-aid links for activities, deliverables, and level comparisons. Derivation detail stays collapsed until you need it.</p>
     ${Object.entries(groupByGroup).map(([group, procs]) => `
       <h4 class="mb-md mt-lg" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h4>
-      <div class="results-grid">
+      <div class="process-guidance-list">
         ${procs.map(processCard).join('')}
       </div>
     `).join('')}
@@ -1087,21 +1305,24 @@ function renderResults(content) {
   let currentCsiReadiness = csiReadiness;
   let currentRule11Readiness = rule11Disposition;
   let currentWarningReadiness = warningDispositions;
-  let currentRule11ElevationReady = canApplyRule11Elevation;
+  let currentRule11ElevationReady = rule11ElevationPending;
   const updateCompleteButton = () => {
     if (!completeButton || !completeness.complete) return;
     if (!currentCsiReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
+    } else if (currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')) {
+      completeButton.textContent = 'Apply P27 Adjustment & Check Completeness';
     } else if (!currentRule11Readiness.complete) {
-      completeButton.textContent = currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')
-        ? 'Apply P27 Adjustment & Check Completeness'
-        : 'Save Work in Progress (Rule 11 disposition required)';
+      completeButton.textContent = 'Save Work in Progress (Rule 11 disposition required)';
     } else if (!currentWarningReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
     } else {
       completeButton.textContent = 'Check Software Completeness';
     }
   };
+  content.querySelectorAll('[data-result-route]').forEach(button => {
+    button.addEventListener('click', () => navigateTo(button.dataset.resultRoute));
+  });
   content.querySelectorAll('.process-detail-link').forEach(link => {
     link.addEventListener('click', event => {
       event.preventDefault();
@@ -1110,12 +1331,14 @@ function renderResults(content) {
   });
   const refreshRule11Record = () => {
     if (!rule11Disposition.required) return;
+    const selectedOutcome = content.querySelector('#rule11-outcome')?.value || '';
+    content.querySelector('#rule11-record-fields')?.classList.toggle('is-pending', !selectedOutcome);
     localRuleDispositions = {
       ...localRuleDispositions,
       11: {
         ruleId: 11,
         propagationId: 'P12',
-        outcome: content.querySelector('#rule11-outcome')?.value || '',
+        outcome: selectedOutcome,
         rationale: content.querySelector('#rule11-rationale')?.value.trim() || '',
         ownerApprover: content.querySelector('#rule11-owner')?.value.trim() || '',
         evidenceRef: content.querySelector('#rule11-evidence')?.value.trim() || '',
@@ -1125,18 +1348,36 @@ function renderResults(content) {
     commitAssessmentDraft();
     const status = assessRule11Disposition(result.violations, localRuleDispositions, displayLevels);
     const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
-    const readyToApplyElevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && elevatedPreview.complete;
+    const readyToApplyElevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation'
+      && elevatedPreview.complete
+      && result.levels?.[27] === 'basic'
+      && existingP27Adjustment?.level !== 'standard';
     currentRule11Readiness = status;
     currentRule11ElevationReady = readyToApplyElevation;
     currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
     const statusNode = content.querySelector('#rule11-disposition-status');
     if (statusNode) {
-      statusNode.style.color = status.complete || readyToApplyElevation ? 'var(--accent-success)' : 'var(--accent-warning)';
-      statusNode.textContent = status.complete
-        ? 'Disposition complete.'
-        : readyToApplyElevation
-          ? 'Ready: checking software completeness will create an explicit governed manual adjustment raising Process 27 to Standard. This is not automatic closure or verified approval.'
-        : `Incomplete: ${status.missingFields.join(', ')}${status.missingFields.includes('validationLevel') ? '. Process 27 must actually be Standard or Comprehensive for the elevated-validation outcome.' : ''}`;
+      statusNode.textContent = readyToApplyElevation
+        ? 'Ready to apply the explicit Process 27 adjustment when completeness is checked.'
+        : status.complete
+          ? 'Decision recorded.'
+          : 'Choose an outcome and complete its decision record.';
+    }
+    const decisionState = content.querySelector('.rule11-decision .decision-state');
+    if (decisionState) {
+      decisionState.textContent = readyToApplyElevation ? 'Ready to apply' : status.complete ? 'Recorded' : 'Decision needed';
+      decisionState.classList.toggle('complete', status.complete || readyToApplyElevation);
+    }
+    const rule11Section = content.querySelector('.rule11-decision');
+    if ((status.complete || readyToApplyElevation) && rule11Section?.open) {
+      rule11Section.open = false;
+      const nextWarning = [...content.querySelectorAll('.warning-disposition')]
+        .find(section => !section.querySelector('.warning-disposition-summary')?.classList.contains('complete'));
+      if (nextWarning) nextWarning.open = true;
+      else {
+        const csiSection = content.querySelector('.csi-decision');
+        if (csiSection && !currentCsiReadiness.complete) csiSection.open = true;
+      }
     }
     updateCompleteButton();
   };
@@ -1147,11 +1388,13 @@ function renderResults(content) {
   }
   const refreshGeneralWarningRecord = (section) => {
     const ruleId = section.dataset.ruleId;
+    const selectedOutcome = section.querySelector('.warning-outcome')?.value || '';
+    section.querySelector('.decision-record-fields')?.classList.toggle('is-pending', !selectedOutcome);
     localRuleDispositions = {
       ...localRuleDispositions,
       [ruleId]: {
         ruleId: /^\d+$/.test(ruleId) ? Number(ruleId) : ruleId,
-        outcome: section.querySelector('.warning-outcome')?.value || '',
+        outcome: selectedOutcome,
         rationale: section.querySelector('.warning-rationale')?.value.trim() || '',
         ownerApprover: section.querySelector('.warning-owner')?.value.trim() || '',
         evidenceRef: section.querySelector('.warning-evidence')?.value.trim() || '',
@@ -1162,7 +1405,20 @@ function renderResults(content) {
     currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
     const assessment = currentWarningReadiness.assessments.find(item => item.ruleId === ruleId);
     const summary = section.querySelector('.warning-disposition-summary');
-    if (summary && assessment) summary.textContent = assessment.complete ? 'complete' : `missing ${assessment.missingFields.join(', ')}`;
+    if (summary && assessment) {
+      summary.textContent = assessment.complete ? 'complete' : 'needs decision';
+      summary.classList.toggle('complete', assessment.complete);
+    }
+    if (assessment?.complete && section.open) {
+      section.open = false;
+      const nextWarning = [...content.querySelectorAll('.warning-disposition')]
+        .find(candidate => candidate !== section && !candidate.querySelector('.warning-disposition-summary')?.classList.contains('complete'));
+      if (nextWarning) nextWarning.open = true;
+      else {
+        const csiSection = content.querySelector('.csi-decision');
+        if (csiSection && !currentCsiReadiness.complete) csiSection.open = true;
+      }
+    }
     updateCompleteButton();
   };
   content.querySelectorAll('.warning-disposition').forEach(section => {
@@ -1185,8 +1441,12 @@ function renderResults(content) {
     currentCsiReadiness = assessCsiResponse(localScores, localCsiResponse);
     const statusNode = content.querySelector('#csi-response-status');
     if (statusNode) {
-      statusNode.style.color = currentCsiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)';
-      statusNode.textContent = currentCsiReadiness.complete ? 'Constraint response complete.' : `Incomplete: ${currentCsiReadiness.missingFields.join(', ')}`;
+      statusNode.textContent = currentCsiReadiness.complete ? 'Response recorded.' : 'Incomplete: finish the response record.';
+    }
+    const decisionState = content.querySelector('.csi-decision .decision-state');
+    if (decisionState) {
+      decisionState.textContent = currentCsiReadiness.complete ? 'Recorded' : 'Response needed';
+      decisionState.classList.toggle('complete', currentCsiReadiness.complete);
     }
     updateCompleteButton();
   };

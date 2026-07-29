@@ -93,8 +93,9 @@ function focusRouteHeading(container) {
 
 export function initRouter(container) {
     function updateNavState(route) {
+        const primaryRoute = ['review', 'issues'].includes(route) ? 'assessment' : route;
         document.querySelectorAll('.nav-link').forEach(el => {
-            el.classList.toggle('active', el.dataset.route === route);
+            el.classList.toggle('active', el.dataset.route === primaryRoute);
         });
 
         document.querySelectorAll('.nav-dropdown').forEach(dropdown => {
@@ -104,8 +105,8 @@ export function initRouter(container) {
         });
 
         const mobileRouteSelect = document.querySelector('#mobile-route-select');
-        if (mobileRouteSelect && mobileRouteSelect.value !== route) {
-            mobileRouteSelect.value = route;
+        if (mobileRouteSelect && mobileRouteSelect.value !== primaryRoute) {
+            mobileRouteSelect.value = primaryRoute;
         }
     }
 

@@ -30,7 +30,11 @@ async function confirmAllMetrics(page, scoreOverrides = {}) {
     await page.getByRole('button', { name: `Go to ${step} step` }).click();
     for (const metricId of metricIds) {
       const score = scoreOverrides[metricId] || 3;
-      await page.getByRole('radio', { name: new RegExp(`${metricId} score ${score}:`) }).check();
+      const metric = page.locator(`.metric-item[data-metric-id="${metricId}"]`);
+      if (!(await metric.evaluate(element => element.open))) {
+        await metric.locator('summary.metric-header').click();
+      }
+      await metric.getByRole('radio', { name: new RegExp(`${metricId} score ${score}:`) }).check();
     }
   }
 }
@@ -45,7 +49,7 @@ test('untouched preview values remain 0 of 16 reviewed and cannot produce a pilo
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
 
-  await expect(page.getByText('0/16 reviewed')).toBeVisible();
+  await expect(page.getByLabel('0 of 16 metrics reviewed')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toHaveCount(0);
 
@@ -82,8 +86,10 @@ test('five-anchor choices expose provisional guidance and wizard recommendations
   await metric.getByRole('button', { name: 'Confirm anchor 5' }).click();
   await expect(metric.getByText('Assessed 1–5 score')).toBeVisible();
   await expect(metric.getByRole('radio', { name: /M1 score 5:/ })).toBeChecked();
+  await expect(page.getByLabel('1 of 16 metrics reviewed')).toBeVisible();
+  await expect(page.getByText('1/4 reviewed in this section')).toBeVisible();
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText('1/16 reviewed')).toBeVisible();
+  await expect(page.getByLabel('1 of 16 metrics reviewed')).toBeVisible();
 });
 
 test('confirmed anchor and project code survive route navigation and autosave restore', async ({ page }) => {
@@ -95,14 +101,18 @@ test('confirmed anchor and project code survive route navigation and autosave re
 
   await page.getByRole('button', { name: 'Go to dashboard' }).click();
   await expect(page.getByText('1/16 reviewed')).toBeVisible();
-  await page.getByRole('button', { name: 'Assess', exact: true }).click();
+  await page.getByRole('button', { name: 'Assessment', exact: true }).click();
 
   await page.getByRole('button', { name: 'Go to Project Info step' }).click();
   await expect(page.getByLabel('Project code')).toHaveValue('PERSIST-04');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
-  await expect(page.getByRole('radio', { name: /M1 score 4:/ })).toBeChecked();
+  const restoredM1 = page.locator('.metric-item[data-metric-id="M1"]');
+  if (!(await restoredM1.evaluate(element => element.open))) {
+    await restoredM1.locator('summary.metric-header').click();
+  }
+  await expect(restoredM1.getByRole('radio', { name: /M1 score 4:/ })).toBeChecked();
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText('1/16 reviewed')).toBeVisible();
+  await expect(page.getByLabel('1 of 16 metrics reviewed')).toBeVisible();
 
   await expect.poll(() => page.evaluate(key => {
     const saved = JSON.parse(localStorage.getItem(key) || '{}');
@@ -111,13 +121,17 @@ test('confirmed anchor and project code survive route navigation and autosave re
   }, AUTOSAVE_KEY), { timeout: 8000 }).toBe('PERSIST-04|4|assessed|4|manual');
 
   await restoreAutosave(page);
-  await page.getByRole('button', { name: 'Assess', exact: true }).click();
+  await page.getByRole('button', { name: 'Assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Go to Project Info step' }).click();
   await expect(page.getByLabel('Project code')).toHaveValue('PERSIST-04');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
-  await expect(page.getByRole('radio', { name: /M1 score 4:/ })).toBeChecked();
+  const autosavedM1 = page.locator('.metric-item[data-metric-id="M1"]');
+  if (!(await autosavedM1.evaluate(element => element.open))) {
+    await autosavedM1.locator('summary.metric-header').click();
+  }
+  await expect(autosavedM1.getByRole('radio', { name: /M1 score 4:/ })).toBeChecked();
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByText('1/16 reviewed')).toBeVisible();
+  await expect(page.getByLabel('1 of 16 metrics reviewed')).toBeVisible();
 });
 
 test('partial CSI response survives autosave restore without passing completeness', async ({ page }) => {
@@ -136,7 +150,7 @@ test('partial CSI response survives autosave restore without passing completenes
   }, AUTOSAVE_KEY), { timeout: 8000 }).toBe('Draft feasibility rationale|Draft feasibility rationale|16');
 
   await restoreAutosave(page);
-  await page.getByRole('button', { name: 'Assess', exact: true }).click();
+  await page.getByRole('button', { name: 'Assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByLabel('CSI rationale and decision')).toHaveValue('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
@@ -151,7 +165,7 @@ test('editing a completed baseline immediately demotes it to work in progress', 
   await page.getByRole('button', { name: 'Check Software Completeness' }).click();
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Assess', exact: true }).click();
+  await page.getByRole('button', { name: 'Assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
   await page.getByRole('radio', { name: /M1 score 4:/ }).check();
   await page.getByRole('button', { name: 'Go to dashboard' }).click();
