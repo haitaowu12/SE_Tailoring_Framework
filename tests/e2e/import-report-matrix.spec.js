@@ -327,7 +327,10 @@ for (const scenario of [
     await page.getByLabel('CSI rationale and decision').fill('Add capacity and preserve the protected evidence set.');
     await page.getByLabel('CSI asserted owner or approver role').fill(scenario.owner);
     await page.getByLabel('CSI evidence reference').fill(`CSI-${scenario.csi}-DECISION`);
-    await page.getByLabel('CSI review date').fill('2026-07-10');
+    await page.getByLabel('CSI review date').evaluate(input => {
+      input.value = '2026-07-10';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     await expect(csiDecision.locator('.decision-state.complete')).toHaveText('Recorded');
     const completenessButton = page.getByRole('button', { name: 'Check Software Completeness' });
     await expect(completenessButton).toBeVisible();
