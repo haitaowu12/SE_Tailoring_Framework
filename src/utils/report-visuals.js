@@ -237,3 +237,20 @@ export function renderOrdinalMetricProfile(scores = {}, metricAssessments = {}, 
       }).join('')}
     </div>`;
 }
+
+/** Compact categorical summary. Unknown and unreviewed values never look confirmed. */
+export function renderMetricRatingTable(scores = {}, metricAssessments = {}, metrics = []) {
+    return `<div class="metric-rating-summary"><h4>Project ratings</h4>
+      <p class="text-sm text-secondary">Ratings describe different project conditions. Read each against its own description; do not add or average them.</p>
+      <table class="metric-rating-table"><caption class="sr-only">Project ratings and review states</caption>
+      <thead><tr><th scope="col">Question</th><th scope="col">Rating</th><th scope="col">Review state</th></tr></thead>
+      <tbody>${metrics.map(metric => {
+        const assessment = metricAssessments[metric.id] || {};
+        const valid = Number.isInteger(scores[metric.id]) && scores[metric.id] >= 1 && scores[metric.id] <= 5;
+        const confirmed = valid && ['assessed', 'inherited-confirmed'].includes(assessment.status)
+          && assessment.score === scores[metric.id];
+        const status = confirmed ? (assessment.status === 'inherited-confirmed' ? 'Inherited and confirmed' : 'Confirmed')
+          : assessment.status === 'unknown' ? 'Unknown' : 'Unreviewed';
+        return `<tr><th scope="row">${escapeHtml(metric.id)} ${escapeHtml(metric.name)}</th><td>${confirmed ? scores[metric.id] : '—'}</td><td>${status}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+}

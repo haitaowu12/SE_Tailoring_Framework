@@ -111,7 +111,7 @@ test('legacy schema-2 scores remain readable but become unconfirmed work in prog
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.1',
+      frameworkVersion: '4.2.0',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -128,7 +128,7 @@ test('legacy schema-2 scores remain readable but become unconfirmed work in prog
   assert.equal(normalized.levels[9], 'standard', 'Historical result is preserved as preview evidence');
 });
 
-test('4.1.0 imports preserve scores but require explicit reconfirmation under the 4.1.1 completion contract', () => {
+test('4.1.0 imports preserve scores but require explicit reconfirmation under the 4.2.0 completion contract', () => {
   const scores = makeScores(3);
   const config = {
     _format: 'se-tailoring-config',
@@ -283,7 +283,7 @@ test('hierarchy disposition schema rejects malformed outcomes and impossible dat
   const scores = makeScores(3);
   const base = {
     _format: 'se-tailoring-config', _version: '2.0',
-    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: 'se-tailoring-qualifiers-v1' },
+    semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: 'se-tailoring-qualifiers-v1' },
     metricScores: scores, processLevels: {},
     assessmentTree: {
       rootId: 'root', activeId: 'child', nodes: {

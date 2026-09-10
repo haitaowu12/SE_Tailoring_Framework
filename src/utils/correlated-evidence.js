@@ -75,5 +75,5 @@ export function assessCorrelatedEvidence(metricAssessments = {}) {
       effect: 'warning-only; scores, recommended levels, and closure are unchanged'
     });
   }
-  return { warnings, warningCount: warnings.length, independentCorroborationSupported: warnings.length === 0 };
+  return { warnings, warningCount: warnings.length, independentCorroborationSupported: null, independenceStatus: 'not-verified' };
 }

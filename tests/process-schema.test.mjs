@@ -81,3 +81,11 @@ test('security and assurance overlays are populated and limited to existing mapp
     }
   }
 });
+
+test('illustrative handoff text does not introduce extra recipient-level constraints', () => {
+  for (const process of CORE_PROCESSES) {
+    for (const output of PROCESS_DETAILS[process.id].outputs) {
+      assert.doesNotMatch(output.feedsInto, /\((?:Basic|Standard|Comprehensive)\)/, `${process.name}: hidden recipient floor`);
+    }
+  }
+});

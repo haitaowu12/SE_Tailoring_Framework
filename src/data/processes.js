@@ -56,13 +56,13 @@ const BASE_PROCESSES = [
     // --- Technical Management Processes (Core) ---
     {
         id: 9, name: 'Project Planning', group: 'tech_mgmt', purpose: 'Establish and maintain project plans that define expectations, activities, and resources', extended: false,
-        definition: { basic: 'Basic planning with simple schedule and resource list', standard: 'Structured planning with WBS, IMS, and risk register', comprehensive: 'Integrated multi-view planning with probabilistic analysis' },
+        definition: { basic: 'Basic planning with simple schedule and resource list', standard: 'Structured planning with coordinated scope, schedule, resources, and risk records', comprehensive: 'Integrated planning with dependencies, uncertainty analysis, and controlled updates' },
         assumptions: 'Schedule is milestone-based; resources assigned as available; risks tracked informally; cost estimates are high-level.',
         whenToElevate: 'Elevate to Standard if any technical process is at Standard or above. Elevate to Comprehensive for large distributed teams or high uncertainty.'
     },
     {
         id: 10, name: 'Project Assessment & Control', group: 'tech_mgmt', purpose: 'Monitor project progress and take corrective action when needed', extended: false,
-        definition: { basic: 'Basic status reporting with issue logging', standard: 'Structured performance measurement with change control', comprehensive: 'Dashboard monitoring with predictive analytics' },
+        definition: { basic: 'Basic status reporting with issue logging', standard: 'Structured performance measurement with change control', comprehensive: 'Integrated performance control with trend analysis and assessed corrective actions' },
         assumptions: 'Status reported verbally or via simple updates; issues tracked in simple log; changes recorded but not formally controlled.',
         whenToElevate: 'Elevate to Standard for projects with formal milestones or regulatory requirements.'
     },
@@ -74,62 +74,62 @@ const BASE_PROCESSES = [
     },
     {
         id: 12, name: 'Risk Management', group: 'tech_mgmt', purpose: 'Identify, assess, and treat risks throughout the project lifecycle', extended: false,
-        definition: { basic: 'Simple risk register with high/medium/low assessment. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
+        definition: { basic: 'Simple risk register with high/medium/low assessment. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
         assumptions: 'Risks identified through experience and intuition; assessment is qualitative (H/M/L); monitoring is informal.',
         whenToElevate: 'Elevate to Standard for medium-complexity projects. Elevate to Comprehensive for safety-critical systems.',
     },
     {
         id: 13, name: 'Configuration Management', group: 'tech_mgmt', purpose: 'Establish and maintain consistency of system attributes throughout the lifecycle', extended: false,
-        definition: { basic: 'Basic item tracking with simple version control. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured CM with change control board', comprehensive: 'Comprehensive CM with PLM/ALM integration' },
+        definition: { basic: 'Basic item tracking with simple version control. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured configuration management with assigned change authority and baseline control', comprehensive: 'Configuration control across the life cycle with traceable change impacts and audits' },
         assumptions: 'Configuration items tracked in simple list; versions controlled manually; changes requested informally.',
         whenToElevate: 'Elevate to Standard for multiple interfaces or regulatory requirements.'
     },
     {
         id: 14, name: 'Information Management', group: 'tech_mgmt', purpose: 'Manage information throughout its lifecycle with appropriate access and security', extended: false,
-        definition: { basic: 'Basic repository with access control', standard: 'Structured management with protocols per ISO 27001 basics', comprehensive: 'Comprehensive architecture for lifecycle information' },
+        definition: { basic: 'Basic repository with access control', standard: 'Structured information management with classification, access, recovery, and retention controls', comprehensive: 'Comprehensive architecture for lifecycle information' },
         assumptions: 'Information stored in shared folders; access controlled by folder permissions.',
         whenToElevate: 'Elevate to Standard for regulatory requirements or sensitive information.'
     },
     {
         id: 15, name: 'Measurement', group: 'tech_mgmt', purpose: 'Define, collect, and analyze measures to support decision-making', extended: false,
-        definition: { basic: 'Basic metrics for tracking', standard: 'Defined framework with trends per ISO 15939', comprehensive: 'Comprehensive strategy with predictive analytics' },
+        definition: { basic: 'Basic metrics for tracking', standard: 'Defined measures linked to information needs, with collection and analysis procedures', comprehensive: 'Integrated measurement strategy with assessed data quality and analysis effectiveness' },
         assumptions: 'Metrics are few and simple; data collection is manual; reporting is ad-hoc.',
         whenToElevate: 'Elevate to Standard for projects requiring performance tracking.'
     },
     {
         id: 16, name: 'Quality Assurance', group: 'tech_mgmt', purpose: 'Ensure processes and products meet quality requirements', extended: false,
-        definition: { basic: 'Basic audits and reviews for compliance', standard: 'Structured assurance with evaluations per ISO 9001', comprehensive: 'Comprehensive program with trend analyses for proactive quality' },
+        definition: { basic: 'Basic audits and reviews for compliance', standard: 'Planned assurance with explicit criteria, evaluations, and corrective-action follow-up', comprehensive: 'Comprehensive program with trend analyses for proactive quality' },
         assumptions: 'QA limited to basic defined-criteria reviews; nonconformances are recorded with owners, actions, and closure status.',
         whenToElevate: 'Elevate to Standard for regulated industries or quality-critical products.'
     },
     // --- Technical Processes (Core) ---
     {
         id: 17, name: 'Business/Mission Analysis', group: 'technical', purpose: 'Define the problem or opportunity and explore solution alternatives', extended: false,
-        definition: { basic: 'Basic problem identification and alternatives exploration', standard: 'Structured analysis with stakeholder mapping per INCOSE', comprehensive: 'Comprehensive analysis with value modeling for strategic alignment' },
+        definition: { basic: 'Basic problem identification and alternatives exploration', standard: 'Structured problem analysis with stakeholder representation and decision criteria', comprehensive: 'Comprehensive analysis with value modeling for strategic alignment' },
         assumptions: 'Problem is well-understood; stakeholders are few and aligned.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups or complex context.'
     },
     {
         id: 18, name: 'Stakeholder Needs & Requirements Definition', group: 'technical', purpose: 'Elicit, analyze, and validate stakeholder needs', extended: false,
-        definition: { basic: 'Basic needs elicitation and validation. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Comprehensive modeling with engagement planning' },
+        definition: { basic: 'Basic needs elicitation and validation. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Comprehensive modeling with engagement planning' },
         assumptions: 'Stakeholders identified through direct engagement; needs captured informally.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups with conflicting needs.'
     },
     {
         id: 19, name: 'System Requirements Definition', group: 'technical', purpose: 'Transform stakeholder needs into system requirements', extended: false,
-        definition: { basic: 'Simple derivation with basic traceability. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured development with database management', comprehensive: 'Model-based with full traceability network per SysML/INCOSE' },
+        definition: { basic: 'Simple derivation with basic traceability. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured requirements with attributes, traceability, review, and change control', comprehensive: 'Detailed requirements with traceable rationale, interfaces, and verification evidence' },
         assumptions: 'Requirements documented in simple list; traceability is manual.',
         whenToElevate: 'Elevate to Standard for safety-related requirements or formal verification needs.'
     },
     {
         id: 20, name: 'Architecture Definition', group: 'technical', purpose: 'Define the system architecture that satisfies requirements', extended: false,
-        definition: { basic: 'Basic concepts with interface lists', standard: 'Structured development with evaluation per ISO 42010', comprehensive: 'Model-based with governance for complex architectures' },
+        definition: { basic: 'Basic concepts with interface lists', standard: 'Architecture viewpoints addressing stakeholder concerns and evaluated alternatives', comprehensive: 'Model-based with governance for complex architectures' },
         assumptions: 'Architecture defined in simple diagrams; interfaces listed informally.',
         whenToElevate: 'Elevate to Standard for multi-system integration or mission-critical systems.'
     },
     {
         id: 21, name: 'Design Definition', group: 'technical', purpose: 'Create comprehensive design specifications for all system elements', extended: false,
-        definition: { basic: 'Basic design documentation with diagrams', standard: 'Structured design with alternatives analysis', comprehensive: 'Model-based design with formal notation and optimization' },
+        definition: { basic: 'Basic design documentation with diagrams', standard: 'Structured design with alternatives analysis', comprehensive: 'Detailed design with analyzed trade-offs, controlled interfaces, and verification evidence' },
         assumptions: 'Design documented informally; technology selections based on experience.',
         whenToElevate: 'Elevate to Standard for complex subsystems or novel technology.'
     },
@@ -147,14 +147,14 @@ const BASE_PROCESSES = [
     },
     {
         id: 24, name: 'Integration', group: 'technical', purpose: 'Combine system elements into a functioning whole', extended: false,
-        definition: { basic: 'Basic integration with issue tracking. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured integration with verification', comprehensive: 'Comprehensive integration with risk assessment' },
+        definition: { basic: 'Basic integration with issue tracking. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured integration with verification', comprehensive: 'Comprehensive integration with risk assessment' },
         assumptions: 'Integration is straightforward; issues tracked in simple log.',
         whenToElevate: 'Elevate to Standard for many interfaces or cross-domain dependencies.'
     },
     {
         id: 25, name: 'Verification', group: 'technical', purpose: 'Confirm system meets specified requirements (built correctly)', extended: false,
-        definition: { basic: 'Basic testing with defect logging. In PSI 1-2 / CRI ≤ 2 contexts, implemented via consolidated Basic-Plus Project Notebook.', standard: 'Structured verification with multiple methods', comprehensive: 'Comprehensive risk-based verification with full traceability' },
-        assumptions: 'Verification limited to basic testing; defects tracked informally.',
+        definition: { basic: 'Planned verification against specified requirements with recorded results and anomalies. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured verification with planned coverage and controlled evidence', comprehensive: 'Comprehensive risk-based verification with full traceability' },
+        assumptions: 'Select an appropriate method: test, analysis, inspection, or demonstration; record results and anomalies.',
         whenToElevate: 'Elevate to Standard for safety-related or regulated systems.'
     },
     {
@@ -171,13 +171,13 @@ const BASE_PROCESSES = [
     },
     {
         id: 28, name: 'Operation', group: 'technical', purpose: 'Operate the system in its intended environment', extended: false,
-        definition: { basic: 'Basic operational procedures and support', standard: 'Structured operations with performance monitoring', comprehensive: 'Comprehensive operational strategy with predictive analytics' },
+        definition: { basic: 'Basic operational procedures and support', standard: 'Structured operations with performance monitoring', comprehensive: 'Integrated operational controls with contingencies, trend analysis, and effectiveness reviews' },
         assumptions: 'Operations follow basic procedures; performance tracked informally.',
         whenToElevate: 'Elevate to Standard for mission-critical or safety-critical operations.'
     },
     {
         id: 29, name: 'Maintenance', group: 'technical', purpose: 'Maintain system in operational condition', extended: false,
-        definition: { basic: 'Basic maintenance procedures and problem tracking', standard: 'Structured maintenance with environment management', comprehensive: 'Predictive maintenance with optimization' },
+        definition: { basic: 'Basic maintenance procedures and problem tracking', standard: 'Structured maintenance with environment management', comprehensive: 'Risk-informed maintenance with failure analysis, justified intervals, and effectiveness reviews' },
         assumptions: 'Maintenance is reactive; problems tracked in simple log.',
         whenToElevate: 'Elevate to Standard for safety-critical or high-availability systems.'
     },

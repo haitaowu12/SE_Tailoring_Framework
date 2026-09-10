@@ -84,11 +84,11 @@ test(`legacy publication case fixtures remain frozen migration evidence (${PUBLI
   }
 });
 
-test('primary Comprehensive plus secondary Standard corroborates Comprehensive', () => {
+test('primary Comprehensive plus secondary Comprehensive corroborates Comprehensive', () => {
   const scores = makeScores(1);
   Object.assign(scores, {
     M1: 5,
-    M2: 3
+    M2: 5
   });
 
   const detail = calculateProcessDerivation(23, scores);
@@ -475,7 +475,7 @@ test('export config preserves report-critical assessment state for round trip', 
   });
 
   assert.equal(config._version, '2.0');
-  assert.equal(config.semantics.frameworkVersion, '4.1.1');
+  assert.equal(config.semantics.frameworkVersion, '4.2.0');
   assert.equal(config.semantics.metricDefinitionSet, 'se-tailoring-m1-m16-v3');
   assert.equal(config.saResponses.safetyCaseRequired, true);
   assert.equal(config.violations.length, 1);

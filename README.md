@@ -11,8 +11,9 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 
 ## Current Scope
 
-- Framework semantic version 4.1.1 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
-- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, explicit legacy-migration status, and producer release/build identity. Versionless, 3.x, and semantic 4.0 records are preserved through explicit migration handling and cannot be silently baselined under 4.1.1.
+- Framework semantic version 4.2.0 retains exactly M1-M16 while separating M6 mission/operational consequence, M8 security consequence, and M15 external governance/assurance demand.
+- Comprehensive requires one Primary driver at 5 plus a different Primary at 3 or above, or a Secondary at 5. Mapped safety/environmental exceptions, minimum levels, and mandatory dependencies remain in force. These are provisional decision thresholds, not numerical weights or evidence of independent corroboration.
+- Exchange schema 2.0 stores metric-definition and qualifier versions, M8/M15 qualifiers, scoped assurance obligations, explicit legacy-migration status, and producer release/build identity. Earlier records require explicit migration review. Importing a 4.1.1 assessment preserves its ratings and evidence, retains the original result as history, and requires recalculation and review under the revised support rule. Reduced exports omit the historical source snapshot.
 - Executable assessment: 16 project metrics mapped to 22 project-facing Technical and Technical Management processes.
 - Reference scope: 8 Agreement and Organizational Project-Enabling processes remain visible in the data model, but are not yet fully executable recommendations.
 - Traceability model: each process declares ISO/IEC/IEEE 15288:2023 process-group metadata and explicit executable-core vs reference scope. This is decision-support traceability, not a standalone ISO compliance or certification claim.
@@ -20,6 +21,7 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 - Assessment integrity: each metric opens with a non-authoritative midpoint preview. It becomes an assessed 1–5 judgment only after the assessor selects an anchor; explicitly recording Unknown keeps the profile previewable but blocks a completed baseline until the judgment is resolved. Metric-level N/A is prohibited; downstream artifacts and activities may use N/A only with a documented applicability rationale.
 - Right-sizing governance: PSI budget analysis produces non-binding reduction proposals. It never silently lowers the derived, floor-protected, mandatory-closure recommendation.
 - Practitioner content: existing M8 and scoped M15 mappings activate conditional Security and Assurance evidence overlays in Process Explorer without creating additional metric-process relationships.
+- Help explains the assessment boundary, rating choices, recommendation logic, saving/sharing, project adjustments, and proposals to change the shared matrix or rules. The guided rating helper uses the same five anchors as the assessment and allows Unknown when none is supported.
 - Operating scope: the static browser build supports internal/synthetic prototype use. Facilitated pilot use remains conditional on the study authorization gates; a persistent governed service is not implemented. See [Operating Model](OPERATING-MODEL.md).
 - Local diagnostics: the app exposes release, semantic, schema, build, storage, and sanitized runtime issue metadata without telemetry or assessment content.
 

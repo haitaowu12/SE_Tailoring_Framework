@@ -71,12 +71,12 @@ test('five-anchor choices expose provisional guidance and wizard recommendations
   const metric = page.locator('.metric-item[data-metric-id="M1"]');
   await expect(metric.getByRole('radio')).toHaveCount(5);
   await expect(metric.locator('input[type="radio"]:checked')).toHaveCount(0);
-  await metric.getByText(/Provisional assessor guidance/).click();
+  await metric.getByText(/How to choose a rating/).click();
   await expect(metric.getByText(/large inventory of independent, repeated elements/)).toBeVisible();
 
   await metric.getByRole('button', { name: 'Help me choose' }).click();
   await metric.getByRole('button', { name: 'Yes' }).click();
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 4; index += 1) {
     await metric.getByRole('button', { name: 'No' }).click();
   }
   await expect(metric.getByText('Recommended anchor 5')).toBeVisible();

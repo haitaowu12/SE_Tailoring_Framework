@@ -6,6 +6,7 @@
  */
 import { runFullAssessment, applyMandatoryClosure, applyRightSizing, computeRigorBudgetStatus } from './assessment-engine.js';
 import { assessHierarchyDisposition } from './hierarchy-dispositions.js';
+import { evaluateRightSizingApprovals } from './right-sizing-governance.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
 const levelIndex = l => LEVELS.indexOf(l);
@@ -423,6 +424,13 @@ export function assessNeedForSeparateAssessment(parentScores, elementCharacteris
  * @returns {Object} Complete child assessment with down-tailoring analysis
  */
 export function runChildAssessment(childNode, parentScores, parentLevels, context = {}) {
+    context = {
+        metricAssessments: childNode.metricAssessments || {},
+        assuranceObligations: childNode.assuranceObligations || [],
+        rightSizingApprovalRecords: childNode.rightSizingApprovalRecords || [],
+        activeElementId: childNode.id,
+        ...context
+    };
     // Step 1: Compute effective scores (inherited + overrides)
     const effectiveScores = getEffectiveScores(childNode, parentScores);
 
@@ -522,6 +530,25 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
         assessment.constraintResponseRequirement = rightSizing.constraintResponseRequirement;
         assessment.adoptionRisks = rightSizing.adoptionRisks || [];
         assessment.indices = rightSizing.indices || assessment.indices;
+
+        // Hierarchy floors can trigger further closure. Keep every public level
+        // layer and any local proposal scenario tied to that final profile.
+        assessment.normativeLevels = assessment.authoritative ? { ...assessment.levels } : {};
+        assessment.previewLevels = { ...assessment.levels };
+        assessment.previewNormativeLevels = { ...assessment.levels };
+        const approvals = evaluateRightSizingApprovals(
+            assessment.rightSizingProposals,
+            context.rightSizingApprovalRecords || [],
+            { ...context, scores: effectiveScores, activeFloors: assessment.activeFloors, normativeLevels: assessment.levels }
+        );
+        const localClosure = applyMandatoryClosure(approvals.scenarioLevels, effectiveScores, context);
+        assessment.rightSizingApprovalEvaluations = approvals.evaluations;
+        assessment.locallyCompleteRightSizingRecordCount = approvals.locallyCompleteCount;
+        assessment.locallyAdjustedLevels = approvals.locallyCompleteCount ? localClosure.levels : {};
+        assessment.localScenarioClosureFixes = approvals.locallyCompleteCount ? localClosure.fixes : [];
+        assessment.localScenarioClosureIterations = approvals.locallyCompleteCount ? localClosure.iterations : 0;
+        assessment.localScenarioBudgetStatus = approvals.locallyCompleteCount
+            ? computeRigorBudgetStatus(localClosure.levels, effectiveScores) : null;
     }
 
     // Step 4: Detect down-tailoring from parent
@@ -607,7 +634,8 @@ export function propagateDownstream(parentNode, childNode) {
 
 /**
  * Suggest upstream defaults from children to parent.
- * Uses MAX across all children for each metric as the proposed parent default.
+ * Proposes the highest child pressure; for M16, proposes the least enabling
+ * conditions. These suggestions require a separate parent-boundary judgment.
  * Never overwrites manually-set parent metrics.
  *
  * @param {Array} childNodes - Array of child tree nodes (each with .scores)
@@ -620,14 +648,14 @@ export function suggestUpstream(childNodes, parentNode) {
     const manualSet = new Set(parentNode.manualMetrics || []);
     const parentScores = parentNode.scores || {};
 
-    // Compute MAX across all children for each metric
+    // M16 has the opposite direction: higher means more enabling conditions.
     for (const m of METRIC_IDS) {
-        let maxVal = 0;
+        let maxVal = m === 'M16' ? 6 : 0;
         for (const child of childNodes) {
             const val = child.scores?.[m] ?? 3;
-            if (val > maxVal) maxVal = val;
+            if (m === 'M16' ? val < maxVal : val > maxVal) maxVal = val;
         }
-        if (maxVal === 0) maxVal = 3; // default if no children have scores
+        if (maxVal === 0 || maxVal === 6) maxVal = 3; // preview when no child scores exist
 
         if (manualSet.has(m)) {
             const parentVal = parentScores[m] ?? 3;

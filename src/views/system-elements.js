@@ -250,7 +250,7 @@ export function renderSystemElements(container) {
                 ⬇ Propagate Defaults Down
               </button>` : ''}
               ${parentNode && hasChildren ? `
-              <button class="btn btn-secondary btn-sm" id="btn-suggest-up" title="Suggest parent defaults from MAX of children">
+              <button class="btn btn-secondary btn-sm" id="btn-suggest-up" title="Suggest the highest child demand, or lowest enabling culture rating. Review the parent boundary before confirming.">
                 ⬆ Suggest Upstream Defaults
               </button>` : ''}
               ${parentNode ? `
