@@ -104,7 +104,7 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.1',
+      frameworkVersion: '4.2.0',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -201,7 +201,7 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.1',
+      frameworkVersion: '4.2.0',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -255,7 +255,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.1',
+      frameworkVersion: '4.2.0',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
@@ -306,7 +306,7 @@ for (const scenario of [
     }]));
     await importFixture(page, {
       _format: 'se-tailoring-config', _version: '2.0',
-      semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+      semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
       projectInfo: { name: `CSI ${scenario.csi} Smoke` },
       metricScores: scores, metricAssessments: assessments, processLevels,
       artifactHandoffs: [acceptedRequirementsArchitectureHandoff()],
@@ -347,7 +347,7 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
   await importFixture(page, {
     _format: 'se-tailoring-config',
     _version: '2.0',
-    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+    semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
     projectInfo: { name: 'Output Sufficiency Gate Smoke' },
     metricScores,
     metricAssessments,
@@ -396,7 +396,7 @@ test('metric UI defaults to unreviewed previews, supports Unknown, and keeps imp
   const assessments = { ...metricAssessments, M7: { score: null, status: 'not-applicable', definitionVersion: 3, qualifiers: [], rationale: 'Legacy N/A', evidenceRefs: [] } };
   await importFixture(page, {
     _format: 'se-tailoring-config', _version: '2.0',
-    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+    semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
     projectInfo: { name: 'Imported N-A Smoke' }, metricScores: scores, metricAssessments: assessments,
     processLevels, assessmentComplete: true
   }, 'imported-na.json');

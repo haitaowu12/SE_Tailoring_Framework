@@ -15,44 +15,44 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Develop basic project plan', '(*) Create simple schedule (milestone-based)', 'List resources', 'Estimate costs (high-level)'],
             standard: ['(*) Create Project Management Plan (PMP)', '(*) Develop Work Breakdown Structure (WBS)', 'Develop Integrated Master Schedule (IMS)', 'Plan resources in detail', 'Register risks formally', 'Schedule SA milestones and reviews [Safety]', 'Budget for SA activities [Safety]'],
-            comprehensive: ['(*) Integrate multi-view planning', '(*) Perform probabilistic schedule analysis', 'Optimize resources with capacity modeling', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
+            comprehensive: ['(*) Integrate multi-view planning', '(*) Assess schedule uncertainty using a method suited to the available evidence', 'Optimize resources with capacity modeling', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
         },
         deliverables: {
             basic: ['Basic project plan', 'Simple schedule', 'Resource list', 'Cost estimate'],
             standard: ['Project Management Plan (PMP)', 'Work Breakdown Structure (WBS)', 'Integrated Master Schedule (IMS)', 'Resource management plan', 'Risk register', 'SA Milestone Schedule [Safety]'],
-            comprehensive: ['Integrated planning documentation', 'Multi-view WBS', 'Probabilistic schedule analysis', 'Resource optimization analysis', 'Risk-based estimates', 'Stakeholder communication plan']
+            comprehensive: ['Integrated planning documentation', 'Multi-view WBS', 'Schedule uncertainty analysis', 'Resource optimization analysis', 'Risk-based estimates', 'Stakeholder communication plan']
         },
         outputs: [
-            { name: 'Project plans', feedsInto: 'Project Assessment (all levels), Infrastructure Management (Basic)' },
-            { name: 'Schedule', feedsInto: 'All Technical Processes (for planning), Measurement (Basic)' },
-            { name: 'Resource plan', feedsInto: 'HR Management (Basic), Infrastructure Management (Standard)' },
-            { name: 'Risk register', feedsInto: 'Risk Management (Standard), Decision Management (Standard)' }
+            { name: 'Project plans', feedsInto: 'Project Assessment, Infrastructure Management' },
+            { name: 'Schedule', feedsInto: 'All Technical Processes (for planning), Measurement' },
+            { name: 'Resource plan', feedsInto: 'HR Management, Infrastructure Management' },
+            { name: 'Risk register', feedsInto: 'Risk Management, Decision Management' }
         ],
         useInTailoring: 'In tailoring, the main levers are the planning detail, schedule formality, and resource allocation rigor.'
     },
     10: {
         activities: {
             basic: ['(*) Report project status', '(*) Log issues (simple tracking)', 'Minute meetings', 'Log changes (record only)'],
-            standard: ['(*) Measure performance against baselines (EVM)', '(*) Track issues with severity and ownership', 'Review actions with owners and deadlines', 'Control changes through formal process', 'Plan corrections with impact assessment', 'Track SA metrics and KPIs [Safety]', 'Monitor SA action items [Safety]'],
+            standard: ['(*) Measure performance against agreed baselines; use earned value where suitable', '(*) Track issues with severity and ownership', 'Review actions with owners and deadlines', 'Control changes through formal process', 'Plan corrections with impact assessment', 'Track SA metrics and KPIs [Safety]', 'Monitor SA action items [Safety]'],
             comprehensive: ['(*) Dashboard performance monitoring with KPIs', '(*) Track issues with metrics and trend analysis', 'Analyze trends for early warning', 'Model predictions for corrective actions', 'Implement continuous improvement', 'Report SA status with dashboards [Safety]']
         },
         deliverables: {
             basic: ['Status reports', 'Issue log', 'Meeting minutes', 'Basic change log'],
-            standard: ['Performance measurement reports (EVM)', 'Issue management database', 'Review records with action tracking', 'Change control documentation', 'Corrective action plans', 'SA Status Reports [Safety]'],
+            standard: ['Performance measurements against agreed baselines', 'Issue management database', 'Review records with action tracking', 'Change control documentation', 'Corrective action plans', 'SA Status Reports [Safety]'],
             comprehensive: ['Integrated performance dashboard', 'Advanced issue tracking with root cause', 'Comprehensive review documentation', 'Change impact analyses', 'Trend analysis reports', 'Predictive performance models']
         },
         outputs: [
-            { name: 'Status reports', feedsInto: 'Information Management (Basic), Portfolio Management (Standard)' },
-            { name: 'Issue log', feedsInto: 'Quality Assurance (Basic), Knowledge Management (Basic)' },
-            { name: 'Change records', feedsInto: 'Configuration Management (Standard), Decision Management (Standard)' }
+            { name: 'Status reports', feedsInto: 'Information Management, Portfolio Management' },
+            { name: 'Issue log', feedsInto: 'Quality Assurance, Knowledge Management' },
+            { name: 'Change records', feedsInto: 'Configuration Management, Decision Management' }
         ],
         useInTailoring: 'In tailoring, the main levers are the performance measurement depth, change control formality, and reporting frequency.'
     },
     11: {
         activities: {
             basic: ['(*) Analyze basic alternatives (informal)', '(*) Record decision outcomes'],
-            standard: ['(*) Plan decision process with criteria', '(*) Create decision criteria matrices with weights', 'Report analyses with rationale', 'Document rationale and trade-offs', 'Analyze SA alternatives and trade-offs [Safety]'],
-            comprehensive: ['(*) Govern decision framework with policies', '(*) Model advanced scenarios with sensitivity analysis', 'Analyze uncertainties with Monte Carlo', 'Measure decision effectiveness', 'Record rationale for SA choices [Safety]']
+            standard: ['(*) Plan decision process with criteria', '(*) Compare alternatives against explicit criteria; justify any weighting', 'Report analyses with rationale', 'Document rationale and trade-offs', 'Analyze SA alternatives and trade-offs [Safety]'],
+            comprehensive: ['(*) Govern decision framework with policies', '(*) Model advanced scenarios with sensitivity analysis', 'Analyze uncertainties; use simulation only with a defensible model and inputs', 'Measure decision effectiveness', 'Record rationale for SA choices [Safety]']
         },
         deliverables: {
             basic: ['Decision records', 'Basic alternatives analysis', 'Meeting minutes with decisions'],
@@ -60,8 +60,8 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Decision governance framework', 'Advanced decision models', 'Comprehensive alternatives analysis', 'Uncertainty and sensitivity analyses', 'Decision effectiveness metrics']
         },
         outputs: [
-            { name: 'Decision records', feedsInto: 'Configuration Management (Standard), System Analysis (Standard)' },
-            { name: 'Alternatives analysis', feedsInto: 'Architecture Definition (Standard), Design Definition (Standard)' }
+            { name: 'Decision records', feedsInto: 'Configuration Management, System Analysis' },
+            { name: 'Alternatives analysis', feedsInto: 'Architecture Definition, Design Definition' }
         ],
         useInTailoring: 'In tailoring, the main levers are the decision traceability depth, criteria formality, and stakeholder involvement.'
     },
@@ -77,27 +77,27 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Risk management framework', 'Advanced risk models and simulations', 'Detailed risk response strategies', 'Risk dashboards with leading indicators', 'Integrated risk database', 'Risk management effectiveness metrics']
         },
         outputs: [
-            { name: 'Risk register', feedsInto: 'Project Planning (Standard), Decision Management (Standard)' },
-            { name: 'Risk assessment', feedsInto: 'System Analysis (Standard), Quality Assurance (Standard)' },
-            { name: 'Risk response plans', feedsInto: 'Configuration Management (Comprehensive), Integration (Comprehensive)' }
+            { name: 'Risk register', feedsInto: 'Project Planning, Decision Management' },
+            { name: 'Risk assessment', feedsInto: 'System Analysis, Quality Assurance' },
+            { name: 'Risk response plans', feedsInto: 'Configuration Management, Integration' }
         ],
         useInTailoring: 'In tailoring, the main levers are the risk identification breadth, assessment methodology, and response planning formality.'
     },
     13: {
         activities: {
             basic: ['(*) List configuration items (CIs)', '(*) Control versions (manual or simple tool)', 'Request changes simply (informal)', 'Report status (basic)'],
-            standard: ['(*) Plan configuration management', '(*) Identify configuration scheme', 'Control via Change Control Board (CCB)', 'Account status formally', 'Audit configurations', 'Manage safety-related CIs [Safety]', 'Control safety baseline changes [Safety]'],
-            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Systematically identify with structure', 'Analyze change impacts with traceability', 'Automate reports with dashboards', 'Integrate with PLM/ALM systems', 'Maintain SA documentation under CM [Safety]']
+            standard: ['(*) Plan configuration management', '(*) Identify configuration scheme', 'Assign change authority and record change decisions; use a board where warranted', 'Account status formally', 'Audit configurations', 'Manage safety-related CIs [Safety]', 'Control safety baseline changes [Safety]'],
+            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Systematically identify with structure', 'Analyze change impacts with traceability', 'Automate reports with dashboards', 'Maintain links between configuration and life-cycle records using suitable tools', 'Maintain SA documentation under CM [Safety]']
         },
         deliverables: {
             basic: ['Configuration item list', 'Simple change request forms', 'Basic configuration status reports', 'Version control records'],
-            standard: ['Configuration Management Plan (CMP)', 'Configuration identification scheme', 'Change control board procedures', 'Configuration status accounting reports', 'Configuration audit reports', 'Baseline documentation', 'Safety CI List [Safety]'],
-            comprehensive: ['Comprehensive CM plan', 'Detailed configuration identification system', 'Advanced change control with impact analysis', 'Automated configuration status reports', 'Comprehensive audit documentation', 'Configuration metrics dashboard', 'PLM/ALM system integration']
+            standard: ['Configuration Management Plan (CMP)', 'Configuration identification scheme', 'Change authority and decision procedures', 'Configuration status accounting reports', 'Configuration audit reports', 'Baseline documentation', 'Safety CI List [Safety]'],
+            comprehensive: ['Comprehensive CM plan', 'Detailed configuration identification system', 'Advanced change control with impact analysis', 'Automated configuration status reports', 'Comprehensive audit documentation', 'Configuration metrics dashboard', 'Linked configuration and life-cycle records']
         },
         outputs: [
-            { name: 'CI list', feedsInto: 'Integration (Basic), Implementation (Standard)' },
-            { name: 'Baselines', feedsInto: 'Verification (Standard), Validation (Standard)' },
-            { name: 'Change records', feedsInto: 'Project Assessment (Standard), Quality Assurance (Standard)' }
+            { name: 'CI list', feedsInto: 'Integration, Implementation' },
+            { name: 'Baselines', feedsInto: 'Verification, Validation' },
+            { name: 'Change records', feedsInto: 'Project Assessment, Quality Assurance' }
         ],
         useInTailoring: 'In tailoring, the main levers are the scope of configuration items, change control formality, and baseline management depth.'
     },
@@ -113,16 +113,16 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Information architecture documentation', 'Metadata schema and relationships', 'Access control matrix with audit', 'Comprehensive backup/recovery/continuity plan', 'Information exchange agreements', 'Information security framework', 'Information lifecycle policies', 'Information quality metrics']
         },
         outputs: [
-            { name: 'Repository structure', feedsInto: 'Knowledge Management (Basic), all processes (storage)' },
-            { name: 'Access controls', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' }
+            { name: 'Repository structure', feedsInto: 'Knowledge Management, all processes (storage)' },
+            { name: 'Access controls', feedsInto: 'Quality Assurance, Risk Management' }
         ],
         useInTailoring: 'In tailoring, the main levers are the information architecture formality, access control rigor, and retention requirements.'
     },
     15: {
         activities: {
             basic: ['(*) Define simple metrics (schedule, cost, quality)', '(*) Collect data (manual)', 'Report measurements (basic)'],
-            standard: ['(*) Plan measurement with objectives', '(*) Define measurement constructs', 'Procedure collection with automation', 'Analyze trends', 'Review measures periodically', 'Define SA metrics (RAMS indicators) [Safety]'],
-            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Framework measurement with models', 'Automate tools with dashboards', 'Analyze methods with statistics', 'Evaluate effectiveness continuously', 'Collect and report SA performance data [Safety]']
+            standard: ['(*) Plan measurement with objectives', '(*) Define measurement constructs', 'Define repeatable collection procedures; automate where useful', 'Analyze trends', 'Review measures periodically', 'Define SA metrics (RAMS indicators) [Safety]'],
+            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Define measurement models and their assumptions', 'Automate tools with dashboards', 'Analyze methods with statistics', 'Evaluate effectiveness continuously', 'Collect and report SA performance data [Safety]']
         },
         deliverables: {
             basic: ['Simple metrics definitions', 'Basic data collection forms', 'Measurement reports'],
@@ -130,8 +130,8 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Comprehensive measurement plan', 'Advanced measurement framework', 'Automated data collection tools', 'Statistical analysis methodologies', 'Predictive models documentation', 'Measurement effectiveness evaluation', 'Integrated measurement dashboard']
         },
         outputs: [
-            { name: 'Metrics definitions', feedsInto: 'Project Assessment (Standard), Portfolio Management (Standard)' },
-            { name: 'Trend analysis', feedsInto: 'Decision Management (Standard), Risk Management (Comprehensive)' }
+            { name: 'Metrics definitions', feedsInto: 'Project Assessment, Portfolio Management' },
+            { name: 'Trend analysis', feedsInto: 'Decision Management, Risk Management' }
         ],
         useInTailoring: 'In tailoring, the main levers are the measurement framework scope, data collection formality, and analysis depth.'
     },
@@ -147,16 +147,16 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Quality assurance strategy', 'Comprehensive evaluation program', 'Quality trend analyses', 'Formal improvement initiative documentation', 'Assurance effectiveness metrics']
         },
         outputs: [
-            { name: 'Audit reports', feedsInto: 'Stakeholder Needs (Standard), Validation (Standard)' },
-            { name: 'Non-conformance records', feedsInto: 'Project Assessment (Standard), Risk Management (Standard)' }
+            { name: 'Audit reports', feedsInto: 'Stakeholder Needs, Validation' },
+            { name: 'Non-conformance records', feedsInto: 'Project Assessment, Risk Management' }
         ],
         useInTailoring: 'In tailoring, the main levers are the audit frequency, non-conformance tracking formality, and process compliance depth.'
     },
     17: {
         activities: {
-            basic: ['(*) Define problem statement', '(*) Explore solution alternatives (informal)', '(*) Identify initial stakeholders (~3 groups)'],
-            standard: ['(*) Develop analysis plan', '(*) Map stakeholders (3-4 groups)', '(*) Analyze problems with context', 'Define initial concepts', 'Preliminary hazard identification [Safety]', 'Initial SA criticality assessment [Safety]'],
-            comprehensive: ['(*) Perform comprehensive analysis', '(*) Model stakeholder value (5+ groups)', '(*) Conduct opportunity analysis with PESTEL', 'Develop business cases with ROI', 'Identify safety-related stakeholders [Safety]']
+            basic: ['(*) Define problem statement', '(*) Explore solution alternatives (informal)', '(*) Identify affected stakeholders and decision authorities'],
+            standard: ['(*) Develop analysis plan', '(*) Map relevant stakeholder groups, interests, and decision rights', '(*) Analyze problems with context', 'Define initial concepts', 'Preliminary hazard identification [Safety]', 'Initial SA criticality assessment [Safety]'],
+            comprehensive: ['(*) Perform comprehensive analysis', '(*) Analyze stakeholder values, conflicts, and representation gaps', '(*) Conduct opportunity analysis with PESTEL', 'Develop business cases with ROI', 'Identify safety-related stakeholders [Safety]']
         },
         deliverables: {
             basic: ['Problem statement', 'Solution alternatives', 'Initial stakeholder list', 'ConOps (can be part of SRD)'],
@@ -164,9 +164,9 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Comprehensive problem analysis', 'Stakeholder value models', 'Opportunity/risk profiles', 'Detailed business case documentation']
         },
         outputs: [
-            { name: 'Problem statement', feedsInto: 'Stakeholder Needs (Basic), Portfolio Management (Standard)' },
-            { name: 'Solution alternatives', feedsInto: 'System Requirements Definition (Basic), Architecture Definition (Basic)' },
-            { name: 'ConOps', feedsInto: 'Stakeholder Needs (Standard), Validation (Standard)' }
+            { name: 'Problem statement', feedsInto: 'Stakeholder Needs, Portfolio Management' },
+            { name: 'Solution alternatives', feedsInto: 'System Requirements Definition, Architecture Definition' },
+            { name: 'ConOps', feedsInto: 'Stakeholder Needs, Validation' }
         ],
         useInTailoring: 'In tailoring, the main levers are the problem definition formality, stakeholder analysis depth, and opportunity assessment rigor.'
     },
@@ -182,45 +182,45 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Detailed stakeholder influence maps', 'Comprehensive needs models', 'Multiple elicitation technique results', 'Formal validation strategy', 'Extensive constraints impact analysis', 'Conflict resolution process documentation', 'Stakeholder engagement plan']
         },
         outputs: [
-            { name: 'Stakeholder list', feedsInto: 'Project Planning (Standard), System Requirements (Basic)' },
-            { name: 'Needs statements', feedsInto: 'System Requirements (Basic), Validation (Basic)' },
-            { name: 'Constraints list', feedsInto: 'Architecture Definition (Standard), System Requirements (Standard)' }
+            { name: 'Stakeholder list', feedsInto: 'Project Planning, System Requirements' },
+            { name: 'Needs statements', feedsInto: 'System Requirements, Validation' },
+            { name: 'Constraints list', feedsInto: 'Architecture Definition, System Requirements' }
         ],
         useInTailoring: 'In tailoring, the main levers are the elicitation methodology, needs documentation formality, and transformation rigor into requirements.'
     },
     19: {
         activities: {
             basic: ['(*) Document requirements (simple list)', '(*) Trace simply with matrix', 'Review requirements (informal)'],
-            standard: ['(*) Plan requirements development', '(*) Specify requirements with attributes', 'Manage requirements in database', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety integrity levels (SIL) [Safety]'],
-            comprehensive: ['(*) Model behaviors with formal notation', '(*) Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Formal RAMS requirements per EN 50126 [RAM]']
+            standard: ['(*) Plan requirements development', '(*) Specify requirements with attributes', 'Maintain controlled requirements records with attributes and links', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety requirements and integrity targets where the applicable regime requires them [Safety]'],
+            comprehensive: ['(*) Model behaviors with formal notation', '(*) Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Define reliability, availability, and maintainability requirements for the applicable context [RAM]']
         },
         deliverables: {
             basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records'],
-            standard: ['Requirements development plan', 'System Specification (SS)', 'Requirements database with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Preliminary Hazard Analysis (PHA) [Safety]', 'RAMS Requirements Specification [RAM]', 'Hazard Log [Safety]', 'SIL Allocation Matrix [Safety]'],
-            comprehensive: ['Formal requirements specification', 'Comprehensive requirements database', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety Case (per EN 50126) [Safety]']
+            standard: ['Requirements development plan', 'System Specification (SS)', 'Controlled requirements records with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Preliminary Hazard Analysis (PHA) [Safety]', 'RAMS Requirements Specification [RAM]', 'Hazard Log [Safety]', 'Safety requirement and applicable integrity allocation record [Safety]'],
+            comprehensive: ['Formal requirements specification', 'Controlled requirements records and relationships', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety argument and supporting evidence required by the applicable regime [Safety]']
         },
         outputs: [
-            { name: 'Requirements document', feedsInto: 'Architecture Definition (Basic), Verification (Basic)' },
-            { name: 'Traceability matrix', feedsInto: 'Verification (Standard), Validation (Standard)' },
-            { name: 'Hazard Log', feedsInto: 'Risk Management (Standard), System Analysis (Standard), Validation (Standard)' }
+            { name: 'Requirements document', feedsInto: 'Architecture Definition, Verification' },
+            { name: 'Traceability matrix', feedsInto: 'Verification, Validation' },
+            { name: 'Hazard Log', feedsInto: 'Risk Management, System Analysis, Validation' }
         ],
         useInTailoring: 'In tailoring, the main levers are the required traceability depth, formality of baselines, and integration with safety and regulatory arguments.'
     },
     20: {
         activities: {
             basic: ['(*) Define concepts (block diagrams)', '(*) List interfaces', 'Evaluate options (informal)', 'Document architecture'],
-            standard: ['(*) Plan architecture development', '(*) Develop with viewpoints per ISO 42010', 'Create interface control documents (ICDs)', 'Evaluate alternatives with trade studies', 'Plan architecture governance', 'Perform RAMS apportionment [RAM]', 'Allocate SIL to subsystems [Safety]', 'Define safety partitioning and isolation [Safety]'],
+            standard: ['(*) Plan architecture development', '(*) Develop viewpoints addressing the relevant stakeholder concerns', 'Create interface control documents (ICDs)', 'Evaluate alternatives with trade studies', 'Plan architecture governance', 'Perform RAMS apportionment [RAM]', 'Allocate safety requirements and any required integrity targets to subsystems [Safety]', 'Define safety partitioning and isolation [Safety]'],
             comprehensive: ['(*) Model architectures in formal notation', '(*) Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate with formal methodology', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
         },
         deliverables: {
             basic: ['Simple architecture description', 'Basic interface list', 'Architecture diagrams', 'Evaluation notes'],
-            standard: ['Architecture development plan', 'Architecture description with views', 'Interface control document (ICD)', 'Architecture alternatives analysis', 'Architecture evaluation results', 'Architecture governance plan', 'RAMS Apportionment Document [RAM]', 'SIL Allocation to Architecture Elements [Safety]'],
+            standard: ['Architecture development plan', 'Architecture description with views', 'Interface control document (ICD)', 'Architecture alternatives analysis', 'Architecture evaluation results', 'Architecture governance plan', 'RAMS Apportionment Document [RAM]', 'Safety requirement and applicable integrity allocation to elements [Safety]'],
             comprehensive: ['Architecture models in formal notation', 'Comprehensive architecture description', 'Detailed interface specifications', 'Extensive alternatives analysis with trade studies', 'Formal evaluation report', 'Architecture governance documentation', 'Architecture metrics', 'Patterns and reference architectures', 'Fault Tolerance Strategy Document [RAM]', 'Safety Partitioning Specification [Safety]']
         },
         outputs: [
-            { name: 'Architecture description', feedsInto: 'Design Definition (Basic), System Requirements Definition (Standard)' },
-            { name: 'Interface specifications', feedsInto: 'Integration (Standard), Verification (Standard)' },
-            { name: 'RAMS apportionment', feedsInto: 'Design Definition (Standard), Verification (Standard)' }
+            { name: 'Architecture description', feedsInto: 'Design Definition, System Requirements Definition' },
+            { name: 'Interface specifications', feedsInto: 'Integration, Verification' },
+            { name: 'RAMS apportionment', feedsInto: 'Design Definition, Verification' }
         ],
         useInTailoring: 'In tailoring, the main levers are the breadth of trade studies, formality of architecture documentation, and depth of interface specification.'
     },
@@ -236,9 +236,9 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Design models in formal notation', 'Detailed multi-view documentation', 'Extensive alternatives analysis', 'Comprehensive verification results', 'Advanced technology roadmap', 'Formal design review documentation', 'Design patterns catalog', 'Design quality metrics', 'Diagnostic Strategy Document [RAM]']
         },
         outputs: [
-            { name: 'Design documentation', feedsInto: 'Implementation (Basic), Integration (Standard)' },
-            { name: 'Technology assessment', feedsInto: 'Risk Management (Standard), Decision Management (Standard)' },
-            { name: 'FMEA/FMECA results', feedsInto: 'Risk Management (Standard), System Analysis (Standard)' }
+            { name: 'Design documentation', feedsInto: 'Implementation, Integration' },
+            { name: 'Technology assessment', feedsInto: 'Risk Management, Decision Management' },
+            { name: 'FMEA/FMECA results', feedsInto: 'Risk Management, System Analysis' }
         ],
         useInTailoring: 'In tailoring, the main levers are the level of design detail, formality of design reviews, and extent of design verification.'
     },
@@ -254,9 +254,9 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Analysis strategy', 'Comprehensive analysis framework', 'Advanced modeling/simulation documentation', 'Detailed methodology with validation', 'Tool environment documentation', 'Uncertainty quantification', 'Analysis effectiveness metrics', 'Decision support with sensitivity analysis', 'Availability Model and Analysis [RAM]', 'Reliability Prediction Reports [RAM]', 'Full Hazard Log & Analysis (HAZOP/FTA) [Safety]', 'Safety Case Evidence [Safety]']
         },
         outputs: [
-            { name: 'Analysis reports', feedsInto: 'Decision Management (Basic), Architecture Definition (Standard)' },
-            { name: 'Trade study results', feedsInto: 'Design Definition (Standard), Risk Management (Standard)' },
-            { name: 'Safety analysis', feedsInto: 'Risk Management (Standard), Verification (Standard)' }
+            { name: 'Analysis reports', feedsInto: 'Decision Management, Architecture Definition' },
+            { name: 'Trade study results', feedsInto: 'Design Definition, Risk Management' },
+            { name: 'Safety analysis', feedsInto: 'Risk Management, Verification' }
         ],
         useInTailoring: 'In tailoring, the main levers are the analysis breadth, methodology rigor, and trade study documentation formality.'
     },
@@ -272,8 +272,8 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Implementation strategy', 'Detailed procedures with optimization', 'Continuous monitoring dashboard', 'Comprehensive acceptance package', 'Extensive documentation suite', 'Formal review documentation', 'Implementation effectiveness metrics', 'Lessons learned']
         },
         outputs: [
-            { name: 'Implemented product', feedsInto: 'Integration (Basic), Verification (Basic)' },
-            { name: 'Implementation records', feedsInto: 'Configuration Management (Standard), Quality Assurance (Standard)' }
+            { name: 'Implemented product', feedsInto: 'Integration, Verification' },
+            { name: 'Implementation records', feedsInto: 'Configuration Management, Quality Assurance' }
         ],
         useInTailoring: 'In tailoring, the main levers are the implementation standards compliance, coding/production rigor, and unit verification depth.'
     },
@@ -289,27 +289,27 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Integration strategy', 'Advanced plan with risk assessment', 'Detailed environment management plan', 'Comprehensive verification results', 'Advanced issue tracking with analytics', 'Formal review documentation', 'Integration effectiveness metrics', 'Lessons learned', 'Updated Hazard Log [Safety]']
         },
         outputs: [
-            { name: 'Integrated system', feedsInto: 'Verification (Basic), Transition (Standard)' },
-            { name: 'Issue log', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' },
-            { name: 'Interface verification records', feedsInto: 'Configuration Management (Standard), Design Definition (Standard)' }
+            { name: 'Integrated system', feedsInto: 'Verification, Transition' },
+            { name: 'Issue log', feedsInto: 'Quality Assurance, Risk Management' },
+            { name: 'Interface verification records', feedsInto: 'Configuration Management, Design Definition' }
         ],
         useInTailoring: 'In tailoring, the main levers are the integration strategy formality, interface verification depth, and incremental integration planning.'
     },
     25: {
         activities: {
             basic: ['(*) Plan verification', '(*) Execute verification procedures', '(*) Report results', 'Log defects'],
-            standard: ['(*) Plan with multiple methods (T/D/I/A)', '(*) Specify verification environment', '(*) Execute comprehensive procedures', 'Track defects in database', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify SIL compliance [Safety]'],
+            standard: ['(*) Select justified methods: test, demonstration, inspection, or analysis', '(*) Specify verification environment', '(*) Execute comprehensive procedures', 'Track defects in database', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify allocated safety requirements and applicable integrity obligations [Safety]'],
             comprehensive: ['(*) Develop verification strategy', '(*) Plan risk-based approach', '(*) Execute comprehensive procedures', 'Manage verification environment', 'Comprehensive reporting with traceability', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Prepare safety verification evidence [Safety]']
         },
         deliverables: {
             basic: ['Verification plan', 'Verification procedures', 'Verification reports', 'Defect log'],
-            standard: ['Detailed verification plan', 'Verification procedures (multiple methods)', 'Verification environment specification', 'Comprehensive verification reports', 'Defect tracking database', 'Verification review records', 'RAMS Verification Reports [RAM]', 'Safety Function Test Records [Safety]', 'SIL Verification Evidence [Safety]'],
+            standard: ['Detailed verification plan', 'Verification procedures (methods selected for the requirements)', 'Verification environment specification', 'Comprehensive verification reports', 'Defect tracking database', 'Verification review records', 'RAMS Verification Reports [RAM]', 'Safety Function Test Records [Safety]', 'Verification evidence for allocated safety and integrity obligations [Safety]'],
             comprehensive: ['Verification strategy', 'Detailed risk-based plans', 'Comprehensive procedures', 'Verification environment management', 'Extensive reports with complete traceability', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Verification effectiveness metrics', 'Safety Verification Evidence Package [Safety]']
         },
         outputs: [
-            { name: 'Verification reports', feedsInto: 'Transition (Standard), Validation (Basic)' },
-            { name: 'Defect records', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' },
-            { name: 'Verification evidence', feedsInto: 'Validation (Standard), Configuration Management (Standard)' }
+            { name: 'Verification reports', feedsInto: 'Transition, Validation' },
+            { name: 'Defect records', feedsInto: 'Quality Assurance, Risk Management' },
+            { name: 'Verification evidence', feedsInto: 'Validation, Configuration Management' }
         ],
         useInTailoring: 'In tailoring, the main levers are the verification method rigor, independence of verification, and traceability to requirements.'
     },
@@ -325,16 +325,16 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Transition strategy', 'Detailed plan with risk assessment', 'Installation procedures with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal review documentation', 'Complete transition package', 'Transition effectiveness metrics', 'Approved Safety Case [Safety]', 'Safety Training Records [Safety]']
         },
         outputs: [
-            { name: 'Deployed system', feedsInto: 'Operation (Basic), Maintenance (Basic)' },
-            { name: 'Training materials', feedsInto: 'Operation (Standard), Knowledge Management (Standard)' },
-            { name: 'Operational readiness', feedsInto: 'Operation (Standard), Validation (Standard)' }
+            { name: 'Deployed system', feedsInto: 'Operation, Maintenance' },
+            { name: 'Training materials', feedsInto: 'Operation, Knowledge Management' },
+            { name: 'Operational readiness', feedsInto: 'Operation, Validation' }
         ],
         useInTailoring: 'In tailoring, the main levers are the transition planning formality, training depth, and operational readiness verification.'
     },
     27: {
         activities: {
             basic: ['(*) Plan validation', '(*) Execute validation procedures', '(*) Report results', 'Log defects'],
-            standard: ['(*) Plan with multiple methods', '(*) Specify validation environment', '(*) Execute comprehensive procedures', 'Plan stakeholder involvement', 'Track defects in database', 'Conduct reviews', 'Validate RAMS requirements [RAM]', 'Validate safety functions in operational context [Safety]'],
+            standard: ['(*) Plan with multiple methods', '(*) Specify validation environment', '(*) Execute comprehensive procedures', 'Plan stakeholder involvement', 'Track defects in database', 'Conduct reviews', 'Validate reliability, availability, and maintainability performance against intended use and stakeholder needs [RAM]', 'Validate safety functions in operational context [Safety]'],
             comprehensive: ['(*) Develop validation strategy', '(*) Plan with stakeholder focus', '(*) Execute comprehensive procedures', 'Manage validation environment', 'Comprehensive reporting with acceptance', 'Stakeholder involvement strategy', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Obtain safety sign-off [Safety]', 'Develop RAMS validation plan [RAM]']
         },
         deliverables: {
@@ -343,9 +343,9 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Validation strategy', 'Detailed plans with stakeholder focus', 'Comprehensive procedures', 'Validation environment management', 'Extensive reports with stakeholder acceptance', 'Stakeholder involvement strategy', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Validation effectiveness metrics', 'Safety Acceptance Certificate [Safety]', 'RAMS Validation Plan [RAM]']
         },
         outputs: [
-            { name: 'Validation reports', feedsInto: 'Stakeholder Needs (Standard), System Requirements Definition (Standard)' },
-            { name: 'Stakeholder acceptance', feedsInto: 'Transition (Standard), Quality Assurance (Standard)' },
-            { name: 'Defect records', feedsInto: 'Risk Management (Standard), Quality Assurance (Standard)' }
+            { name: 'Validation reports', feedsInto: 'Stakeholder Needs, System Requirements Definition' },
+            { name: 'Stakeholder acceptance', feedsInto: 'Transition, Quality Assurance' },
+            { name: 'Defect records', feedsInto: 'Risk Management, Quality Assurance' }
         ],
         useInTailoring: 'In tailoring, the main levers are the stakeholder involvement depth, scenario coverage, and formality of validation evidence.'
     },
@@ -361,9 +361,9 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced performance analytics', 'Problem management with root cause', 'Comprehensive user support infrastructure', 'Formal review documentation', 'Advanced training with evaluation', 'Operational effectiveness metrics', 'RAMS Validation Report [RAM]', 'Periodic Safety Review Reports [Safety]']
         },
         outputs: [
-            { name: 'Operational data', feedsInto: 'Maintenance (Basic), Measurement (Standard)' },
-            { name: 'Problem records', feedsInto: 'Quality Assurance (Standard), Knowledge Management (Standard)' },
-            { name: 'FRACAS data', feedsInto: 'Design Definition (Standard), System Analysis (Standard)' }
+            { name: 'Operational data', feedsInto: 'Maintenance, Measurement' },
+            { name: 'Problem records', feedsInto: 'Quality Assurance, Knowledge Management' },
+            { name: 'FRACAS data', feedsInto: 'Design Definition, System Analysis' }
         ],
         useInTailoring: 'In tailoring, the main levers are the operational monitoring depth, maintenance planning integration, and performance tracking formality.'
     },
@@ -371,17 +371,17 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Plan maintenance', '(*) Execute maintenance procedures', '(*) Track problems', 'Report maintenance'],
             standard: ['(*) Plan detailed maintenance', '(*) Execute comprehensive procedures', '(*) Manage maintenance environment', 'Track problems in database', 'Conduct reviews', 'Prepare documentation package', 'Update Hazard Log post-maintenance [Safety]', 'Track reliability growth [RAM]'],
-            comprehensive: ['(*) Develop maintenance strategy', '(*) Detailed procedures with optimization', '(*) Predictive maintenance methodology', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness', 'Conduct change impact analysis for safety [Safety]', 'RAMS performance review & optimization [RAM]']
+            comprehensive: ['(*) Develop maintenance strategy', '(*) Detailed procedures with optimization', '(*) Justify maintenance methods and intervals using risk and observed condition', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness', 'Conduct change impact analysis for safety [Safety]', 'RAMS performance review & optimization [RAM]']
         },
         deliverables: {
             basic: ['Maintenance plan', 'Maintenance procedures', 'Problem records', 'Maintenance reports'],
             standard: ['Detailed maintenance plan', 'Comprehensive procedures', 'Maintenance environment specification', 'Problem tracking database', 'Maintenance review records', 'Maintenance documentation package', 'Updated Hazard Log [Safety]', 'Reliability Growth Analysis [RAM]'],
-            comprehensive: ['Maintenance strategy', 'Detailed procedures with optimization', 'Predictive maintenance methodology', 'Maintenance environment management', 'Advanced problem tracking/analysis', 'Formal review documentation', 'Complete maintenance package', 'Maintenance effectiveness metrics', 'Safety Change Impact Analysis [Safety]', 'RAMS Performance Report [RAM]']
+            comprehensive: ['Maintenance strategy', 'Detailed procedures with optimization', 'Justified maintenance methods and intervals', 'Maintenance environment management', 'Advanced problem tracking/analysis', 'Formal review documentation', 'Complete maintenance package', 'Maintenance effectiveness metrics', 'Safety Change Impact Analysis [Safety]', 'RAMS Performance Report [RAM]']
         },
         outputs: [
-            { name: 'Maintenance records', feedsInto: 'Operation (Basic), Configuration Management (Standard)' },
-            { name: 'Problem trends', feedsInto: 'Quality Assurance (Standard), Risk Management (Standard)' },
-            { name: 'Reliability data', feedsInto: 'System Analysis (Standard), Design Definition (Comprehensive)' }
+            { name: 'Maintenance records', feedsInto: 'Operation, Configuration Management' },
+            { name: 'Problem trends', feedsInto: 'Quality Assurance, Risk Management' },
+            { name: 'Reliability data', feedsInto: 'System Analysis, Design Definition' }
         ],
         useInTailoring: 'In tailoring, the main levers are the maintenance planning formality, failure analysis depth, and upgrade management rigor.'
     },
@@ -397,9 +397,9 @@ export const PROCESS_DETAILS = {
             comprehensive: ['Disposal strategy', 'Detailed procedures with risk assessment', 'Comprehensive environmental impact analysis', 'Detailed health and safety plan', 'Formal review documentation', 'Complete disposal documentation', 'Advanced archiving strategy', 'Disposal effectiveness metrics', 'Disposal Safety Case [Safety]', 'Archived Safety Records [Safety]']
         },
         outputs: [
-            { name: 'Disposal records', feedsInto: 'Information Management (Standard), Knowledge Management (Standard)' },
-            { name: 'Archive', feedsInto: 'Knowledge Management (Basic)' },
-            { name: 'Environmental assessment', feedsInto: 'Risk Management (Standard), Quality Assurance (Standard)' }
+            { name: 'Disposal records', feedsInto: 'Information Management, Knowledge Management' },
+            { name: 'Archive', feedsInto: 'Knowledge Management' },
+            { name: 'Environmental assessment', feedsInto: 'Risk Management, Quality Assurance' }
         ],
         useInTailoring: 'In tailoring, the main levers are the disposal planning formality, environmental compliance depth, and data retention requirements.'
     }

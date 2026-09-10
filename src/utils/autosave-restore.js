@@ -69,6 +69,9 @@ export function autosaveRestoreNotice(currentSemantics, normalized = {}) {
   }
 
   const migration = normalized.semanticMigration || {};
+  if (migration.reason === 'comprehensive-support-policy') {
+    return { message: 'Ratings and evidence restored. The recommendation rule has changed; recalculate each assessed element and review the results.', type: 'warning' };
+  }
   if (migration.reason === 'completion-contract-coherence') {
     return {
       message: '4.1.0 assessment restored for preview. Reconfirm all 16 anchors before software completeness can pass.',

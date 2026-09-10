@@ -17,6 +17,7 @@ import { renderManualAdjust } from './views/manual-adjust.js';
 import { renderDeliverables } from './views/deliverables.js';
 import { renderReport } from './views/report.js';
 import { renderSystemElements } from './views/system-elements.js';
+import { renderHelp } from './views/help.js';
 import { escapeHtml } from './utils/safe-text.js';
 import { FRAMEWORK_META } from './data/se-tailoring-data.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
@@ -64,6 +65,7 @@ registerRoute('matrix', renderMatrixView);
 registerRoute('adjust', renderManualAdjust);
 registerRoute('deliverables', renderDeliverables);
 registerRoute('report', renderReport);
+registerRoute('help', renderHelp);
 
 // Build the navbar
 function buildNavbar() {
@@ -71,13 +73,14 @@ function buildNavbar() {
     navbar.innerHTML = `
     <button class="nav-brand nav-brand-button" id="btn-nav-home" type="button" aria-label="Go to dashboard">
       <div class="brand-icon">SE</div>
-      <span>Tailoring Model <small style="font-size:10px;color:var(--text-tertiary);font-weight:400;">v${escapeHtml(FRAMEWORK_META.version)}</small></span>
+      <span>Tailoring Model</span>
     </button>
     <div class="nav-links">
       <button class="nav-link" data-route="dashboard">Workspace</button>
       <button class="nav-link" data-route="assessment">Assessment</button>
       <button class="nav-link" data-route="processes">Guidance</button>
       <button class="nav-link" data-route="report">Report</button>
+      <button class="nav-link" data-route="help">Help</button>
       <div class="nav-dropdown">
         <button class="nav-dropdown-trigger" type="button" aria-expanded="false">Framework reference ▾</button>
         <div class="nav-dropdown-menu">
@@ -95,6 +98,7 @@ function buildNavbar() {
       <option value="assessment">Assessment</option>
       <option value="processes">Guidance</option>
       <option value="report">Report</option>
+      <option value="help">Help</option>
       <option value="vee-model">Vee Model</option>
       <option value="interdependency">Dependencies</option>
       <option value="matrix">Matrix View</option>

@@ -60,7 +60,7 @@ async function importCorrelatedFixture(page) {
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: {
-      frameworkVersion: '4.1.1',
+      frameworkVersion: '4.2.0',
       metricDefinitionSet: 'se-tailoring-m1-m16-v3',
       qualifierSchemaVersion: '1.1'
     },
