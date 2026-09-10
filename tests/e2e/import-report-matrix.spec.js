@@ -62,6 +62,12 @@ async function openReportFromNavigation(page) {
   await page.getByRole('button', { name: 'Report', exact: true }).click();
 }
 
+async function openDecisionReview(page) {
+  await page.getByRole('button', { name: /Decisions/ }).click();
+  await expect(page.getByRole('heading', { name: 'Decisions needed', exact: true })).toBeVisible();
+  await expect(page.locator('#main-content')).not.toHaveAttribute('inert', '');
+}
+
 async function dispositionOtherTriggeredWarnings(page) {
   const sections = page.locator('.warning-disposition');
   const count = await sections.count();
@@ -218,7 +224,7 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByRole('button', { name: /Decisions/ }).click();
+  await openDecisionReview(page);
   await expect(page.getByText('Rule 11 · verification and validation')).toBeVisible();
   await expect(page.getByText('Align validation evidence with the verification level')).toBeVisible();
 
@@ -271,7 +277,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByRole('button', { name: /Decisions/ }).click();
+  await openDecisionReview(page);
   await expect(page.getByText('Align validation evidence with the verification level')).toBeVisible();
 
   await page.locator('#rule11-outcome').selectOption('elevated-validation');
@@ -279,6 +285,8 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   await page.locator('#rule11-evidence').fill('VAL-ELEVATE-11');
   await page.locator('#rule11-date').fill('2026-07-10');
   await page.locator('#rule11-rationale').fill('Validation is elevated to Standard for stakeholder acceptance assurance.');
+  await expect(page.locator('#rule11-owner')).toHaveValue('Programme Chief Engineer');
+  await expect(page.locator('.rule11-decision .decision-state')).toHaveText('Ready to apply');
   await dispositionOtherTriggeredWarnings(page);
   await page.getByRole('button', { name: /Apply P27 Adjustment & Check Completeness/ }).click();
 
