@@ -141,7 +141,8 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
 
   await page.goto('./#matrix');
   await expect(page).toHaveURL(/#matrix$/);
-  await expect(page.getByText(/Read-only canonical 102-cell process–metric map/)).toBeVisible();
+  await expect(page.getByText(/This matrix links project ratings to process recommendations/)).toBeVisible();
+  await expect(page.locator('.matrix-table caption')).toContainText('102 shared driver allocations');
   const canonicalCell = page.locator('.matrix-cell[data-pid="9"][data-mid="M1"]');
   await expect(canonicalCell).not.toHaveAttribute('role', 'button');
   await expect(page.locator('.clickable-cell')).toHaveCount(0);
@@ -189,9 +190,10 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
 
 test('Rule 11 warning remains visible and can be dispositioned before software completeness', async ({ page }) => {
   const rule11Scores = Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 1]));
-  rule11Scores.M1 = 3;
+  // Primary M2=5 with distinct Primary M4=3 elevates Verification. Keep M1
+  // low so a separate Comprehensive design path does not raise Validation.
   rule11Scores.M2 = 5;
-  rule11Scores.M4 = 5;
+  rule11Scores.M4 = 3;
   const rule11Assessments = Object.fromEntries(Object.entries(rule11Scores).map(([metricId, score]) => [metricId, {
     score, status: 'assessed', definitionVersion: 3, qualifiers: [], rationale: 'Rule 11 E2E fixture', evidenceRefs: []
   }]));
@@ -244,9 +246,9 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
 
 test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjustment', async ({ page }) => {
   const scores = Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 1]));
-  scores.M1 = 3;
+  // Isolate the same Verification-to-Validation warning under the new policy.
   scores.M2 = 5;
-  scores.M4 = 5;
+  scores.M4 = 3;
   const assessments = Object.fromEntries(Object.entries(scores).map(([metricId, score]) => [metricId, {
     score, status: 'assessed', definitionVersion: 3, qualifiers: [], rationale: 'Rule 11 elevation fixture', evidenceRefs: []
   }]));
