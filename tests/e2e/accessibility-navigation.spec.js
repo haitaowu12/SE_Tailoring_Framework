@@ -4,7 +4,7 @@ async function startBlank(page) {
   await page.goto('./');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
-  await expect(page.getByRole('heading', { name: /Right-size the work/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Plan the systems engineering your project needs/i })).toBeVisible();
 }
 
 test('skip navigation and route changes move keyboard focus to meaningful content', async ({ page, browserName }) => {
