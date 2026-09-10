@@ -119,6 +119,10 @@ export function initRouter(container) {
         const handler = routes[route];
         if (!handler) return;
 
+        // The outgoing form is about to be replaced. Prevent a quick click or
+        // keystroke from editing it during the transition and losing that input.
+        container.inert = true;
+
         // Animate out
         if (currentView) {
             container.classList.add('view-exit');
@@ -151,6 +155,7 @@ export function initRouter(container) {
 
         setTimeout(() => container.classList.remove('view-enter'), 400);
 
+        container.inert = false;
         updateNavState(route);
         window.dispatchEvent(new CustomEvent('app:route-rendered', {
             detail: { route, requestedRoute, params: requestedContext.params.toString() }
