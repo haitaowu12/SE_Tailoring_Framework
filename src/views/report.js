@@ -4,7 +4,7 @@
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
 import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig } from '../utils/export-import.js';
-import { renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
+import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, setState, showToast, getElementsFlat } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
@@ -261,12 +261,7 @@ export function renderReport(container) {
     localScenarioLevels[process.id] && localScenarioLevels[process.id] !== levels[process.id]
   );
 
-  const assessmentShape = renderMetricSpiderwebSvg(scores, METRICS, DIMENSIONS, {
-    idPrefix: 'report-profile',
-    metricAssessments: state.metricAssessments,
-    title: 'Assessment shape',
-    description: 'The sixteen confirmed metric scores grouped into four assessment areas.'
-  });
+  const assessmentRatings = renderMetricRatingTable(scores, state.metricAssessments, METRICS);
   const overrideCount = state.overrides?.length || 0;
   const warningCount = state.violations?.length || 0;
   const fixCount = state.fixes?.length || 0;
@@ -385,7 +380,7 @@ export function renderReport(container) {
     </div>
 
     <div class="card mb-xl report-overview-panel">
-      ${assessmentShape}
+      ${assessmentRatings}
     </div>
 
     <div class="grid-2 mb-xl">
@@ -696,7 +691,7 @@ export function renderReport(container) {
       assuranceObligations: state.assuranceObligations || []
     });
     const confBadge = conf === 'corroborated'
-      ? '<span class="confidence-badge-inline corroborated" title="Corroborated by multiple metrics">Corroborated</span>'
+      ? '<span class="confidence-badge-inline corroborated" title="The framework threshold is met; evidence independence is not verified">Rule threshold met</span>'
       : conf === 'available-with-justification'
         ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">Needs note</span>'
         : conf === 'floor-applied'

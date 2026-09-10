@@ -1,6 +1,6 @@
 /**
  * SE Tailoring Model — Metrics & Assessment Data
- * _SEMANTIC_VERSION: 4.1.1 | _LAST_UPDATED: 2026-07-12
+ * _SEMANTIC_VERSION: 4.2.0 | _LAST_UPDATED: 2026-09-10
  * _SOURCE: This registry is authoritative for normative semantic fields.
  * _SYNC_CONTRACT:
  *   - 01-PAPER/SE-Tailoring-Framework-Conference-Methods-Paper-v4.1.1.md explains the current architecture and claim boundary.
@@ -23,7 +23,13 @@ export const DIMENSIONS = [
     { id: 'stakeholder', name: 'Stakeholder, Governance & Adoption Context', color: '#22d3ee', metrics: ['M13', 'M14', 'M15', 'M16'] }
 ];
 
-export const FRAMEWORK_SEMANTIC_VERSION = '4.1.1';
+export const FRAMEWORK_SEMANTIC_VERSION = '4.2.0';
+export const COMPREHENSIVE_POLICY = Object.freeze({
+    leadRole: 'P', leadScore: 5,
+    distinctSupport: { primaryMinimum: 3, secondaryMinimum: 5 },
+    directConsequenceExceptions: ['M5', 'M7'],
+    statement: 'One Primary at 5 plus another Primary at 3 or above, or one Primary at 5 plus a Secondary at 5. A mapped M5 or M7 at 5 is independently sufficient.'
+});
 export const METRIC_DEFINITION_SET_ID = 'se-tailoring-m1-m16-v3';
 export const METRIC_DEFINITION_VERSION = 3;
 export const QUALIFIER_SCHEMA_VERSION = '1.1';
@@ -627,7 +633,7 @@ export const OVERRIDE_CONDITIONS = [
         condition: 'M5 = 5 → Process 20 ≥ Comprehensive',
         trigger: { type: 'metric', metric: 'M5', op: '=', value: 5 },
         label: 'Life-Safety: System Architecture Definition',
-        description: 'M5=5 requires comprehensive architecture with SIL allocation and safety integrity verification',
+        description: 'M5=5 sets a Comprehensive architecture minimum, including allocation of safety requirements and verification of the architecture; apply SIL methods only where the applicable assurance regime requires them',
         processes: [20],
         minLevel: 'comprehensive',
         source: 'EN 50129; IEC 61508-2'
@@ -760,7 +766,7 @@ export const OVERRIDE_CONDITIONS = [
         condition: 'M6 >= 4 → Process 25 ≥ Standard',
         trigger: { type: 'metric', metric: 'M6', op: '>=', value: 4 },
         label: 'Mission-Critical: Verification',
-        description: 'M6≥4 requires standard verification with mission success criteria validation',
+        description: 'M6≥4 sets a Standard verification minimum against specified mission-related requirements',
         processes: [25],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.9'
@@ -888,8 +894,8 @@ export const OVERRIDE_CONDITIONS = [
         id: 'multi_contractor_integration',
         condition: 'M4 >= 4 → Process 24 ≥ Standard',
         trigger: { type: 'metric', metric: 'M4', op: '>=', value: 4 },
-        label: 'Multi-Contractor: Integration',
-        description: 'M4≥4 requires standard integration with formal interface control and cross-contractor coordination',
+        label: 'Integration Complexity: Integration',
+        description: 'M4≥4 sets a Standard integration minimum with planned interface control and coordination across the elements being integrated',
         processes: [24],
         minLevel: 'standard',
         source: 'ISO 15288 §6.4.8'
@@ -898,7 +904,7 @@ export const OVERRIDE_CONDITIONS = [
         id: 'multi_contractor_cm',
         condition: 'M4 >= 4 → Process 13 ≥ Standard',
         trigger: { type: 'metric', metric: 'M4', op: '>=', value: 4 },
-        label: 'Multi-Contractor: Configuration Management',
+        label: 'Integration Complexity: Configuration Management',
         description: 'M4≥4 requires standard CM with multi-party baseline coordination and change control',
         processes: [13],
         minLevel: 'standard',
@@ -1039,7 +1045,7 @@ export const CONSISTENCY_RULES = [
     { id: 15, type: 'WN', trigger: { process: 28, level: 'comprehensive', op: '>=' }, required: { process: 29, level: 'standard', op: '>=' }, label: 'Operation ≥ Comprehensive → Maintenance ≥ Standard', rationale: 'Comprehensive operations produce data and workload requiring structured maintenance.' },
     { id: 16, type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 15, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Measurement ≥ Standard', rationale: 'Comprehensive technical rigor should be supported by structured measurement.' },
     { id: 17, type: 'WN', trigger: { process: 'any_technical', level: 'comprehensive', op: '>=' }, required: { process: 16, level: 'standard', op: '>=' }, label: 'Any Technical Process ≥ Comprehensive → Quality Assurance ≥ Standard', rationale: 'Comprehensive technical rigor should be supported by structured quality assurance.' },
-    { id: 18, type: 'HC', trigger: { process: 23, level: 'comprehensive', op: '>=' }, required: { process: 24, level: 'standard', op: '>=' }, label: 'Implementation ≥ Comprehensive → Integration ≥ Standard', rationale: 'Formally-built components cannot be informally assembled without integration failures.' },
+    { id: 18, type: 'HC', trigger: { process: 23, level: 'comprehensive', op: '>=' }, required: { process: 24, level: 'standard', op: '>=' }, label: 'Implementation ≥ Comprehensive → Integration ≥ Standard', rationale: 'Comprehensive implementation should be supported by planned integration, interface checks, and recorded results. This minimum is a framework policy choice.' },
     { id: 19, type: 'WN', trigger: { process: 26, level: 'comprehensive', op: '>=' }, required: { process: 28, level: 'standard', op: '>=' }, label: 'Transition ≥ Comprehensive → Operation ≥ Standard', rationale: 'Formal transition planning without structured operations creates a handoff cliff.' },
     { id: 20, type: 'WN', active: false, deprecated: true, trigger: { process: 'any_technical', level: 'standard', op: '>=' }, required: { process: 13, level: 'basic', op: '>=' }, label: 'Any Technical Process ≥ Standard → Configuration Management ≥ Basic', rationale: 'Retired — trivially satisfied under the Never Zero model. Retained only for migration and ID stability.' }
 ];
@@ -1090,7 +1096,7 @@ export const PROPAGATION_RULES = [
     { id: 'P16', source: 28, sourceLevel: 'comprehensive', target: 29, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 15, rationale: 'Comprehensive operations should be paired with structured maintenance.' },
     { id: 'P17', source: 'any_technical', sourceLevel: 'comprehensive', target: 15, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 16, rationale: 'Comprehensive technical work should be supported by structured measurement.' },
     { id: 'P18', source: 'any_technical', sourceLevel: 'comprehensive', target: 16, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 17, rationale: 'Comprehensive technical work should be supported by structured quality assurance.' },
-    { id: 'P19', source: 23, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 18, rationale: 'Formally-built components cannot be informally assembled.' },
+    { id: 'P19', source: 23, sourceLevel: 'comprehensive', target: 24, minLevel: 'standard', type: 'mandatory', depth: 1, ruleId: 18, rationale: 'Comprehensive implementation should be supported by planned integration and recorded interface checks.' },
     { id: 'P20', source: 26, sourceLevel: 'comprehensive', target: 28, minLevel: 'standard', type: 'recommended', depth: 1, ruleId: 19, rationale: 'Formal transition planning requires structured operational handoff.' },
     { id: 'P21', active: false, deprecated: true, source: 'any_technical', sourceLevel: 'standard', target: 13, minLevel: 'basic', type: 'recommended', depth: 1, ruleId: 20, rationale: 'Retired as vacuous. Retained for migration and ID stability.' }
 ];

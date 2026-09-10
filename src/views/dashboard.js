@@ -18,18 +18,18 @@ export function renderDashboard(container) {
       ${state.semanticMigration?.status === 'review-required' ? `<section class="card migration-notice">
         <strong>Older assessment needs review</strong>
         <p class="text-sm text-secondary mt-sm">${state.semanticMigration?.reason === 'completion-contract-coherence'
-          ? `This 4.1.0 record could not prove which neutral values were explicitly reviewed. Its scores remain available for preview, but all ${FRAMEWORK_META.metricCount} anchors must be reconfirmed before software completeness can pass.`
+          ? `This saved record could not prove which neutral values were explicitly reviewed. Its scores remain available for preview, but all ${FRAMEWORK_META.metricCount} anchors must be reconfirmed before software completeness can pass.`
           : `This record used an older semantic contract. Reassess ${escapeHtml((state.semanticMigration?.reassessmentMetrics || []).join(', ') || 'the flagged metrics')} before software completeness can pass.`}</p>
       </section>` : ''}
 
       <section class="dashboard-hero animate-fade-in-up">
-        <div class="hero-badge">Version ${FRAMEWORK_META.version} · Standards-informed process architecture</div>
+        <div class="hero-badge">A decision aid for project teams</div>
         <p class="hero-kicker">Systems engineering process tailoring</p>
-        <h1>Right-size the work.<br><span>Keep the reasoning visible.</span></h1>
-        <p class="hero-subtitle">Review ${FRAMEWORK_META.metricCount} provisional ordinal judgments and inspect recommendations for ${FRAMEWORK_META.coreProcessCount} systems engineering processes. Neutral score 3 is preview-only until explicitly confirmed.</p>
+        <h1>Plan the systems engineering<br><span>your project needs.</span></h1>
+        <p class="hero-subtitle">Describe your project, review a suggested level of effort for each process, and decide what work and evidence are needed. Start with the boundary and information you know; record uncertainty where evidence is missing.</p>
         <div class="hero-actions">
           <button class="btn btn-primary btn-lg" id="btn-start-assessment">${hasAssessment ? 'Continue assessment' : 'Start assessment'}</button>
-          <button class="btn btn-secondary btn-lg" id="btn-explore">Explore process guidance</button>
+          <a class="btn btn-secondary btn-lg" href="#help">How to use the framework</a>
         </div>
         <div class="framework-facts" aria-label="Framework scope">
           <span><strong>${FRAMEWORK_META.metricCount}</strong> project questions</span>
@@ -53,9 +53,9 @@ export function renderDashboard(container) {
           <h2>How it works</h2>
         </div>
         <div class="grid-3">
-          <article class="card step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Confirm each anchor or mark it Unknown. Untouched neutral previews never count as reviewed.</p></article>
-          <article class="card step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">Use the grouped ordinal profile and issue list before opening the complete process breakdown.</p></article>
-          <article class="card step-card"><span>03</span><h3>Apply the guidance</h3><p class="text-sm text-secondary">Open a process to see the expected activities, outputs, and practical level guidance.</p></article>
+          <article class="card step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Define what is in scope. Choose the description that fits each question, or mark it Unknown.</p></article>
+          <article class="card step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">Check why each process was recommended. Resolve warnings and compare the result with your project needs.</p></article>
+          <article class="card step-card"><span>03</span><h3>Apply the guidance</h3><p class="text-sm text-secondary">Adapt the activities and evidence to your way of working, then agree responsibilities and approval.</p></article>
         </div>
       </section>
 

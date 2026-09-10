@@ -3,10 +3,17 @@
  */
 import { CORE_PROCESSES, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, DEPENDENCY_CHAINS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { getState } from '../state.js';
-import { previewDirectConsequences, getEffectivePropagationType } from '../utils/assessment-engine.js';
+import { previewDirectConsequences, getEffectivePropagationType, getEffectiveConsistencyType, checkConsistency } from '../utils/assessment-engine.js';
 
 export function renderInterdependency(container) {
     const state = getState();
+    const node = state.assessmentTree?.nodes?.[state.assessmentTree?.activeId];
+    const isRoot = !node || node.id === state.assessmentTree?.rootId;
+    const scores = node?.scores || (isRoot ? state.scores : {}) || {};
+    const levels = node?.levels || (isRoot ? state.levels : {}) || {};
+    const context = { assuranceObligations: node?.assuranceObligations || (isRoot ? state.assuranceObligations : []) || [] };
+    const hasProfile = CORE_PROCESSES.every(process => ['basic', 'standard', 'comprehensive'].includes(levels[process.id]));
+    const violations = hasProfile ? checkConsistency(levels, scores, context) : [];
     const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
     const processRefName = (ref) => {
         if (ref === 'any_technical') return 'Any Technical Process';
@@ -16,7 +23,7 @@ export function renderInterdependency(container) {
     };
 
     container.innerHTML = `
-    <h2 class="mb-lg">Process Interdependencies</h2>
+    <h2 class="mb-md">Process Interdependencies</h2><p class="text-secondary mb-lg">These are framework rules for keeping process recommendations consistent. They are proposed policy choices, not clauses of a standard. Hard constraints raise connected processes; warnings ask for your judgment. <a href="#help?topic=adapt">How to review or propose a rule change</a>.</p>
 
     <div class="tabs mb-xl">
       <button class="tab active" data-tab="rules">Consistency Rules</button>
@@ -62,14 +69,15 @@ export function renderInterdependency(container) {
         </div>
         ${ACTIVE_CONSISTENCY_RULES.map(r => {
                 const triggerDesc = Array.isArray(r.trigger.process) ? r.trigger.process.map(processName).join(' or ') : r.trigger.process === 'any_technical' ? 'Any Technical Process' : processName(r.trigger.process);
-                const violated = state.violations?.some(v => v.ruleId === r.id);
+                const violated = violations.some(v => v.ruleId === r.id);
+                const effectiveType = getEffectiveConsistencyType(r, scores, context);
                 return `
-          <div class="rule-card" style="border-left: 3px solid ${r.type === 'HC' ? '#f87171' : '#fbbf24'}">
+          <div class="rule-card" style="border-left: 3px solid ${effectiveType === 'HC' ? '#f87171' : '#fbbf24'}">
             <div class="flex justify-between items-center mb-sm">
               <div class="flex items-center gap-sm">
-                <span class="rule-type ${r.type}">${r.type}</span>
+                <span class="rule-type ${effectiveType}">${effectiveType}${effectiveType !== r.type ? ' in this context' : ''}</span>
                 <strong>Rule ${r.id}</strong>
-                ${violated ? '<span class="status-dot violated" title="Currently violated"></span>' : '<span class="status-dot ok" title="Satisfied"></span>'}
+                <span class="text-xs">${!hasProfile ? 'No full profile assessed' : violated ? 'Review required' : 'No current conflict'}</span>
               </div>
             </div>
             <p class="text-sm font-bold mb-sm">${r.label}</p>
@@ -85,7 +93,7 @@ export function renderInterdependency(container) {
             <span>Source Process</span><span>→</span><span>Target Process</span><span>Min Level</span><span>Type</span>
           </div>
           ${ACTIVE_PROPAGATION_RULES.map(r => {
-              const effectiveType = getEffectivePropagationType(r, state.scores || {});
+              const effectiveType = getEffectivePropagationType(r, scores, context);
               return `
             <div class="prop-row">
               <span>${processRefName(r.source)} ≥ ${FRAMEWORK_META.levelLabels[r.sourceLevel]}</span>
@@ -108,7 +116,7 @@ export function renderInterdependency(container) {
             <p class="text-xs text-secondary mb-md">${c.description}</p>
             <div class="chain-flow">
               ${c.processes.map((pid, i) => {
-                const lvl = state.levels[pid];
+                const lvl = levels[pid];
                 const color = lvl ? FRAMEWORK_META.levelColors[lvl] : 'var(--bg-tertiary)';
                 return `${i > 0 ? '<span class="chain-arrow">→</span>' : ''}<span class="chain-node" style="background:${color}20;border:1px solid ${color}50;color:${lvl ? FRAMEWORK_META.levelColors[lvl] : 'var(--text-secondary)'}">${processName(pid)}${lvl ? ` (${lvl[0].toUpperCase()})` : ''}</span>`;
             }).join('')}
@@ -137,7 +145,7 @@ export function renderInterdependency(container) {
                 const pid = parseInt(content.querySelector('#sim-process').value);
                 const lvl = content.querySelector('#sim-level').value;
                 if (!pid) return;
-                const changes = previewDirectConsequences(pid, lvl, state.levels || {}, state.scores || {});
+                const changes = previewDirectConsequences(pid, lvl, levels, scores, context);
                 const results = content.querySelector('#sim-results');
                 if (changes.length === 0) {
                     results.innerHTML = '<div class="sim-result text-sm text-secondary">No direct outgoing consequence for this change. Run the full assessment to evaluate whole-profile consistency and mandatory closure.</div>';

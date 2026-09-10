@@ -21,13 +21,13 @@ const assessed = Object.fromEntries(METRIC_IDS.map(metricId => [metricId, {
 
 test('current autosave requires both framework version and definition-set identity', () => {
   assert.equal(isCurrentAutosaveSemantics({
-    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3' }
+    semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3' }
   }), true);
   assert.equal(isCurrentAutosaveSemantics({
     semantics: { frameworkVersion: '4.1.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3' }
   }), false);
   assert.equal(isCurrentAutosaveSemantics({
-    semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v2' }
+    semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v2' }
   }), false);
 });
 

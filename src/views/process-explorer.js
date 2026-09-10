@@ -339,7 +339,7 @@ function getConditionalContentState(text, viewContext) {
   const score = getContextScore(viewContext, metricId);
   if (score === null) return { disabled: false, note: `${metricId} context unconfirmed` };
   return score < 3
-    ? { disabled: true, note: `Not required (${metricId} < 3)` }
+    ? { disabled: false, note: `Not highlighted by ${metricId}; check applicability and binding obligations` }
     : { disabled: false, note: '' };
 }
 
@@ -413,7 +413,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
 
       <section class="practitioner-work-aid" aria-labelledby="work-aid-title-${p.id}">
         <div>
-          <div class="text-xs text-secondary">Workshop work aid</div>
+          <div class="text-xs text-secondary">Process work aid</div>
           <h4 id="work-aid-title-${p.id}">Turn this recommendation into a team plan</h4>
         </div>
         <ol>
@@ -429,6 +429,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         <p class="text-sm text-secondary">${escapeHtml(p.definition[viewLevel] || '—')}</p>
       </div>` : ''}
 
+      <p class="text-sm text-secondary mb-lg">Use the following activities and records as examples to adapt. Higher rigor retains the essential outcomes of lower levels. Named tools, document formats, and analysis methods are options unless your project has a specific obligation. Existing controlled records may meet several information needs. <a href="#help?topic=adapt">How to adapt the guidance</a>.</p>
       <div class="detail-section">
         <h4>Do at this level (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(core activities are marked)</span></h4>
         ${activities.length ? activities.map(a => {
@@ -457,7 +458,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
       </div>
 
       <div class="detail-section">
-        <h4>Coordinate these handoffs</h4>
+        <h4>Coordinate these handoffs</h4><p class="text-sm text-secondary">These are possible information flows. They do not set the recipient process level; use its assessment and applicable obligations.</p>
         ${outputs.length ? outputs.map(o => `<div class="output-item"><strong>${escapeHtml(o.name)}</strong> → ${escapeHtml(o.feedsInto)}</div>`).join('') : '<div class="detail-empty-line">No output flow detail is defined for this process yet.</div>'}
       </div>
 

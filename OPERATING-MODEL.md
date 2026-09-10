@@ -4,9 +4,9 @@ Status: controlled prototype operating contract
 
 App release: 3.6.1
 
-Framework semantics: 4.1.1
+Framework semantics: 4.2.0
 
-Last reviewed: 2026-07-12
+Last reviewed: 2026-09-10
 
 This contract separates what the repository can support today from organizational decisions that software cannot authorize. It does not authorize a pilot, create a service commitment, or represent the framework as validated.
 

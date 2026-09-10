@@ -1,17 +1,11 @@
 /**
- * Assessment Engine — Framework v4.0 executable algorithm
- * 
- * Algorithm Steps:
- * 1. Get applicable metrics for each process
- * 2. Remove M9/M10 direct constraint inflation from process-level derivation
- * 3. Convert metric scores to tiers and find MAX tier across applicable metrics
- * 4. Apply overrides (safety, regulatory, project-context)
- * 5. Apply SA display/floor logic (Safety Assurance minimum levels)
- * 6. RIGHT-SIZE: Compute PSI/CSI/CRI → enforce rigor budget and flag adoption-readiness gaps
- * 7. Apply interdependencies (consistency rules)
- * 8. CORROBORATION: Compute confidence for Comprehensive processes
+ * Assessment engine: derive process candidates from applicable drivers, apply
+ * the configured Comprehensive threshold, process floors, and hard-rule closure.
+ * Feasibility and adoption indices do not reduce technical rigor. Governed
+ * adjustments remain separate scenarios and must pass the same safeguards.
+ * A rule threshold does not establish independence of the supporting evidence.
  */
-import { METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, BINDING_ASSURANCE_QUALIFIERS, OVERRIDE_CONDITIONS, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES, FRAMEWORK_META } from '../data/se-tailoring-data.js';
+import { COMPREHENSIVE_POLICY, METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, BINDING_ASSURANCE_QUALIFIERS, OVERRIDE_CONDITIONS, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, CORE_PROCESSES, RIGOR_BUDGET, ADOPTION_READINESS_GUIDANCE, PROCESS_PRIORITY_CLASSES, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { evaluateRightSizingApprovals, getRightSizingApprovalRequirements } from './right-sizing-governance.js';
 
 const LEVELS = ['basic', 'standard', 'comprehensive'];
@@ -179,21 +173,22 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
 
         // Count Primary drivers at Comprehensive (score=5)
         const primaryAtComprehensive = applicableMetrics.filter(([m, role]) => {
-            return role === 'P' && scoreOrDefault(scores, m) === 5;
+            return role === COMPREHENSIVE_POLICY.leadRole && scoreOrDefault(scores, m) === COMPREHENSIVE_POLICY.leadScore;
         }).length;
 
-        // Count Secondary drivers at Standard+ (score>=3)
-        const secondaryAtStandardPlus = applicableMetrics.filter(([m, role]) => {
-            return role === 'S' && scoreOrDefault(scores, m) >= 3;
+        // The lead Primary is included in this count; two entries are needed
+        // so that one metric cannot corroborate itself.
+        const primaryAtStandardPlus = applicableMetrics.filter(([m, role]) => {
+            return role === 'P' && scoreOrDefault(scores, m) >= COMPREHENSIVE_POLICY.distinctSupport.primaryMinimum;
+        }).length;
+        const secondaryAtComprehensive = applicableMetrics.filter(([m, role]) => {
+            return role === 'S' && scoreOrDefault(scores, m) >= COMPREHENSIVE_POLICY.distinctSupport.secondaryMinimum;
         }).length;
 
-        // Corroboration check per paper §3.4.4:
-        // Requires 2+ Primary drivers at Comprehensive, OR
-        // 1 Primary at Comprehensive + ≥1 Secondary at Standard+
-        const corroborated = (
-            primaryAtComprehensive >= 2 ||
-            (primaryAtComprehensive >= 1 && secondaryAtStandardPlus >= 1)
-        );
+        // Owner-selected policy: one Primary at 5, plus another Primary at
+        // 3+ OR a Secondary at 5. P/S express relevance, not arithmetic weight.
+        const corroborated = primaryAtComprehensive >= 1 &&
+            (primaryAtStandardPlus >= 2 || secondaryAtComprehensive >= 1);
 
         // Direct critical-consequence derivation: a mapped M5=5 or M7=5 is
         // independently sufficient for Comprehensive. This is metric-derived

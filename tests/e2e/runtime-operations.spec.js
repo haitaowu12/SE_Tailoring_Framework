@@ -21,7 +21,7 @@ test('diagnostics disclose exact release identity and remain local-only', async 
   const dialog = page.getByRole('dialog', { name: 'Release and local diagnostics' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('3.6.1');
-  await expect(dialog).toContainText('4.1.1');
+  await expect(dialog).toContainText('4.2.0');
   await expect(dialog).toContainText('se-tailoring-m1-m16-v3');
   await expect(dialog).toContainText(/(?:local-unattested|[0-9a-f]{40})/);
   await expect(dialog).toContainText('static-self-service-prototype');
@@ -52,7 +52,7 @@ test('minimum-data export carries release and build producer identity', async ({
   expect(config._producer).toMatchObject({
     application: 'se-tailoring-app',
     appRelease: '3.6.1',
-    frameworkVersion: '4.1.1',
+    frameworkVersion: '4.2.0',
     metricDefinitionSet: 'se-tailoring-m1-m16-v3',
     exchangeSchemaVersion: '2.0',
     operatingProfile: 'static-self-service-prototype',

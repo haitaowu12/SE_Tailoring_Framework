@@ -25,7 +25,7 @@ export function renderMatrixView(container) {
     <div class="flex justify-between items-center mb-md">
       <div>
         <h2 class="mb-sm">Process-Metric Applicability Matrix</h2>
-        <p class="text-secondary text-sm">Read-only canonical ${canonicalCellCount}-cell process–metric map. <strong class="text-accent">P</strong> = Primary driver, <strong class="text-secondary">S</strong> = Secondary driver. Changes require governed registry review and cannot be made from the practitioner app.</p>
+        <p class="text-secondary text-sm">This matrix links project ratings to process recommendations. <strong class="text-accent">P</strong> = primary driver; <strong class="text-secondary">S</strong> = supporting driver. The roles are not numerical weights. A blank cell means no direct mapping; minimum-level rules and dependencies may still affect the process. <a href="#help?topic=adapt">How to propose a different allocation</a>.</p>
       </div>
       <div class="flex gap-sm">
         <button class="btn btn-secondary btn-sm" id="btn-export-matrix-csv">Export CSV</button>
@@ -33,15 +33,15 @@ export function renderMatrixView(container) {
       </div>
     </div>
     <div class="matrix-container card" id="matrix-wrapper">
-      <div class="matrix-scroll">
-        <table class="matrix-table">
+      <div class="matrix-scroll" tabindex="0" role="region" aria-label="Process to metric matrix; scroll horizontally to see all ratings">
+        <table class="matrix-table"><caption class="sr-only">${canonicalCellCount} shared driver allocations. Use Help for rating names and interpretation.</caption>
           <thead>
             <tr>
               <th class="matrix-corner">Process</th>
               ${METRICS.map(m => {
     const dim = DIMENSIONS.find(d => d.id === m.dimension);
-    return `<th class="matrix-metric-header" title="${m.name}" style="border-top: 3px solid ${dim.color}">
-                  <div class="metric-col-label">${m.id}</div>
+    return `<th scope="col" class="matrix-metric-header" title="${m.name}" style="border-top: 3px solid ${dim.color}">
+                  <div class="metric-col-label">${m.id}</div><span class="sr-only">${escapeHtml(m.name)}</span>
                   <div class="metric-col-score">${state.scores[m.id] || '—'}</div>
                 </th>`;
   }).join('')}
@@ -70,6 +70,7 @@ export function renderMatrixView(container) {
         </table>
       </div>
     </div>
+    <details class="card mt-lg"><summary>Rating names</summary><dl>${METRICS.map(m => `<dt><strong>${escapeHtml(m.id)}</strong></dt><dd>${escapeHtml(m.name)}</dd>`).join('')}</dl></details>
     <div class="matrix-legend mt-lg flex gap-lg justify-between">
       <div class="flex gap-lg">
         ${DIMENSIONS.map(d => `

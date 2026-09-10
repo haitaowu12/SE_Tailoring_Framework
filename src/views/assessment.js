@@ -12,10 +12,10 @@ import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUT
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
 import { propagateSafetyOverrides } from '../utils/inheritance-engine.js';
-import { renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
+import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
-import { ASSESSOR_GUIDANCE, ASSESSOR_GUIDANCE_META } from '../data/generated-assessor-guidance.js';
+import { ASSESSOR_GUIDANCE } from '../data/generated-assessor-guidance.js';
 
 const STEPS = [
   { id: 'info', title: 'Project Info', shortTitle: 'Setup' },
@@ -173,7 +173,7 @@ export function renderAssessment(container, routeContext = null) {
       : activeStep.id === 'info'
         ? 'Identify the project context. You can return and edit this later.'
         : activeStep.id === 'results'
-          ? 'Use the assessment shape and process priorities to focus the tailoring conversation.'
+          ? 'Review the ratings, the reasons for each recommendation, and the decisions still needed.'
           : 'Choose the closest anchor for each metric. Open scoring guidance only when you need help deciding.';
 
   container.innerHTML = `
@@ -431,13 +431,15 @@ function renderStep(container) {
             <option value="disposal" ${localProject.phase === 'disposal' ? 'selected' : ''}>Retirement / Disposal</option>
           </select>
         </div>
-        <details class="setup-context">
-          <summary>Workshop context <span>Optional</span></summary>
-          <div class="setup-context-fields">
             <div class="form-group">
               <label class="form-label" for="proj-boundary">Assessed boundary</label>
-              <input class="input" id="proj-boundary" autocomplete="off" placeholder="System, service, or element in scope" value="${escapeHtml(localProject.boundary || '')}">
+              <input class="input" id="proj-boundary" autocomplete="off" placeholder="What is included and excluded from this assessment" value="${escapeHtml(localProject.boundary || '')}">
             </div>
+        <p class="text-sm text-secondary">Use one consistent boundary and life-cycle stage for all answers. <a href="#help?topic=start">Read the short walkthrough</a>.</p>
+        <details class="setup-context">
+          <summary>Decision context <span>Optional</span></summary>
+          <div class="setup-context-fields">
+
             <div class="form-group">
               <label class="form-label" for="proj-purpose">Tailoring decision</label>
               <input class="input" id="proj-purpose" autocomplete="off" placeholder="What this assessment will help decide" value="${escapeHtml(localProject.purpose || '')}">
@@ -544,13 +546,13 @@ function renderStep(container) {
           ${assessment.status === 'not-applicable' ? '<div class="text-xs mt-sm" style="color:var(--accent-warning);">Imported N/A cannot pass software completeness. Choose an assessed 1–5 score or explicitly record Unknown.</div>' : ''}
           <div class="metric-secondary-actions">
             <details class="assessor-guidance">
-              <summary>Provisional assessor guidance · manual ${escapeHtml(ASSESSOR_GUIDANCE_META.manualVersion)}</summary>
+              <summary>How to choose a rating</summary>
               <div class="assessor-guidance-grid" id="guide-${m.id}">
                 <div class="metric-definition"><strong>Definition:</strong> ${escapeHtml(guidance.definition)}<br><strong>Excludes:</strong> ${escapeHtml(guidance.exclusions)}</div>
                 <div><strong>Evidence examples:</strong> ${escapeHtml(guidance.evidenceExamples)}</div>
                 <div><strong>Counterexample:</strong> ${escapeHtml(guidance.counterexample)}</div>
                 <div><strong>Reassess when:</strong> ${escapeHtml(guidance.reassessWhen)}</div>
-                ${m.guidedQuestions ? `<div><button class="btn btn-sm btn-outline wizard-btn" data-metric="${m.id}" type="button">Help me choose</button></div>` : ''}
+                ${ASSESSOR_GUIDANCE[m.id] ? `<div><button class="btn btn-sm btn-outline wizard-btn" data-metric="${m.id}" type="button">Help me choose</button></div>` : ''}
               </div>
             </details>
             ${renderMetricJustificationControls(m.id)}
@@ -725,6 +727,11 @@ function refreshMetricReviewProgress(contentContainer) {
 function startWizard(metricId, contentContainer) {
   const metric = METRICS.find(m => m.id === metricId);
   const guidance = ASSESSOR_GUIDANCE[metricId];
+  const questions = [5, 4, 3, 2, 1].map(score => ({
+    text: `Does the available evidence support this description? ${guidance.anchors[score]}`,
+    yesScore: score,
+    rationale: guidance.anchors[score]
+  }));
   const wizardDiv = contentContainer.querySelector(`#wizard-${metricId}`);
   if (!wizardDiv) return;
 
@@ -739,7 +746,15 @@ function startWizard(metricId, contentContainer) {
 
   const renderRecommendation = () => {
     const affirmativeScores = answers.filter(answer => answer.answer === 'yes').map(answer => answer.question.yesScore);
-    const recommendation = affirmativeScores.length ? Math.max(...affirmativeScores) : 1;
+    const recommendation = affirmativeScores.length ? Math.max(...affirmativeScores) : null;
+    if (recommendation === null) {
+      wizardDiv.innerHTML = `<p class="text-sm">No rating is supported by these answers. Review the evidence or mark this question Unknown.</p><button class="btn btn-sm btn-outline unknown-wizard">Mark Unknown</button>`;
+      wizardDiv.querySelector('.unknown-wizard').addEventListener('click', () => {
+        const toggle = contentContainer.querySelector(`.metric-unknown[data-metric="${metricId}"]`);
+        if (toggle && !toggle.checked) toggle.click();
+      });
+      return;
+    }
     const higher = recommendation < 5
       ? `Anchor ${recommendation + 1} was not selected because the recorded path did not support a higher-pressure indicator.`
       : 'No higher adjacent anchor exists.';
@@ -776,15 +791,16 @@ function startWizard(metricId, contentContainer) {
   };
 
   const renderQ = () => {
-    if (currentQ >= metric.guidedQuestions.length) {
+    if (currentQ >= questions.length) {
       renderRecommendation();
       return;
     }
 
-    const q = metric.guidedQuestions[currentQ];
+    const q = questions[currentQ];
     wizardDiv.innerHTML = `
-      <div class="text-xs text-secondary mb-sm">Question ${currentQ + 1} of ${metric.guidedQuestions.length}</div>
-      <div class="text-sm font-semibold mb-md">${q.text}</div>
+      <div class="text-xs text-secondary mb-sm">Question ${currentQ + 1} of ${questions.length}</div>
+      <div class="text-sm font-semibold mb-md">${escapeHtml(q.text)}</div>
+      <p class="text-xs text-secondary mb-md">Use the same boundary and stage. No means the evidence does not support this description; missing evidence is not evidence of low impact.</p>
       <div class="flex gap-sm">
         <button class="btn btn-sm btn-primary yes-btn" style="min-width: 60px;">Yes</button>
         <button class="btn btn-sm btn-outline no-btn" style="min-width: 60px;">No</button>
@@ -1182,7 +1198,7 @@ function renderResults(content) {
     </nav>
     <div class="recommendation-overview ${assessmentViewMode === 'issues' ? 'issues-hidden' : ''}">
     <h3 class="mb-sm">Tailoring profile</h3>
-    <p class="result-guidance mb-lg">Use the shape to spot pressure areas, then review only the processes that depart from the baseline or need a decision.</p>
+    <p class="result-guidance mb-lg">Start with the processes highlighted for review, then check the full profile against your project needs.</p>
     <div class="results-overview mb-lg">
       <section class="results-summary">
         <p class="eyebrow">At a glance</p>
@@ -1193,11 +1209,7 @@ function renderResults(content) {
           ? 'Start with the process list below. Routine recommendations remain in the full profile.'
           : 'No process needs focused review. Continue with the baseline profile or open a work aid as needed.'}</p>
       </section>
-      <section class="results-visual">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, {
-        idPrefix: 'assessment-profile',
-        metricAssessments: localMetricAssessments,
-        description: 'The sixteen metric scores grouped into four assessment areas.'
-      })}</section>
+      <section class="results-visual">${renderMetricRatingTable(localScores, localMetricAssessments, METRICS)}</section>
     </div>
     <section class="priority-guidance mb-lg">
       <div class="section-heading-row">
@@ -1532,7 +1544,7 @@ function finalizeAssessment(destinationHash = null) {
     ruleDispositions: localRuleDispositions,
     levels: effectiveLevels,
     csiResponse: localCsiResponse
-  }, { hierarchy, derivationAuthoritative: effectiveResult.authoritative === true });
+  }, { hierarchy, derivationAuthoritative: effectiveResult.authoritative === true, derivationReviewed: !navigationOnly });
   const canBaseline = eligibility.softwareChecksPassed;
   if (activeNode) {
     activeNode.metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments ?? {}));
