@@ -289,11 +289,30 @@ function isCoherencePredecessorConfig(config) {
         config?.semantics?.frameworkVersion === '4.1.0';
 }
 
+function isDerivationPredecessorConfig(config) {
+    return config?._version === '2.0' &&
+        config?.semantics?.metricDefinitionSet === METRIC_DEFINITION_SET_ID &&
+        config?.semantics?.frameworkVersion === '4.1.1';
+}
+
 function isV4PredecessorConfig(config) {
     return config?._version === '2.0' && config?.semantics?.metricDefinitionSet === 'se-tailoring-m1-m16-v2';
 }
 
 function buildLegacySemanticMigration(config) {
+    if (isDerivationPredecessorConfig(config)) {
+        return {
+            fromFrameworkVersion: '4.1.1',
+            toFrameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
+            fromDefinitionSet: METRIC_DEFINITION_SET_ID,
+            toDefinitionSet: METRIC_DEFINITION_SET_ID,
+            status: 'review-required',
+            reason: 'comprehensive-support-policy',
+            reassessmentMetrics: [],
+            preservedLegacyResult: clonePlain(config, {}),
+            warnings: ['The Comprehensive support rule has changed. Ratings and evidence are retained. Recalculate each assessed element and review the recommendations before recording a new baseline. Previous adjustments and decisions remain in the historical record.']
+        };
+    }
     if (isCoherencePredecessorConfig(config)) {
         return {
             fromFrameworkVersion: '4.1.0',
@@ -359,7 +378,7 @@ function buildLegacySemanticMigration(config) {
 }
 
 function normalizeMetricAssessments(config, legacyMigration) {
-    if (!legacyMigration) {
+    if (!legacyMigration || legacyMigration.reason === 'comprehensive-support-policy') {
         const normalized = preserveUnconfirmedMetricAssessments(
             config.metricScores || {},
             clonePlain(config.metricAssessments, {})
@@ -419,14 +438,15 @@ function normalizeMetricAssessments(config, legacyMigration) {
 
 export function normalizeImportedConfig(config, fallbackTree = null) {
     const currentSemantics = isCurrentSemanticConfig(config);
+    const derivationPredecessor = isDerivationPredecessorConfig(config);
     const coherencePredecessor = isCoherencePredecessorConfig(config);
     const v4Predecessor = isV4PredecessorConfig(config);
-    const structurallyCompatible = currentSemantics || coherencePredecessor || v4Predecessor;
+    const structurallyCompatible = currentSemantics || coherencePredecessor || v4Predecessor || derivationPredecessor;
     const semanticMigration = currentSemantics ? clonePlain(config.semanticMigration, null) : buildLegacySemanticMigration(config);
     const metricScores = { ...(config.metricScores || {}) };
     if (v4Predecessor) {
         delete metricScores.M3;
-    } else if (!currentSemantics && !coherencePredecessor) {
+    } else if (!currentSemantics && !coherencePredecessor && !derivationPredecessor) {
         delete metricScores.M6;
         delete metricScores.M8;
         delete metricScores.M15;
@@ -523,7 +543,7 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         }
     }
 
-    return {
+    const normalized = {
         projectInfo: { ...(config.projectInfo || {}) },
         scores: metricScores,
         metricAssessments,
@@ -574,6 +594,25 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
                 ? 'complete-baseline'
                 : 'work-in-progress'
     };
+    if (derivationPredecessor) {
+        // Old results must not appear under the new calculation identity.
+        // Preserve them in semanticMigration; retain ratings and source evidence.
+        for (const key of ['levels', 'derived', 'derivationDetails', 'confidence', 'derivationStatus', 'normativeLevels', 'locallyAdjustedLevels', 'proposedRightSizedLevels', 'manualAdjustments', 'ruleDispositions']) normalized[key] = {};
+        for (const key of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'proposalClosureFixes', 'localScenarioClosureFixes']) normalized[key] = [];
+        normalized.locallyCompleteRightSizingRecordCount = 0;
+        normalized.assessmentComplete = false;
+        normalized.assessmentDisposition = 'work-in-progress';
+        for (const node of Object.values(normalized.assessmentTree?.nodes || {})) {
+            node.assessmentResult = null;
+            node.levels = {};
+            node.manualAdjustments = {};
+            node.ruleDispositions = {};
+            node.rightSizingApprovalRecords = [];
+            node.status = 'draft';
+            node.assessmentDisposition = 'work-in-progress';
+        }
+    }
+    return normalized;
 }
 
 function buildIdentifierReducedProjectInfo(projectInfo = {}) {
@@ -599,10 +638,18 @@ function buildIdentifierReducedAssessmentTree(assessmentTree) {
 }
 
 export function buildIdentifierReducedExportState(state = {}) {
+    const semanticMigration = clonePlain(state.semanticMigration, null);
+    if (semanticMigration?.preservedLegacyResult) {
+        // A historical snapshot can contain identifiers and free text at any depth.
+        // Retain it locally and in explicitly identified exports only.
+        delete semanticMigration.preservedLegacyResult;
+        semanticMigration.legacyHistoryOmitted = true;
+    }
     return {
         ...state,
         projectInfo: buildIdentifierReducedProjectInfo(state.projectInfo),
-        assessmentTree: buildIdentifierReducedAssessmentTree(state.assessmentTree)
+        assessmentTree: buildIdentifierReducedAssessmentTree(state.assessmentTree),
+        semanticMigration
     };
 }
 
@@ -701,7 +748,7 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
             uncontrolledFreeTextIncluded: true,
             warning: resolvedMode === 'identified'
                 ? 'Identified export includes project, team, element, free-text, evidence, and approval content. Handle only in an approved controlled system.'
-                : 'Identifier-reduced export removes direct display labels but retains free text, evidence references, and asserted identities. It is not de-identified.'
+                : 'Identifier-reduced export removes direct display labels and historical source snapshots but retains free text, evidence references, and asserted identities. It is not de-identified.'
         },
         semantics: {
             frameworkVersion: FRAMEWORK_SEMANTIC_VERSION,
@@ -715,7 +762,7 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
         ruleDispositions: normalizeRuleDispositions(state.ruleDispositions),
         csiResponse: normalizeCsiResponse(state.csiResponse),
         correlatedEvidenceWarnings: assessCorrelatedEvidence(state.metricAssessments).warnings,
-        semanticMigration: state.semanticMigration || null,
+        semanticMigration: exportState.semanticMigration || null,
         saResponses: state.saResponses || {},
         processLevels: state.levels || {},
         derivedLevels: state.derived || {},
@@ -878,7 +925,7 @@ export function validateConfig(config) {
             && config.semantics?.frameworkVersion === '4.1.0';
         const v4Predecessor = config.semantics?.metricDefinitionSet === 'se-tailoring-m1-m16-v2'
             && config.semantics?.frameworkVersion === '4.0.0';
-        if (!current && !coherencePredecessor && !v4Predecessor) errors.push('Unsupported metric definition set or framework semantic version');
+        if (!current && !coherencePredecessor && !v4Predecessor && !isDerivationPredecessorConfig(config)) errors.push('Unsupported metric definition set or framework semantic version');
     }
 
     if (isPlainObject(config.metricAssessments)) {
@@ -1218,7 +1265,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
             ? detail.triggerMetrics.join(', ')
             : '—';
         const confidenceLabel = safeConfidence[p.id] === 'corroborated'
-            ? 'Corroborated'
+            ? 'Rule threshold met; independence unverified'
             : safeConfidence[p.id] === 'available-with-justification'
                 ? 'Available with justification'
                 : safeConfidence[p.id] === 'floor-applied'

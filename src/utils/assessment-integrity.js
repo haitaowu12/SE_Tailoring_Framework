@@ -168,7 +168,9 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
         !completeness.metrics.find(metric => metric.metricId === metricId)?.complete
     );
     const migrationBlocked = state.semanticMigration?.status === 'review-required'
-        && (reassessmentMetrics.length === 0 || migrationOutstandingMetricIds.length > 0);
+        && (state.semanticMigration?.reason === 'comprehensive-support-policy'
+            ? options.derivationReviewed !== true
+            : reassessmentMetrics.length === 0 || migrationOutstandingMetricIds.length > 0);
     const explicitlyDemo = state.assessmentDisposition === 'demo';
     const derivationAuthoritative = options.derivationAuthoritative !== false;
     const inputComplete = completeness.complete && !migrationBlocked && !explicitlyDemo && derivationAuthoritative;

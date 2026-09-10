@@ -1474,3 +1474,10 @@ h4 { font-size: var(--font-size-lg); }
   .pilot-record-banner::after { color: #92400e !important; }
   a { color: #111827 !important; text-decoration: underline; }
 }
+/* Readable rating summary without implying arithmetic across ordinal judgments. */
+.metric-rating-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:14px; }
+.metric-rating-table th,.metric-rating-table td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--border-subtle); }
+.metric-rating-table tbody th { font-weight:500; }
+.metric-rating-table td { white-space:nowrap; }
+.metric-rating-summary { min-width:0; }
+@media(max-width:600px) { .metric-rating-table {font-size:12px}.metric-rating-table th,.metric-rating-table td{padding:8px 4px}.metric-rating-table td{white-space:normal} }

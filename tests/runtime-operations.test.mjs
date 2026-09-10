@@ -20,7 +20,7 @@ test('release identity is explicit, version-aligned, and honest for an unatteste
   assert.deepEqual(APP_RUNTIME_META, {
     application: 'se-tailoring-app',
     appRelease: '3.6.1',
-    frameworkVersion: '4.1.1',
+    frameworkVersion: '4.2.0',
     metricDefinitionSet: 'se-tailoring-m1-m16-v3',
     exchangeSchemaVersion: '2.0',
     buildId: 'local-unattested',
