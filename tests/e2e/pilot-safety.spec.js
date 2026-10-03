@@ -55,8 +55,12 @@ test('end session confirmation erases the origin autosave and returns to a blank
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('starts a blank session');
 
-  await dialog.getByRole('button', { name: 'End session—erase local assessment' }).click();
-  await page.waitForLoadState('domcontentloaded');
+  // Arm the next-document event before the click. waitForLoadState alone can
+  // resolve against the old document while the application's reload is pending.
+  await Promise.all([
+    page.waitForEvent('domcontentloaded'),
+    dialog.getByRole('button', { name: 'End session—erase local assessment' }).click()
+  ]);
 
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
