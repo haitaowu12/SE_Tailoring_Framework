@@ -62,7 +62,10 @@ test('end session confirmation erases the origin autosave and returns to a blank
     dialog.getByRole('button', { name: 'End session—erase local assessment' }).click()
   ]);
 
-  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
+  // Plain evaluate can lose its context during WebKit's reload. waitForFunction
+  // reattaches its predicate after navigation; absence is still required within
+  // the normal five-second assertion budget, and script errors remain failures.
+  await page.waitForFunction(key => localStorage.getItem(key) === null, AUTOSAVE_KEY, { timeout: 5_000 });
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
   await expect(page.getByText('Pilot research instrument.')).toBeVisible();
 });
