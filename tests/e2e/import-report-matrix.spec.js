@@ -158,6 +158,20 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
   await expect(page.getByRole('link', { name: 'View Comprehensive details for Project Planning' }))
     .toHaveAttribute('href', '#processes?process=9&level=comprehensive&source=matrix');
 
+  const csvDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
+  let csv = '';
+  for await (const chunk of await (await csvDownload).createReadStream()) csv += chunk.toString();
+  expect(csv).toContain('conditional M15 relationships');
+  expect(csv).toContain('Conditional status');
+  const pdfDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export PDF', exact: true }).click();
+  const pdfChunks = [];
+  for await (const chunk of await (await pdfDownload).createReadStream()) pdfChunks.push(chunk);
+  const pdf = Buffer.concat(pdfChunks);
+  expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  expect(pdf.length).toBeGreaterThan(1000);
+
   await page.goto('./#report');
   const profileSection = page.locator('details.report-section').filter({
     has: page.locator('.report-section-title', { hasText: 'Full Process Tailoring Profile' })

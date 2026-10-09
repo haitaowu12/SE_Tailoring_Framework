@@ -46,7 +46,7 @@ export function renderManualAdjust(container, options = {}) {
       <div class="flex gap-sm mt-md"><button class="btn btn-primary" id="btn-save">Save decisions</button><button class="btn btn-secondary" id="btn-reset">Use recommendations</button><button class="btn btn-secondary" id="btn-decision-backup">Private JSON backup</button></div>
       <p class="text-xs text-secondary mt-sm">Save records the choices shown, including retained recommendations. Private backup retains reasons and history. Minimum-data sharing export omits them.</p>
     </section>
-    <div id="decision-errors" role="alert">${check.errors.length ? `<section class="card mb-lg"><strong>Resolve before saving</strong><ul>${check.errors.map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul><p class="text-xs text-secondary">Draft changes remain saved locally.</p></section>` : ''}</div>
+    <div id="decision-errors" role="alert">${check.errors.length ? `<section class="card mb-lg"><strong>Resolve before saving</strong><ul>${check.errors.map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul><p class="text-xs text-secondary">${storageFailed ? 'Draft changes are held in this tab only; local save failed.' : 'Draft changes remain saved locally.'}</p></section>` : ''}</div>
     <div class="decision-table-wrap"><table class="data-table decision-table"><caption class="text-secondary text-sm">Recommendation → local choice → reason and follow-up</caption><thead><tr><th>Process</th><th>Recommendation</th><th>Local choice</th><th>Decision record</th></tr></thead><tbody>
     ${CORE_PROCESSES.map(process => {
       const choice = choices[process.id];

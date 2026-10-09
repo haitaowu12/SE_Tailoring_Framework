@@ -190,3 +190,20 @@ test('private backup preserves long CSI and incomplete asserted reduction drafts
   assert.equal(restored.effectiveRightSizingApprovalCount,0);
   assert.equal(restored.assessmentComplete,false);
 });
+
+test('a local Rule 11 elevation retains warning disposition provenance without retaining obsolete hard violations', async () => {
+  const { reconcileDecisionViolations } = await import('../src/utils/tailoring-decisions.js');
+  const { assessRule11Disposition } = await import('../src/utils/rule-dispositions.js');
+  const scores=Object.fromEntries(Array.from({length:16},(_,i)=>[`M${i+1}`,1]));
+  scores.M2=5;scores.M4=3;
+  const result=runFullAssessment(scores);
+  const warning=result.violations.find(item=>item.ruleId===11);
+  assert.ok(warning);
+  const levels={...result.levels,27:'standard'};
+  const violations=reconcileDecisionViolations({...result,violations:[...result.violations,{type:'HC',ruleId:'obsolete',affectedProcess:27}]},levels,scores);
+  assert.equal(violations.find(item=>item.ruleId===11).resolvedByLocalChoice,true);
+  assert.ok(!violations.some(item=>item.ruleId==='obsolete'));
+  const disposition={11:{outcome:'elevated-validation',rationale:'Validation elevated for acceptance',ownerApprover:'Synthetic role',evidenceRef:'TEST-11',reviewDate:'2026-10-09'}};
+  assert.equal(assessRule11Disposition(violations,disposition,levels).complete,true);
+  assert.equal(assessRule11Disposition(violations,disposition,levels).required,true);
+});

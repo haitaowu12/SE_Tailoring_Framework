@@ -14,6 +14,10 @@ async function openAssessment(page) {
   await page.getByRole('button', { name: 'Assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Go to Project Info step' }).click();
 }
+async function expandMetric(page, metricId) {
+  const metric = page.locator(`.metric-item[data-metric-id="${metricId}"]`);
+  if (!(await metric.evaluate(element => element.open))) await metric.locator('summary.metric-header').click();
+}
 async function openWorkspace(page) {
   await page.getByRole('button', { name: /Open assessment library/ }).click();
   await expect(page.getByRole('heading', { name: 'Your assessments' })).toBeVisible();
@@ -48,6 +52,7 @@ test('create, switch, duplicate, and immediate reload preserve independent asses
   await openAssessment(page);
   await expect(page.getByLabel('Team code (optional)')).toHaveValue('TEAM-A');
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
+  await expandMetric(page, 'M1');
   await expect(page.getByRole('radio', { name: /M1 score 4:/ })).toBeChecked();
   await openWorkspace(page);
   await page.getByRole('button', { name: 'Duplicate current', exact: true }).click();
@@ -57,6 +62,7 @@ test('create, switch, duplicate, and immediate reload preserve independent asses
   await expect(page.getByLabel('Current assessment name / code')).toHaveValue('PILOT-ALPHA · option C');
   await openAssessment(page);
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
+  await expandMetric(page, 'M1');
   await page.getByRole('radio', { name: /M1 score 1:/ }).check();
   const library = await readLibrary(page);
   expect(library.assessments.find(entry => entry.name === 'PILOT-ALPHA').data.scores.M1).toBe(4);
@@ -76,7 +82,7 @@ test('imports create a new assessment and preserve the current assessment and it
   const chooser = await chooserPromise;
   await chooser.setFiles({ name: 'imported-option.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({
     _format: 'se-tailoring-config', _version: '2.0', semantics,
-    projectInfo: { name: 'IMPORTED-OPTION' }, metricScores: { M1: 2 }
+    projectInfo: { name: 'IMPORTED-OPTION' }, metricScores: { M1: 2 }, processLevels: {}
   })) });
   await expect(page.getByText('Configuration imported successfully! Added as a separate assessment.')).toBeVisible();
   const after = await readLibrary(page);

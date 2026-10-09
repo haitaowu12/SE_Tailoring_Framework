@@ -1,10 +1,10 @@
-import { reconcileManualChoices } from '../utils/tailoring-decisions.js';
+import { reconcileManualChoices, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 /**
  * Assessment View — Step-by-step metric scoring wizard
  * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
-import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus, checkConsistency } from '../utils/assessment-engine.js';
+import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
 import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
@@ -1528,7 +1528,7 @@ function finalizeAssessment(destinationHash = null) {
     ? {
       ...result,
       levels: effectiveLevels,
-      violations: checkConsistency(effectiveLevels, hierarchyInput.effectiveScores, assessmentContext),
+      violations: reconcileDecisionViolations(result, effectiveLevels, hierarchyInput.effectiveScores, assessmentContext),
       locallyAdjustedLevels: effectiveLocalScenarioLevels,
       budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores)
     }

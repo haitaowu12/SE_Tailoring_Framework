@@ -1410,7 +1410,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
     if (violations.length > 0) {
         html += '<h2>Consistency Warnings</h2>';
         for (const v of violations) {
-            html += `<div class="violation"><strong>Rule ${escapeHtml(v.ruleId)} [${escapeHtml(v.type)}]</strong>: ${escapeHtml(v.label)}<br>Process ${escapeHtml(v.affectedProcess)} is at ${escapeHtml(v.currentLevel)}, should be ${escapeHtml(v.requiredOp)} ${escapeHtml(v.requiredLevel)}</div>`;
+            html += `<div class="violation"><strong>Rule ${escapeHtml(v.ruleId)} [${escapeHtml(v.type)}]</strong>: ${escapeHtml(v.label)}${v.resolvedByLocalChoice ? ' (Recommendation warning addressed by current local choice; disposition retained.)' : ''}<br>Process ${escapeHtml(v.affectedProcess)} is at ${escapeHtml(v.currentLevel)}, should be ${escapeHtml(v.requiredOp)} ${escapeHtml(v.requiredLevel)}</div>`;
         }
     }
 

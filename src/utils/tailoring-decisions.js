@@ -67,6 +67,18 @@ export function getDecisionEffectiveScores(node, state) {
   return effectiveScores;
 }
 
+/** Retain recommendation warning provenance while checking hard constraints on current choices.
+ * A local level change must not erase the warning disposition that explains it.
+ */
+export function reconcileDecisionViolations(result, levels, scores, context = {}) {
+  const current = checkConsistency(levels, scores, context);
+  const key = item => `${item.type}:${item.ruleId}:${item.affectedProcess || ''}`;
+  const currentKeys = new Set(current.map(key));
+  const addressed = (result?.violations || []).filter(item => item?.type !== 'HC' && !currentKeys.has(key(item)))
+    .map(item => ({ ...item, resolvedByLocalChoice: true }));
+  return [...current, ...addressed];
+}
+
 /** Prepare one atomic batch. Invalid choices remain drafts, never applied. */
 export function prepareDecisions(node, state, drafts, timestamp = new Date().toISOString()) {
   const baseline = getRecommendation(node, state);
@@ -111,7 +123,7 @@ export function prepareDecisions(node, state, drafts, timestamp = new Date().toI
       errors.push(`Process ${floor.processId}: ${floor.minLevel} minimum is protected (${floor.reason}).`);
     }
   }
-  const violations = checkConsistency(levels, effectiveScores, context);
+  const violations = reconcileDecisionViolations(node.assessmentResult, levels, effectiveScores, context);
   for (const violation of violations.filter(item => item.type === 'HC')) errors.push(`Rule ${violation.ruleId}: ${violation.label}`);
   return { baseline, levels, levelsChanged: Object.entries(levels).some(([pid, level]) => level !== node.levels?.[pid]), records, adjustments, changes, violations, errors: [...new Set(errors)] };
 }
