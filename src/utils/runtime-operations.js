@@ -64,7 +64,7 @@ function inspectLocalStorage() {
     try {
         return {
             available: true,
-            savedWorkPresent: window.localStorage.getItem('se-tailoring-autosave') !== null
+            savedWorkPresent: window.localStorage.getItem('se-tailoring-workspace-v1') !== null || window.localStorage.getItem('se-tailoring-autosave') !== null
         };
     } catch {
         return { available: false, savedWorkPresent: false };

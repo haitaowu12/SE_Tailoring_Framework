@@ -62,6 +62,7 @@ function getProcessViewContext(state) {
     elementId: activeNode?.id || null,
     elementName: activeNode?.name || 'Current assessment',
     levels,
+    recommendationLevels: activeNode?.recommendationBaseline?.levels || assessmentResult.normativeLevels || (isRootContext ? state.normativeLevels : {}) || {},
     scores,
     metricAssessments,
     manualAdjustments: {
@@ -142,6 +143,7 @@ export function resolveProcessExplorerRoute(routeContext = getCurrentRouteContex
   return {
     processId,
     assignedLevel,
+    recommendationLevel: processId && LEVEL_SET.has(viewContext.recommendationLevels?.[processId]) ? viewContext.recommendationLevels[processId] : null,
     viewLevel: processId ? (requestedLevel || assignedLevel || DEFAULT_BROWSE_LEVEL) : null,
     source,
     issues,
@@ -174,7 +176,7 @@ function renderProcessListMarkup(selection) {
             <span class="process-id">${process.id}</span>
             <span class="font-bold">${escapeHtml(process.name)}</span>
           </div>
-          ${assignedLevel ? `<span class="level-badge ${escapeHtml(assignedLevel)}" title="Recommended for ${escapeHtml(selection.viewContext.elementName)}">${assignedLevel[0].toUpperCase()}</span>` : ''}
+          ${assignedLevel ? `<span class="level-badge ${escapeHtml(assignedLevel)}" title="Current applied level for ${escapeHtml(selection.viewContext.elementName)}">${assignedLevel[0].toUpperCase()}</span>` : ''}
         </div>
         <div class="text-xs text-secondary mt-sm">${escapeHtml(process.purpose)}</div>
       </a>`;
@@ -373,6 +375,9 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
     securityOverlay ? { label: 'Security evidence overlay', metric: 'M8', ...securityOverlay } : null,
     assuranceOverlay ? { label: 'Binding assurance overlay', metric: 'M15', ...assuranceOverlay } : null
   ].filter(Boolean);
+  const recommendation = viewContext.recommendationLevels?.[processId];
+  const recommendationLabel = LEVEL_SET.has(recommendation) ? FRAMEWORK_META.levelLabels[recommendation] : null;
+  const localChoice = getAdjustmentLevel(viewContext.manualAdjustments, processId);
   const levelLabel = FRAMEWORK_META.levelLabels[level] || level;
   const viewLevelLabel = FRAMEWORK_META.levelLabels[viewLevel] || viewLevel;
   const groupLabel = PROCESS_GROUPS[p.group.toUpperCase()]?.name || p.group;
@@ -390,7 +395,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
           </div>
         </div>
         ${level
-          ? `<span class="level-badge ${escapeHtml(level)}" title="Recommended tailoring level for ${escapeHtml(viewContext.elementName)}">Recommended: ${escapeHtml(levelLabel)}</span>`
+          ? `<span class="level-badge ${escapeHtml(level)}" title="Current applied tailoring level for ${escapeHtml(viewContext.elementName)}">${localChoice ? 'Local choice' : 'Current profile'}: ${escapeHtml(levelLabel)}</span>`
           : '<span class="process-meta-pill">No assessment assignment</span>'}
       </div>
 
@@ -398,8 +403,8 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         <div>
           <div class="text-xs text-secondary">Viewing process content at</div>
           <div class="text-sm">${level
-            ? `The recommendation is ${escapeHtml(levelLabel)}. Switch levels for comparison.`
-            : `No recommendation is assigned. ${escapeHtml(viewLevelLabel)} is shown for browsing only.`}</div>
+            ? `${recommendationLabel ? `Recorded recommendation: ${escapeHtml(recommendationLabel)}.` : 'The recommendation was not recorded separately.'} Current applied level: ${escapeHtml(levelLabel)}. Switching content levels is comparison only; it does not save a decision. <a href="#adjust">Record or revise the tailoring decision</a>.`
+            : `No assessment assignment exists. ${escapeHtml(viewLevelLabel)} is shown for browsing only.`}</div>
         </div>
         <nav class="level-tabs" aria-label="Tailoring level detail selector">
           ${LEVEL_KEYS.map(l => `
@@ -414,7 +419,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
       <section class="practitioner-work-aid" aria-labelledby="work-aid-title-${p.id}">
         <div>
           <div class="text-xs text-secondary">Process work aid</div>
-          <h4 id="work-aid-title-${p.id}">Turn this recommendation into a team plan</h4>
+          <h4 id="work-aid-title-${p.id}">Turn this process choice into a team plan</h4>
         </div>
         <ol>
           <li><strong>Confirm the level.</strong><span>Compare Basic, Standard, and Comprehensive against the project context.</span></li>

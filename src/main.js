@@ -4,8 +4,8 @@
 import './styles/index.css';
 import './styles/animations.css';
 import { registerRoute, initRouter, navigateTo } from './router.js';
-import { getState, setState, loadAutosave, clearAutosave } from './state.js';
-import { importConfig, exportConfig, normalizeImportedConfig } from './utils/export-import.js';
+import { getState, loadAutosave, clearAutosave, flushAutosave, getAssessmentWorkspace, restoreWorkspaceAssessment, createWorkspaceAssessment, importWorkspaceAssessment } from './state.js';
+import { importConfig, exportConfig } from './utils/export-import.js';
 import { showToast } from './state.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderAssessment } from './views/assessment.js';
@@ -19,9 +19,8 @@ import { renderReport } from './views/report.js';
 import { renderSystemElements } from './views/system-elements.js';
 import { renderHelp } from './views/help.js';
 import { escapeHtml } from './utils/safe-text.js';
-import { FRAMEWORK_META } from './data/se-tailoring-data.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
-import { autosaveRestoreNotice, buildAutosaveImportConfig, isCurrentAutosaveSemantics } from './utils/autosave-restore.js';
+import { autosaveRestoreNotice } from './utils/autosave-restore.js';
 
 const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
 const PILOT_NOTICE_DISMISSED_KEY = 'se-tailoring-pilot-notice-dismissed';
@@ -78,6 +77,7 @@ function buildNavbar() {
     <div class="nav-links">
       <button class="nav-link" data-route="dashboard">Workspace</button>
       <button class="nav-link" data-route="assessment">Assessment</button>
+      <button class="nav-link" data-route="adjust">Decisions</button>
       <button class="nav-link" data-route="processes">Guidance</button>
       <button class="nav-link" data-route="report">Report</button>
       <button class="nav-link" data-route="help">Help</button>
@@ -96,6 +96,7 @@ function buildNavbar() {
     <select class="mobile-route-select" id="mobile-route-select" aria-label="Go to section">
       <option value="dashboard">Workspace</option>
       <option value="assessment">Assessment</option>
+      <option value="adjust">Decisions</option>
       <option value="processes">Guidance</option>
       <option value="report">Report</option>
       <option value="help">Help</option>
@@ -106,6 +107,7 @@ function buildNavbar() {
       <option value="deliverables">Reference Deliverables</option>
     </select>
     <div class="nav-actions">
+      <button class="btn btn-ghost btn-sm" id="btn-workspace-library" type="button" title="Open assessment library" aria-label="Open assessment library">Library</button>
       <a
         class="author-link"
         href="${AUTHOR_URL}"
@@ -115,6 +117,7 @@ function buildNavbar() {
         <button class="nav-dropdown-trigger" type="button" aria-expanded="false" aria-label="Session actions">Session ▾</button>
         <div class="nav-dropdown-menu">
           <button class="session-action" id="btn-import" data-session-action="import" type="button">Import</button>
+          <button class="session-action" id="btn-private-backup" data-session-action="private-backup" type="button">Private backup</button>
           <button class="session-action" id="btn-export" data-session-action="export" type="button">Minimum-data Export</button>
           <button class="session-action" id="btn-diagnostics" data-session-action="diagnostics" type="button">Diagnostics</button>
           <button class="session-action danger" id="btn-end-session" data-session-action="end-session" type="button">End Session</button>
@@ -182,17 +185,24 @@ function buildNavbar() {
     const mobileRouteSelect = navbar.querySelector('#mobile-route-select');
     mobileRouteSelect.addEventListener('change', () => navigateTo(mobileRouteSelect.value));
 
-    // Import action
+    navbar.querySelector('#btn-workspace-library').addEventListener('click', () => navigateTo('dashboard'));
+
+    // Import creates a new assessment; it never merges into the current tree.
     const handleImport = () => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
         input.onchange = async (e) => {
             try {
-                const config = await importConfig(e.target.files[0]);
-                setState(normalizeImportedConfig(config, getState().assessmentTree));
-                showToast('Configuration imported successfully!', 'success');
-                navigateTo('dashboard');
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const config = await importConfig(file);
+                if (!importWorkspaceAssessment(config, file.name)) {
+                    showToast('Import was not saved. Your current assessment is still open. Resolve the storage warning and try again.', 'error');
+                    return;
+                }
+                showToast('Configuration imported successfully! Added as a separate assessment.', 'success');
+                navigateTo('dashboard', {}, { replace: true });
             } catch (err) {
                 showToast(err.message, 'error');
             }
@@ -203,10 +213,14 @@ function buildNavbar() {
 
     // Export action
     const handleExport = () => {
-        exportConfig(getState());
-        showToast('Minimum-data configuration exported. It is not a completed-baseline record.', 'success');
+        try {
+            exportConfig(getState());
+            showToast('Minimum-data configuration exported. It is not a completed-baseline record.', 'success');
+        } catch (error) { showToast(error.message, 'error'); }
     };
     navbar.querySelectorAll('[data-session-action="export"]').forEach(button => button.addEventListener('click', handleExport));
+
+    navbar.querySelectorAll('[data-session-action="private-backup"]').forEach(button => button.addEventListener('click', showPrivateBackupDialog));
 
     navbar.querySelectorAll('[data-session-action="end-session"]').forEach(button => button.addEventListener('click', showEndSessionDialog));
     navbar.querySelectorAll('[data-session-action="diagnostics"]').forEach(button => button.addEventListener('click', showDiagnosticsDialog));
@@ -312,15 +326,53 @@ function showDiagnosticsDialog(event) {
     closeButton.focus();
 }
 
-function showStorageFailure(operation) {
+function showStorageFailure(operation, message = '') {
     const status = document.getElementById('runtime-status');
     status.innerHTML = `
       <div class="runtime-status-inner">
         <strong>Local ${escapeHtml(operation)} failed.</strong>
-        Do not rely on this browser to retain the assessment. Open Diagnostics, record the local issue ID, and stop consequential work until storage is restored.
+        ${escapeHtml(message)} Keep this page open and download a Private backup from Session before reloading. Creation, import, and switching are blocked while the current work cannot be saved. Open Diagnostics for the local issue ID.
       </div>
     `;
     status.classList.add('active');
+}
+
+function showPrivateBackupDialog(event) {
+    const overlay = document.getElementById('modal-overlay');
+    const invoker = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement;
+    overlay.innerHTML = `
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="private-backup-title" aria-describedby="private-backup-description">
+        <h2 id="private-backup-title">Download a private assessment backup?</h2>
+        <p id="private-backup-description" class="text-secondary mt-md">This downloads the current assessment with its project and team codes, names, free text, evidence references, decisions, and locally asserted approval records. Store it only in an approved private location. It is not an externally approved or authoritative baseline. Other assessments in the library are not included.</p>
+        <p class="text-sm text-secondary mt-sm">Use Minimum-data Export when preparing a reduced file for sharing; it is not a complete backup.</p>
+        <div class="modal-actions mt-xl">
+          <button class="btn btn-secondary" id="btn-private-backup-cancel" type="button">Cancel</button>
+          <button class="btn btn-primary" id="btn-private-backup-confirm" type="button">Download private backup</button>
+        </div>
+      </section>
+    `;
+    overlay.classList.add('active');
+    const cancel = overlay.querySelector('#btn-private-backup-cancel');
+    const close = () => {
+        document.removeEventListener('keydown', handleKeydown);
+        overlay.classList.remove('active');
+        overlay.innerHTML = '';
+        restoreDialogInvokerFocus(invoker);
+    };
+    const handleKeydown = event => {
+        if (event.key === 'Escape') close();
+        else keepFocusWithinDialog(event, overlay);
+    };
+    document.addEventListener('keydown', handleKeydown);
+    cancel.addEventListener('click', close);
+    overlay.querySelector('#btn-private-backup-confirm').addEventListener('click', () => {
+        try {
+            exportConfig(getState(), { mode: 'identified' });
+            close();
+            showToast('Private backup downloaded for the current assessment. Keep it private.', 'success');
+        } catch (error) { showToast(error.message, 'error'); }
+    });
+    cancel.focus();
 }
 
 function showEndSessionDialog(event) {
@@ -328,11 +380,11 @@ function showEndSessionDialog(event) {
     const invoker = event?.currentTarget instanceof HTMLElement ? event.currentTarget : document.activeElement;
     overlay.innerHTML = `
       <section class="modal" role="dialog" aria-modal="true" aria-labelledby="end-session-title" aria-describedby="end-session-description">
-        <h2 id="end-session-title">End session and erase local assessment?</h2>
-        <p id="end-session-description" class="text-secondary mt-md">This removes the assessment auto-saved by this app in this browser and starts a blank session. Download a minimum-data export first if you need to retain a non-baseline analysis record.</p>
+        <h2 id="end-session-title">End session and erase all local assessments?</h2>
+        <p id="end-session-description" class="text-secondary mt-md">This removes every assessment in this browser library and the retained legacy autosave, then starts a blank session. This cannot be undone. Download a Private backup of each assessment you need first; Minimum-data Export omits names, notes, evidence, and decision records.</p>
         <div class="modal-actions mt-xl">
           <button class="btn btn-secondary" id="btn-end-session-cancel" type="button">Keep working</button>
-          <button class="btn btn-danger" id="btn-end-session-confirm" type="button">End session—erase local assessment</button>
+          <button class="btn btn-danger" id="btn-end-session-confirm" type="button">End session—erase all local assessments</button>
         </div>
       </section>
     `;
@@ -352,8 +404,8 @@ function showEndSessionDialog(event) {
     document.addEventListener('keydown', handleKeydown);
     cancel.addEventListener('click', close);
     confirm.addEventListener('click', () => {
-        clearAutosave();
-        window.location.reload();
+        if (clearAutosave()) window.location.reload();
+        else showToast('Local erasure failed. The session remains open; check the storage warning.', 'error');
     });
     cancel.focus();
 }
@@ -362,8 +414,34 @@ function showEndSessionDialog(event) {
 document.addEventListener('DOMContentLoaded', () => {
     installRuntimeIssueCapture();
     window.addEventListener('app:open-diagnostics', showDiagnosticsDialog);
-    window.addEventListener('app:storage-failure', event => showStorageFailure(event.detail?.operation || 'storage operation'));
+    window.addEventListener('app:storage-failure', event => showStorageFailure(event.detail?.operation || 'storage operation', event.detail?.message));
+    window.addEventListener('pagehide', flushAutosave);
+    window.addEventListener('beforeunload', event => {
+        const workspace = getAssessmentWorkspace();
+        if (!workspace.locked && !flushAutosave()) { event.preventDefault(); event.returnValue = ''; }
+    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushAutosave(); });
+    window.addEventListener('app:workspace-changed', () => {
+        const workspace = getAssessmentWorkspace();
+        if (!workspace.error) document.getElementById('runtime-status')?.classList.remove('active');
+        const active = workspace.assessments.find(entry => entry.active);
+        const button = document.getElementById('btn-workspace-library');
+        if (button) {
+            button.title = active ? `Current assessment: ${active.name}. Open library to switch.` : 'Open assessment library';
+            button.setAttribute('aria-label', active ? `Open assessment library. Current: ${active.name}` : 'Open assessment library');
+        }
+    });
     buildNavbar();
+    const assessmentContext = document.createElement('div');
+    assessmentContext.id = 'assessment-context';
+    assessmentContext.style.cssText = 'padding:8px max(16px,3vw);border-bottom:1px solid var(--border-subtle);font-size:12px;overflow-wrap:anywhere;color:var(--text-secondary)';
+    document.getElementById('navbar').after(assessmentContext);
+    const updateAssessmentContext = () => {
+        const active = getAssessmentWorkspace().assessments.find(entry => entry.active);
+        assessmentContext.textContent = active ? `Current assessment: ${active.name} · Browser-local work` : 'Browser-local assessment workspace';
+    };
+    window.addEventListener('app:workspace-changed', updateAssessmentContext);
+    updateAssessmentContext();
     buildPilotNotice();
     const mainContent = document.getElementById('main-content');
     document.querySelector('.skip-link')?.addEventListener('click', event => {
@@ -373,7 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initRouter(mainContent);
 
     const saved = loadAutosave();
-    if (saved && (saved.assessmentComplete || saved.assessmentDisposition || Object.keys(saved.scores || {}).length > 0)) {
+    if (saved) {
         const savedDate = saved.savedAt ? new Date(saved.savedAt).toLocaleString() : 'unknown time';
         const overlay = document.createElement('div');
         overlay.id = 'autosave-restore-overlay';
@@ -385,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="background:var(--bg-secondary);border:1px solid var(--border-medium);border-radius:12px;padding:32px;max-width:440px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
                 <div class="modal-kicker">Saved session</div>
                 <h3 id="autosave-restore-title" style="margin-bottom:8px;">Saved Assessment Work Found</h3>
-                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">Auto-saved ${saved.assessmentComplete ? 'baseline work' : 'work in progress'} from <strong>${escapeHtml(savedDate)}</strong> was found in this browser. Restore it only if this is your session.</p>
+                <p style="color:var(--text-secondary);font-size:14px;margin-bottom:20px;">Auto-saved ${saved.assessmentComplete ? 'baseline work' : 'work in progress'} from <strong>${escapeHtml(savedDate)}</strong> was found in this browser. Restore it only if this is your session. Start Fresh creates a separate assessment and preserves previous work.</p>
                 <div style="display:flex;gap:10px;justify-content:center;">
                     <button class="btn btn-primary" id="btn-restore-yes">Restore</button>
                     <button class="btn btn-secondary" id="btn-restore-no">Start Fresh</button>
@@ -393,72 +471,30 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.appendChild(overlay);
+        document.getElementById('app').inert = true;
         const handleRestoreKeydown = event => keepFocusWithinDialog(event, overlay);
         document.addEventListener('keydown', handleRestoreKeydown);
 
         overlay.querySelector('#btn-restore-yes').addEventListener('click', () => {
-            const isCurrentSemanticAutosave = isCurrentAutosaveSemantics(saved);
-            let normalizedRestore = null;
-            if (!isCurrentSemanticAutosave) {
-                normalizedRestore = normalizeImportedConfig(
-                    buildAutosaveImportConfig(saved),
-                    saved.assessmentTree || getState().assessmentTree
-                );
-                setState(normalizedRestore);
-            } else setState({
-                projectInfo: saved.projectInfo || {},
-                scores: saved.scores || {},
-                metricAssessments: saved.metricAssessments || {},
-                assuranceObligations: saved.assuranceObligations || [],
-                ruleDispositions: saved.ruleDispositions || {},
-                csiResponse: saved.csiResponse || {},
-                semanticMigration: saved.semanticMigration || null,
-                saResponses: saved.saResponses || {},
-                saTier: saved.saTier || null,
-                derived: saved.derived || {},
-                derivationDetails: saved.derivationDetails || {},
-                levels: saved.levels || {},
-                overrides: saved.overrides || [],
-                activeFloors: saved.activeFloors || [],
-                violations: saved.violations || [],
-                fixes: saved.fixes || [],
-                rightSizingProposals: saved.rightSizingProposals || [],
-                blockedRightSizingCandidates: saved.blockedRightSizingCandidates || [],
-                proposedRightSizedLevels: saved.proposedRightSizedLevels || {},
-                proposalClosureFixes: saved.proposalClosureFixes || [],
-                proposalBudgetStatus: saved.proposalBudgetStatus || null,
-                rightSizingApprovalRecords: saved.rightSizingApprovalRecords || [],
-                rightSizingApprovalEvaluations: saved.rightSizingApprovalEvaluations || [],
-                locallyAdjustedLevels: saved.locallyAdjustedLevels || {},
-                localScenarioClosureFixes: saved.localScenarioClosureFixes || [],
-                localScenarioBudgetStatus: saved.localScenarioBudgetStatus || null,
-                locallyCompleteRightSizingRecordCount: saved.locallyCompleteRightSizingRecordCount || 0,
-                approvedRightSizedLevels: {},
-                normativeLevels: saved.normativeLevels || saved.levels || {},
-                effectiveRightSizingApprovalCount: 0,
-                rightSizingActions: saved.rightSizingActions || [],
-                budgetStatus: saved.budgetStatus || null,
-                adoptionRisks: saved.adoptionRisks || [],
-                manualAdjustments: saved.manualAdjustments || {},
-                tradeoffs: saved.tradeoffs || [],
-                notes: saved.notes || '',
-                assessmentComplete: saved.assessmentComplete || false,
-                assessmentDisposition: saved.assessmentDisposition || 'work-in-progress',
-                derivationStatus: saved.derivationStatus || saved.confidence || {},
-                confidence: saved.confidence || saved.derivationStatus || {},
-                assessmentTree: saved.assessmentTree || getState().assessmentTree
-            });
+            const restored = restoreWorkspaceAssessment();
+            if (!restored) return;
             document.removeEventListener('keydown', handleRestoreKeydown);
             overlay.remove();
-            const notice = autosaveRestoreNotice(isCurrentSemanticAutosave, normalizedRestore || {});
+            document.getElementById('app').inert = false;
+            const notice = autosaveRestoreNotice(restored.currentSemantics, restored.normalized);
             showToast(notice.message, notice.type);
-            navigateTo('dashboard');
+            navigateTo('dashboard', {}, { replace: true });
         });
 
         overlay.querySelector('#btn-restore-no').addEventListener('click', () => {
-            clearAutosave();
+            if (!createWorkspaceAssessment('')) {
+                showToast('A new assessment could not be saved. Existing work has been preserved.', 'error');
+                return;
+            }
             document.removeEventListener('keydown', handleRestoreKeydown);
             overlay.remove();
+            document.getElementById('app').inert = false;
+            navigateTo('dashboard', {}, { replace: true });
         });
         overlay.querySelector('#btn-restore-yes').focus();
     }

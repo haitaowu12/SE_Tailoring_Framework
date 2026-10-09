@@ -188,3 +188,18 @@ test('root context can use current global assurance obligations while child scop
   );
   assert.deepEqual(childSelection.viewContext.assuranceObligations, []);
 });
+
+test('process guidance keeps recorded recommendation distinct from the active applied local choice', () => {
+  const state={normativeLevels:{9:'comprehensive'},levels:{9:'comprehensive'},assessmentTree:{rootId:'root',activeId:'child',nodes:{
+    root:{id:'root',levels:{9:'comprehensive'},recommendationBaseline:{levels:{9:'comprehensive'}}},
+    child:{id:'child',parentId:'root',name:'Child',levels:{9:'comprehensive'},recommendationBaseline:{levels:{9:'standard'}},manualAdjustments:{9:{level:'comprehensive',justification:'More planning'}}}
+  }}};
+  const selection=resolveProcessExplorerRoute(getCurrentRouteContext('#processes?process=9&level=basic&source=adjust'),state);
+  assert.equal(selection.assignedLevel,'comprehensive');
+  assert.equal(selection.recommendationLevel,'standard');
+  assert.equal(selection.viewLevel,'basic','browsing a comparison never alters either assignment');
+  delete state.assessmentTree.nodes.child.recommendationBaseline;
+  const legacy=resolveProcessExplorerRoute(getCurrentRouteContext('#processes?process=9'),state);
+  assert.equal(legacy.recommendationLevel,null,'never manufacture a missing baseline or borrow it from the root');
+  assert.equal(legacy.assignedLevel,'comprehensive');
+});

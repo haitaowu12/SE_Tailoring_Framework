@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const AUTOSAVE_KEY = 'se-tailoring-autosave';
+const AUTOSAVE_KEY = 'se-tailoring-workspace-v1';
 
 async function startFreshAssessment(page) {
   await page.goto('./');
@@ -115,7 +115,8 @@ test('confirmed anchor and project code survive route navigation and autosave re
   await expect(page.getByLabel('1 of 16 metrics reviewed')).toBeVisible();
 
   await expect.poll(() => page.evaluate(key => {
-    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    const workspace = JSON.parse(localStorage.getItem(key) || '{}');
+    const saved = workspace.assessments?.find(entry => entry.id === workspace.activeId)?.data || {};
     const root = saved.assessmentTree?.nodes?.default;
     return `${saved.projectInfo?.name || ''}|${saved.scores?.M1 || ''}|${saved.metricAssessments?.M1?.status || ''}|${root?.scores?.M1 || ''}|${root?.manualMetrics?.includes('M1') ? 'manual' : ''}`;
   }, AUTOSAVE_KEY), { timeout: 8000 }).toBe('PERSIST-04|4|assessed|4|manual');
@@ -144,7 +145,8 @@ test('partial CSI response survives autosave restore without passing completenes
   await expect(page.getByRole('button', { name: 'Save Work in Progress (CSI 4 response required)' })).toBeVisible();
 
   await expect.poll(() => page.evaluate(key => {
-    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    const workspace = JSON.parse(localStorage.getItem(key) || '{}');
+    const saved = workspace.assessments?.find(entry => entry.id === workspace.activeId)?.data || {};
     const reviewedCount = Object.values(saved.metricAssessments || {}).filter(assessment => assessment.status === 'assessed').length;
     return `${saved.csiResponse?.rationaleDecision || ''}|${saved.assessmentTree?.nodes?.default?.csiResponse?.rationaleDecision || ''}|${reviewedCount}`;
   }, AUTOSAVE_KEY), { timeout: 8000 }).toBe('Draft feasibility rationale|Draft feasibility rationale|16');

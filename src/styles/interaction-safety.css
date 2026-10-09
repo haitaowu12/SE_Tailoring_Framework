@@ -1,0 +1,17 @@
+/* Keep form controls reachable while routes and disclosure panels change.
+ * The higher-specificity root selector wins regardless of bundled CSS order.
+ * This applies to the product, not only to automated tests.
+ */
+html:root {
+  scroll-behavior: auto;
+  scroll-padding-block-start: calc(var(--navbar-height) + 1rem);
+  scroll-padding-block-end: 1rem;
+}
+
+/* These notifications contain text only. Preserve their live-region semantics
+ * and visual presentation without intercepting clicks intended for the form.
+ */
+#toast-container,
+#toast-container .toast {
+  pointer-events: none;
+}
