@@ -1,9 +1,11 @@
+import { reconcileManualChoices, getDecisionEffectiveScores } from '../utils/tailoring-decisions.js';
+import { renderDecisionLedger } from '../utils/decision-record-view.js';
 /**
  * Report View — Assessment summary & export
  */
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
-import { getDriverAttribution, runFullAssessment } from '../utils/assessment-engine.js';
-import { generateReport, exportConfig } from '../utils/export-import.js';
+import { getDriverAttribution, runFullAssessment, checkConsistency, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
+import { generateReport, exportConfig, applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, setState, showToast, getElementsFlat } from '../state.js';
@@ -96,6 +98,7 @@ function enhanceReportSections(container) {
   `);
 
   const sectionConfigs = [
+    { section: container.querySelector('.decision-ledger'), title: 'Saved tailoring decisions', description: 'Recommendation, local choice, rationale and change history.', open: false },
     {
       section: container.querySelector(':scope > .grid-2.mb-xl'),
       title: 'Project and Level Distribution',
@@ -236,13 +239,16 @@ export function renderReport(container) {
   const state = getState();
   const integrity = getAssessmentDisposition(state);
   if (!integrity.complete) {
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. Preview values are not a completed pilot record and cannot generate a report.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button></div>`;
-    container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment'));
+    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. ${integrity.completeCount === METRICS.length ? 'Review recommendations and select Check Software Completeness. Any remaining warning, hierarchy or delivery checks must also be resolved.' : 'Unconfirmed values remain a preview. Review the remaining judgments to prepare a completed pilot record.'} Your saved tailoring decisions remain available below.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button><button class="btn btn-secondary mt-lg" id="btn-open-decisions">Open saved decisions</button></div>`;
+    container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('review'));
+    container.querySelector('#btn-open-decisions')?.addEventListener('click', () => navigateTo('adjust'));
     return;
   }
 
   const elements = getElementsFlat();
   const tree = state.assessmentTree;
+  const activeReportNode = tree?.nodes?.[tree.activeId || tree.rootId];
+  const activeManualAdjustments = activeReportNode?.manualAdjustments || ((tree?.activeId || tree?.rootId) === tree?.rootId ? state.manualAdjustments : {}) || {};
   const scores = state.scores || {};
   const levels = state.levels || {};
   const localScenarioLevels = state.locallyAdjustedLevels || {};
@@ -269,7 +275,7 @@ export function renderReport(container) {
   const rule11Disposition = assessRule11Disposition(state.violations, state.ruleDispositions, state.levels);
   const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
   const rule11Record = state.ruleDispositions?.['11'] || state.ruleDispositions?.[11];
-  const rule11Adjustment = state.manualAdjustments?.[27] || state.manualAdjustments?.['27'];
+  const rule11Adjustment = activeManualAdjustments?.[27] || activeManualAdjustments?.['27'];
   const rule11OutcomeLabel = RULE_11_OUTCOMES.find(option => option.id === rule11Record?.outcome)?.label || rule11Record?.outcome || '—';
   const generalWarningAssessments = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
   const csiReadiness = assessCsiResponse(scores, state.csiResponse);
@@ -297,7 +303,7 @@ export function renderReport(container) {
   const processPlanReason = process => {
     const processId = process.id;
     const detail = derivationDetails[processId] || {};
-    const manualAdjustment = state.manualAdjustments?.[processId] || state.manualAdjustments?.[String(processId)];
+    const manualAdjustment = activeManualAdjustments?.[processId] || activeManualAdjustments?.[String(processId)];
     const override = state.overrides?.find(item => item.processId === processId);
     const fix = state.fixes?.find(item => item.processId === processId);
     if (manualAdjustment) return `Recorded adjustment: ${manualAdjustment.justification || 'no justification recorded'}`;
@@ -317,9 +323,10 @@ export function renderReport(container) {
     <div class="report-page-header flex justify-between items-center mb-lg">
       <div>
         <h2>Pilot Tailoring Record</h2>
-        <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}</p>
+        <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}${elements.length > 1 ? ` · ${escapeHtml(activeReportNode?.name || 'Current element')}` : ''}</p>
       </div>
       <div class="report-export-actions flex gap-sm">
+        <button class="btn btn-secondary btn-sm" id="btn-report-decisions">Review / adjust decisions</button>
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
         <button class="btn btn-primary btn-sm" id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
       </div>
@@ -330,6 +337,7 @@ export function renderReport(container) {
       <span>Software completeness checks passed. External approval not verified.</span>
     </div>
 
+    ${renderDecisionLedger(state)}
     <h3 class="report-layer-heading">1. Decision summary</h3>
     <div class="card mb-xl report-summary-panel">
       <div>
@@ -673,10 +681,8 @@ export function renderReport(container) {
     const derived = derivedLevels[p.id] || 'basic';
     const final_ = levels[p.id] || 'basic';
     const localScenario = localScenarioLevels[p.id] || final_;
-    const manualAdjustment = state.manualAdjustments?.[p.id]
-      || state.manualAdjustments?.[String(p.id)]
-      || tree?.nodes?.[tree.rootId]?.manualAdjustments?.[p.id]
-      || tree?.nodes?.[tree.rootId]?.manualAdjustments?.[String(p.id)];
+    const manualAdjustment = activeManualAdjustments?.[p.id]
+      || activeManualAdjustments?.[String(p.id)];
     const override = state.overrides?.find(o => o.processId === p.id);
     const fix = state.fixes?.find(f => f.processId === p.id);
     const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
@@ -692,6 +698,8 @@ export function renderReport(container) {
     });
     const confBadge = conf === 'corroborated'
       ? '<span class="confidence-badge-inline corroborated" title="The framework threshold is met; evidence independence is not verified">Rule threshold met</span>'
+      : conf === 'direct-consequence'
+        ? '<span class="confidence-badge-inline high" title="A mapped M5 or M7 score of 5 independently triggers Comprehensive under the framework policy; this is not multi-input corroboration or a floor elevation">Direct consequence</span>'
       : conf === 'available-with-justification'
         ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">Needs note</span>'
         : conf === 'floor-applied'
@@ -931,16 +939,21 @@ export function renderReport(container) {
         frameworkVersion: FRAMEWORK_META.version,
         metricDefinitionSet: FRAMEWORK_META.metricDefinitionSet
       };
-      const result = runFullAssessment(current.scores, current.matrixMap, assessmentContext);
       const activeNode = current.assessmentTree?.nodes?.[activeElementId];
+      const effectiveScores = activeNode ? getDecisionEffectiveScores(activeNode, current) : current.scores;
+      const result = runFullAssessment(effectiveScores, current.matrixMap, assessmentContext);
+      const decisionReview = activeNode ? reconcileManualChoices(activeNode, current, result, { ...assessmentContext, matrixMap: current.matrixMap, effectiveScores }, activeNode.manualAdjustments || {}, true) : null;
+      const effectiveLevels = applyManualAdjustmentsToLevels(result.levels, decisionReview?.adjustments || {});
+      const effectiveViolations = checkConsistency(effectiveLevels, effectiveScores, assessmentContext);
       if (activeNode) {
         activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
-        activeNode.assessmentResult = result;
-        activeNode.levels = { ...result.levels };
+        activeNode.assessmentResult = { ...result, levels: effectiveLevels, violations: effectiveViolations };
+        activeNode.levels = { ...effectiveLevels };
         activeNode.locallyAdjustedLevels = { ...(result.locallyAdjustedLevels || {}) };
       }
       setState({
-        levels: result.levels,
+        levels: effectiveLevels,
+        ...(activeElementId === current.assessmentTree?.rootId ? { manualAdjustments: decisionReview?.adjustments || {} } : {}),
         normativeLevels: result.normativeLevels,
         rightSizingApprovalRecords: records,
         rightSizingApprovalEvaluations: result.rightSizingApprovalEvaluations,
@@ -950,9 +963,9 @@ export function renderReport(container) {
         locallyCompleteRightSizingRecordCount: result.locallyCompleteRightSizingRecordCount || 0,
         approvedRightSizedLevels: {},
         effectiveRightSizingApprovalCount: 0,
-        budgetStatus: result.budgetStatus,
+        budgetStatus: computeRigorBudgetStatus(effectiveLevels, effectiveScores),
         fixes: result.fixes,
-        violations: result.violations,
+        violations: effectiveViolations,
         confidence: result.confidence,
         assessmentTree: current.assessmentTree
       });
@@ -967,10 +980,14 @@ export function renderReport(container) {
     });
   });
 
+  container.querySelector('#btn-report-decisions')?.addEventListener('click', () => navigateTo('adjust'));
+
   // Export handlers
   container.querySelector('#btn-export-json').addEventListener('click', () => {
-    exportConfig(state);
-    showToast('Minimum-data JSON exported. It is not an authoritative organizational record.', 'success');
+    try {
+      exportConfig(state);
+      showToast('Minimum-data JSON exported. It is not an authoritative organizational record.', 'success');
+    } catch (error) { showToast(error.message, 'error'); }
   });
   container.querySelector('#btn-export-html').addEventListener('click', () => {
     generateReport(state, data);

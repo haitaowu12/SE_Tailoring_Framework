@@ -1,3 +1,4 @@
+import { checkConsistency, applyOverrides } from './assessment-engine.js';
 import {
     CONDITIONAL_METRIC_PROCESS_DRIVERS,
     M15_SCOPED_RULE_ESCALATIONS,
@@ -143,7 +144,8 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
         const metrics = assessMetricCompleteness(node.scores, node.metricAssessments);
         const warnings = assessWarningDispositions(node.assessmentResult.violations, node.ruleDispositions, node.levels);
         const csi = assessCsiResponse(node.scores, node.csiResponse);
-        return !metrics.complete || !warnings.complete || !csi.complete;
+        const hard = assessHardConstraints({ ...node, violations: node.assessmentResult.violations, activeFloors: node.assessmentResult.activeFloors });
+        return !metrics.complete || !warnings.complete || !csi.complete || !hard.complete;
     }).map(([nodeId, node]) => node?.id || nodeId);
 
     return {
@@ -158,6 +160,24 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
  * Single software-completeness decision seam. External review, authenticated
  * approval, and operational authorization remain separate unavailable gates.
  */
+/** Hard constraints cannot be dispositioned away as ordinary warnings. */
+export function assessHardConstraints(state = {}) {
+    const levels = state.levels || {};
+    const context = { ...(state.projectInfo || {}), metricAssessments: state.metricAssessments || {}, assuranceObligations: state.assuranceObligations || [] };
+    const violations = [...(Array.isArray(state.violations) ? state.violations : []).filter(item => item?.type === 'HC')];
+    if (Object.keys(levels).length) {
+        violations.push(...checkConsistency(levels, state.scores || {}, context).filter(item => item.type === 'HC'));
+        const order = ['basic', 'standard', 'comprehensive'];
+        const floors = [...applyOverrides(levels, state.scores || {}, context).activeFloors, ...(Array.isArray(state.activeFloors) ? state.activeFloors : [])];
+        for (const floor of floors) {
+            if (!floor || typeof floor !== 'object') { violations.push({ type: 'HC', ruleId: 'invalid-floor', label: 'Recorded mandatory-floor provenance is invalid; recalculate the recommendation' }); continue; }
+            if (order.indexOf(levels[floor.processId]) < order.indexOf(floor.minLevel)) violations.push({ type: 'HC', ruleId: `floor-${floor.processId}`, label: `Process ${floor.processId} is below its mandatory ${floor.minLevel} floor` });
+        }
+    }
+    const unique = [...new Map(violations.map(item => [`${item.ruleId}:${item.affectedProcess || ''}`, item])).values()];
+    return { complete: unique.length === 0, violations: unique };
+}
+
 export function evaluateBaselineEligibility(state = {}, options = {}) {
     const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
     const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
@@ -174,11 +194,13 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
     const explicitlyDemo = state.assessmentDisposition === 'demo';
     const derivationAuthoritative = options.derivationAuthoritative !== false;
     const inputComplete = completeness.complete && !migrationBlocked && !explicitlyDemo && derivationAuthoritative;
-    const ruleWarningComplete = warningDispositions.complete && csiResponse.complete;
+    const hardConstraints = assessHardConstraints(state);
+    const ruleWarningComplete = hardConstraints.complete && warningDispositions.complete && csiResponse.complete;
     const softwareChecksPassed = inputComplete && ruleWarningComplete && hierarchy.complete;
 
     return {
         softwareChecksPassed,
+        hardConstraints,
         completeness,
         warningDispositions,
         csiResponse,
@@ -198,7 +220,7 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
                 ...GATE_BY_ID['rule-warning-disposition'],
                 status: ruleWarningComplete ? 'passed' : 'incomplete',
                 blocking: true,
-                detail: ruleWarningComplete ? 'Triggered warnings and CSI response checks passed' : 'One or more warning or CSI response records remain incomplete'
+                detail: ruleWarningComplete ? 'Hard constraints, triggered warnings and CSI response checks passed' : !hardConstraints.complete ? 'Hard constraints or mandatory floors remain unsatisfied' : 'One or more warning or CSI response records remain incomplete'
             },
             {
                 ...GATE_BY_ID['evidence-completeness'],

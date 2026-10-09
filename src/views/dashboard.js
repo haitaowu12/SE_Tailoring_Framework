@@ -1,12 +1,14 @@
 /** Dashboard View — focused start/resume surface with framework detail on demand. */
 import { FRAMEWORK_META, CORE_PROCESSES, DIMENSIONS, ACTIVE_CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
-import { getState, getElementCount } from '../state.js';
+import { getState, getElementCount, getAssessmentWorkspace, createWorkspaceAssessment, switchWorkspaceAssessment, duplicateWorkspaceAssessment, renameWorkspaceAssessment, revealSavedWorkspaceAssessments, showToast } from '../state.js';
 import { navigateTo } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
 import { assessMetricCompleteness } from '../utils/assessment-integrity.js';
 
 export function renderDashboard(container) {
     const state = getState();
+    const workspace = getAssessmentWorkspace();
+    const activeAssessment = workspace.assessments.find(entry => entry.active);
     const hasAssessment = Object.keys(state.scores || {}).length > 0;
     const projectName = escapeHtml(safeText(state.projectInfo.name, 'Current project'));
     const basicCount = Object.values(state.levels || {}).filter(level => level === 'basic').length;
@@ -15,6 +17,33 @@ export function renderDashboard(container) {
     const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
 
     container.innerHTML = `
+      <section class="card assessment-library" aria-labelledby="assessment-library-title">
+        <div class="library-heading">
+          <div><span class="eyebrow">Browser-local workspace</span><h2 id="assessment-library-title">Your assessments</h2></div>
+          ${activeAssessment ? '<div class="hero-actions"><button class="btn btn-primary btn-sm" id="btn-library-assess" type="button">Rate this assessment</button><button class="btn btn-secondary btn-sm" id="btn-duplicate-assessment" type="button">Duplicate current</button></div>' : ''}
+        </div>
+        <p class="text-sm text-secondary mt-sm">Keep independent projects or options here. Switching saves the current assessment first. System elements are parts within one assessment.</p>
+        <p class="text-sm text-secondary mt-sm"><strong>Back up important work.</strong> This library is only in this browser and has no cloud backup. Use Session → Private backup for a complete copy of each assessment. Minimum-data Export omits names, notes, evidence, and decision records. Use non-identifying codes; do not enter sensitive information.</p>
+        ${workspace.error ? '<p class="text-sm mt-md" role="alert">The library could not be saved or loaded. Keep this page open and use Private backup before reloading. Your current work has not been replaced.</p>' : ''}
+        ${workspace.locked ? '<p class="text-secondary mt-md">Restore your saved session to open the library, or choose Start Fresh to preserve it and begin separately.</p>' : `
+          <ul class="assessment-library-list" aria-label="Saved assessments">
+            ${workspace.assessments.map(entry => `<li class="assessment-library-item${entry.active ? ' is-active' : ''}">
+              <div><h3>${escapeHtml(entry.name)}</h3><p class="text-sm text-secondary">${entry.active ? 'Current assessment · ' : ''}${entry.reviewedCount} judgments confirmed${entry.hasRecommendation ? ' · recommendation available' : ''}</p></div>
+              ${entry.active ? '<span class="library-current">Open</span>' : `<button class="btn btn-secondary btn-sm" type="button" data-open-assessment="${escapeHtml(entry.id)}" aria-label="Open assessment ${escapeHtml(entry.name)}">Open</button>`}
+            </li>`).join('')}
+          </ul>
+          ${workspace.hiddenCount ? `<div class="mt-md"><p class="text-sm text-secondary">${workspace.hiddenCount} previous assessment${workspace.hiddenCount === 1 ? ' is' : 's are'} preserved. Open them only if this browser library belongs to your session.</p><button class="btn btn-secondary btn-sm mt-sm" id="btn-reveal-assessments" type="button">Show saved assessments</button></div>` : ''}
+          ${activeAssessment ? `<form class="library-form" id="assessment-rename-form">
+            <div><label class="text-sm" for="assessment-name">Current assessment name / code</label><input class="input" id="assessment-name" maxlength="120" required value="${escapeHtml(activeAssessment.name)}"></div>
+            <button class="btn btn-secondary btn-sm" type="submit">Rename assessment</button>
+          </form>` : ''}
+          <form class="library-form" id="assessment-create-form">
+            <div><label class="text-sm" for="new-assessment-name">New assessment name / code</label><input class="input" id="new-assessment-name" maxlength="120" required placeholder="e.g., PILOT-07 · option B"></div>
+            <button class="btn btn-primary" type="submit">Create assessment</button>
+          </form>
+        `}
+      </section>
+
       ${state.semanticMigration?.status === 'review-required' ? `<section class="card migration-notice">
         <strong>Older assessment needs review</strong>
         <p class="text-sm text-secondary mt-sm">${state.semanticMigration?.reason === 'completion-contract-coherence'
@@ -22,6 +51,16 @@ export function renderDashboard(container) {
           : `This record used an older semantic contract. Reassess ${escapeHtml((state.semanticMigration?.reassessmentMetrics || []).join(', ') || 'the flagged metrics')} before software completeness can pass.`}</p>
       </section>` : ''}
 
+      ${hasAssessment ? `<section class="card current-work animate-fade-in-up stagger-2">
+        <div>
+          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : 'Work in progress'}</span>
+          <h2>${projectName}</h2>
+          <p class="text-sm text-secondary mt-sm">${completeness.completeCount}/${FRAMEWORK_META.metricCount} reviewed · ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive recommendations. External approval not verified.` : (workspace.error ? 'Unsaved changes. Keep this page open and use Private backup.' : 'Saved in this browser. Continue with the next unreviewed judgment.')}</p>
+        </div>
+        <div class="hero-actions"><button class="btn btn-primary" id="btn-current-decisions">Review decisions →</button><button class="btn btn-secondary" id="btn-current-work">${state.assessmentComplete ? 'View report' : 'Resume assessment'} →</button></div>
+      </section>` : ''}
+
+      ${hasAssessment || workspace.assessments.length > 1 ? '<details class="card framework-introduction"><summary>Framework introduction and references</summary>' : ''}
       <section class="dashboard-hero animate-fade-in-up">
         <div class="hero-badge">A decision aid for project teams</div>
         <p class="hero-kicker">Systems engineering process tailoring</p>
@@ -38,14 +77,7 @@ export function renderDashboard(container) {
         </div>
       </section>
 
-      ${hasAssessment ? `<section class="card current-work animate-fade-in-up stagger-2">
-        <div>
-          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : 'Work in progress'}</span>
-          <h2>${projectName}</h2>
-          <p class="text-sm text-secondary mt-sm">${completeness.completeCount}/${FRAMEWORK_META.metricCount} reviewed · ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive recommendations. External approval not verified.` : 'Saved in this browser. Continue with the next unreviewed judgment.'}</p>
-        </div>
-        <button class="btn btn-secondary" id="btn-current-work">${state.assessmentComplete ? 'View report' : 'Resume assessment'} →</button>
-      </section>` : ''}
+
 
       <section class="how-it-works animate-fade-in-up stagger-3">
         <div class="section-heading">
@@ -90,10 +122,27 @@ export function renderDashboard(container) {
           </div>
         </div>
       </details>
+      ${hasAssessment || workspace.assessments.length > 1 ? '</details>' : ''}
     `;
 
     const style = document.createElement('style');
     style.textContent = `
+      .assessment-library { margin:0 0 24px; }
+      .framework-introduction > summary { cursor:pointer; font-weight:700; }
+      .library-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+      .library-heading h2 { margin-top:6px; }
+      .assessment-library-list { list-style:none; padding:0; margin:20px 0; display:grid; gap:8px; max-height:360px; overflow-y:auto; }
+      .assessment-library-item { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:14px; border:1px solid var(--border-subtle); border-radius:var(--radius-md); }
+      .assessment-library-item.is-active { border-color:var(--accent-primary); background:rgba(99,102,241,.07); }
+      .assessment-library-item h3 { font-size:16px; overflow-wrap:anywhere; margin-bottom:6px; }
+      .assessment-library-item > div { min-width:0; }
+      .assessment-library-item .btn,.library-current { flex:0 0 auto; }
+      .library-current { color:var(--accent-primary-light); font-size:12px; font-weight:700; }
+      .library-form { display:flex; align-items:flex-end; gap:12px; margin-top:16px; }
+      .library-form > div { flex:1; min-width:0; }
+      .library-form label { display:block; margin-bottom:6px; }
+      @media(max-width:600px) { .library-form { flex-direction:column; align-items:stretch; } .library-form .btn { width:100%; } }
+
       .dashboard-hero { max-width: 980px; margin: 0 auto; padding: 64px 20px 46px; text-align: center; }
       .hero-badge { display:inline-block; padding:4px 14px; border:1px solid var(--border-subtle); border-radius:999px; color:var(--text-secondary); font-size:12px; margin-bottom:24px; }
       .hero-kicker,.eyebrow { color:var(--accent-primary-light); font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
@@ -104,7 +153,7 @@ export function renderDashboard(container) {
       .framework-facts { display:flex; justify-content:center; gap:28px; flex-wrap:wrap; margin-top:34px; color:var(--text-secondary); font-size:13px; }
       .framework-facts strong { color:var(--text-primary); font-size:17px; margin-right:4px; }
       .migration-notice { border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.08); margin-bottom:18px; }
-      .current-work { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 auto 64px; max-width:900px; border-left:3px solid var(--accent-primary); }
+      .current-work { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 0 24px; border-left:3px solid var(--accent-primary); }
       .current-work h2 { margin-top:5px; }
       .how-it-works,.explore-section { margin-bottom:64px; }
       .section-heading { max-width:680px; margin-bottom:20px; }
@@ -130,6 +179,34 @@ export function renderDashboard(container) {
     `;
     container.appendChild(style);
 
+    const refreshWorkspace = (succeeded, message) => {
+        if (!succeeded) {
+            showToast('Your current assessment is still open. Resolve the storage warning before changing assessments.', 'error');
+            return;
+        }
+        showToast(message, 'success');
+        navigateTo('dashboard', {}, { replace: true });
+    };
+    container.querySelector('#assessment-create-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const name = container.querySelector('#new-assessment-name').value.trim();
+        if (!name) return;
+        refreshWorkspace(createWorkspaceAssessment(name), 'New independent assessment created. Previous work is preserved.');
+    });
+    container.querySelector('#assessment-rename-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const name = container.querySelector('#assessment-name').value.trim();
+        if (!name) return;
+        refreshWorkspace(renameWorkspaceAssessment(name), 'Assessment renamed.');
+    });
+    container.querySelector('#btn-duplicate-assessment')?.addEventListener('click', () => refreshWorkspace(duplicateWorkspaceAssessment(), 'Independent copy created. External approval is not verified.'));
+    container.querySelectorAll('[data-open-assessment]').forEach(button => button.addEventListener('click', () => refreshWorkspace(switchWorkspaceAssessment(button.dataset.openAssessment), 'Assessment opened.')));
+    container.querySelector('#btn-reveal-assessments')?.addEventListener('click', () => {
+        revealSavedWorkspaceAssessments();
+        navigateTo('dashboard', {}, { replace: true });
+    });
+    container.querySelector('#btn-library-assess')?.addEventListener('click', () => navigateTo('assessment'));
+    container.querySelector('#btn-current-decisions')?.addEventListener('click', () => navigateTo('adjust'));
     container.querySelector('#btn-start-assessment')?.addEventListener('click', () => navigateTo('assessment'));
     container.querySelector('#btn-explore')?.addEventListener('click', () => navigateTo('processes'));
     container.querySelector('#btn-current-work')?.addEventListener('click', () => navigateTo(state.assessmentComplete ? 'report' : 'assessment'));

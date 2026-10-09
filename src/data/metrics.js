@@ -590,8 +590,8 @@ export const LEVEL_THRESHOLDS = Object.fromEntries(Object.entries(METRIC_PROCESS
     const primaryMetrics = Object.entries(metricMap).filter(([, role]) => role === 'P').map(([metric]) => metric);
     const secondaryMetrics = Object.entries(metricMap).filter(([, role]) => role === 'S').map(([metric]) => metric);
     return [processId, {
-        standard: primaryMetrics.map(metric => `${metric}≥3`).join(' or '),
-        comprehensive: 'Any applicable metric = 5, with corroboration',
+        standard: [...primaryMetrics, ...secondaryMetrics].map(metric => `${metric}≥3`).join(' or '),
+        comprehensive: COMPREHENSIVE_POLICY.statement,
         primaryMetrics,
         secondaryMetrics
     }];
@@ -1127,7 +1127,7 @@ export const DEPENDENCY_CHAINS = [
         id: 'vv_loop',
         name: 'V&V Traceability Loop',
         processes: [19, 24, 25, 27, 18],
-        description: 'Vee Model right side: V&V levels should be at least as rigorous as the processes producing their test/acceptance bases. Requirements → verification tracing. Stakeholder needs → validation tracing. Integration provides the verified baseline.'
+        description: 'Vee Model right side: review evidence coverage and traceability from requirements to verification, and from stakeholder needs to validation. Apply the explicit process floors and dependency rules; this chain does not require equal tailoring levels. Integration supplies the configuration to be verified.'
     },
     {
         id: 'integration_chain',

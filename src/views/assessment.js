@@ -1,9 +1,10 @@
+import { reconcileManualChoices } from '../utils/tailoring-decisions.js';
 /**
  * Assessment View — Step-by-step metric scoring wizard
  * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
-import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
+import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus, checkConsistency } from '../utils/assessment-engine.js';
 import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
@@ -160,7 +161,7 @@ export function renderAssessment(container, routeContext = null) {
   const pageTitle = assessmentViewMode === 'review'
     ? 'Tailoring recommendations'
     : assessmentViewMode === 'issues'
-      ? 'Decisions needed'
+      ? 'Open checks'
       : activeStep.id === 'info'
         ? 'Set up the assessment'
         : activeStep.id === 'results'
@@ -910,11 +911,12 @@ function renderResults(content) {
   const rule11ElevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
   const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.complete;
   const rootManualAdjustments = state.manualAdjustments || {};
-  const activeManualAdjustments = activeNodeBeforeRun?.id === state.assessmentTree?.rootId
+  let activeManualAdjustments = activeNodeBeforeRun?.id === state.assessmentTree?.rootId
     ? { ...rootManualAdjustments, ...(activeNodeBeforeRun?.manualAdjustments || {}) }
     : activeNodeBeforeRun
       ? { ...(activeNodeBeforeRun.manualAdjustments || {}) }
       : { ...rootManualAdjustments };
+  if (activeNodeBeforeRun) activeManualAdjustments = reconcileManualChoices(activeNodeBeforeRun, state, result, { ...assessmentContext, scores: localScores, matrixMap, effectiveScores: hierarchyInput.effectiveScores }, activeManualAdjustments).adjustments;
   const existingP27Adjustment = activeManualAdjustments?.[27] || activeManualAdjustments?.['27'];
   const rule11ElevationPending = canApplyRule11Elevation
     && result.levels?.[27] === 'basic'
@@ -960,7 +962,8 @@ function renderResults(content) {
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length ? detail.triggerMetrics.join(', ') : '—';
     const confidence = result.confidence?.[p.id] || detail.confidence || 'high';
     const confidenceLabel = confidence === 'corroborated'
-      ? (detail.triggerScore === 5 && detail.triggerMetrics?.some(metric => metric === 'M5' || metric === 'M7') ? 'Directly supported by a high-impact score' : 'Supported by more than one input')
+      ? 'Multiple-input rule threshold met; independence unverified'
+      : confidence === 'direct-consequence' ? 'Direct-consequence exception: mapped M5 or M7 = 5'
       : confidence === 'available-with-justification' ? 'Needs a justification before using Comprehensive'
         : confidence === 'floor-applied' ? 'Minimum level set by a rule' : 'Supported by assessment inputs and rules';
     const attentionLabels = [
@@ -1194,7 +1197,7 @@ function renderResults(content) {
   content.innerHTML = `
     <nav class="assessment-result-tabs" aria-label="Assessment review sections">
       <button type="button" class="${assessmentViewMode !== 'issues' ? 'active' : ''}" data-result-route="review" aria-pressed="${assessmentViewMode !== 'issues'}">Recommendations</button>
-      <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Decisions${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
+      <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Open checks${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
     </nav>
     <div class="recommendation-overview ${assessmentViewMode === 'issues' ? 'issues-hidden' : ''}">
     <h3 class="mb-sm">Tailoring profile</h3>
@@ -1312,6 +1315,12 @@ function renderResults(content) {
       </div>
     </details>
   `;
+
+  const decisionAction = document.createElement('div');
+  decisionAction.className = 'card mt-lg mb-lg';
+  decisionAction.innerHTML = '<strong>Record the project decision</strong><p class="text-sm text-secondary mt-sm">The recommendation is a starting point. Keep or adjust process levels, record rationale, and retain a decision history even while other checks remain open.</p><button type="button" class="btn btn-primary mt-md" id="btn-record-tailoring-decisions">Record tailoring decisions</button>';
+  content.prepend(decisionAction);
+  decisionAction.querySelector('button').addEventListener('click', () => finalizeAssessment('#adjust'));
 
   const completeButton = content.closest('.assessment-container')?.querySelector('#btn-next');
   let currentCsiReadiness = csiReadiness;
@@ -1494,7 +1503,7 @@ function finalizeAssessment(destinationHash = null) {
   const currentDisplayLevels = applyManualAdjustmentsToLevels(result.levels, activeManualAdjustments);
   const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...currentDisplayLevels, 27: 'standard' });
   const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
-  const manualAdjustments = applyRule11Elevation ? {
+  let manualAdjustments = applyRule11Elevation ? {
     ...activeManualAdjustments,
     27: {
       level: 'standard',
@@ -1507,6 +1516,8 @@ function finalizeAssessment(destinationHash = null) {
       reviewDate: rule11Record.reviewDate
     }
   } : activeManualAdjustments;
+  const decisionReview = activeNode ? reconcileManualChoices(activeNode, state, result, { ...assessmentContext, scores: localScores, matrixMap, effectiveScores: hierarchyInput.effectiveScores }, manualAdjustments, true) : null;
+  if (decisionReview) manualAdjustments = decisionReview.adjustments;
   const rule11Levels = applyRule11Elevation ? { ...result.levels, 27: 'standard' } : result.levels;
   const effectiveLevels = applyManualAdjustmentsToLevels(rule11Levels, manualAdjustments);
   const effectiveLocalScenarioLevels = result.locallyCompleteRightSizingRecordCount > 0
@@ -1517,6 +1528,7 @@ function finalizeAssessment(destinationHash = null) {
     ? {
       ...result,
       levels: effectiveLevels,
+      violations: checkConsistency(effectiveLevels, hierarchyInput.effectiveScores, assessmentContext),
       locallyAdjustedLevels: effectiveLocalScenarioLevels,
       budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores)
     }
@@ -1609,7 +1621,7 @@ function finalizeAssessment(destinationHash = null) {
   }
 
   if (navigationOnly) {
-    showToast('Work in progress saved before opening process details.', 'info');
+    showToast(decisionReview?.suspended ? 'Inputs changed. Previous choices and reasons are retained as drafts for review; the protected recommendation is shown.' : 'Work in progress saved before opening process details.', decisionReview?.suspended ? 'warning' : 'info');
     const destination = getCurrentRouteContext(destinationHash);
     navigateTo(destination.path, destination.params);
   } else if (canBaseline) {

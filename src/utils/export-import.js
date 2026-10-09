@@ -1,3 +1,5 @@
+import { renderDecisionLedger } from './decision-record-view.js';
+import { buildElementContext } from './element-context.js';
 /**
  * Export/Import — Configuration management (JSON)
  */
@@ -33,32 +35,46 @@ export const IMPORT_LIMITS = Object.freeze({
     maxVisitedValues: 50000
 });
 
+// Explicit full backups have a larger but still bounded recovery envelope than
+// reduced sharing files. This accommodates histories near browser-storage quota.
+export const PRIVATE_BACKUP_LIMITS = Object.freeze({
+    ...IMPORT_LIMITS,
+    maxFileBytes: 20 * 1024 * 1024,
+    maxTextLength: 2 * 1024 * 1024,
+    maxCollectionLength: 20000,
+    maxVisitedValues: 2000000
+});
+function configLimits(config) {
+    return config?._privacy?.mode === 'identified' ? PRIVATE_BACKUP_LIMITS : IMPORT_LIMITS;
+}
+
 function isPlainObject(value) {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function validatePayloadBounds(config, errors) {
+    const limits = configLimits(config);
     const pending = [{ value: config, path: 'config' }];
     let visited = 0;
     while (pending.length > 0) {
         const { value, path } = pending.pop();
         visited += 1;
-        if (visited > IMPORT_LIMITS.maxVisitedValues) {
-            errors.push(`Config exceeds ${IMPORT_LIMITS.maxVisitedValues} values`);
+        if (visited > limits.maxVisitedValues) {
+            errors.push(`Config exceeds ${limits.maxVisitedValues} values`);
             return;
         }
         if (typeof value === 'string') {
-            if (value.length > IMPORT_LIMITS.maxTextLength) errors.push(`${path} exceeds ${IMPORT_LIMITS.maxTextLength} characters`);
+            if (value.length > limits.maxTextLength) errors.push(`${path} exceeds ${limits.maxTextLength} characters`);
             continue;
         }
         if (Array.isArray(value)) {
-            if (value.length > IMPORT_LIMITS.maxCollectionLength) errors.push(`${path} exceeds ${IMPORT_LIMITS.maxCollectionLength} items`);
+            if (value.length > limits.maxCollectionLength) errors.push(`${path} exceeds ${limits.maxCollectionLength} items`);
             value.forEach((item, index) => pending.push({ value: item, path: `${path}[${index}]` }));
             continue;
         }
         if (isPlainObject(value)) {
             const entries = Object.entries(value);
-            if (entries.length > IMPORT_LIMITS.maxCollectionLength) errors.push(`${path} exceeds ${IMPORT_LIMITS.maxCollectionLength} fields`);
+            if (entries.length > limits.maxCollectionLength) errors.push(`${path} exceeds ${limits.maxCollectionLength} fields`);
             entries.forEach(([key, item]) => pending.push({ value: item, path: `${path}.${key}` }));
         }
     }
@@ -187,6 +203,7 @@ function normalizeManualAdjustments(manualAdjustments = {}) {
         normalized[processId] = {
             level,
             justification: typeof adjustment.justification === 'string' ? adjustment.justification : '',
+            ...Object.fromEntries(['owner', 'evidenceRef', 'reviewDate', 'recommendationId', 'recommendationLevel', 'recordedAt', 'disposition', 'processId'].filter(field => typeof adjustment[field] === 'string').map(field => [field, adjustment[field]])),
             ...(adjustment.source === 'rule-disposition' ? {
                 source: 'rule-disposition',
                 ruleId: Number(adjustment.ruleId) === 11 ? 11 : undefined,
@@ -462,6 +479,9 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         || clonePlain(fallbackTree, null)
         || makeDefaultAssessmentTree(config, finalLevels, manualAdjustments);
     const rootId = assessmentTree.rootId || 'default';
+    const activeId = assessmentTree.nodes?.[assessmentTree.activeId] ? assessmentTree.activeId : rootId;
+    assessmentTree.activeId = activeId;
+    const rootIsActive = activeId === rootId;
     const reassessmentMetrics = semanticMigration?.reassessmentMetrics || [];
     if (!currentSemantics) {
         for (const node of Object.values(assessmentTree.nodes || {})) {
@@ -500,40 +520,40 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
     if (rootNode) {
         rootNode.scores = rootNode.scores && Object.keys(rootNode.scores).length
             ? rootNode.scores
-            : { ...metricScores };
+            : { ...(rootIsActive ? metricScores : {}) };
         rootNode.metricAssessments = isPlainObject(rootNode.metricAssessments) && Object.keys(rootNode.metricAssessments).length
             ? preserveUnconfirmedMetricAssessments(rootNode.scores, rootNode.metricAssessments)
-            : clonePlain(metricAssessments, {});
-        rootNode.assuranceObligations = clonePlain(rootNode.assuranceObligations, assuranceObligations);
+            : clonePlain(rootIsActive ? metricAssessments : {}, {});
+        rootNode.assuranceObligations = clonePlain(rootNode.assuranceObligations, rootIsActive ? assuranceObligations : []);
         rootNode.ruleDispositions = Object.keys(normalizeRuleDispositions(rootNode.ruleDispositions)).length
             ? normalizeRuleDispositions(rootNode.ruleDispositions)
-            : clonePlain(ruleDispositions, {});
+            : clonePlain(rootIsActive ? ruleDispositions : {}, {});
         const normalizedNodeCsiResponse = normalizeCsiResponse(rootNode.csiResponse);
         rootNode.csiResponse = Object.keys(normalizedNodeCsiResponse).some(key => {
             const value = normalizedNodeCsiResponse[key];
             return Array.isArray(value) ? value.length > 0 : !!value;
-        }) ? normalizedNodeCsiResponse : clonePlain(csiResponse, {});
-        rootNode.rightSizingApprovalRecords = clonePlain(rootNode.rightSizingApprovalRecords, rightSizingApprovalRecords);
+        }) ? normalizedNodeCsiResponse : clonePlain(rootIsActive ? csiResponse : {}, {});
+        rootNode.rightSizingApprovalRecords = clonePlain(rootNode.rightSizingApprovalRecords, rootIsActive ? rightSizingApprovalRecords : []);
+        const rootAdjustments = rootIsActive
+            ? { ...manualAdjustments, ...normalizeManualAdjustments(rootNode.manualAdjustments || {}) }
+            : normalizeManualAdjustments(rootNode.manualAdjustments ?? manualAdjustments);
         rootNode.levels = applyManualAdjustmentsToLevels(
-            Object.keys(rootNode.levels || {}).length ? rootNode.levels : finalLevels,
-            manualAdjustments,
-            rootNode.manualAdjustments || {}
+            Object.keys(rootNode.levels || {}).length ? rootNode.levels : (rootIsActive ? finalLevels : rootNode.assessmentResult?.levels || {}),
+            rootAdjustments
         );
-        rootNode.manualAdjustments = {
-            ...manualAdjustments,
-            ...normalizeManualAdjustments(rootNode.manualAdjustments || {})
-        };
+        rootNode.manualAdjustments = rootAdjustments;
         rootNode.correlatedEvidenceWarnings = assessCorrelatedEvidence(rootNode.metricAssessments).warnings;
         rootNode.securityHierarchyDisposition ??= null;
         rootNode.assuranceHierarchyDisposition ??= null;
         rootNode.hasIndependentSecurityAnalysis = rootNode.hasIndependentSecurityAnalysis === true;
         rootNode.hasScopedAssuranceDecision = rootNode.hasScopedAssuranceDecision === true;
 
-        const completeness = assessMetricCompleteness(metricScores, metricAssessments);
-        const warningDispositions = assessWarningDispositions(config.violations, ruleDispositions, rootNode.levels);
-        const csiReadiness = assessCsiResponse(metricScores, csiResponse);
-        const importedComplete = currentSemantics && config.assessmentComplete === true && completeness.complete && warningDispositions.complete && csiReadiness.complete && semanticMigration?.status !== 'review-required';
-        if (importedComplete && !rootNode.assessmentResult) {
+        const completeness = assessMetricCompleteness(rootNode.scores, rootNode.metricAssessments);
+        const warningDispositions = assessWarningDispositions(rootNode.assessmentResult?.violations || (rootIsActive ? config.violations : []), rootNode.ruleDispositions, rootNode.levels);
+        const csiReadiness = assessCsiResponse(rootNode.scores, rootNode.csiResponse);
+        const claimedRootComplete = rootIsActive ? config.assessmentComplete === true : (rootNode.assessmentDisposition === 'complete-baseline' || ['under_review', 'approved', 'baselined'].includes(rootNode.status));
+        const importedComplete = currentSemantics && claimedRootComplete && completeness.complete && warningDispositions.complete && csiReadiness.complete && semanticMigration?.status !== 'review-required';
+        if (importedComplete && rootIsActive && !rootNode.assessmentResult) {
             rootNode.assessmentResult = buildLegacyAssessmentResult(config, rootNode.levels);
             rootNode.status = rootNode.status === 'draft' ? 'under_review' : (rootNode.status || 'under_review');
         }
@@ -594,6 +614,29 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
                 ? 'complete-baseline'
                 : 'work-in-progress'
     };
+    const activeNode = assessmentTree.nodes?.[activeId];
+    if (activeNode) {
+        if (!rootIsActive) {
+            const childAdjustments = normalizeManualAdjustments(activeNode.manualAdjustments || {});
+            activeNode.levels = applyManualAdjustmentsToLevels(
+                activeNode.levels || activeNode.assessmentResult?.levels || config.processLevels || {},
+                childAdjustments
+            );
+            activeNode.manualAdjustments = childAdjustments;
+            if (activeNode.metricAssessments) activeNode.metricAssessments = preserveUnconfirmedMetricAssessments(activeNode.scores || {}, activeNode.metricAssessments);
+        }
+        Object.assign(normalized, buildElementContext(activeNode, {
+            ...normalized,
+            levels: activeNode.levels,
+            normativeLevels: config.normativeLevels || activeNode.assessmentResult?.normativeLevels || activeNode.recommendationBaseline?.levels || activeNode.levels
+        }));
+        normalized.manualAdjustments = clonePlain(rootNode?.manualAdjustments, manualAdjustments);
+        normalized.correlatedEvidenceWarnings = assessCorrelatedEvidence(normalized.metricAssessments).warnings;
+        normalized.assessmentComplete = currentSemantics && config.assessmentComplete === true
+            && getAssessmentDisposition(normalized).softwareChecksPassed;
+        normalized.assessmentDisposition = config.assessmentDisposition === 'demo'
+            ? 'demo' : normalized.assessmentComplete ? 'complete-baseline' : 'work-in-progress';
+    }
     if (derivationPredecessor) {
         // Old results must not appear under the new calculation identity.
         // Preserve them in semanticMigration; retain ratings and source evidence.
@@ -815,11 +858,22 @@ export function buildExportConfig(state, { includeProjectIdentifiers = false, mo
     return resolvedMode === 'minimum-data' ? reduceConfigToMinimumData(config) : config;
 }
 
+/** The download must pass the same bounds and schema as its future import. */
+export function serializeExportConfig(state, options = {}) {
+    const config = buildExportConfig(state, { mode: 'minimum-data', ...options });
+    const validation = validateConfig(config);
+    if (!validation.valid) throw new Error(`Export cannot be restored: ${validation.errors.slice(0, 3).join('; ')}. No data was removed; keep this assessment open.`);
+    const text = JSON.stringify(config, null, config._privacy.mode === 'identified' ? undefined : 2);
+    if (new TextEncoder().encode(text).byteLength > configLimits(config).maxFileBytes) {
+        throw new Error('Export exceeds the supported import size. No backup was created and no history was removed. Keep this assessment open.');
+    }
+    return { config, text };
+}
+
 /** Export current state as JSON */
 export function exportConfig(state, options = {}) {
-    const config = buildExportConfig(state, { mode: 'minimum-data', ...options });
-
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const { config, text } = serializeExportConfig(state, options);
+    const blob = new Blob([text], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -839,14 +893,18 @@ export function importConfig(file) {
             reject(new Error('Invalid config file'));
             return;
         }
-        if (file.size > IMPORT_LIMITS.maxFileBytes) {
-            reject(new Error(`Config exceeds ${IMPORT_LIMITS.maxFileBytes} byte import limit`));
+        if (file.size > PRIVATE_BACKUP_LIMITS.maxFileBytes) {
+            reject(new Error(`Config exceeds ${PRIVATE_BACKUP_LIMITS.maxFileBytes} byte import limit`));
             return;
         }
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
                 const config = JSON.parse(e.target.result);
+                if (file.size > configLimits(config).maxFileBytes) {
+                    reject(new Error(`Config exceeds ${configLimits(config).maxFileBytes} byte import limit`));
+                    return;
+                }
                 const validation = validateConfig(config);
                 if (!validation.valid) {
                     reject(new Error(`Invalid config: ${validation.errors.join(', ')}`));
@@ -908,8 +966,8 @@ export function validateConfig(config) {
     }
 
     errors.push(...validateRuleDispositions(config.ruleDispositions));
-    errors.push(...validateCsiResponse(config.csiResponse));
-    errors.push(...validateRightSizingApprovalRecords(config.rightSizingApprovalRecords));
+    errors.push(...validateCsiResponse(config.csiResponse, { maxTextLength: config._privacy?.mode === 'identified' ? PRIVATE_BACKUP_LIMITS.maxTextLength : 4000 }));
+    errors.push(...validateRightSizingApprovalRecords(config.rightSizingApprovalRecords, { allowIncomplete: config._privacy?.mode === 'identified' }));
 
     // deliverablesChecked remains accepted and validated only for legacy import compatibility; it is ignored by normalization and never re-exported.
     for (const field of ['overrides', 'activeFloors', 'violations', 'fixes', 'rightSizingProposals', 'blockedRightSizingCandidates', 'proposalClosureFixes', 'localScenarioClosureFixes', 'rightSizingActions', 'rightSizingApprovalRecords', 'rightSizingApprovalEvaluations', 'adoptionRisks', 'tradeoffs', 'deliverablesChecked', 'assuranceObligations']) {
@@ -982,6 +1040,12 @@ export function validateConfig(config) {
         });
     }
 
+    if (Array.isArray(config.activeFloors)) {
+        config.activeFloors.forEach((floor, index) => {
+            if (!isPlainObject(floor) || !VALID_PROCESS_IDS.has(String(floor.processId)) || !VALID_LEVELS.has(floor.minLevel)) errors.push(`activeFloors[${index}] has invalid mandatory-floor provenance`);
+        });
+    }
+
     if (Array.isArray(config.overrides)) {
         config.overrides.forEach((override, index) => {
             if (!isPlainObject(override)) {
@@ -1051,14 +1115,14 @@ export function validateConfig(config) {
     }
 
     if (isPlainObject(config.confidence)) {
-        const validConfidence = new Set(['high', 'corroborated', 'available-with-justification', 'floor-applied']);
+        const validConfidence = new Set(['high', 'corroborated', 'direct-consequence', 'available-with-justification', 'floor-applied']);
         for (const [k, v] of Object.entries(config.confidence)) {
             if (!VALID_PROCESS_IDS.has(String(k))) errors.push(`Unknown confidence process id: ${k}`);
             if (!validConfidence.has(v)) errors.push(`Invalid confidence value for process ${k}: ${v}`);
         }
     }
     if (isPlainObject(config.derivationStatus)) {
-        const validStatuses = new Set(['high', 'corroborated', 'available-with-justification', 'floor-applied']);
+        const validStatuses = new Set(['high', 'corroborated', 'direct-consequence', 'available-with-justification', 'floor-applied']);
         for (const [k, v] of Object.entries(config.derivationStatus)) {
             if (!VALID_PROCESS_IDS.has(String(k))) errors.push(`Unknown derivationStatus process id: ${k}`);
             if (!validStatuses.has(v)) errors.push(`Invalid derivationStatus value for process ${k}: ${v}`);
@@ -1078,7 +1142,7 @@ export function validateConfig(config) {
                     continue;
                 }
                 if (node.id !== undefined && node.id !== id) errors.push(`assessmentTree node ${id} has mismatched id`);
-                if (typeof node.name !== 'string' || node.name.length > 200) errors.push(`assessmentTree node ${id} has invalid name`);
+                if (typeof node.name !== 'string' || node.name.length > (config._privacy?.mode === 'identified' ? PRIVATE_BACKUP_LIMITS.maxTextLength : 200)) errors.push(`assessmentTree node ${id} has invalid name`);
                 if (node.assessmentType !== undefined && !VALID_ASSESSMENT_TYPES.has(node.assessmentType)) errors.push(`assessmentTree node ${id} has invalid assessmentType`);
                 if (node.status !== undefined && !VALID_ELEMENT_STATUSES.has(node.status)) errors.push(`assessmentTree node ${id} has invalid status`);
                 if (node.childIds !== undefined && (!Array.isArray(node.childIds) || node.childIds.some(childId => typeof childId !== 'string'))) {
@@ -1094,13 +1158,50 @@ export function validateConfig(config) {
                 }
                 validateLevelMap(node.levels, `assessmentTree node ${id} levels`, errors);
                 validateManualAdjustments(node.manualAdjustments, `assessmentTree node ${id} manualAdjustments`, errors);
+                for (const field of ['decisionRecords', 'decisionDrafts']) {
+                    if (node[field] !== undefined && !isPlainObject(node[field])) errors.push(`assessmentTree node ${id} ${field} must be an object`);
+                    if (isPlainObject(node[field])) validateManualAdjustments(node[field], `assessmentTree node ${id} ${field}`, errors);
+                }
+                for (const field of ['decisionHistory', 'recommendationHistory']) {
+                    if (node[field] !== undefined && !Array.isArray(node[field])) errors.push(`assessmentTree node ${id} ${field} must be an array`);
+                }
+                for (const [index, entry] of (Array.isArray(node.decisionHistory) ? node.decisionHistory : []).entries()) {
+                    const path = `assessmentTree node ${id} decisionHistory[${index}]`;
+                    if (!isPlainObject(entry)) { errors.push(`${path} must be an object`); continue; }
+                    if (!VALID_PROCESS_IDS.has(String(entry.processId))) errors.push(`${path} has invalid processId`);
+                    validateManualAdjustments({ [entry.processId]: entry }, path, errors);
+                    if (!VALID_LEVELS.has(entry.recommendationLevel)) errors.push(`${path} has invalid recommendationLevel`);
+                    for (const field of ['recordedAt', 'recommendationId', 'owner', 'evidenceRef', 'reviewDate']) {
+                        if (entry[field] !== undefined && typeof entry[field] !== 'string') errors.push(`${path} ${field} must be a string`);
+                    }
+                }
+                for (const snapshot of [node.recommendationBaseline, ...(Array.isArray(node.recommendationHistory) ? node.recommendationHistory : [])].filter(Boolean)) {
+                    if (snapshot.activeFloors !== undefined) {
+                        if (!Array.isArray(snapshot.activeFloors)) errors.push(`assessmentTree node ${id} recommendation activeFloors must be an array`);
+                        else for (const floor of snapshot.activeFloors) {
+                            if (!isPlainObject(floor) || !VALID_PROCESS_IDS.has(String(floor.processId)) || !VALID_LEVELS.has(floor.minLevel)) errors.push(`assessmentTree node ${id} recommendation activeFloors has invalid member`);
+                        }
+                    }
+                }
+                for (const [index, entry] of (Array.isArray(node.recommendationHistory) ? node.recommendationHistory : []).entries()) {
+                    if (!isPlainObject(entry) || !isPlainObject(entry.levels)) errors.push(`assessmentTree node ${id} recommendationHistory[${index}] must have levels`);
+                    else validateLevelMap(entry.levels, `assessmentTree node ${id} recommendationHistory[${index}] levels`, errors);
+                }
+                if (node.recommendationBaseline !== undefined && node.recommendationBaseline !== null) {
+                    if (!isPlainObject(node.recommendationBaseline)) errors.push(`assessmentTree node ${id} recommendationBaseline must be an object`);
+                    else {
+                        if (!isPlainObject(node.recommendationBaseline.levels)) errors.push(`assessmentTree node ${id} recommendationBaseline levels must be an object`);
+                        else validateLevelMap(node.recommendationBaseline.levels, `assessmentTree node ${id} recommendationBaseline levels`, errors);
+                    }
+                }
+
                 for (const error of validateRuleDispositions(node.ruleDispositions)) {
                     errors.push(`assessmentTree node ${id}: ${error}`);
                 }
-                for (const error of validateCsiResponse(node.csiResponse)) {
+                for (const error of validateCsiResponse(node.csiResponse, { maxTextLength: config._privacy?.mode === 'identified' ? PRIVATE_BACKUP_LIMITS.maxTextLength : 4000 })) {
                     errors.push(`assessmentTree node ${id}: ${error}`);
                 }
-                for (const error of validateRightSizingApprovalRecords(node.rightSizingApprovalRecords)) {
+                for (const error of validateRightSizingApprovalRecords(node.rightSizingApprovalRecords, { allowIncomplete: config._privacy?.mode === 'identified' })) {
                     errors.push(`assessmentTree node ${id}: ${error}`);
                 }
                 if (node.safetyAllocationDecision !== undefined && node.safetyAllocationDecision !== null) {
@@ -1266,6 +1367,8 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
             : '—';
         const confidenceLabel = safeConfidence[p.id] === 'corroborated'
             ? 'Rule threshold met; independence unverified'
+            : safeConfidence[p.id] === 'direct-consequence'
+                ? 'Direct-consequence exception (mapped M5 or M7 = 5)'
             : safeConfidence[p.id] === 'available-with-justification'
                 ? 'Available with justification'
                 : safeConfidence[p.id] === 'floor-applied'
@@ -1332,6 +1435,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
         }
     }
 
+    html += renderDecisionLedger(state);
     html += `<hr><p style="font-size:12px;color:#94a3b8">Generated as a pilot research record by SE Tailoring Model App on ${now}. External approval not verified. Built by <a href="https://haitaowu12.github.io/tony-wu-home/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
@@ -1350,19 +1454,23 @@ export function csvCell(value) {
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-/** Export Matrix to CSV */
-export function exportMatrixCSV(state, metrics, processes, defaultMap) {
-    const map = state.matrixMap || defaultMap;
-    const rows = [];
-    const headers = ['Process ID', 'Process Name', ...metrics.map(m => m.id)];
-    rows.push(headers);
-    for (const p of processes) {
-        const row = [p.id, p.name];
-        for (const m of metrics) {
-            row.push(map[p.id]?.[m.id] || '');
-        }
-        rows.push(row);
-    }
+/** Shared matrix rows keep screen, CSV and PDF applicability markers aligned. */
+export function buildMatrixExportData(state, metrics, processes, defaultMap, presentation = null) {
+    const map = presentation?.map || state.matrixMap || defaultMap;
+    return {
+        headers: ['Process ID', 'Process Name', ...metrics.map(m => m.id)],
+        body: processes.map(p => [p.id, p.name, ...metrics.map(m => map[p.id]?.[m.id] || '')]),
+        notes: presentation ? [presentation.contextLabel, presentation.caption, presentation.legend].filter(Boolean) : [],
+        conditional: (presentation?.conditionalDrivers || []).map(driver => [driver.processId, driver.processName, driver.metric, driver.role, driver.marker, driver.status, driver.reason])
+    };
+}
+
+/** Export Matrix to CSV. Captions contain no local identifiers or obligation evidence. */
+export function exportMatrixCSV(state, metrics, processes, defaultMap, presentation = null) {
+    const data = buildMatrixExportData(state, metrics, processes, defaultMap, presentation);
+    const rows = [data.headers, ...data.body];
+    if (data.notes.length) rows.push([], ...data.notes.map(note => ['Matrix note', note]));
+    if (data.conditional.length) rows.push([], ['Process ID', 'Process Name', 'Metric', 'Role', 'Marker', 'Conditional status', 'Applicability explanation'], ...data.conditional);
     const csvContent = rows.map(row => row.map(csvCell).join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -1374,37 +1482,35 @@ export function exportMatrixCSV(state, metrics, processes, defaultMap) {
 }
 
 /** Export Matrix to PDF */
-export async function exportMatrixPDF(state, metrics, processes, dimensions, defaultMap) {
+export async function exportMatrixPDF(state, metrics, processes, dimensions, defaultMap, presentation = null) {
     const { jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
+    const { autoTable } = await import('jspdf-autotable');
     const doc = new jsPDF('landscape');
-    const map = state.matrixMap || defaultMap;
-    doc.text("Process-Metric Applicability Matrix Configuration", 14, 15);
-    doc.setFontSize(10);
-    doc.text("P = Primary Driver, S = Secondary Driver. Represents the exact matrix mapping used for assessment.", 14, 22);
-
-    const headers = ['ID', 'Process', ...metrics.map(m => m.id)];
-    const body = processes.map(p => {
-        const row = [p.id, p.name];
-        for (const m of metrics) {
-            row.push(map[p.id]?.[m.id] || '-');
-        }
-        return row;
-    });
-
-    doc.autoTable({
-        startY: 28,
-        head: [headers],
-        body: body,
+    const data = buildMatrixExportData(state, metrics, processes, defaultMap, presentation);
+    doc.text('Process-Metric Applicability Matrix', 14, 15);
+    doc.setFontSize(9);
+    const notes = data.notes.length ? data.notes.join('\n')
+        : 'P = Primary Driver, S = Secondary Driver. This allocation map does not show additional minimum-level rules or dependencies.';
+    const lines = doc.splitTextToSize(notes, 268);
+    doc.text(lines, 14, 22);
+    autoTable(doc, {
+        startY: 26 + lines.length * 4,
+        head: [data.headers],
+        body: data.body,
         theme: 'grid',
         headStyles: { fillColor: [99, 102, 241] },
         styles: { fontSize: 7, cellPadding: 2, halign: 'center' },
-        columnStyles: {
-            0: { halign: 'left', cellWidth: 15 },
-            1: { halign: 'left', cellWidth: 50 }
-        }
+        columnStyles: { 0: { halign: 'left', cellWidth: 15 }, 1: { halign: 'left', cellWidth: 50 } }
     });
-
+    if (data.conditional.length) autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 8,
+        head: [['ID', 'Process', 'Metric', 'Role', 'Marker', 'Status', 'Conditional applicability']],
+        body: data.conditional,
+        theme: 'grid',
+        headStyles: { fillColor: [99, 102, 241] },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 6: { cellWidth: 130 } }
+    });
     doc.save(`se-tailoring-matrix-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 

@@ -1,162 +1,106 @@
-/**
- * Manual Adjustment View — Override process levels with consistency validation
- * Supports per-element adjustments via element selector.
- */
-import { CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
-import { checkConsistency } from '../utils/assessment-engine.js';
-import { getState, showToast, getElementsFlat, setElementProcessAdjustment } from '../state.js';
+/** Decisions stay beside their recommendation, rationale and local history. */
+import { CORE_PROCESSES, FRAMEWORK_META } from '../data/se-tailoring-data.js';
+import { getState, setState, showToast, getElementsFlat, saveElementDecisions, getAssessmentWorkspace, setActiveElement } from '../state.js';
 import { navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
+import { getRecommendation, prepareDecisions, decisionNeedsReview } from '../utils/tailoring-decisions.js';
+import { exportConfig } from '../utils/export-import.js';
 
-let localLevels = {};
-let selectedElementId = null;
+const label = level => FRAMEWORK_META.levelLabels[level] || level || '—';
 
-export function renderManualAdjust(container) {
+export function renderManualAdjust(container, options = {}) {
   const state = getState();
-  const elements = getElementsFlat().filter(el => el.assessmentResult);
-
-  if (elements.length === 0) {
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>No Assessment Yet</h3><p class="text-secondary mt-md">Complete an assessment for at least one system element first to manually adjust levels.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Start Assessment</button></div>`;
-    container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment'));
+  const elements = getElementsFlat().filter(element => element.assessmentResult);
+  if (!elements.length) {
+    container.innerHTML = `<section class="card"><h2>Tailoring decisions</h2><p class="text-secondary mt-md">Review a recommendation first, then keep or adjust each process level and record why. Your decision record is available even while other assessment checks are unfinished.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Review recommendations</button></section>`;
+    container.querySelector('#btn-go-assess').addEventListener('click', () => navigateTo('review'));
     return;
   }
+  const selectedId = elements.some(el => el.id === options.elementId) ? options.elementId
+    : elements.some(el => el.id === state.assessmentTree.activeId) ? state.assessmentTree.activeId : elements[0].id;
+  if (state.assessmentTree.activeId !== selectedId) setActiveElement(selectedId);
+  const node = state.assessmentTree.nodes[selectedId];
+  const baseline = getRecommendation(node, state);
+  const records = node.decisionRecords || {};
+  const drafts = node.decisionDrafts || {};
+  const choices = Object.fromEntries(CORE_PROCESSES.map(process => {
+    const saved = records[process.id] || node.manualAdjustments?.[process.id] || {};
+    return [process.id, { level: saved.level || baseline.levels[process.id] || 'basic', justification: saved.justification || '', owner: saved.owner || '', evidenceRef: saved.evidenceRef || '', reviewDate: saved.reviewDate || '', ...drafts[process.id] }];
+  }));
+  const reviewCount = Object.values(records).filter(record => decisionNeedsReview(record, baseline)).length;
+  const history = node.decisionHistory || [];
+  const pending = Object.keys(drafts).length;
+  const storageFailed = !!getAssessmentWorkspace().error;
+  const check = prepareDecisions(node, state, choices);
 
-  // Set default selected element
-  if (!selectedElementId || !elements.find(el => el.id === selectedElementId)) {
-    selectedElementId = elements[0].id;
-  }
-
-  const selectedElement = elements.find(el => el.id === selectedElementId);
-  const derivedLevels = selectedElement.levels || {};
-
-  // Initialize localLevels when switching elements or on first render
-  if (!container.querySelector('.adjust-select') || container.dataset.elementId !== selectedElementId) {
-    localLevels = {};
-    CORE_PROCESSES.forEach(p => {
-      const manualAdj = selectedElement.manualAdjustments?.[p.id];
-      localLevels[p.id] = manualAdj ? manualAdj.level : (derivedLevels[p.id] || 'basic');
-    });
-  }
-
-  const violations = checkConsistency(localLevels);
-  const groupByGroup = {};
-  CORE_PROCESSES.forEach(p => { if (!groupByGroup[p.group]) groupByGroup[p.group] = []; groupByGroup[p.group].push(p); });
-
-  const processName = id => CORE_PROCESSES.find(p => p.id === id)?.name || `Process ${id}`;
-  const selectedElementName = escapeHtml(selectedElement.name);
-
-  container.dataset.elementId = selectedElementId;
   container.innerHTML = `
-    <div class="flex justify-between items-center mb-0">
-      <div><h2>Manual Level Adjustment</h2><p class="text-secondary text-sm mt-sm">Override algorithm-derived levels per system element. Consistency rules are checked in real time.</p></div>
-      <div class="flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-reset">↻ Reset to Derived</button>
-        <button class="btn btn-primary btn-sm" id="btn-save">Save Changes</button>
-      </div>
-    </div>
+    <div class="decision-header"><div><span class="text-xs text-secondary">${escapeHtml(state.projectInfo?.name || 'Current assessment')}</span><h2>Tailoring decisions</h2><p class="text-secondary mt-sm">Keep or adjust the recommendation, record the reason, and return to it later.</p></div>
+      <div class="flex gap-sm"><button class="btn btn-secondary" id="btn-review-inputs">Review inputs</button><button class="btn btn-secondary" id="btn-view-report">View report</button></div></div>
+    <section class="card mt-lg mb-lg">
+      <label for="decision-element" class="form-label">System element</label>
+      <select class="select element-select" id="decision-element">${elements.map(el => `<option value="${escapeHtml(el.id)}" ${el.id === selectedId ? 'selected' : ''}>${escapeHtml(el.name)}</option>`).join('')}</select>
+      <p class="text-sm text-secondary mt-sm">Recommendations include mandatory floors and dependency closure. Your saved choices are browser-local decisions; external approval is not verified.</p>
+      ${baseline.source === 'legacy-reference' ? '<p class="text-sm mt-sm">This older record has no separate recommendation snapshot. Review and recalculate the inputs before treating this reference as the original recommendation.</p>' : ''}
+      ${reviewCount ? `<p class="text-sm mt-sm" role="status">${reviewCount} saved decision(s) need reconfirmation because the recommendation inputs changed. Earlier reasons remain in history.</p>` : ''}
+      <p class="text-sm mt-sm" id="decision-save-status" role="status">${Object.keys(records).length}/${CORE_PROCESSES.length} decisions recorded · ${pending} draft changes. ${storageFailed ? 'Local save failed; keep this tab open and download a private backup.' : 'Drafts are saved locally as you type.'}</p>
+      <div class="flex gap-sm mt-md"><button class="btn btn-primary" id="btn-save">Save decisions</button><button class="btn btn-secondary" id="btn-reset">Use recommendations</button><button class="btn btn-secondary" id="btn-decision-backup">Private JSON backup</button></div>
+      <p class="text-xs text-secondary mt-sm">Save records the choices shown, including retained recommendations. Private backup retains reasons and history. Minimum-data sharing export omits them.</p>
+    </section>
+    <div id="decision-errors" role="alert">${check.errors.length ? `<section class="card mb-lg"><strong>Resolve before saving</strong><ul>${check.errors.map(error => `<li>${escapeHtml(error)}</li>`).join('')}</ul><p class="text-xs text-secondary">Draft changes remain saved locally.</p></section>` : ''}</div>
+    <div class="decision-table-wrap"><table class="data-table decision-table"><caption class="text-secondary text-sm">Recommendation → local choice → reason and follow-up</caption><thead><tr><th>Process</th><th>Recommendation</th><th>Local choice</th><th>Decision record</th></tr></thead><tbody>
+    ${CORE_PROCESSES.map(process => {
+      const choice = choices[process.id];
+      const record = records[process.id];
+      return `<tr data-decision-process="${process.id}"><th scope="row"><a href="${escapeHtml(processDetailsHref(process.id, choice.level, 'adjust'))}">${escapeHtml(process.name)}</a><p class="text-xs text-secondary mt-sm">${record ? decisionNeedsReview(record, baseline) ? 'Review again' : 'Recorded' : node.manualAdjustments?.[process.id] ? 'Imported adjustment' : 'Not recorded'}</p></th>
+      <td data-recommendation="${process.id}">${escapeHtml(label(baseline.levels[process.id]))}</td>
+      <td><label class="sr-only" for="decision-level-${process.id}">Local level for ${escapeHtml(process.name)}</label><select class="select adjust-select" data-pid="${process.id}" data-field="level" id="decision-level-${process.id}">${['basic', 'standard', 'comprehensive'].map(level => `<option value="${level}" ${choice.level === level ? 'selected' : ''}>${label(level)}</option>`).join('')}</select></td>
+      <td><label class="form-label" for="decision-reason-${process.id}">Rationale${choice.level !== baseline.levels[process.id] ? ' (required for adjustment)' : ''}</label><textarea class="input adjust-justification" rows="2" data-pid="${process.id}" data-field="justification" id="decision-reason-${process.id}" placeholder="Why this level and what will be done?">${escapeHtml(choice.justification)}</textarea>
+      <details class="mt-sm"><summary class="text-xs">Owner, evidence and review date</summary>
+      <label class="form-label" for="decision-owner-${process.id}">Owner / role</label><input class="input" id="decision-owner-${process.id}" data-pid="${process.id}" data-field="owner" value="${escapeHtml(choice.owner)}">
+      <label class="form-label" for="decision-evidence-${process.id}">Evidence reference</label><input class="input" id="decision-evidence-${process.id}" data-pid="${process.id}" data-field="evidenceRef" value="${escapeHtml(choice.evidenceRef)}">
+      <label class="form-label" for="decision-date-${process.id}">Review date</label><input class="input" type="date" id="decision-date-${process.id}" data-pid="${process.id}" data-field="reviewDate" value="${escapeHtml(choice.reviewDate)}"></details></td></tr>`;
+    }).join('')}
+    </tbody></table></div>
+    <details class="card mt-xl" id="decision-history"><summary>Decision history (${history.length} entries)</summary><p class="text-xs text-secondary mt-sm">Local, editable-file provenance; this is not a tamper-evident audit trail or verified approval.</p>
+      ${history.length ? `<ol class="decision-history-list">${[...history].reverse().map(entry => `<li><strong>${escapeHtml(CORE_PROCESSES.find(process => String(process.id) === entry.processId)?.name || entry.processId)}: ${escapeHtml(label(entry.previousLevel))} → ${escapeHtml(label(entry.level))}</strong><p class="text-sm">${escapeHtml(entry.justification || 'Recommendation retained; no additional rationale entered.')}</p><p class="text-xs text-secondary">${escapeHtml(entry.recordedAt)} · Recommendation ${escapeHtml(label(entry.recommendationLevel))}${entry.owner ? ` · ${escapeHtml(entry.owner)}` : ''}${entry.evidenceRef ? ` · ${escapeHtml(entry.evidenceRef)}` : ''}${entry.reviewDate ? ` · Review ${escapeHtml(entry.reviewDate)}` : ''}</p></li>`).join('')}</ol>` : '<p class="mt-md">No decision history yet. Imported reasons are preserved above; their original timestamps are not inferred.</p>'}
+    </details>
+    <style>.decision-header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}.decision-header .flex,.card>.flex{flex-wrap:wrap}.decision-table-wrap{overflow-x:auto}.decision-table{min-width:720px;width:100%}.decision-table th{vertical-align:top}.decision-table td{vertical-align:top}.decision-table td:last-child{width:44%}.decision-table textarea{width:100%;min-width:240px}.decision-table .select{max-width:170px}.decision-table caption{text-align:left;padding:12px}.decision-history-list{padding-left:22px}.decision-history-list li{padding:14px 0;border-bottom:1px solid var(--border-subtle)}@media(max-width:600px){.decision-header .btn{white-space:normal}.decision-table-wrap{max-width:100%}.element-select{max-width:100%}}</style>`;
 
-    <div class="mb-lg mt-md p-md bg-card" style="border-radius: 8px; border: 1px solid var(--border-subtle);">
-      <label class="form-label text-sm text-secondary" style="display:block; margin-bottom: 4px;">Target System Element</label>
-      <select class="select element-select" style="min-width:300px; max-width:100%;">
-        ${elements.map(el => `<option value="${escapeHtml(el.id)}" ${el.id === selectedElementId ? 'selected' : ''}>${'─'.repeat(el.depth)} ${escapeHtml(el.name)}</option>`).join('')}
-      </select>
-    </div>
-
-    ${violations.length > 0 ? `
-    <div class="card mb-lg" style="border-left: 3px solid ${violations.some(v => v.type === 'HC') ? 'var(--accent-error)' : 'var(--accent-warning)'}; background: ${violations.some(v => v.type === 'HC') ? 'rgba(239,68,68,0.06)' : 'rgba(251,191,36,0.06)'}">
-      <div class="flex items-center gap-sm mb-sm">
-      <strong>${violations.length} Consistency Issue${violations.length > 1 ? 's' : ''} for ${selectedElementName}</strong>
-      </div>
-      ${violations.map(v => `
-        <div class="text-sm mb-sm" style="color: ${v.type === 'HC' ? 'var(--accent-error)' : 'var(--accent-warning)'}">
-          <strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}<br>
-          <span class="text-xs text-secondary">${escapeHtml(processName(v.affectedProcess))} is ${escapeHtml(v.currentLevel)}, needs ${escapeHtml(v.requiredOp)} ${escapeHtml(v.requiredLevel)}</span>
-        </div>
-      `).join('')}
-    </div>` : `<div class="card mb-lg" style="border-left:3px solid var(--accent-success);background:rgba(52,211,153,0.06)"><strong>✓ All consistency rules satisfied for ${selectedElementName}</strong></div>`}
-
-    ${Object.entries(groupByGroup).map(([group, procs]) => `
-      <div class="mb-xl">
-        <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
-        <div class="card" style="padding: 0; overflow: hidden; overflow-x: auto;">
-          <table class="data-table" style="min-width: 600px;">
-            <thead><tr><th>Process</th><th>Derived</th><th>Current Level</th><th>Justification</th><th>Status</th></tr></thead>
-            <tbody>
-              ${procs.map(p => {
-    const derived = derivedLevels[p.id] || 'basic';
-    const current = localLevels[p.id] || 'basic';
-    const changed = derived !== current;
-    const existingJust = selectedElement.manualAdjustments?.[p.id]?.justification || '';
-    return `<tr>
-                  <td><span class="process-id" style="font-size: 10px; padding: 1px 4px;">${p.id}</span> <a href="${escapeHtml(processDetailsHref(p.id, current, 'adjust'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[current] || current)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a></td>
-                  <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
-                  <td>
-                    <select class="form-control form-control-sm adjust-select" data-pid="${p.id}" style="min-width:130px; font-size:12px;">
-                      ${['basic', 'standard', 'comprehensive'].map(l => `<option value="${l}" ${current === l ? 'selected' : ''}>${FRAMEWORK_META.levelLabels[l]}</option>`).join('')}
-                    </select>
-                  </td>
-                  <td>
-                    <input type="text" class="input adjust-justification" data-pid="${p.id}" style="width:100%; font-size:12px;" placeholder="${changed ? 'Provide justification...' : 'Optional...'}" value="${escapeHtml(existingJust)}" ${!changed ? 'disabled style="opacity:0.5; width:100%; font-size:12px;"' : ''}>
-                  </td>
-                  <td>${changed ? '<span class="text-xs" style="color:var(--accent-warning); font-weight:bold;">Modified</span>' : '<span class="text-xs text-secondary">—</span>'}</td>
-                </tr>`;
-  }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `).join('')}
-  `;
-
-  // Select change handlers
-  container.querySelectorAll('.adjust-select').forEach(sel => {
-    sel.addEventListener('change', (e) => {
-      const pid = e.target.dataset.pid;
-      localLevels[pid] = e.target.value;
-      // Enable/disable justification field
-      const justInput = container.querySelector(`.adjust-justification[data-pid="${pid}"]`);
-      if (justInput) {
-        if (localLevels[pid] !== (derivedLevels[pid] || 'basic')) {
-          justInput.disabled = false;
-          justInput.style.opacity = '1';
-        } else {
-          justInput.disabled = true;
-          justInput.style.opacity = '0.5';
-        }
-      }
-      renderManualAdjust(container);
-    });
+  const persistDraft = (pid, field, value) => {
+    node.decisionDrafts = { ...(node.decisionDrafts || {}), [pid]: { ...choices[pid], ...(node.decisionDrafts?.[pid] || {}), [field]: value } };
+    const persisted = setState({ assessmentTree: state.assessmentTree });
+    const status = container.querySelector('#decision-save-status');
+    if (status) status.textContent = `${Object.keys(records).length}/${CORE_PROCESSES.length} decisions recorded · ${Object.keys(node.decisionDrafts).length} draft changes. ${persisted ? 'Draft saved locally.' : 'Local save failed. Draft is held in this tab only; back up before closing.'}`;
+  };
+  container.querySelectorAll('[data-field]').forEach(input => input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
+    persistDraft(input.dataset.pid, input.dataset.field, input.value);
+    if (input.tagName === 'SELECT') {
+      const id = input.id;
+      renderManualAdjust(container, { elementId: selectedId });
+      container.querySelector(`#${id}`)?.focus();
+    }
+  }));
+  container.querySelector('#decision-element').addEventListener('change', event => {
+    if (setActiveElement(event.target.value)) renderManualAdjust(container, { elementId: event.target.value });
   });
-
-  // Element select handler
-  container.querySelector('.element-select')?.addEventListener('change', (e) => {
-    selectedElementId = e.target.value;
-    container.dataset.elementId = '';
-    renderManualAdjust(container);
+  container.querySelector('#btn-save').addEventListener('click', () => {
+    const result = saveElementDecisions(selectedId, { ...choices, ...(node.decisionDrafts || {}) });
+    if (result.errors.length) showToast('Resolve the highlighted decision issues. Your drafts are retained.', 'warning');
+    else if (!result.persisted) showToast('Decisions are held in this tab, but local save failed. Download a private backup before closing.', 'error');
+    else showToast(result.changes.length ? 'Decisions saved with rationale and history. Review software checks before exporting a completed record.' : 'No changes to save; existing decisions retained.', 'success');
+    renderManualAdjust(container, { elementId: selectedId });
   });
-
-  // Reset button
-  container.querySelector('#btn-reset')?.addEventListener('click', () => {
-    localLevels = {};
-    CORE_PROCESSES.forEach(p => {
-      localLevels[p.id] = derivedLevels[p.id] || 'basic';
-      setElementProcessAdjustment(selectedElementId, p.id, 'default', '');
-    });
-    showToast(`Reset to derived levels for ${selectedElement.name}`, 'info');
-    renderManualAdjust(container);
+  container.querySelector('#btn-reset').addEventListener('click', () => {
+    node.decisionDrafts = Object.fromEntries(CORE_PROCESSES.map(process => [process.id, { ...choices[process.id], level: baseline.levels[process.id] || 'basic' }]));
+    setState({ assessmentTree: state.assessmentTree });
+    renderManualAdjust(container, { elementId: selectedId });
+    showToast('Recommendation choices staged. Save decisions to record the change; existing history is retained.', 'info');
   });
-
-  // Save button
-  container.querySelector('#btn-save')?.addEventListener('click', () => {
-    CORE_PROCESSES.forEach(p => {
-      const justInput = container.querySelector(`.adjust-justification[data-pid="${p.id}"]`);
-      const justification = justInput ? justInput.value : '';
-      if (localLevels[p.id] !== (derivedLevels[p.id] || 'basic')) {
-        setElementProcessAdjustment(selectedElementId, p.id, localLevels[p.id], justification);
-      } else {
-        setElementProcessAdjustment(selectedElementId, p.id, 'default', '');
-      }
-    });
-    showToast(`Levels saved for ${selectedElement.name}!`, 'success');
+  container.querySelector('#btn-review-inputs').addEventListener('click', () => navigateTo('review'));
+  container.querySelector('#btn-view-report').addEventListener('click', () => navigateTo('report'));
+  container.querySelector('#btn-decision-backup').addEventListener('click', () => {
+    if (window.confirm('Download a private backup containing project names, rationale, evidence references, local decisions and history? Store it securely; review before sharing. This does not verify external approval.')) {
+      try { exportConfig(getState(), { mode: 'identified' }); } catch (error) { showToast(error.message, 'error'); }
+    }
   });
 }
