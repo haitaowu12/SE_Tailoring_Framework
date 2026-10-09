@@ -345,7 +345,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   if (!(await planningWarning.evaluate(element => element.open))) await planningWarning.locator('summary').click();
   await planningWarning.locator('.warning-outcome').selectOption('satisfy');
   await expect(planningWarning.locator('.warning-disposition-summary')).toHaveText('complete');
-  await page.locator('#btn-complete').click();
+  await page.getByRole('button', { name: 'Check Software Completeness', exact: true }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
   expect((await readNode()).levels[27]).toBe('comprehensive');
