@@ -1,7 +1,7 @@
 import { METRIC_PROCESS_MAP } from '../data/se-tailoring-data.js';
 /** Browser-local decisions. Recommendations remain immutable reference snapshots. */
 import { FRAMEWORK_SEMANTIC_VERSION } from '../data/metrics.js';
-import { propagateSafetyOverrides } from './inheritance-engine.js';
+import { resolveProtectedAncestry } from './inheritance-engine.js';
 import { checkConsistency, applyOverrides } from './assessment-engine.js';
 
 export const DECISION_LEVELS = ['basic', 'standard', 'comprehensive'];
@@ -55,16 +55,8 @@ export function decisionNeedsReview(record, baseline) {
 }
 
 export function getDecisionEffectiveScores(node, state) {
-  const effectiveScores = { ...(node.scores || {}) };
-  const parent = state.assessmentTree?.nodes?.[node.parentId];
-  if (parent) {
-    const hierarchy = propagateSafetyOverrides(parent.scores || {}, effectiveScores,
-      node.safetyAllocationDecision ?? (node.hasIndependentSafetyAnalysis === true ? true : null),
-      node.securityHierarchyDisposition ?? (node.hasIndependentSecurityAnalysis === true ? true : null),
-      node.assuranceHierarchyDisposition ?? (node.hasScopedAssuranceDecision === true ? true : null));
-    for (const metricId of hierarchy.blockedMetrics) effectiveScores[metricId] = parent.scores[metricId];
-  }
-  return effectiveScores;
+  if (!state.assessmentTree) return { ...(node.scores || {}) };
+  return resolveProtectedAncestry(state.assessmentTree, node.id, { scores: node.scores }).effectiveScores;
 }
 
 /** Retain recommendation warning provenance while checking hard constraints on current choices.
@@ -127,6 +119,9 @@ export function prepareDecisions(node, state, drafts, timestamp = new Date().toI
   }
   const context = { ...state.projectInfo, metricAssessments: node.metricAssessments || {}, assuranceObligations: node.assuranceObligations || [] };
   const effectiveScores = getDecisionEffectiveScores(node, state);
+  const ancestry = state.assessmentTree ? resolveProtectedAncestry(state.assessmentTree, node.id, { scores: node.scores }) : null;
+  if (ancestry && !ancestry.valid) errors.push('The system-element ancestry is invalid. Repair the hierarchy before saving decisions; drafts and history are retained.');
+  if (node.recommendationBaseline?.effectiveScores && JSON.stringify(stable(node.recommendationBaseline.effectiveScores)) !== JSON.stringify(stable(effectiveScores))) errors.push('Inherited inputs changed since this recommendation. Review and recalculate before saving decisions; existing history is retained.');
   const floors = [...applyOverrides(levels, effectiveScores, context).activeFloors,
     ...(Array.isArray(baseline.activeFloors) ? baseline.activeFloors : []), ...(Array.isArray(node.assessmentResult?.activeFloors) ? node.assessmentResult.activeFloors : [])].filter(floor => floor && typeof floor === 'object');
   for (const floor of floors) {

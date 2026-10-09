@@ -515,7 +515,11 @@ export function setElementAssessmentResult(elementId, result) {
         violations: result.violations,
         ruleDispositions: node.ruleDispositions,
         levels: node.levels,
-        csiResponse: node.csiResponse
+        csiResponse: node.csiResponse,
+        assuranceObligations: node.assuranceObligations || [],
+        activeFloors: result.activeFloors || [],
+        projectInfo: state.projectInfo,
+        assessmentTree: { ...state.assessmentTree, activeId: elementId }
     }, {
         derivationAuthoritative: result?.authoritative === true,
         hierarchy: { complete: true, enabled: false, incompleteElementIds: [], assessedElementCount: 1 }

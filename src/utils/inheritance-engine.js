@@ -162,7 +162,7 @@ export function createChildAssessment(parentId, name, type, parentScores) {
 export function getEffectiveScores(childNode, parentScores) {
     const effective = {};
     for (const m of METRIC_IDS) {
-        if (childNode.inheritedMetrics[m]) {
+        if (childNode.inheritedMetrics?.[m]) {
             effective[m] = parentScores[m] ?? 3;
         } else {
             effective[m] = childNode.scores?.[m] ?? parentScores[m] ?? 3;
@@ -339,6 +339,120 @@ export function propagateSafetyOverrides(parentScores, childScores, safetyAlloca
     };
 }
 
+const PROTECTED_ANCESTRY_METRICS = Object.freeze(['M5', 'M8', 'M15']);
+
+/**
+ * Resolve protected metric judgments through the actual root-to-element path.
+ * Each existing confirmed allocation/disposition is evaluated at its own edge;
+ * a valid boundary can lower a value for its descendants. Cached assessment
+ * results are never consulted. M15 obligation scope is deliberately not copied.
+ *
+ * `valid` describes ancestry structure. Software completeness additionally
+ * requires no blockedMetrics / blockedElementIds anywhere along the path.
+ * `scores` supplies the target's current draft without changing its saved node.
+ * maxDepth counts edges, matching the importer (root depth 0; maximum 20).
+ */
+export function resolveProtectedAncestry(assessmentTree, elementId, { scores, maxDepth = 20 } = {}) {
+    const nodes = assessmentTree?.nodes;
+    const rootId = assessmentTree?.rootId;
+    const target = nodes?.[elementId];
+    const targetScores = { ...(scores ?? target?.scores ?? {}) };
+    const pathFromTarget = [];
+    const visited = new Set();
+    const errors = [];
+    const addError = (code, at, message) => errors.push({ code, elementId: at, message });
+    const limit = Number.isInteger(maxDepth) && maxDepth >= 0 ? maxDepth : 20;
+    let cursor = elementId;
+
+    if (!nodes || typeof nodes !== 'object' || Array.isArray(nodes) || !rootId || !nodes[rootId]) {
+        addError('missing-root', elementId, 'The hierarchy root is unavailable. Repair the assessment tree before completing this assessment.');
+    } else if (!elementId || !target) {
+        addError('missing-element', elementId, 'The selected element is unavailable in the assessment tree.');
+    } else {
+        while (cursor !== null && cursor !== undefined && cursor !== '') {
+            if (visited.has(cursor)) {
+                addError('cycle', cursor, 'A cycle was found in the element ancestry. Protected inheritance cannot be resolved.');
+                break;
+            }
+            if (pathFromTarget.length > limit) {
+                addError('depth-exceeded', cursor, `Element ancestry exceeds the supported depth of ${limit}. Protected inheritance cannot be resolved.`);
+                break;
+            }
+            const node = nodes[cursor];
+            if (!node || typeof node !== 'object' || Array.isArray(node)) {
+                addError('missing-parent', cursor, 'A parent element is missing. Protected inheritance cannot be resolved.');
+                break;
+            }
+            visited.add(cursor);
+            pathFromTarget.push(cursor);
+            if (cursor === rootId) {
+                if (node.parentId !== null && node.parentId !== undefined && node.parentId !== '') {
+                    addError('root-has-parent', cursor, 'The declared root has a parent. Repair the hierarchy before completing this assessment.');
+                }
+                break;
+            }
+            if (node.parentId === null || node.parentId === undefined || node.parentId === '') {
+                addError('disconnected-root', cursor, 'The element ancestry does not reach the declared assessment root.');
+                break;
+            }
+            cursor = node.parentId;
+        }
+    }
+    if (errors.length) {
+        // These are conservative, explicitly non-authoritative preview inputs,
+        // never inferred user ratings. Missing ancestry must not enable lowering.
+        const effectiveScores = { ...targetScores, M5: 5, M8: 5, M15: 5 };
+        return {
+            valid: false, authoritative: false, complete: false,
+            effectiveScores, effectiveParentScores: { M5: 5, M8: 5, M15: 5 },
+            blockedMetrics: [...PROTECTED_ANCESTRY_METRICS],
+            blockedElementIds: [...new Set([elementId, ...pathFromTarget].filter(Boolean))],
+            errors, warnings: errors.map(error => ({ type: 'error', ...error, requiredAction: 'Repair ancestry before software completeness can pass; protected preview values are conservative.' })),
+            path: [...pathFromTarget].reverse(), boundaryChecks: []
+        };
+    }
+
+    const path = [...pathFromTarget].reverse();
+    const warnings = [];
+    const boundaryChecks = [];
+    const blockedMetrics = new Set();
+    const blockedElementIds = new Set();
+    let effectiveScores = {};
+    let effectiveParentScores = null;
+    for (let index = 0; index < path.length; index += 1) {
+        const id = path[index];
+        const node = nodes[id];
+        const raw = id === elementId ? targetScores : (node.scores || {});
+        const next = { ...raw };
+        for (const metricId of PROTECTED_ANCESTRY_METRICS) next[metricId] = raw[metricId] ?? 3;
+        if (index > 0) {
+            effectiveParentScores = { ...effectiveScores };
+            for (const metricId of PROTECTED_ANCESTRY_METRICS) {
+                if (node.inheritedMetrics?.[metricId] === true) next[metricId] = effectiveScores[metricId];
+            }
+            const check = propagateSafetyOverrides(
+                effectiveScores, next,
+                node.safetyAllocationDecision ?? (node.hasIndependentSafetyAnalysis === true ? true : null),
+                node.securityHierarchyDisposition ?? (node.hasIndependentSecurityAnalysis === true ? true : null),
+                node.assuranceHierarchyDisposition ?? (node.hasScopedAssuranceDecision === true ? true : null)
+            );
+            for (const metricId of check.blockedMetrics) {
+                next[metricId] = effectiveScores[metricId];
+                blockedMetrics.add(metricId);
+                blockedElementIds.add(id);
+            }
+            warnings.push(...check.warnings.map(warning => ({ ...warning, elementId: id, parentId: path[index - 1] })));
+            boundaryChecks.push({ elementId: id, parentId: path[index - 1], ...check });
+        }
+        effectiveScores = next;
+    }
+    return {
+        valid: true, authoritative: true, complete: blockedMetrics.size === 0,
+        effectiveScores, effectiveParentScores, blockedMetrics: [...blockedMetrics],
+        blockedElementIds: [...blockedElementIds], warnings, errors, path, boundaryChecks
+    };
+}
+
 /**
  * Check peer interface consistency between sibling elements.
  * Peer elements sharing interfaces must have compatible CM, Integration,
@@ -431,14 +545,24 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
         activeElementId: childNode.id,
         ...context
     };
-    // Step 1: Compute effective scores (inherited + overrides)
-    const effectiveScores = getEffectiveScores(childNode, parentScores);
+    // The legacy direct-parent API cannot verify ancestors above parentScores.
+    // Tree-aware callers must supply context.assessmentTree; do not use cached
+    // parent assessment results to recover protected ancestor values.
+    const assessmentTree = context.assessmentTree ? {
+        ...context.assessmentTree,
+        nodes: context.assessmentTree.nodes?.[childNode.id]
+            ? { ...context.assessmentTree.nodes, [childNode.id]: childNode }
+            : { ...context.assessmentTree.nodes }
+    } : null;
+    let ancestryResolution = assessmentTree ? resolveProtectedAncestry(assessmentTree, childNode.id) : null;
+    const effectiveParentScores = ancestryResolution?.effectiveParentScores || parentScores;
+    const effectiveScores = getEffectiveScores(childNode, effectiveParentScores);
+    if (assessmentTree) ancestryResolution = resolveProtectedAncestry(assessmentTree, childNode.id, { scores: effectiveScores });
 
-    // Step 2: Check safety override propagation
     const safetyAllocationInput = childNode.safetyAllocationDecision
         ?? (childNode.hasIndependentSafetyAnalysis === true ? true : null);
-    const safetyCheck = propagateSafetyOverrides(
-        parentScores,
+    const directSafetyCheck = propagateSafetyOverrides(
+        effectiveParentScores,
         effectiveScores,
         safetyAllocationInput,
         childNode.securityHierarchyDisposition
@@ -446,16 +570,19 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
         childNode.assuranceHierarchyDisposition
             ?? (childNode.hasScopedAssuranceDecision === true ? true : null)
     );
-
-    // If safety overrides need propagation and no independent analysis,
-    // enforce parent safety score
-    if (safetyCheck.propagated) {
-        if ((parentScores.M5 ?? 3) >= 4 && (effectiveScores.M5 ?? 3) < parentScores.M5 && !safetyCheck.safetyAllocationDecision.valid) {
-            effectiveScores.M5 = parentScores.M5;
-        }
-        for (const metricId of safetyCheck.blockedMetrics) {
-            effectiveScores[metricId] = parentScores[metricId];
-        }
+    const safetyCheck = ancestryResolution ? {
+        ...directSafetyCheck,
+        propagated: ancestryResolution.blockedMetrics.length > 0,
+        blockedMetrics: ancestryResolution.blockedMetrics,
+        blockedElementIds: ancestryResolution.blockedElementIds,
+        warnings: ancestryResolution.warnings,
+        ancestryValid: ancestryResolution.valid,
+        ancestryErrors: ancestryResolution.errors
+    } : directSafetyCheck;
+    if (ancestryResolution) {
+        Object.assign(effectiveScores, ancestryResolution.effectiveScores);
+    } else {
+        for (const metricId of safetyCheck.blockedMetrics) effectiveScores[metricId] = effectiveParentScores[metricId];
     }
 
     // Step 3: Run the standard assessment engine
@@ -466,7 +593,7 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
     // that the relevant safety responsibility remains at the parent boundary.
     const attemptedDownTailoring = detectDownTailoring(parentLevels, assessment.levels);
     const safetyAllocationBlocks = [];
-    if ((parentScores.M5 ?? 3) >= 4 && !safetyCheck.safetyAllocationDecision.valid) {
+    if ((effectiveParentScores.M5 ?? 3) >= 4 && !safetyCheck.safetyAllocationDecision.valid) {
         for (const candidate of attemptedDownTailoring.filter(item => [19, 20].includes(item.processId))) {
             safetyAllocationBlocks.push({
                 processId: candidate.processId,
@@ -554,16 +681,28 @@ export function runChildAssessment(childNode, parentScores, parentLevels, contex
     // Step 4: Detect down-tailoring from parent
     const downTailored = detectDownTailoring(parentLevels, assessment.levels);
 
+    if (ancestryResolution && !ancestryResolution.valid) {
+        assessment.authoritative = false;
+        assessment.assessmentComplete = false;
+        assessment.assessmentDisposition = 'work-in-progress';
+        assessment.previewLevels = { ...assessment.levels };
+        assessment.previewNormativeLevels = { ...assessment.levels };
+        assessment.normativeLevels = {};
+    }
     return {
         ...assessment,
+        ancestryResolution,
+        ancestryScope: assessmentTree ? 'full-tree' : 'direct-parent-only',
+        hierarchyComplete: ancestryResolution ? ancestryResolution.complete : safetyCheck.blockedMetrics.length === 0,
+
         effectiveScores,
         downTailored,
         safetyCheck,
         safetyAllocationBlocks,
         inheritanceSummary: {
             totalMetrics: METRIC_IDS.length,
-            inherited: Object.values(childNode.inheritedMetrics).filter(v => v).length,
-            overridden: Object.values(childNode.inheritedMetrics).filter(v => !v).length
+            inherited: Object.values(childNode.inheritedMetrics || {}).filter(v => v).length,
+            overridden: Object.values(childNode.inheritedMetrics || {}).filter(v => !v).length
         }
     };
 }
