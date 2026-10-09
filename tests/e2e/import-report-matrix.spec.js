@@ -63,8 +63,8 @@ async function openReportFromNavigation(page) {
 }
 
 async function openDecisionReview(page) {
-  await page.getByRole('button', { name: /Decisions/ }).click();
-  await expect(page.getByRole('heading', { name: 'Decisions needed', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Open checks/ }).click();
+  await expect(page.getByRole('heading', { name: 'Open checks', exact: true })).toBeVisible();
   await expect(page.locator('#main-content')).not.toHaveAttribute('inert', '');
 }
 
@@ -325,7 +325,7 @@ for (const scenario of [
 
     await page.goto('./#assessment');
     await page.getByRole('button', { name: 'Go to Results step' }).click();
-    await page.getByRole('button', { name: /Decisions/ }).click();
+    await page.getByRole('button', { name: /Open checks/ }).click();
     const csiDecision = page.locator('.csi-decision');
     await expect(csiDecision.getByText(`Delivery feasibility · CSI ${scenario.csi}`)).toBeVisible();
     if (!(await csiDecision.evaluate(element => element.open))) {

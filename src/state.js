@@ -6,11 +6,16 @@
  * down-tailoring log, and parent/child relationships.
  * The 'default' root node is always a Full assessment.
  */
+import { prepareDecisions, getRecommendation } from './utils/tailoring-decisions.js';
 import { escapeHtml } from './utils/safe-text.js';
 import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION } from './data/metrics.js';
 import { evaluateBaselineEligibility, getAssessmentDisposition } from './utils/assessment-integrity.js';
 import { assessCorrelatedEvidence } from './utils/correlated-evidence.js';
 import { recordRuntimeIssue } from './utils/runtime-operations.js';
+import { createAssessmentWorkspace } from './utils/assessment-workspace.js';
+import { buildElementContext } from './utils/element-context.js';
+import { buildAutosaveImportConfig, isCurrentAutosaveSemantics } from './utils/autosave-restore.js';
+import { normalizeImportedConfig } from './utils/export-import.js';
 
 const state = {
     // Hierarchical assessment tree (v3.3)
@@ -96,76 +101,87 @@ const state = {
 
 const listeners = [];
 
-const AUTOSAVE_KEY = 'se-tailoring-autosave';
-const AUTOSAVE_DEBOUNCE_MS = 5000;
-let autosaveTimer = null;
+// A new assessment must never inherit fields, a tree, or decisions from the last one.
+const initialState = JSON.parse(JSON.stringify(state));
+let workspace = null;
+let workspaceInitialized = false;
+let workspaceUnlocked = false;
+let workspaceError = null;
+let workspaceDirty = false;
+let hiddenSavedAssessmentIds = new Set();
+
+export function createBlankAssessment() {
+    return {
+        ...JSON.parse(JSON.stringify(initialState)),
+        semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION }
+    };
+}
+
+function reportStorageFailure(error, operation = 'save') {
+    workspaceError = error;
+    recordRuntimeIssue(error, `workspace-${operation}`);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app:storage-failure', {
+            detail: { operation, message: error?.message || 'The assessment could not be saved.' }
+        }));
+    }
+}
+
+function ensureWorkspace() {
+    if (workspaceInitialized) return workspace;
+    workspaceInitialized = true;
+    try {
+        workspace = createAssessmentWorkspace(localStorage, { freshData: createBlankAssessment() });
+        workspaceUnlocked = !workspace.hadSavedWork;
+    } catch (error) {
+        reportStorageFailure(error, 'restore');
+    }
+    return workspace;
+}
+
+function announceWorkspaceChange() {
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('app:workspace-changed'));
+}
+
+function assessmentSnapshot() {
+    const integrity = getAssessmentDisposition(state);
+    return JSON.parse(JSON.stringify({
+        ...state,
+        semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION },
+        correlatedEvidenceWarnings: assessCorrelatedEvidence(state.metricAssessments).warnings,
+        assessmentComplete: integrity.complete,
+        assessmentDisposition: integrity.disposition,
+        assessmentIntegrity: integrity,
+        savedAt: new Date().toISOString()
+    }));
+}
+
+function replaceAssessment(data) {
+    const currentSemantics = isCurrentAutosaveSemantics(data);
+    const restored = currentSemantics && data.assessmentTree?.nodes
+        ? data
+        : normalizeImportedConfig(buildAutosaveImportConfig(data));
+    // Preserve the singleton reference for existing views, but remove all old keys.
+    Object.keys(state).forEach(key => delete state[key]);
+    Object.assign(state, createBlankAssessment(), JSON.parse(JSON.stringify(restored)));
+    state.approvedRightSizedLevels = {};
+    state.effectiveRightSizingApprovalCount = 0;
+    if (state.assessmentComplete) {
+        state.assessmentComplete = evaluateBaselineEligibility(state).softwareChecksPassed;
+        state.assessmentDisposition = state.assessmentComplete ? 'complete-baseline' : 'work-in-progress';
+    }
+    workspaceUnlocked = true;
+    listeners.forEach(fn => fn(state));
+    announceWorkspaceChange();
+    return { currentSemantics, normalized: restored };
+}
 
 function notifyStateChanged() {
     listeners.forEach(fn => fn(state));
-    debounceAutosave();
-}
-
-function debounceAutosave() {
-    if (autosaveTimer) clearTimeout(autosaveTimer);
-    autosaveTimer = setTimeout(() => {
-        try {
-            const integrity = getAssessmentDisposition(state);
-            const data = JSON.stringify({
-                semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION },
-                projectInfo: state.projectInfo,
-                scores: state.scores,
-                metricAssessments: state.metricAssessments,
-                assuranceObligations: state.assuranceObligations,
-                ruleDispositions: state.ruleDispositions,
-                csiResponse: state.csiResponse,
-                correlatedEvidenceWarnings: assessCorrelatedEvidence(state.metricAssessments).warnings,
-                semanticMigration: state.semanticMigration,
-                saResponses: state.saResponses,
-                saTier: state.saTier,
-                derived: state.derived,
-                derivationDetails: state.derivationDetails,
-                levels: state.levels,
-                overrides: state.overrides,
-                activeFloors: state.activeFloors,
-                violations: state.violations,
-                fixes: state.fixes,
-                rightSizingProposals: state.rightSizingProposals,
-                blockedRightSizingCandidates: state.blockedRightSizingCandidates,
-                proposedRightSizedLevels: state.proposedRightSizedLevels,
-                proposalClosureFixes: state.proposalClosureFixes,
-                proposalBudgetStatus: state.proposalBudgetStatus,
-                rightSizingApprovalRecords: state.rightSizingApprovalRecords,
-                rightSizingApprovalEvaluations: state.rightSizingApprovalEvaluations,
-                locallyAdjustedLevels: state.locallyAdjustedLevels,
-                localScenarioClosureFixes: state.localScenarioClosureFixes,
-                localScenarioBudgetStatus: state.localScenarioBudgetStatus,
-                locallyCompleteRightSizingRecordCount: state.locallyCompleteRightSizingRecordCount,
-                approvedRightSizedLevels: state.approvedRightSizedLevels,
-                normativeLevels: state.normativeLevels,
-                effectiveRightSizingApprovalCount: state.effectiveRightSizingApprovalCount,
-                rightSizingActions: state.rightSizingActions,
-                budgetStatus: state.budgetStatus,
-                adoptionRisks: state.adoptionRisks,
-                manualAdjustments: state.manualAdjustments,
-                tradeoffs: state.tradeoffs,
-                notes: state.notes,
-                assessmentComplete: integrity.complete,
-                assessmentDisposition: integrity.disposition,
-                assessmentIntegrity: integrity,
-                confidence: state.confidence,
-                derivationStatus: state.derivationStatus || state.confidence,
-                assessmentTree: state.assessmentTree,
-                savedAt: new Date().toISOString()
-            });
-            localStorage.setItem(AUTOSAVE_KEY, data);
-        } catch (e) {
-            console.warn('Auto-save failed:', e);
-            recordRuntimeIssue(e, 'autosave-write');
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('app:storage-failure', { detail: { operation: 'save' } }));
-            }
-        }
-    }, AUTOSAVE_DEBOUNCE_MS);
+    // Save synchronously: a switch, immediate reload, or closed tab cannot outrun
+    // a five-second debounce. Failure retains the current in-memory assessment.
+    workspaceDirty = true;
+    return flushAutosave();
 }
 
 export function getState() { return state; }
@@ -179,38 +195,116 @@ export function setState(updates) {
         else next.assessmentDisposition = 'complete-baseline';
     }
     Object.assign(state, next);
-    notifyStateChanged();
+    return notifyStateChanged();
 }
 
 export function loadAutosave() {
+    const library = ensureWorkspace();
+    return library?.hadSavedWork ? library.getActive().data : null;
+}
+
+export function getAssessmentWorkspace() {
+    const library = ensureWorkspace();
+    // No saved names or contents appear behind the shared-device restore gate.
+    return {
+        assessments: library && workspaceUnlocked ? library.list().filter(entry => !hiddenSavedAssessmentIds.has(entry.id)) : [],
+        hiddenCount: hiddenSavedAssessmentIds.size,
+        activeId: library && workspaceUnlocked ? library.getActive().id : null,
+        error: workspaceError,
+        locked: !workspaceUnlocked
+    };
+}
+
+export function flushAutosave() {
+    const library = ensureWorkspace();
+    if (!library || !workspaceUnlocked) return false;
+    if (!workspaceDirty) return true;
     try {
-        const raw = localStorage.getItem(AUTOSAVE_KEY);
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        return data;
-    } catch (e) {
-        console.warn('Auto-save load failed:', e);
-        recordRuntimeIssue(e, 'autosave-read');
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('app:storage-failure', { detail: { operation: 'restore' } }));
-        }
-        return null;
+        library.save(assessmentSnapshot());
+        workspaceDirty = false;
+        workspaceError = null;
+        announceWorkspaceChange();
+        return true;
+    } catch (error) {
+        reportStorageFailure(error, error.operation || 'save');
+        return false;
     }
 }
 
-export function clearAutosave() {
-    if (autosaveTimer) {
-        clearTimeout(autosaveTimer);
-        autosaveTimer = null;
-    }
+export function restoreWorkspaceAssessment() {
+    const library = ensureWorkspace();
+    if (!library) return null;
+    hiddenSavedAssessmentIds.clear();
+    const result = replaceAssessment(library.getActive().data);
+    workspaceDirty = true;
+    flushAutosave();
+    return result;
+}
+
+function workspaceAction(action, { preserveCurrent = true } = {}) {
+    const library = ensureWorkspace();
+    if (!library) return false;
+    if (preserveCurrent && workspaceUnlocked && !flushAutosave()) return false;
     try {
-        localStorage.removeItem(AUTOSAVE_KEY);
-    } catch (e) {
-        console.warn('Auto-save clear failed:', e);
-        recordRuntimeIssue(e, 'autosave-clear');
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('app:storage-failure', { detail: { operation: 'erase' } }));
+        const entry = action(library);
+        workspaceError = null;
+        workspaceDirty = false;
+        replaceAssessment(entry.data);
+        return true;
+    } catch (error) {
+        reportStorageFailure(error, error.operation || 'save');
+        return false;
+    }
+}
+
+export function createWorkspaceAssessment(name) {
+    const library = ensureWorkspace();
+    if (library && !workspaceUnlocked) hiddenSavedAssessmentIds = new Set(library.list().map(entry => entry.id));
+    const blank = createBlankAssessment();
+    blank.projectInfo.name = typeof name === 'string' ? name.trim().slice(0, 120) : '';
+    blank.semantics = { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION };
+    return workspaceAction(library => library.create(blank, name));
+}
+
+export function revealSavedWorkspaceAssessments() {
+    hiddenSavedAssessmentIds.clear();
+    announceWorkspaceChange();
+}
+
+export function switchWorkspaceAssessment(id) {
+    return workspaceAction(library => library.switchTo(id));
+}
+
+export function duplicateWorkspaceAssessment() {
+    return workspaceAction(library => library.duplicate());
+}
+
+export function renameWorkspaceAssessment(name) {
+    return workspaceAction(library => library.rename(name));
+}
+
+export function importWorkspaceAssessment(config, filename = '') {
+    // No fallback to the currently selected assessment's tree or governance data.
+    const imported = normalizeImportedConfig(config);
+    imported.semantics = { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION };
+    const name = config.projectInfo?.name || filename.replace(/\.json$/i, '') || 'Imported assessment';
+    return workspaceAction(library => library.create(imported, name));
+}
+
+export function clearAutosave() {
+    const library = ensureWorkspace();
+    try {
+        if (library) library.erase();
+        else {
+            localStorage.removeItem('se-tailoring-autosave');
+            localStorage.removeItem('se-tailoring-workspace-v1');
         }
+        // Prevent pagehide/beforeunload from recreating the explicitly erased data.
+        workspaceUnlocked = false;
+        return true;
+    } catch (error) {
+        reportStorageFailure(error, 'erase');
+        return false;
     }
 }
 
@@ -343,21 +437,40 @@ export function removeElement(elementId) {
     }
 
     // If active was removed, switch to root
-    if (tree.activeId === elementId) {
+    if (removedIds.has(tree.activeId)) {
         tree.activeId = tree.rootId;
+        hydrateActiveElementState();
     }
 
     notifyStateChanged();
     return true;
 }
 
-/**
- * Set the active element (switches assessment context).
- */
+/** Refresh the backward-compatible view fields from the selected canonical node. */
+export function hydrateActiveElementState() {
+    const tree = state.assessmentTree;
+    const node = tree.nodes[tree.activeId] || tree.nodes[tree.rootId];
+    if (!node) return false;
+    Object.assign(state, buildElementContext(node));
+    // Global manualAdjustments is a legacy root-only field. Child choices belong
+    // solely to that child's node; process views must not inherit root choices.
+    state.manualAdjustments = JSON.parse(JSON.stringify(tree.nodes[tree.rootId]?.manualAdjustments || {}));
+    const recordedComplete = node.assessmentDisposition === 'complete-baseline'
+        || ['under_review', 'approved', 'baselined'].includes(node.status);
+    state.assessmentDisposition = node.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
+    state.assessmentComplete = recordedComplete && !!node.assessmentResult && evaluateBaselineEligibility(state, {
+        derivationAuthoritative: node.assessmentResult?.authoritative !== false
+    }).softwareChecksPassed;
+    if (state.assessmentComplete) state.assessmentDisposition = 'complete-baseline';
+    return true;
+}
+
+/** Set the active element and its complete assessment context together. */
 export function setActiveElement(elementId) {
     const tree = state.assessmentTree;
     if (!tree.nodes[elementId]) return false;
     tree.activeId = elementId;
+    hydrateActiveElementState();
     notifyStateChanged();
     return true;
 }
@@ -490,37 +603,38 @@ export function getElementsFlat() {
  */
 export function setElementProcessAdjustment(elementId, processId, level, justification) {
     const node = state.assessmentTree.nodes[elementId];
-    if (!node) return;
-    const currentDerivedLevel = node.assessmentResult?.derived?.[processId]
-        || node.assessmentResult?.derived?.[String(processId)]
-        || (elementId === state.assessmentTree.rootId ? state.derived?.[processId] : null)
-        || (elementId === state.assessmentTree.rootId ? state.derived?.[String(processId)] : null)
-        || node.levels?.[processId]
-        || node.levels?.[String(processId)]
-        || 'basic';
-    if (!node.manualAdjustments) node.manualAdjustments = {};
-    if (level === 'default') {
-        delete node.manualAdjustments[processId];
-        node.levels = { ...(node.levels || {}), [processId]: currentDerivedLevel };
-    } else {
-        node.manualAdjustments[processId] = { level, justification: justification || '' };
-        node.levels = { ...(node.levels || {}), [processId]: level };
+    if (!node) return { errors: ['System element is unavailable.'] };
+    const baseline = getRecommendation(node, state);
+    return saveElementDecisions(elementId, {
+        [processId]: { level: level === 'default' ? baseline.levels[processId] : level, justification: justification || '' }
+    });
+}
+
+/** Save an explicit decision batch without overwriting its recommendation reference. */
+export function saveElementDecisions(elementId, drafts) {
+    const node = state.assessmentTree.nodes[elementId];
+    if (!node) return { errors: ['System element is unavailable.'] };
+    const result = prepareDecisions(node, state, drafts);
+    if (result.errors.length) return result;
+    node.decisionRecords = result.records;
+    node.decisionHistory = [...(node.decisionHistory || []), ...result.changes];
+    node.manualAdjustments = result.adjustments;
+    node.decisionDrafts = {};
+    node.levels = result.levels;
+    if (node.assessmentResult) node.assessmentResult = { ...node.assessmentResult, levels: result.levels, violations: result.violations };
+    if (elementId === state.assessmentTree.rootId) state.manualAdjustments = result.adjustments;
+    if (elementId === state.assessmentTree.activeId) {
+        state.levels = result.levels;
+        state.violations = result.violations;
     }
-    if (node.assessmentResult) {
-        node.assessmentResult = {
-            ...node.assessmentResult,
-            levels: { ...(node.assessmentResult.levels || {}), [processId]: node.levels[processId] }
-        };
+    // Saving a local decision never grants external approval or passes a review gate.
+    if (result.levelsChanged) {
+        node.status = 'draft';
+        node.assessmentDisposition = 'work-in-progress';
+        state.assessmentComplete = false;
+        state.assessmentDisposition = 'work-in-progress';
     }
-    if (elementId === state.assessmentTree.rootId) {
-        const manualAdjustments = { ...(state.manualAdjustments || {}) };
-        if (level === 'default') {
-            delete manualAdjustments[processId];
-        } else {
-            manualAdjustments[processId] = { level, justification: justification || '' };
-        }
-        state.manualAdjustments = manualAdjustments;
-        state.levels = { ...(state.levels || {}), [processId]: node.levels[processId] };
-    }
-    notifyStateChanged();
+    if (elementId === state.assessmentTree.activeId) hydrateActiveElementState();
+    result.persisted = notifyStateChanged();
+    return result;
 }

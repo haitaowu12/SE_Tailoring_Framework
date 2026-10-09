@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('shared-device restore prompt does not reveal a saved project identifier', async ({ page }) => {
+test('shared-device restore prompt and Start Fresh preserve previous work without revealing identifiers', async ({ page }) => {
   await page.evaluate(({ key, secret }) => {
     localStorage.setItem(key, JSON.stringify({
       projectInfo: { name: secret, team: 'CONFIDENTIAL-TEAM' },
@@ -36,7 +36,11 @@ test('shared-device restore prompt does not reveal a saved project identifier', 
 
   await restore.getByRole('button', { name: 'Start Fresh' }).click();
   await expect(restore).toHaveCount(0);
-  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
+  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).not.toBeNull();
+  await expect(page.locator('#main-content')).not.toContainText(SECRET_PROJECT);
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('se-tailoring-workspace-v1')));
+  expect(stored.assessments).toHaveLength(2);
+  expect(stored.assessments.some(entry => entry.data.projectInfo?.name === SECRET_PROJECT)).toBe(true);
 });
 
 test('end session confirmation erases the origin autosave and returns to a blank session', async ({ page }) => {
@@ -51,14 +55,15 @@ test('end session confirmation erases the origin autosave and returns to a blank
 
   await openSessionMenu(page);
   await page.getByRole('button', { name: 'End Session' }).click();
-  const dialog = page.getByRole('dialog', { name: 'End session and erase local assessment?' });
+  const dialog = page.getByRole('dialog', { name: 'End session and erase all local assessments?' });
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('starts a blank session');
 
-  await dialog.getByRole('button', { name: 'End session—erase local assessment' }).click();
+  await dialog.getByRole('button', { name: 'End session—erase all local assessments' }).click();
   await page.waitForLoadState('domcontentloaded');
 
   await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('se-tailoring-workspace-v1'))).toBeNull();
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
   await expect(page.getByText('Pilot research instrument.')).toBeVisible();
 });
@@ -68,7 +73,7 @@ test('end-session critical path is keyboard operable and restores focus on Escap
   await openSessionMenu(page);
   await endSession.focus();
   await page.keyboard.press('Enter');
-  const dialog = page.getByRole('dialog', { name: 'End session and erase local assessment?' });
+  const dialog = page.getByRole('dialog', { name: 'End session and erase all local assessments?' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Keep working' })).toBeFocused();
   await page.keyboard.press('Escape');

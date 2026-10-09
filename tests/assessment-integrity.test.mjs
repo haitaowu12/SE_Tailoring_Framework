@@ -204,7 +204,7 @@ test('CSI 4 and 5 require governed responses without changing levels or acceptin
   const scores = makeScores(3);
   scores.M9 = 4;
   const assessments = makeAssessments(scores);
-  const levels = { 9: 'standard', 25: 'comprehensive' };
+  const levels = { ...Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'standard'])), 25: 'comprehensive' };
   const proposals = [{ processId: 15, from: 'standard', proposedTo: 'basic', applied: false }];
   const base = {
     scores, metricAssessments: assessments, levels, rightSizingProposals: proposals,
@@ -446,7 +446,7 @@ test('non-Rule-11 warning blocks complete export without changing process levels
   const state = {
     scores,
     metricAssessments: makeAssessments(scores),
-    levels: { 20: 'comprehensive', 24: 'basic' },
+    levels: { ...Object.fromEntries(Array.from({ length: 22 }, (_, index) => [index + 9, 'standard'])), 20: 'comprehensive', 24: 'basic' },
     violations: [{ ruleId: 7, type: 'WN', label: 'Architecture to Integration', affectedProcess: 24, currentLevel: 'basic', requiredLevel: 'standard' }],
     assessmentComplete: true
   };
