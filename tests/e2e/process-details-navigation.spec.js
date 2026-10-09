@@ -78,6 +78,7 @@ function currentSemanticFixture() {
     metricScores,
     metricAssessments,
     processLevels,
+    normativeLevels: { ...processLevels },
     manualAdjustments: {
       20: { level: 'comprehensive', justification: 'Approved architecture adjustment for navigation test' }
     },
@@ -106,7 +107,9 @@ test('report recommendation opens, reloads, and returns from the exact level det
 
   await expect(page.locator('#process-detail-heading')).toHaveText('Architecture Definition');
   await expect(page.locator('#process-detail-heading')).toBeFocused();
-  await expect(page.getByText('Recommended: Comprehensive')).toBeVisible();
+  await expect(page.getByText('Local choice: Comprehensive', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Recorded recommendation: Standard\. Current applied level: Comprehensive/)).toBeVisible();
+  await expect(page.getByText('Recommended: Comprehensive', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'What Comprehensive means here' })).toBeVisible();
 
   await page.goBack();
@@ -149,7 +152,7 @@ test('malformed and unassessed direct links fail closed without a false assignme
 
   await page.goto('./#processes?process=20');
   await expect(page.getByText('No assessment assignment')).toBeVisible();
-  await expect(page.getByText('No recommendation is assigned. Standard is shown for browsing only.')).toBeVisible();
+  await expect(page.getByText('No assessment assignment exists. Standard is shown for browsing only.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What Standard means here' })).toBeVisible();
   await expect(page.getByText('Security evidence overlay')).toHaveCount(0);
 });

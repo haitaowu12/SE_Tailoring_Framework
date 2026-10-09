@@ -666,6 +666,7 @@ test('baseline eligibility reports separate software and external-authority gate
     metricAssessments: makeMetricAssessments(completeScores)
   };
   const completeNode = {
+    id: 'default', parentId: null, childIds: [],
     assessmentResult: { violations: [] },
     scores: completeScores,
     metricAssessments: makeMetricAssessments(completeScores)
@@ -673,6 +674,7 @@ test('baseline eligibility reports separate software and external-authority gate
   const eligible = evaluateBaselineEligibility({
     ...completeAssessment,
     assessmentTree: {
+      rootId: 'default', activeId: 'default',
       nodes: {
         default: completeNode
       }
@@ -698,9 +700,10 @@ test('baseline eligibility reports separate software and external-authority gate
   const incompleteHierarchy = evaluateBaselineEligibility({
     ...completeAssessment,
     assessmentTree: {
+      rootId: 'default', activeId: 'default',
       nodes: {
         default: completeNode,
-        child: { assessmentResult: null }
+        child: { id: 'child', parentId: 'default', assessmentResult: null }
       }
     },
     violations: [],
