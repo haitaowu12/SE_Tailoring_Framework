@@ -276,6 +276,7 @@ export function renderReport(container) {
   const warningDispositions = assessWarningDispositions(state.violations, state.ruleDispositions, state.levels);
   const rule11Record = state.ruleDispositions?.['11'] || state.ruleDispositions?.[11];
   const rule11Adjustment = activeManualAdjustments?.[27] || activeManualAdjustments?.['27'];
+  const rule11Origin = rule11Adjustment?.origin;
   const rule11OutcomeLabel = RULE_11_OUTCOMES.find(option => option.id === rule11Record?.outcome)?.label || rule11Record?.outcome || '—';
   const generalWarningAssessments = warningDispositions.assessments.filter(assessment => assessment.ruleId !== '11');
   const csiReadiness = assessCsiResponse(scores, state.csiResponse);
@@ -633,7 +634,7 @@ export function renderReport(container) {
         <tr><th>Final Validation level</th><td>${escapeHtml(levels[27] || '—')}</td></tr>
         <tr><th>Adjustment provenance</th><td>${rule11Adjustment?.source === 'rule-disposition'
           ? `${escapeHtml(rule11Adjustment.source)} · Rule ${escapeHtml(rule11Adjustment.ruleId)} / ${escapeHtml(rule11Adjustment.propagationId)}`
-          : '—'}</td></tr>
+          : rule11Origin?.source === 'rule-disposition' ? `Original: ${escapeHtml(rule11Origin.source)} · Rule ${escapeHtml(rule11Origin.ruleId)} / ${escapeHtml(rule11Origin.propagationId)} (current choice subsequently edited)` : '—'}</td></tr>
       </tbody></table>
     </div>` : ''}
 

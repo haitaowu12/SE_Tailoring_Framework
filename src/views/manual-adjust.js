@@ -25,7 +25,7 @@ export function renderManualAdjust(container, options = {}) {
   const drafts = node.decisionDrafts || {};
   const choices = Object.fromEntries(CORE_PROCESSES.map(process => {
     const saved = records[process.id] || node.manualAdjustments?.[process.id] || {};
-    return [process.id, { level: saved.level || baseline.levels[process.id] || 'basic', justification: saved.justification || '', owner: saved.owner || '', evidenceRef: saved.evidenceRef || '', reviewDate: saved.reviewDate || '', ...drafts[process.id] }];
+    return [process.id, { level: saved.level || baseline.levels[process.id] || 'basic', justification: saved.justification || '', owner: saved.owner || saved.ownerApprover || '', evidenceRef: saved.evidenceRef || '', reviewDate: saved.reviewDate || '', ...drafts[process.id] }];
   }));
   const reviewCount = Object.values(records).filter(record => decisionNeedsReview(record, baseline)).length;
   const history = node.decisionHistory || [];

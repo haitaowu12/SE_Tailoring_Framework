@@ -909,7 +909,7 @@ function renderResults(content) {
   const legacyRightSizingActions = result.rightSizingActions || [];
   const activeFloors = result.activeFloors || [];
   const rule11ElevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
-  const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.complete;
+  const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.required && rule11ElevatedPreview.complete;
   const rootManualAdjustments = state.manualAdjustments || {};
   let activeManualAdjustments = activeNodeBeforeRun?.id === state.assessmentTree?.rootId
     ? { ...rootManualAdjustments, ...(activeNodeBeforeRun?.manualAdjustments || {}) }
@@ -920,7 +920,7 @@ function renderResults(content) {
   const existingP27Adjustment = activeManualAdjustments?.[27] || activeManualAdjustments?.['27'];
   const rule11ElevationPending = canApplyRule11Elevation
     && result.levels?.[27] === 'basic'
-    && existingP27Adjustment?.level !== 'standard';
+    && !['standard', 'comprehensive'].includes(existingP27Adjustment?.level);
   const displayManualAdjustments = rule11ElevationPending
     ? {
       ...activeManualAdjustments,
@@ -1370,9 +1370,9 @@ function renderResults(content) {
     const status = assessRule11Disposition(result.violations, localRuleDispositions, displayLevels);
     const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
     const readyToApplyElevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation'
-      && elevatedPreview.complete
+      && elevatedPreview.required && elevatedPreview.complete
       && result.levels?.[27] === 'basic'
-      && existingP27Adjustment?.level !== 'standard';
+      && !['standard', 'comprehensive'].includes(existingP27Adjustment?.level);
     currentRule11Readiness = status;
     currentRule11ElevationReady = readyToApplyElevation;
     currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
@@ -1502,7 +1502,7 @@ function finalizeAssessment(destinationHash = null) {
     : { ...(activeNode?.manualAdjustments || {}) };
   const currentDisplayLevels = applyManualAdjustmentsToLevels(result.levels, activeManualAdjustments);
   const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...currentDisplayLevels, 27: 'standard' });
-  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
+  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.required && elevatedPreview.complete && result.levels?.[27] === 'basic' && currentDisplayLevels?.[27] === 'basic';
   let manualAdjustments = applyRule11Elevation ? {
     ...activeManualAdjustments,
     27: {

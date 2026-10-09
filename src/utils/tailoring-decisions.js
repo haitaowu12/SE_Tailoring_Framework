@@ -97,12 +97,23 @@ export function prepareDecisions(node, state, drafts, timestamp = new Date().toI
     const rationale = String(draft.justification || '').trim();
     const changed = draft.level !== baseline.levels[pid];
     if (changed && !rationale) errors.push(`Process ${pid}: record why the choice differs from the recommendation.`);
+    const prior = records[pid] || adjustments[pid] || {};
+    const origin = prior.origin || (prior.source === 'rule-disposition' ? Object.fromEntries(['level', 'justification', 'source', 'ruleId', 'propagationId', 'ownerApprover', 'evidenceRef', 'reviewDate', 'recordedAt'].filter(key => prior[key] !== undefined).map(key => [key, prior[key]])) : null);
     const record = {
       processId: String(pid), recommendationId: baseline.id, recommendationLevel: baseline.levels[pid],
-      level: draft.level, justification: rationale, owner: String(draft.owner || '').trim(),
+      level: draft.level, justification: rationale, owner: String(draft.owner ?? prior.owner ?? prior.ownerApprover ?? '').trim(),
       evidenceRef: String(draft.evidenceRef || '').trim(), reviewDate: String(draft.reviewDate || '').trim(),
       disposition: changed ? 'adjusted-locally' : 'recommendation-retained'
     };
+    if (origin) {
+      record.origin = clone(origin);
+      const originUnchanged = record.level === origin.level
+        && record.justification === String(origin.justification || '').trim()
+        && record.owner === String(origin.ownerApprover || '').trim()
+        && record.evidenceRef === String(origin.evidenceRef || '').trim()
+        && record.reviewDate === String(origin.reviewDate || '').trim();
+      if (originUnchanged) Object.assign(record, { source: origin.source, ruleId: origin.ruleId, propagationId: origin.propagationId, ownerApprover: origin.ownerApprover });
+    }
     const previous = records[pid];
     const comparablePrevious = previous && Object.fromEntries(Object.keys(record).map(key => [key, previous[key]]));
     if (JSON.stringify(record) !== JSON.stringify(comparablePrevious)) {

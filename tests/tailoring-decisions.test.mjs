@@ -207,3 +207,51 @@ test('a local Rule 11 elevation retains warning disposition provenance without r
   assert.equal(assessRule11Disposition(violations,disposition,levels).complete,true);
   assert.equal(assessRule11Disposition(violations,disposition,levels).required,true);
 });
+
+test('unchanged Rule 11 decisions retain provenance and owner through repeat saves, later edits and private recovery', () => {
+  const {node,state}=fixture();
+  node.scores=Object.fromEntries(Array.from({length:16},(_,i)=>[`M${i+1}`,1]));
+  node.scores.M2=5;node.scores.M4=3;
+  node.metricAssessments=Object.fromEntries(Object.entries(node.scores).map(([id,score])=>[id,{score,status:'assessed',definitionVersion:3}]));
+  const result=runFullAssessment(node.scores,undefined,{metricAssessments:node.metricAssessments});
+  node.assessmentResult=result;node.levels={...result.levels,27:'standard'};
+  captureRecommendation(node,result);
+  const original={level:'standard',justification:'Rule 11 disposition: validation elevated',source:'rule-disposition',ruleId:11,propagationId:'P12',ownerApprover:'Synthetic review role',evidenceRef:'VAL-11',reviewDate:'2026-10-09'};
+  node.manualAdjustments={27:original};
+  const draft={level:original.level,justification:original.justification,evidenceRef:original.evidenceRef,reviewDate:original.reviewDate};
+  const first=prepareDecisions(node,state,{27:draft});
+  assert.deepEqual(first.errors,[]);
+  assert.equal(first.records[27].owner,original.ownerApprover);
+  assert.equal(first.adjustments[27].source,'rule-disposition');
+  assert.deepEqual(first.records[27].origin,original);
+  node.decisionRecords=first.records;node.manualAdjustments=first.adjustments;node.decisionHistory=first.changes;
+  assert.equal(prepareDecisions(node,state,{27:draft}).changes.length,0);
+  state.manualAdjustments=first.adjustments;
+  const backup=buildExportConfig(state,{mode:'identified'});
+  assert.deepEqual(validateConfig(backup).errors,[]);
+  const restored=normalizeImportedConfig(backup).assessmentTree.nodes.default;
+  assert.deepEqual(restored.manualAdjustments[27].origin,original);
+  assert.equal(restored.decisionRecords[27].owner,original.ownerApprover);
+  const edited=prepareDecisions(node,state,{27:{...draft,level:'comprehensive',justification:'Later local assurance decision'}});
+  assert.deepEqual(edited.errors,[]);
+  assert.equal(edited.adjustments[27].source,undefined,'later independent edit must not impersonate the original action');
+  assert.deepEqual(edited.adjustments[27].origin,original);
+  assert.equal(node.decisionHistory[0].source,'rule-disposition','older history stays intact');
+});
+
+test('satisfied general warnings validate canonical levels, never an imported resolution flag or payload', async () => {
+  const {reconcileDecisionViolations}=await import('../src/utils/tailoring-decisions.js');
+  const {assessWarningDispositions}=await import('../src/utils/rule-dispositions.js');
+  const scores=Object.fromEntries(Array.from({length:16},(_,i)=>[`M${i+1}`,1]));scores.M2=5;scores.M4=3;
+  const result=runFullAssessment(scores);
+  const record={outcome:'satisfy',rationale:'Planning raised to match the relationship',ownerApprover:'Synthetic owner',evidenceRef:'PLAN-8B',reviewDate:'2026-10-09'};
+  const levels={...result.levels,9:'comprehensive'};
+  const warnings=reconcileDecisionViolations(result,levels,scores);
+  const status=assessWarningDispositions(warnings,{'8b':record},levels).assessments.find(item=>item.ruleId==='8b');
+  assert.equal(status.complete,true);
+  assert.equal(status.violation.resolvedByLocalChoice,true);
+  const spoofed=[{...status.violation,resolvedByLocalChoice:true,affectedProcess:10,requiredLevel:'basic',requiredOp:'>='}];
+  const invalid=assessWarningDispositions(spoofed,{'8b':record},{...levels,9:'standard'}).assessments[0];
+  assert.equal(invalid.complete,false);
+  assert.ok(invalid.missingFields.includes('relationshipLevel'));
+});

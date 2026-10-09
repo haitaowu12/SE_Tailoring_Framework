@@ -65,6 +65,18 @@ export function assessRule11Disposition(violations = [], ruleDispositions = {}, 
     return { ruleId: '11', required: true, complete: missingFields.length === 0, missingFields, record };
 }
 
+function canonicalRelationshipSatisfied(ruleId, levels) {
+    const requirement = ACTIVE_CONSISTENCY_RULES.find(rule => String(rule.id) === ruleId && rule.type === 'WN')?.required;
+    if (!requirement) return false;
+    const order = ['basic', 'standard', 'comprehensive'];
+    const actual = order.indexOf(levels?.[requirement.process]);
+    const required = order.indexOf(requirement.level);
+    if (actual < 0 || required < 0) return false;
+    return requirement.op === '>=' ? actual >= required
+        : requirement.op === '=' ? actual === required
+            : requirement.op === '<=' ? actual <= required : false;
+}
+
 export function assessWarningDispositions(violations = [], ruleDispositions = {}, levels = {}) {
     const triggered = getTriggeredWarningViolations(violations);
     const assessments = triggered.map(violation => {
@@ -72,10 +84,10 @@ export function assessWarningDispositions(violations = [], ruleDispositions = {}
         if (ruleId === '11') return { ...assessRule11Disposition(violations, ruleDispositions, levels), violation };
         const record = ruleDispositions?.[ruleId] || null;
         const missingFields = assessRequiredFields(record, GENERAL_OUTCOME_IDS);
-        // A still-present violation proves that the recommended relationship is
-        // not yet satisfied. Preserve the outcome for audit/import, but never
-        // let a statement alone masquerade as a level change.
-        if (record?.outcome === 'satisfy') missingFields.splice(1, 0, 'relationshipLevel');
+        // Retained recommendation warnings may now be addressed by local choices.
+        // Verify the canonical requirement against actual levels: an imported
+        // resolved flag, altered violation payload, or assertion alone is insufficient.
+        if (record?.outcome === 'satisfy' && !canonicalRelationshipSatisfied(ruleId, levels)) missingFields.splice(1, 0, 'relationshipLevel');
         return {
             ruleId,
             required: true,
