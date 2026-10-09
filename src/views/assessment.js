@@ -1,3 +1,4 @@
+import { reconcileManualChoices, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 /**
  * Assessment View — Step-by-step metric scoring wizard
  * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
@@ -11,7 +12,7 @@ import { assessHierarchyCompleteness, assessMetricCompleteness, evaluateBaseline
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
-import { propagateSafetyOverrides } from '../utils/inheritance-engine.js';
+import { resolveProtectedAncestry } from '../utils/inheritance-engine.js';
 import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
@@ -160,7 +161,7 @@ export function renderAssessment(container, routeContext = null) {
   const pageTitle = assessmentViewMode === 'review'
     ? 'Tailoring recommendations'
     : assessmentViewMode === 'issues'
-      ? 'Decisions needed'
+      ? 'Open checks'
       : activeStep.id === 'info'
         ? 'Set up the assessment'
         : activeStep.id === 'results'
@@ -827,19 +828,8 @@ function startWizard(metricId, contentContainer) {
 
 function getHierarchyGuardedInput(state, scores) {
   const node = getActiveNode();
-  const parent = node?.parentId ? state.assessmentTree?.nodes?.[node.parentId] : null;
-  if (!node || !parent) return { effectiveScores: { ...scores }, blockedMetrics: [], warnings: [] };
-
-  const check = propagateSafetyOverrides(
-    parent.scores || {},
-    scores,
-    node.safetyAllocationDecision ?? (node.hasIndependentSafetyAnalysis === true ? true : null),
-    node.securityHierarchyDisposition ?? (node.hasIndependentSecurityAnalysis === true ? true : null),
-    node.assuranceHierarchyDisposition ?? (node.hasScopedAssuranceDecision === true ? true : null)
-  );
-  const effectiveScores = { ...scores };
-  for (const metricId of check.blockedMetrics) effectiveScores[metricId] = parent.scores?.[metricId];
-  return { effectiveScores, blockedMetrics: check.blockedMetrics, warnings: check.warnings };
+  if (!node || !state.assessmentTree) return { valid: true, effectiveScores: { ...scores }, blockedMetrics: [], warnings: [], errors: [] };
+  return resolveProtectedAncestry(state.assessmentTree, node.id, { scores });
 }
 
 function renderResults(content) {
@@ -859,7 +849,9 @@ function renderResults(content) {
   const hierarchyInput = getHierarchyGuardedInput(state, localScores);
   const result = runFullAssessment(hierarchyInput.effectiveScores, matrixMap, assessmentContext);
   result.hierarchyWarnings = hierarchyInput.warnings;
+  if (hierarchyInput.valid === false) result.authoritative = false;
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
+  const hierarchyReadiness = assessHierarchyCompleteness(state.assessmentTree);
   if (completeness.completeCount === 0 && !showNeutralPreview) {
     content.innerHTML = `
       <section class="empty-results-state" aria-labelledby="empty-results-title">
@@ -908,17 +900,18 @@ function renderResults(content) {
   const legacyRightSizingActions = result.rightSizingActions || [];
   const activeFloors = result.activeFloors || [];
   const rule11ElevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...result.levels, 27: 'standard' });
-  const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.complete;
+  const canApplyRule11Elevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation' && rule11ElevatedPreview.required && rule11ElevatedPreview.complete;
   const rootManualAdjustments = state.manualAdjustments || {};
-  const activeManualAdjustments = activeNodeBeforeRun?.id === state.assessmentTree?.rootId
+  let activeManualAdjustments = activeNodeBeforeRun?.id === state.assessmentTree?.rootId
     ? { ...rootManualAdjustments, ...(activeNodeBeforeRun?.manualAdjustments || {}) }
     : activeNodeBeforeRun
       ? { ...(activeNodeBeforeRun.manualAdjustments || {}) }
       : { ...rootManualAdjustments };
+  if (activeNodeBeforeRun) activeManualAdjustments = reconcileManualChoices(activeNodeBeforeRun, state, result, { ...assessmentContext, scores: localScores, matrixMap, effectiveScores: hierarchyInput.effectiveScores }, activeManualAdjustments).adjustments;
   const existingP27Adjustment = activeManualAdjustments?.[27] || activeManualAdjustments?.['27'];
   const rule11ElevationPending = canApplyRule11Elevation
     && result.levels?.[27] === 'basic'
-    && existingP27Adjustment?.level !== 'standard';
+    && !['standard', 'comprehensive'].includes(existingP27Adjustment?.level);
   const displayManualAdjustments = rule11ElevationPending
     ? {
       ...activeManualAdjustments,
@@ -940,7 +933,8 @@ function renderResults(content) {
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
   const openDecisionCount = (rule11Disposition.required && (!rule11Disposition.complete || rule11ElevationPending) ? 1 : 0)
     + generalWarningDispositions.filter(assessment => !assessment.complete).length
-    + (csiReadiness.required && !csiReadiness.complete ? 1 : 0);
+    + (csiReadiness.required && !csiReadiness.complete ? 1 : 0)
+    + (hierarchyReadiness.complete ? 0 : 1);
   const firstIncompleteGeneralIndex = generalWarningDispositions.findIndex(assessment => !assessment.complete);
   const hasDecisionWorkspace = rule11Disposition.required || generalWarningDispositions.length > 0 || csiReadiness.required;
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
@@ -960,7 +954,8 @@ function renderResults(content) {
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length ? detail.triggerMetrics.join(', ') : '—';
     const confidence = result.confidence?.[p.id] || detail.confidence || 'high';
     const confidenceLabel = confidence === 'corroborated'
-      ? (detail.triggerScore === 5 && detail.triggerMetrics?.some(metric => metric === 'M5' || metric === 'M7') ? 'Directly supported by a high-impact score' : 'Supported by more than one input')
+      ? 'Multiple-input rule threshold met; independence unverified'
+      : confidence === 'direct-consequence' ? 'Direct-consequence exception: mapped M5 or M7 = 5'
       : confidence === 'available-with-justification' ? 'Needs a justification before using Comprehensive'
         : confidence === 'floor-applied' ? 'Minimum level set by a rule' : 'Supported by assessment inputs and rules';
     const attentionLabels = [
@@ -1007,8 +1002,7 @@ function renderResults(content) {
   ].filter(Boolean).map(Number));
   const priorityProcesses = CORE_PROCESSES.filter(p => priorityIds.has(p.id));
   const reviewFirst = priorityProcesses;
-  const hierarchyReadiness = assessHierarchyCompleteness(state.assessmentTree);
-  const softwareChecksReady = completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReadiness.complete;
+  const softwareChecksReady = completeness.complete && warningDispositions.complete && csiReadiness.complete && hierarchyReadiness.complete && hierarchyInput.valid !== false && hierarchyInput.blockedMetrics.length === 0;
   const actionQueue = [
     {
       label: 'Baseline authority status',
@@ -1194,8 +1188,9 @@ function renderResults(content) {
   content.innerHTML = `
     <nav class="assessment-result-tabs" aria-label="Assessment review sections">
       <button type="button" class="${assessmentViewMode !== 'issues' ? 'active' : ''}" data-result-route="review" aria-pressed="${assessmentViewMode !== 'issues'}">Recommendations</button>
-      <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Decisions${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
+      <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Open checks${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
     </nav>
+    ${hierarchyInput.valid === false || hierarchyInput.blockedMetrics.length ? `<section class="card mb-lg" role="alert"><strong>Protected ancestry needs review</strong><p>${hierarchyInput.valid === false ? 'The ancestry is invalid. Shown protected scores are conservative preview values, not confirmed judgments.' : `${escapeHtml(hierarchyInput.blockedMetrics.join(', '))} reductions are unresolved in this element or an ancestor. Protected effective scores are retained.`}</p><p>Software completeness is blocked. <a href="#elements">Review the system-element boundaries</a>.</p></section>` : ''}
     <div class="recommendation-overview ${assessmentViewMode === 'issues' ? 'issues-hidden' : ''}">
     <h3 class="mb-sm">Tailoring profile</h3>
     <p class="result-guidance mb-lg">Start with the processes highlighted for review, then check the full profile against your project needs.</p>
@@ -1203,7 +1198,7 @@ function renderResults(content) {
       <section class="results-summary">
         <p class="eyebrow">At a glance</p>
         <div class="result-stat"><strong>${reviewFirst.length}</strong><span>process${reviewFirst.length === 1 ? '' : 'es'} to review first</span></div>
-        <div class="result-stat"><strong>${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1)}</strong><span>decision${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1) === 1 ? '' : 's'} still needed</span></div>
+        <div class="result-stat"><strong>${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1) + (hierarchyReadiness.complete ? 0 : 1)}</strong><span>decision${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1) + (hierarchyReadiness.complete ? 0 : 1) === 1 ? '' : 's'} still needed</span></div>
         <div class="result-stat"><strong>${completeness.completeCount}/${METRICS.length}</strong><span>metric judgments confirmed</span></div>
         <p class="result-priority-note text-sm mt-lg">${reviewFirst.length
           ? 'Start with the process list below. Routine recommendations remain in the full profile.'
@@ -1313,6 +1308,12 @@ function renderResults(content) {
     </details>
   `;
 
+  const decisionAction = document.createElement('div');
+  decisionAction.className = 'card mt-lg mb-lg';
+  decisionAction.innerHTML = '<strong>Record the project decision</strong><p class="text-sm text-secondary mt-sm">The recommendation is a starting point. Keep or adjust process levels, record rationale, and retain a decision history even while other checks remain open.</p><button type="button" class="btn btn-primary mt-md" id="btn-record-tailoring-decisions">Record tailoring decisions</button>';
+  content.prepend(decisionAction);
+  decisionAction.querySelector('button').addEventListener('click', () => finalizeAssessment('#adjust'));
+
   const completeButton = content.closest('.assessment-container')?.querySelector('#btn-next');
   let currentCsiReadiness = csiReadiness;
   let currentRule11Readiness = rule11Disposition;
@@ -1361,9 +1362,9 @@ function renderResults(content) {
     const status = assessRule11Disposition(result.violations, localRuleDispositions, displayLevels);
     const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...displayLevels, 27: 'standard' });
     const readyToApplyElevation = localRuleDispositions?.['11']?.outcome === 'elevated-validation'
-      && elevatedPreview.complete
+      && elevatedPreview.required && elevatedPreview.complete
       && result.levels?.[27] === 'basic'
-      && existingP27Adjustment?.level !== 'standard';
+      && !['standard', 'comprehensive'].includes(existingP27Adjustment?.level);
     currentRule11Readiness = status;
     currentRule11ElevationReady = readyToApplyElevation;
     currentWarningReadiness = assessWarningDispositions(result.violations, localRuleDispositions, displayLevels);
@@ -1485,6 +1486,7 @@ function finalizeAssessment(destinationHash = null) {
   const hierarchyInput = getHierarchyGuardedInput(state, localScores);
   const result = runFullAssessment(hierarchyInput.effectiveScores, matrixMap, assessmentContext);
   result.hierarchyWarnings = hierarchyInput.warnings;
+  if (hierarchyInput.valid === false) result.authoritative = false;
   const completeness = assessMetricCompleteness(localScores, localMetricAssessments);
   const rule11Record = localRuleDispositions?.['11'];
   const rootManualAdjustments = state.manualAdjustments || {};
@@ -1493,8 +1495,8 @@ function finalizeAssessment(destinationHash = null) {
     : { ...(activeNode?.manualAdjustments || {}) };
   const currentDisplayLevels = applyManualAdjustmentsToLevels(result.levels, activeManualAdjustments);
   const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...currentDisplayLevels, 27: 'standard' });
-  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.complete && result.levels?.[27] === 'basic';
-  const manualAdjustments = applyRule11Elevation ? {
+  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.required && elevatedPreview.complete && result.levels?.[27] === 'basic' && currentDisplayLevels?.[27] === 'basic';
+  let manualAdjustments = applyRule11Elevation ? {
     ...activeManualAdjustments,
     27: {
       level: 'standard',
@@ -1507,6 +1509,8 @@ function finalizeAssessment(destinationHash = null) {
       reviewDate: rule11Record.reviewDate
     }
   } : activeManualAdjustments;
+  const decisionReview = activeNode ? reconcileManualChoices(activeNode, state, result, { ...assessmentContext, scores: localScores, matrixMap, effectiveScores: hierarchyInput.effectiveScores }, manualAdjustments, true) : null;
+  if (decisionReview) manualAdjustments = decisionReview.adjustments;
   const rule11Levels = applyRule11Elevation ? { ...result.levels, 27: 'standard' } : result.levels;
   const effectiveLevels = applyManualAdjustmentsToLevels(rule11Levels, manualAdjustments);
   const effectiveLocalScenarioLevels = result.locallyCompleteRightSizingRecordCount > 0
@@ -1517,6 +1521,7 @@ function finalizeAssessment(destinationHash = null) {
     ? {
       ...result,
       levels: effectiveLevels,
+      violations: reconcileDecisionViolations(result, effectiveLevels, hierarchyInput.effectiveScores, assessmentContext),
       locallyAdjustedLevels: effectiveLocalScenarioLevels,
       budgetStatus: computeRigorBudgetStatus(effectiveLevels, localScores)
     }
@@ -1528,7 +1533,7 @@ function finalizeAssessment(destinationHash = null) {
   const warningDispositions = assessWarningDispositions(result.violations, localRuleDispositions, effectiveLevels);
   const csiReadiness = assessCsiResponse(localScores, localCsiResponse);
   const correlatedEvidence = assessCorrelatedEvidence(localMetricAssessments);
-  const hierarchyReady = hierarchyInput.blockedMetrics.length === 0;
+  const hierarchyReady = hierarchyInput.valid !== false && hierarchyInput.blockedMetrics.length === 0;
   const existingHierarchy = assessHierarchyCompleteness(state.assessmentTree);
   const otherIncompleteElementIds = existingHierarchy.incompleteElementIds.filter(elementId => elementId !== activeNode?.id);
   const hierarchy = {
@@ -1609,7 +1614,7 @@ function finalizeAssessment(destinationHash = null) {
   }
 
   if (navigationOnly) {
-    showToast('Work in progress saved before opening process details.', 'info');
+    showToast(decisionReview?.suspended ? 'Inputs changed. Previous choices and reasons are retained as drafts for review; the protected recommendation is shown.' : 'Work in progress saved before opening process details.', decisionReview?.suspended ? 'warning' : 'info');
     const destination = getCurrentRouteContext(destinationHash);
     navigateTo(destination.path, destination.params);
   } else if (canBaseline) {
@@ -1622,7 +1627,8 @@ function finalizeAssessment(destinationHash = null) {
     if (!completeness.complete) remaining.push(`${completeness.incompleteMetricIds.length} metric judgment(s)`);
     if (!warningDispositions.complete) remaining.push(`${warningDispositions.incompleteRuleIds.length} warning disposition(s)`);
     if (!csiReadiness.complete) remaining.push(`the CSI ${csiReadiness.csi} response`);
-    if (!hierarchyReady) remaining.push(`${hierarchyInput.blockedMetrics.join('/')} child hierarchy disposition(s)`);
+    if (otherIncompleteElementIds.length) remaining.push(`${otherIncompleteElementIds.length} other incomplete system element(s)`);
+    if (!hierarchyReady) remaining.push(hierarchyInput.valid === false ? 'a valid system-element ancestry' : `${hierarchyInput.blockedMetrics.join('/')} child hierarchy disposition(s)`);
     showToast(`Work in progress saved. Complete ${remaining.join(' and ')} before software completeness can pass.`, 'warning');
     renderAssessment(document.querySelector('.assessment-container')?.parentElement || document.getElementById('main-content'));
   }

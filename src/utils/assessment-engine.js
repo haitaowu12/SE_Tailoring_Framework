@@ -198,8 +198,10 @@ export function calculateProcessDerivation(processId, scores, matrixMap = METRIC
             (m === 'M5' || m === 'M7') && scoreOrDefault(scores, m) === 5
         );
 
-        if (corroborated || safetyCriticalSole) {
+        if (corroborated) {
             confidence = 'corroborated';
+        } else if (safetyCriticalSole) {
+            confidence = 'direct-consequence';
         } else {
             derivedLevel = 'standard';
             confidence = 'available-with-justification';
@@ -934,8 +936,8 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
 
             if (comprehensiveFloorApplied) {
                 confidence[p.id] = 'floor-applied';
-            } else if (derivationConfidence === 'corroborated') {
-                confidence[p.id] = 'corroborated';
+            } else if (['corroborated', 'direct-consequence'].includes(derivationConfidence)) {
+                confidence[p.id] = derivationConfidence;
             } else {
                 confidence[p.id] = 'available-with-justification';
             }

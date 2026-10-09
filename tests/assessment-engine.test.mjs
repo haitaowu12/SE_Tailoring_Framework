@@ -143,7 +143,7 @@ test('M5=5 safety processes derive Comprehensive without duplicate floor events'
 
   for (const pid of [12, 16, 19, 20, 25, 27]) {
     assert.equal(result.levels[pid], 'comprehensive', `Safety process P${pid} should be Comprehensive for M5=5`);
-    assert.equal(result.confidence[pid], 'corroborated', `Process ${pid} should preserve metric-derived evidence status`);
+    assert.equal(result.confidence[pid], 'direct-consequence', `Process ${pid} should distinguish the direct-consequence exception`);
     assert.equal(result.overrides.filter(override => override.processId === pid).length, 0, `Process ${pid} should not record a non-causal duplicate floor event`);
     assert.ok(
       result.activeFloors.some(floor => floor.processId === pid && floor.minLevel === 'comprehensive' && floor.status === 'satisfied'),
@@ -195,7 +195,7 @@ test('M5/M7 criticality exception activates only at the score-5 boundary', () =>
       assert.notEqual(calculateProcessDerivation(processId, boundaryScores).level, 'comprehensive', `${scenario.id}: score 4 must not use the independently-sufficient exception`);
       const triggered = calculateProcessDerivation(processId, triggerScores);
       assert.equal(triggered.level, 'comprehensive', `${scenario.id}: score 5 must retain the independently-sufficient exception`);
-      assert.equal(triggered.confidence, 'corroborated', `${scenario.id}: current evidence-status contract must remain stable`);
+      assert.equal(triggered.confidence, 'direct-consequence', `${scenario.id}: sole criticality is not multi-input corroboration`);
     }
   }
 });
@@ -207,7 +207,7 @@ test('M7 reports direct Comprehensive derivation and floor-only Standard elevati
 
   for (const processId of [28, 29, 30]) {
     assert.equal(result.derived[processId], 'comprehensive', `P${processId} must remain directly derived from mapped M7`);
-    assert.equal(result.confidence[processId], 'corroborated', `P${processId} must retain metric-derived evidence status`);
+    assert.equal(result.confidence[processId], 'direct-consequence', `P${processId} must distinguish direct criticality derivation`);
     assert.ok(result.activeFloors.some(floor =>
       floor.processId === processId && floor.triggerMetric === 'M7' && floor.status === 'satisfied'
     ), `P${processId} must report the separate environmental floor as already satisfied`);
@@ -666,6 +666,7 @@ test('baseline eligibility reports separate software and external-authority gate
     metricAssessments: makeMetricAssessments(completeScores)
   };
   const completeNode = {
+    id: 'default', parentId: null, childIds: [],
     assessmentResult: { violations: [] },
     scores: completeScores,
     metricAssessments: makeMetricAssessments(completeScores)
@@ -673,6 +674,7 @@ test('baseline eligibility reports separate software and external-authority gate
   const eligible = evaluateBaselineEligibility({
     ...completeAssessment,
     assessmentTree: {
+      rootId: 'default', activeId: 'default',
       nodes: {
         default: completeNode
       }
@@ -698,9 +700,10 @@ test('baseline eligibility reports separate software and external-authority gate
   const incompleteHierarchy = evaluateBaselineEligibility({
     ...completeAssessment,
     assessmentTree: {
+      rootId: 'default', activeId: 'default',
       nodes: {
         default: completeNode,
-        child: { assessmentResult: null }
+        child: { id: 'child', parentId: 'default', assessmentResult: null }
       }
     },
     violations: [],
@@ -871,7 +874,7 @@ test('synthetic legacy-vector algorithm scenario attributes Comprehensive QA wit
   };
   const result = runFullAssessment(scores);
   assert.equal(result.derivationDetails[16].level, 'comprehensive');
-  assert.equal(result.confidence[16], 'corroborated');
+  assert.equal(result.confidence[16], 'direct-consequence');
   assert.equal(result.overrides.filter(override => override.processId === 16).length, 0);
   assert.equal(result.confidence[30], 'available-with-justification');
 });

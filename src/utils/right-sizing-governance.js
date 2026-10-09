@@ -106,8 +106,8 @@ export function createRightSizingApprovalSnapshot(proposal = {}, context = {}) {
         allocationDecisions: requirements.scopeElementIds.map(elementId => ({
             elementId,
             safety: context.assessmentTree?.nodes?.[elementId]?.safetyAllocationDecision || null,
-            security: context.assessmentTree?.nodes?.[elementId]?.securityAllocationDecision || null,
-            assurance: context.assessmentTree?.nodes?.[elementId]?.assuranceApplicabilityDecision || null
+            security: context.assessmentTree?.nodes?.[elementId]?.securityHierarchyDisposition || null,
+            assurance: context.assessmentTree?.nodes?.[elementId]?.assuranceHierarchyDisposition || null
         })),
         activeFloors: (context.activeFloors || [])
             .filter(floor => Number(floor.processId) === processId)
@@ -206,7 +206,7 @@ export function evaluateRightSizingApprovals(proposals = [], records = [], conte
     };
 }
 
-export function validateRightSizingApprovalRecords(records) {
+export function validateRightSizingApprovalRecords(records, { allowIncomplete = false } = {}) {
     if (records === undefined) return [];
     if (!Array.isArray(records)) return ['rightSizingApprovalRecords must be an array'];
     const errors = [];
@@ -220,14 +220,14 @@ export function validateRightSizingApprovalRecords(records) {
         if (!LEVELS.includes(record.from) || !LEVELS.includes(record.to)) errors.push(`rightSizingApprovalRecords[${index}] has invalid levels`);
         if (!isPlainObject(record.approvals)) errors.push(`rightSizingApprovalRecords[${index}] approvals must be an object`);
         else for (const [role, approval] of Object.entries(record.approvals)) {
-            if (!Object.hasOwn(RIGHT_SIZING_APPROVAL_ROLES, role) || !isPlainObject(approval) || !String(approval.identity || '').trim() || !String(approval.authorityBasis || '').trim()) {
+            if (!Object.hasOwn(RIGHT_SIZING_APPROVAL_ROLES, role) || !isPlainObject(approval) || (allowIncomplete ? ['identity', 'authorityBasis'].some(field => approval[field] !== undefined && typeof approval[field] !== 'string') : !String(approval.identity || '').trim() || !String(approval.authorityBasis || '').trim())) {
                 errors.push(`rightSizingApprovalRecords[${index}] has invalid ${role} authority evidence`);
             }
         }
         if (record.scopeElementIds !== undefined && !Array.isArray(record.scopeElementIds)) errors.push(`rightSizingApprovalRecords[${index}] scopeElementIds must be an array`);
         if (record.decision === 'approved') {
             for (const field of ['snapshot', 'rationale', 'protectedOutputs', 'residualRisks', 'riskAcceptanceOwner', 'compensatingControls', 'rejectedAlternatives', 'evidenceRef', 'reviewDate']) {
-                if (!String(record[field] || '').trim()) errors.push(`rightSizingApprovalRecords[${index}] approved record requires ${field}`);
+                if (!allowIncomplete && !String(record[field] || '').trim()) errors.push(`rightSizingApprovalRecords[${index}] approved record requires ${field}`);
             }
             if (record.reviewDate && !isRealIsoDate(record.reviewDate)) errors.push(`rightSizingApprovalRecords[${index}] has invalid reviewDate`);
         }

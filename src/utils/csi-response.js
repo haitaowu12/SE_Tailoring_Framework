@@ -61,15 +61,15 @@ export function assessCsiResponse(scores = {}, response = {}) {
     };
 }
 
-export function validateCsiResponse(response) {
+export function validateCsiResponse(response, { maxTextLength = 4000 } = {}) {
     if (response === undefined || response === null) return [];
     if (typeof response !== 'object' || Array.isArray(response)) return ['csiResponse must be an object'];
     const errors = [];
-    if (response.responseType !== undefined && !['feasibility-review', 'sponsor-escalation'].includes(response.responseType)) errors.push('csiResponse has invalid responseType');
+    if (response.responseType !== undefined && response.responseType !== '' && !['feasibility-review', 'sponsor-escalation'].includes(response.responseType)) errors.push('csiResponse has invalid responseType');
     if (response.selectedActions !== undefined && (!Array.isArray(response.selectedActions) || response.selectedActions.some(action => !ACTION_IDS.has(action)))) errors.push('csiResponse has invalid selectedActions');
     for (const field of REQUIRED_TEXT_FIELDS) {
-        if (response[field] !== undefined && (typeof response[field] !== 'string' || response[field].length > 4000)) errors.push(`csiResponse has invalid ${field}`);
+        if (response[field] !== undefined && (typeof response[field] !== 'string' || response[field].length > maxTextLength)) errors.push(`csiResponse has invalid ${field}`);
     }
-    if (response.reviewDate !== undefined && !isIsoDate(response.reviewDate)) errors.push('csiResponse has invalid reviewDate');
+    if (response.reviewDate !== undefined && response.reviewDate !== '' && !isIsoDate(response.reviewDate)) errors.push('csiResponse has invalid reviewDate');
     return errors;
 }
