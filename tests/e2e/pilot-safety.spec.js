@@ -59,11 +59,14 @@ test('end session confirmation erases the origin autosave and returns to a blank
   await expect(dialog).toBeVisible();
   await expect(dialog).toContainText('starts a blank session');
 
-  await dialog.getByRole('button', { name: 'End session—erase all local assessments' }).click();
-  await page.waitForLoadState('domcontentloaded');
-
-  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTOSAVE_KEY)).toBeNull();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('se-tailoring-workspace-v1'))).toBeNull();
+  // Arm the next-document event before clicking; the old document is already loaded.
+  await Promise.all([
+    page.waitForEvent('domcontentloaded'),
+    dialog.getByRole('button', { name: 'End session—erase all local assessments' }).click()
+  ]);
+  // Reattach across WebKit reloads without extending the assertion budget.
+  await page.waitForFunction(key => localStorage.getItem(key) === null, AUTOSAVE_KEY, { timeout: 5_000 });
+  await page.waitForFunction(() => localStorage.getItem('se-tailoring-workspace-v1') === null, null, { timeout: 5_000 });
   await expect(page.locator('#autosave-restore-overlay')).toHaveCount(0);
   await expect(page.getByText('Pilot research instrument.')).toBeVisible();
 });
