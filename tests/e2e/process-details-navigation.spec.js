@@ -151,7 +151,7 @@ test('malformed and unassessed direct links fail closed without a false assignme
   await expect(page.locator('#process-detail-heading')).toHaveCount(0);
 
   await page.goto('./#processes?process=20');
-  await expect(page.getByText('No assessment assignment')).toBeVisible();
+  await expect(page.getByText('No assessment assignment', { exact: true })).toBeVisible();
   await expect(page.getByText('No assessment assignment exists. Standard is shown for browsing only.')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'What Standard means here' })).toBeVisible();
   await expect(page.getByText('Security evidence overlay')).toHaveCount(0);
