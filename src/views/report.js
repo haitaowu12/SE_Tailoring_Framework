@@ -1,10 +1,10 @@
-import { reconcileManualChoices, getDecisionEffectiveScores } from '../utils/tailoring-decisions.js';
+import { reconcileManualChoices, getDecisionEffectiveScores, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 import { renderDecisionLedger } from '../utils/decision-record-view.js';
 /**
  * Report View — Assessment summary & export
  */
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
-import { getDriverAttribution, runFullAssessment, checkConsistency, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
+import { getDriverAttribution, runFullAssessment, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig, applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
@@ -610,7 +610,7 @@ export function renderReport(container) {
     ${state.violations.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-error)">
       <h4 class="mb-md">Consistency Warnings (${state.violations.length})</h4>
-      ${state.violations.map(v => `<div class="text-sm mb-sm"><strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}</div>`).join('')}
+      ${state.violations.map(v => `<div class="text-sm mb-sm"><strong>[${escapeHtml(v.type)}] Rule ${escapeHtml(v.ruleId)}</strong>: ${escapeHtml(v.label)}${v.resolvedByLocalChoice ? ' <em>(Recommendation warning addressed by the current local choice; disposition retained.)</em>' : ''}</div>`).join('')}
     </div>` : ''}
 
     ${correlatedEvidence.warningCount ? `
@@ -944,7 +944,7 @@ export function renderReport(container) {
       const result = runFullAssessment(effectiveScores, current.matrixMap, assessmentContext);
       const decisionReview = activeNode ? reconcileManualChoices(activeNode, current, result, { ...assessmentContext, matrixMap: current.matrixMap, effectiveScores }, activeNode.manualAdjustments || {}, true) : null;
       const effectiveLevels = applyManualAdjustmentsToLevels(result.levels, decisionReview?.adjustments || {});
-      const effectiveViolations = checkConsistency(effectiveLevels, effectiveScores, assessmentContext);
+      const effectiveViolations = reconcileDecisionViolations(result, effectiveLevels, effectiveScores, assessmentContext);
       if (activeNode) {
         activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
         activeNode.assessmentResult = { ...result, levels: effectiveLevels, violations: effectiveViolations };
