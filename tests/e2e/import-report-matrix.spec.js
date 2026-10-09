@@ -317,6 +317,39 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   });
   await warningReportSection.locator(':scope > summary').click();
   await expect(page.getByText(/\[WN\] Rule 11/)).toBeVisible();
+
+  // Generic Decisions must retain the original governed adjustment, including owner.
+  await page.locator('.nav-link[data-route="adjust"]').click();
+  await expect(page.locator('#decision-owner-27')).toHaveValue('Programme Chief Engineer');
+  await page.locator('#btn-save').click();
+  await page.locator('#btn-save').click();
+  const readNode = () => page.evaluate(() => {
+    const library = JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));
+    const data = library.assessments.find(entry => entry.id === library.activeId).data;
+    return data.assessmentTree.nodes[data.assessmentTree.activeId];
+  });
+  expect((await readNode()).manualAdjustments[27].source).toBe('rule-disposition');
+  expect((await readNode()).decisionHistory).toHaveLength(22);
+
+  // A later, higher choice is a separate local decision; rechecking must not reset it.
+  await page.locator('#decision-level-27').selectOption('comprehensive');
+  await page.locator('#decision-reason-27').fill('Later local decision for stronger stakeholder acceptance evidence.');
+  await page.locator('#decision-level-9').selectOption('comprehensive');
+  await page.locator('#decision-reason-9').fill('Planning relationship now satisfied by Comprehensive effort.');
+  await page.locator('#btn-save').click();
+  expect((await readNode()).manualAdjustments[27].source).toBeUndefined();
+  expect((await readNode()).manualAdjustments[27].origin.source).toBe('rule-disposition');
+  await page.locator('#btn-review-inputs').click();
+  await openDecisionReview(page);
+  const planningWarning = page.locator('.warning-disposition[data-rule-id="8b"]');
+  if (!(await planningWarning.evaluate(element => element.open))) await planningWarning.locator('summary').click();
+  await planningWarning.locator('.warning-outcome').selectOption('satisfy');
+  await expect(planningWarning.locator('.warning-disposition-summary')).toHaveText('complete');
+  await page.locator('#btn-complete').click();
+  await expect(page).toHaveURL(/#report$/);
+  await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
+  expect((await readNode()).levels[27]).toBe('comprehensive');
+  expect((await readNode()).manualAdjustments[27].origin.level).toBe('standard');
 });
 
 for (const scenario of [

@@ -173,6 +173,10 @@ function validateManualAdjustments(manualAdjustments, fieldName, errors) {
         if (adjustment.justification !== undefined && typeof adjustment.justification !== 'string') {
             errors.push(`${fieldName}[${processId}] justification must be a string`);
         }
+        if (adjustment.origin !== undefined) {
+            if (!isPlainObject(adjustment.origin) || adjustment.origin.source !== 'rule-disposition' || adjustment.origin.origin !== undefined) errors.push(`${fieldName}[${processId}] has invalid original adjustment provenance`);
+            else validateManualAdjustments({ [processId]: adjustment.origin }, `${fieldName}[${processId}] origin`, errors);
+        }
         if (adjustment.source === 'rule-disposition') {
             if (Number(processId) !== 27 || Number(adjustment.ruleId) !== 11 || adjustment.propagationId !== 'P12') {
                 errors.push(`${fieldName}[${processId}] has invalid Rule 11 adjustment provenance`);
@@ -204,6 +208,7 @@ function normalizeManualAdjustments(manualAdjustments = {}) {
             level,
             justification: typeof adjustment.justification === 'string' ? adjustment.justification : '',
             ...Object.fromEntries(['owner', 'evidenceRef', 'reviewDate', 'recommendationId', 'recommendationLevel', 'recordedAt', 'disposition', 'processId'].filter(field => typeof adjustment[field] === 'string').map(field => [field, adjustment[field]])),
+            ...(isPlainObject(adjustment.origin) ? { origin: clonePlain(adjustment.origin, null) } : {}),
             ...(adjustment.source === 'rule-disposition' ? {
                 source: 'rule-disposition',
                 ruleId: Number(adjustment.ruleId) === 11 ? 11 : undefined,
