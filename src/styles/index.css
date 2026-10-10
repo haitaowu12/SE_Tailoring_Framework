@@ -304,10 +304,13 @@ h4 { font-size: var(--font-size-lg); }
   flex: 0 0 auto;
 }
 
-.mobile-session-menu { display: none; }
-
-.mobile-session-action {
+.session-action {
+  appearance: none;
+  display: block;
   width: 100%;
+  min-height: 40px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   border: 0;
   border-radius: var(--radius-sm);
   padding: var(--space-sm) var(--space-md);
@@ -319,13 +322,18 @@ h4 { font-size: var(--font-size-lg); }
   cursor: pointer;
 }
 
-.mobile-session-action:hover,
-.mobile-session-action:focus-visible {
-  background: rgba(99, 102, 241, 0.1);
+.session-action:hover,
+.session-action:focus-visible {
+  background: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.mobile-session-action.danger { color: var(--accent-error); }
+.session-action:focus-visible {
+  outline: 2px solid var(--accent-primary-light);
+  outline-offset: -2px;
+}
+
+.session-action.danger { color: var(--accent-error); }
 
 .author-link {
   display: inline-flex;
@@ -614,6 +622,17 @@ h4 { font-size: var(--font-size-lg); }
   flex-direction: column;
   animation: fadeInDown 0.15s ease;
 }
+/* Session sits at the right edge of the navbar at every breakpoint. */
+.session-menu .nav-dropdown-menu {
+  left: auto;
+  right: 0;
+  width: min(240px, calc(100vw - 32px));
+  min-width: 0;
+  max-height: calc(100dvh - var(--navbar-height) - 16px);
+  overflow-y: auto;
+  background: var(--bg-secondary);
+}
+
 .nav-dropdown.open .nav-dropdown-menu {
   display: flex;
 }
@@ -1414,9 +1433,6 @@ h4 { font-size: var(--font-size-lg); }
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .desktop-session-action { display: none; }
-  .mobile-session-menu { display: block; }
-  .mobile-session-menu .nav-dropdown-menu { left: auto; right: 0; min-width: 210px; background: var(--bg-secondary); }
   .nav-actions { margin-left: 0; }
   .author-link { display: none; }
   h1 { font-size: var(--font-size-2xl); }
