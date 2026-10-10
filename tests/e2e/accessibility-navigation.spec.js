@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { preparePageScreenshot } from './helpers.js';
 
 async function startBlank(page) {
   await page.goto('./');
@@ -88,4 +89,89 @@ test('laptop-width navigation never covers Library and its hit target opens Work
     await expect(page.getByRole('heading', { name: /Plan the systems engineering your project needs/i })).toBeVisible();
     if (desktopNavigation) await expect(reference).toHaveAttribute('aria-expanded', 'false');
   }
+});
+
+
+test('Session actions stay readable and inside the viewport at mobile and laptop widths', async ({ page }, testInfo) => {
+  await startBlank(page);
+  await page.goto('./#report');
+  const trigger = page.getByRole('button', { name: 'Session actions' });
+  for (const width of [320, 390, 768, 1100, 1180, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 752 });
+    await preparePageScreenshot(page);
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    for (const name of ['Import', 'Private backup', 'Minimum-data Export', 'Diagnostics', 'End Session']) {
+      await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+    }
+    const geometry = await page.locator('.session-menu .nav-dropdown-menu').evaluate(menu => {
+      // Resolve OKLCH through the browser's sRGB canvas, rather than assume a
+      // computed-style serialization. Paint the actual menu and button layers.
+      const context = document.createElement('canvas').getContext('2d');
+      const luminance = rgb => [...rgb].slice(0, 3).map(value => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+      const background = getComputedStyle(menu).backgroundColor;
+      const buttons = [...menu.querySelectorAll('button')].map(button => {
+        const box = button.getBoundingClientRect();
+        const style = getComputedStyle(button);
+        context.clearRect(0, 0, 1, 1);
+        context.fillStyle = background;
+        context.fillRect(0, 0, 1, 1);
+        context.fillStyle = style.backgroundColor;
+        context.fillRect(0, 0, 1, 1);
+        const bg = luminance(context.getImageData(0, 0, 1, 1).data);
+        context.fillStyle = style.color;
+        context.fillRect(0, 0, 1, 1);
+        const fg = luminance(context.getImageData(0, 0, 1, 1).data);
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+        return { name: button.textContent, left: box.left, right: box.right, height: box.height, layoutHeight: button.offsetHeight,
+          hit: hit === button || button.contains(hit), contrast: (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05),
+          textFits: button.scrollWidth <= button.clientWidth };
+      });
+      return { buttons, clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth };
+    });
+    expect(geometry.scrollWidth, `open menu overflows at ${width}px`).toBeLessThanOrEqual(geometry.clientWidth + 1);
+    for (const button of geometry.buttons) {
+      const label = `${button.name} at ${width}px`;
+      expect(button.left, label).toBeGreaterThanOrEqual(0);
+      expect(button.right, label).toBeLessThanOrEqual(geometry.clientWidth);
+      expect(button.layoutHeight, label).toBeGreaterThanOrEqual(40);
+      // WebKit can serialize a translated 40px rect as 39.999996px mid-animation.
+      // Keep the exact layout-size guard and allow only subpixel geometry error.
+      expect(button.height, label).toBeGreaterThanOrEqual(40 - 0.01);
+      expect(button.hit, label).toBe(true);
+      expect(button.textFits, label).toBe(true);
+      expect(button.contrast, label).toBeGreaterThanOrEqual(4.5);
+    }
+    if ([390, 1180].includes(width)) {
+      await page.screenshot({ path: testInfo.outputPath(`session-menu-${width}.png`), animations: 'disabled' });
+    }
+    await page.keyboard.press('Escape');
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  }
+});
+
+test('Session keyboard access reaches private backup and restores focus after cancellation', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 752 });
+  await startBlank(page);
+  const trigger = page.getByRole('button', { name: 'Session actions' });
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  const backup = page.getByRole('button', { name: 'Private backup', exact: true });
+  await expect(backup).toBeFocused();
+  await expect(backup).toHaveCSS('outline-style', 'solid');
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Download a private assessment backup?' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Other assessments in the library are not included.');
+  await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 });
