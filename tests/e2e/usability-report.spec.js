@@ -155,3 +155,59 @@ test('capture candidate guidance and reference surfaces from synthetic context',
   await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('guidance-mobile.png'),fullPage:true,animations:'disabled'});
 });
+
+
+test('downloaded HTML leads with all 22 processes and retains one complete printable rating record', async ({ page }, testInfo) => {
+  await importComplete(page, { M1: 2, M2: 4 });
+  const fullProfile = section(page, 'Full Process Tailoring Profile');
+  await fullProfile.locator(':scope > summary').click();
+  // This supported import omits provenance: never invent Basic or Supported.
+  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(3)).toHaveText('Not recorded');
+  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(9)).toHaveText('Not recorded');
+  const downloaded = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download pilot HTML record', exact: true }).click();
+  let html = '';
+  for await (const chunk of await (await downloaded).createReadStream()) html += chunk.toString();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.setContent(html);
+  await expect(page.locator('h2').first()).toHaveText('Process Tailoring Levels');
+  await expect(page.locator('.process-profile tbody tr')).toHaveCount(22);
+  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Derived"]')).toHaveText('Not recorded');
+  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Evidence status"]')).toHaveText('Not recorded');
+  await expect(page.locator('.metric-scores tbody tr')).toHaveCount(16);
+  await expect(page.locator('.ordinal-anchor')).toHaveCount(0);
+  await expect(page.locator('.process-profile tbody tr').first()).toBeInViewport();
+  await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
+  await expect(page.getByText('Booking service and its interfaces', { exact: false })).toBeVisible();
+  await expect(page.locator('.metric-scores tbody tr').first()).toContainText(getMetricAnchorText('M1', 2));
+  await page.screenshot({ path: testInfo.outputPath('exported-record-desktop.png'), animations: 'disabled' });
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    const layout = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      overflow: [...document.body.querySelectorAll('*')].map(element => ({ tag: element.tagName, class: element.className, text: element.textContent.slice(0, 100), right: element.getBoundingClientRect().right })).filter(element => element.right > innerWidth) }));
+    await testInfo.attach(`export-layout-${width}`, { body: JSON.stringify(layout, null, 2), contentType: 'application/json' });
+    expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.width);
+    const caption = await page.locator('.process-profile caption').boundingBox();
+    const table = await page.locator('.process-profile').boundingBox();
+    expect(caption.width).toBeGreaterThanOrEqual(table.width * 0.9);
+    expect(caption.height).toBeLessThanOrEqual(52);
+    for (const row of await page.locator('.process-profile tbody tr').all()) {
+      const bounds = await row.boundingBox();
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    }
+    if (width === 390) {
+      await page.screenshot({ path: testInfo.outputPath('exported-record-mobile.png'), animations: 'disabled' });
+      await page.locator('.process-profile tbody tr').first().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath('exported-record-mobile-process.png'), animations: 'disabled' });
+      await page.evaluate(() => scrollTo(0, 0));
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.locator('.process-profile tbody tr:visible')).toHaveCount(22);
+  await expect(page.locator('.metric-scores tbody tr:visible')).toHaveCount(16);
+  await expect(page.getByRole('heading', { name: 'Context and software checks' })).toBeVisible();
+  await expect(page.locator('.gate')).not.toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('exported-record-print.png'), animations: 'disabled' });
+});
