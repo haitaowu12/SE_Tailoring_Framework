@@ -28,6 +28,7 @@ test('workspace puts a keyboard-operable start action before library management'
   const start = page.locator('#btn-current-work');
   await expect(start).toBeInViewport();
   await expect(page.getByRole('heading',{name:'Your assessments',exact:true})).toBeInViewport();
+  await expect(page.locator('#toast-container .toast')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('workspace-desktop.png'),fullPage:false,animations:'disabled'});
   await start.focus();
   await page.keyboard.press('Enter');
@@ -64,12 +65,14 @@ test('incomplete report resumes the first unanswered area and review exits keep 
 });
 
 test('report leads with a compact process plan while preserving all details and print content', async ({page},testInfo) => {
-  await page.setViewportSize({width:1280,height:800});
+  await page.setViewportSize({width:1280,height:720});
   await importComplete(page);
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
   await expect(page.getByRole('heading',{name:'Process plan',exact:true})).toBeInViewport();
+  await expect(page.locator('.report-process-plan tbody tr').first()).toBeInViewport();
   await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(5);
   expect(await page.locator('details.report-section').evaluateAll(nodes=>nodes.every(node=>!node.open))).toBe(true);
+  await expect(page.locator('#toast-container .toast')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('report-desktop.png'),fullPage:true,animations:'disabled'});
   const toggle=page.locator('#btn-toggle-process-plan');
   await toggle.focus(); await page.keyboard.press('Enter');
@@ -87,6 +90,7 @@ test('report leads with a compact process plan while preserving all details and 
   await page.getByRole('button',{name:'Collapse all',exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.locator('#toast-container .toast')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('report-mobile.png'),fullPage:true,animations:'disabled'});
   await page.locator('.report-process-plan a').first().click();
   await expect(page.locator('#process-detail-heading')).toBeVisible();
@@ -110,7 +114,7 @@ test('reported 2 and 4 anchors match the assessment descriptions on screen and i
 });
 
 test('capture candidate guidance and reference surfaces from synthetic context', async ({page},testInfo) => {
-  await page.setViewportSize({width:1280,height:800});
+  await page.setViewportSize({width:1280,height:720});
   await importComplete(page);
   for (const [name,route,heading] of [
     ['guidance','#processes?process=9&level=standard&source=report','Process work aids'],
@@ -122,11 +126,13 @@ test('capture candidate guidance and reference surfaces from synthetic context',
     await page.goto(`./${route}`);
     await expect(page.getByRole('heading',{name:heading,exact:true})).toBeVisible();
     await expect(page.locator('#main-content')).not.toHaveAttribute('inert','');
-    await page.screenshot({path:testInfo.outputPath(`${name}-desktop.png`),fullPage:true,animations:'disabled'});
+    await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath(`${name}-desktop.png`),fullPage:true,animations:'disabled'});
   }
   await page.setViewportSize({width:390,height:844});
   await page.goto('./#processes?process=9&level=standard&source=report');
   await expect(page.locator('#process-detail-heading')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.locator('#toast-container .toast')).toHaveCount(0);
   await page.screenshot({path:testInfo.outputPath('guidance-mobile.png'),fullPage:true,animations:'disabled'});
 });
