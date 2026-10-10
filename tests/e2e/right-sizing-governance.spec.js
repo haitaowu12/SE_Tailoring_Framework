@@ -276,14 +276,25 @@ test('a failed asserted-record save reports the storage failure and retains the 
   await form.locator('xpath=..').locator('summary').click();
   await form.locator('[name="rationale"]').fill('Preserve this asserted rationale through quota failure.');
   await page.evaluate(()=>{
+    window.__quotaSubmitEvents = [];
+    for (const type of ['pointerdown', 'pointerup', 'click', 'change', 'submit']) {
+      document.addEventListener(type, event => {
+        const button = document.querySelector('.right-sizing-approval-form[data-process-id="17"] button[type="submit"]');
+        window.__quotaSubmitEvents.push({type, target:event.target.tagName, name:event.target.getAttribute('name'), text:event.target.textContent?.slice(0,80), y:event.clientY, buttonY:button?.getBoundingClientRect().y});
+      }, true);
+    }
     const original=Storage.prototype.setItem;
     Storage.prototype.setItem=function(key,value){
-      if(key==='se-tailoring-workspace-v1') throw new DOMException('Quota exceeded','QuotaExceededError');
+      if(key==='se-tailoring-workspace-v1') {
+        window.__quotaSubmitEvents.push({type:'storage-failure'});
+        throw new DOMException('Quota exceeded','QuotaExceededError');
+      }
       return original.call(this,key,value);
     };
   });
   await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
-  await expect(page.getByText('Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.',{exact:true})).toBeVisible();
+  const submissionDiagnostics = await page.evaluate(() => ({events:window.__quotaSubmitEvents, toasts:document.querySelector('#toast-container')?.textContent, draftStatus:document.querySelector('.right-sizing-approval-form[data-process-id="17"] .right-sizing-draft-status')?.textContent}));
+  await expect(page.getByText('Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.',{exact:true}),JSON.stringify(submissionDiagnostics)).toBeVisible();
   await openSessionMenu(page);
   await page.getByRole('button',{name:'Private backup',exact:true}).click();
   const download=page.waitForEvent('download');
