@@ -913,7 +913,7 @@ export function renderReport(container) {
         activeNode.levels = { ...effectiveLevels };
         activeNode.locallyAdjustedLevels = { ...(result.locallyAdjustedLevels || {}) };
       }
-      setState({
+      const persisted = setState({
         levels: effectiveLevels,
         ...(activeElementId === current.assessmentTree?.rootId ? { manualAdjustments: decisionReview?.adjustments || {} } : {}),
         normativeLevels: result.normativeLevels,
@@ -933,10 +933,12 @@ export function renderReport(container) {
       });
       const localRecord = result.rightSizingApprovalEvaluations?.find(item => Number(item.proposal?.processId) === processId)?.locallyComplete;
       showToast(
-        localRecord
+        !persisted
+          ? 'Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.'
+          : localRecord
           ? 'Asserted decision record saved; the local scenario was rechecked. External approval remains unverified and the pilot profile is unchanged.'
           : 'Asserted decision record saved but remains structurally incomplete or invalid.',
-        localRecord ? 'success' : 'warning'
+        !persisted ? 'error' : localRecord ? 'success' : 'warning'
       );
       renderReport(container);
     });
