@@ -126,7 +126,7 @@ test('Session actions stay readable and inside the viewport at mobile and laptop
         context.fillRect(0, 0, 1, 1);
         const fg = luminance(context.getImageData(0, 0, 1, 1).data);
         const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-        return { name: button.textContent, left: box.left, right: box.right, height: box.height,
+        return { name: button.textContent, left: box.left, right: box.right, height: box.height, layoutHeight: button.offsetHeight,
           hit: hit === button || button.contains(hit), contrast: (Math.max(bg, fg) + 0.05) / (Math.min(bg, fg) + 0.05),
           textFits: button.scrollWidth <= button.clientWidth };
       });
@@ -137,7 +137,10 @@ test('Session actions stay readable and inside the viewport at mobile and laptop
       const label = `${button.name} at ${width}px`;
       expect(button.left, label).toBeGreaterThanOrEqual(0);
       expect(button.right, label).toBeLessThanOrEqual(geometry.clientWidth);
-      expect(button.height, label).toBeGreaterThanOrEqual(40);
+      expect(button.layoutHeight, label).toBeGreaterThanOrEqual(40);
+      // WebKit can serialize a translated 40px rect as 39.999996px mid-animation.
+      // Keep the exact layout-size guard and allow only subpixel geometry error.
+      expect(button.height, label).toBeGreaterThanOrEqual(40 - 0.01);
       expect(button.hit, label).toBe(true);
       expect(button.textFits, label).toBe(true);
       expect(button.contrast, label).toBeGreaterThanOrEqual(4.5);
