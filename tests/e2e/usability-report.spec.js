@@ -187,6 +187,10 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
       overflow: [...document.body.querySelectorAll('*')].map(element => ({ tag: element.tagName, class: element.className, text: element.textContent.slice(0, 100), right: element.getBoundingClientRect().right })).filter(element => element.right > innerWidth) }));
     await testInfo.attach(`export-layout-${width}`, { body: JSON.stringify(layout, null, 2), contentType: 'application/json' });
     expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.width);
+    const caption = await page.locator('.process-profile caption').boundingBox();
+    const table = await page.locator('.process-profile').boundingBox();
+    expect(caption.width).toBeGreaterThanOrEqual(table.width * 0.9);
+    expect(caption.height).toBeLessThanOrEqual(52);
     for (const row of await page.locator('.process-profile tbody tr').all()) {
       const bounds = await row.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0);
