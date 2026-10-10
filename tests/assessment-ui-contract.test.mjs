@@ -109,7 +109,7 @@ test('unresolved-only queue excludes neutral right-sizing decisions', () => {
 test('guided help uses the same five descriptions and never infers rating 1 from unsupported answers', () => {
   const wizard = assessmentSource.match(/function startWizard[\s\S]*?function getHierarchyGuardedInput/)?.[0] || '';
   assert.match(wizard, /\[5, 4, 3, 2, 1\]/);
-  assert.match(wizard, /guidance\.anchors\[score\]/);
+  assert.match(wizard, /getMetricAnchorText\(metric, score\)/);
   assert.doesNotMatch(wizard, /metric\.guidedQuestions/);
   assert.match(wizard, /recommendation === null/);
   assert.match(wizard, /No rating is supported by these answers/);

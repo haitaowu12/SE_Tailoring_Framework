@@ -128,6 +128,7 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
   await openReportFromNavigation(page);
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
+  await page.locator('.report-section').filter({ has: page.locator('.report-section-title', { hasText: 'Project context' }) }).locator(':scope > summary').click();
   await expect(page.getByRole('cell', { name: 'Current Semantic Import Smoke' })).toBeVisible();
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
 
@@ -469,7 +470,7 @@ test('child hierarchy records a structured parent-retained safety allocation dec
   await page.goto('./');
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto('./#elements');
-  await page.getByPlaceholder('Element name...').fill('Safety-neutral display subsystem');
+  await page.getByRole('textbox', { name: 'Element name/code', exact: true }).fill('Safety-neutral display subsystem');
   await page.getByRole('button', { name: /Add to/ }).click();
   await page.getByRole('button', { name: 'Navigate →' }).click();
 
