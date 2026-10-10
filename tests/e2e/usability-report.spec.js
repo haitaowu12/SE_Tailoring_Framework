@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { clickSessionAction } from './helpers.js';
+import { clickSessionAction, preparePageScreenshot } from './helpers.js';
 import { getMetricAnchorText } from '../../src/utils/metric-anchor-text.js';
 
 const semantics = { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' };
@@ -29,6 +29,7 @@ test('workspace puts a keyboard-operable start action before library management'
   await expect(start).toBeInViewport();
   await expect(page.getByRole('heading',{name:'Your assessments',exact:true})).toBeInViewport();
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('workspace-desktop.png'),fullPage:false,animations:'disabled'});
   await start.focus();
   await page.keyboard.press('Enter');
@@ -73,6 +74,7 @@ test('report leads with a compact process plan while preserving all details and 
   await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(5);
   expect(await page.locator('details.report-section').evaluateAll(nodes=>nodes.every(node=>!node.open))).toBe(true);
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('report-desktop.png'),fullPage:true,animations:'disabled'});
   const toggle=page.locator('#btn-toggle-process-plan');
   await toggle.focus(); await page.keyboard.press('Enter');
@@ -90,7 +92,22 @@ test('report leads with a compact process plan while preserving all details and 
   await page.getByRole('button',{name:'Collapse all',exact:true}).click();
   await page.setViewportSize({width:390,height:844});
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(5);
+  const workAids = page.locator('.report-process-plan tbody tr:visible .report-plan-action a');
+  await expect(workAids).toHaveCount(5);
+  for (const link of await workAids.all()) {
+    await expect(link).toBeVisible();
+    const bounds = await link.boundingBox();
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+  }
+  expect(await page.locator('.report-process-plan tbody tr:visible').evaluateAll(rows => rows.every(row => row.scrollWidth <= row.clientWidth))).toBe(true);
+  await toggle.click();
+  await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(22);
+  await toggle.click();
+  await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(5);
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('report-mobile.png'),fullPage:true,animations:'disabled'});
   await page.locator('.report-process-plan a').first().click();
   await expect(page.locator('#process-detail-heading')).toBeVisible();
@@ -127,12 +144,14 @@ test('capture candidate guidance and reference surfaces from synthetic context',
     await expect(page.getByRole('heading',{name:heading,exact:true})).toBeVisible();
     await expect(page.locator('#main-content')).not.toHaveAttribute('inert','');
     await expect(page.locator('#toast-container .toast')).toHaveCount(0);
-  await page.screenshot({path:testInfo.outputPath(`${name}-desktop.png`),fullPage:true,animations:'disabled'});
+    await preparePageScreenshot(page);
+    await page.screenshot({path:testInfo.outputPath(`${name}-desktop.png`),fullPage:true,animations:'disabled'});
   }
   await page.setViewportSize({width:390,height:844});
   await page.goto('./#processes?process=9&level=standard&source=report');
   await expect(page.locator('#process-detail-heading')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('guidance-mobile.png'),fullPage:true,animations:'disabled'});
 });

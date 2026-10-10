@@ -357,16 +357,16 @@ export function renderReport(container) {
         <button class="btn btn-secondary btn-sm" type="button" id="btn-open-process-guidance">Open process work aids</button>
       </div>
       <div style="overflow-x:auto;">
-        <table class="data-table" id="report-process-plan-table">
+        <table class="data-table" id="report-process-plan-table" role="table">
           <caption class="sr-only">Current process levels and their reasons. Separate recommendations and local decisions are preserved in the saved decision record.</caption>
-          <thead><tr><th scope="col">Process</th><th scope="col">Current profile</th><th scope="col">Why</th><th scope="col">Work aid</th></tr></thead>
-          <tbody>${processPlan.map((process, index) => {
+          <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Process</th><th scope="col" role="columnheader">Current profile</th><th scope="col" role="columnheader">Why</th><th scope="col" role="columnheader">Work aid</th></tr></thead>
+          <tbody role="rowgroup">${processPlan.map((process, index) => {
             const level = levels[process.id] || levels[String(process.id)] || 'basic';
-            return `<tr ${index >= 5 ? 'data-plan-extra hidden' : ''}>
-              <th scope="row">${escapeHtml(process.name)}</th>
-              <td><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>${activeManualAdjustments[process.id] ? '<br><span class="text-xs text-secondary">Local choice</span>' : ''}</td>
-              <td class="text-sm text-secondary">${escapeHtml(processPlanReason(process))}</td>
-              <td><a href="${escapeHtml(processDetailsHref(process.id, level, 'report'))}" class="process-detail-link" aria-label="Open work aid for ${escapeHtml(process.name)}">Open →</a></td>
+            return `<tr role="row" ${index >= 5 ? 'data-plan-extra hidden' : ''}>
+              <th scope="row" role="rowheader">${escapeHtml(process.name)}</th>
+              <td role="cell"><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>${activeManualAdjustments[process.id] ? '<br><span class="text-xs text-secondary">Local choice</span>' : ''}</td>
+              <td role="cell" class="text-sm text-secondary report-plan-reason">${escapeHtml(processPlanReason(process))}</td>
+              <td role="cell" class="report-plan-action"><a href="${escapeHtml(processDetailsHref(process.id, level, 'report'))}" class="process-detail-link" aria-label="Open work aid for ${escapeHtml(process.name)}">Open work aid →</a></td>
             </tr>`;
           }).join('')}</tbody>
         </table>
@@ -779,7 +779,16 @@ export function renderReport(container) {
   style.textContent = `
     .report-summary-panel { padding:16px 0; margin-bottom:12px; gap:16px; }
     .report-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
-    .report-process-plan [hidden] { display:none; }
+    .report-process-plan [hidden] { display:none !important; }
+    @media screen and (max-width:600px) {
+      #report-process-plan-table, #report-process-plan-table tbody { display:block; width:100%; }
+      #report-process-plan-table thead { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+      #report-process-plan-table tbody tr { display:grid; grid-template-columns:minmax(0,1fr) auto; border:1px solid var(--border-subtle); border-radius:8px; margin-bottom:12px; padding:12px; gap:8px; }
+      #report-process-plan-table tbody th, #report-process-plan-table tbody td { display:block; position:static; min-width:0; padding:0; border:0; background:none; white-space:normal; overflow-wrap:anywhere; }
+      #report-process-plan-table tbody th { text-transform:none; letter-spacing:normal; font-size:var(--font-size-sm); color:var(--text-primary); }
+      #report-process-plan-table .report-plan-reason, #report-process-plan-table .report-plan-action { grid-column:1 / -1; }
+      #report-process-plan-table .report-plan-reason::before { content:'Why: '; font-weight:600; }
+    }
     @media print { .report-process-plan tr[data-plan-extra] { display:table-row !important; } }
     .se-type-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
     .se-type-badge.full { background: rgba(99,102,241,0.15); color: var(--accent-primary-light); }

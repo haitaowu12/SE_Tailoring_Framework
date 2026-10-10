@@ -79,3 +79,41 @@ test('an unknown Help topic keeps the quick start usable and does not open advan
   await expect(page).toHaveURL(/#assessment$/);
   await expect(page.getByRole('heading', { name: 'Set up the assessment', exact: true })).toBeVisible();
 });
+
+test('Help deep-link reveal wins over a late restored viewport on page show', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  let finishLoading;
+  const loading = new Promise(resolve => { finishLoading = resolve; });
+  await page.route('**/__help-load-delay.png', async route => {
+    await loading;
+    await route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jmZkAAAAASUVORK5CYII=', 'base64')
+    });
+  });
+  await page.addInitScript(() => {
+    // Hold load until a frame has rendered, then reproduce reload restoration
+    // overwriting an early topic scroll while leaving the summary focused.
+    document.addEventListener('DOMContentLoaded', () => {
+      const image = new Image();
+      image.src = './__help-load-delay.png';
+      image.alt = '';
+      document.body.append(image);
+    });
+    window.addEventListener('pageshow', () => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      window.__helpViewportRestored = true;
+    }, { once: true });
+  });
+  try {
+    await page.goto('./#help?topic=example', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  } finally {
+    finishLoading();
+  }
+  await page.waitForLoadState('load');
+  await expect.poll(() => page.evaluate(() => window.__helpViewportRestored)).toBe(true);
+  const summary = page.locator('#help-example > summary');
+  await expect(summary).toBeFocused();
+  await expect(summary).toBeInViewport();
+});

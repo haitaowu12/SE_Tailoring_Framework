@@ -66,18 +66,28 @@ export function renderHelp(container, routeContext = null) {
 
   const topic = routeContext?.params?.get('topic')
     || new URLSearchParams(location.hash.split('?')[1] || '').get('topic');
+  const guide = container.querySelector('.help-guide');
   function revealTopic(selectedTopic) {
     if (!['start', 'example', 'adapt', 'terms'].includes(selectedTopic)) return;
-    const target = container.querySelector(`#help-${selectedTopic}`);
+    const target = guide.querySelector(`#help-${selectedTopic}`);
     if (!target) return;
     if (target.matches('details')) target.open = true;
     const focusTarget = target.querySelector('summary, h2');
-    requestAnimationFrame(() => {
-      // A newer route may have replaced this Help view before the frame runs.
-      if (!container.contains(target)) return;
+    const revealAfterNavigation = () => requestAnimationFrame(() => {
+      // A newer route can be pending before it replaces the outgoing content.
+      const currentTopic = new URLSearchParams(location.hash.split('?')[1] || '').get('topic');
+      if (!container.contains(guide) || !location.hash.startsWith('#help?') || currentTopic !== selectedTopic) return;
       focusTarget?.focus({ preventScroll: true });
       target.scrollIntoView({ behavior: 'instant', block: 'start' });
     });
+    // On reload the browser can restore the old viewport after DOMContentLoaded.
+    // Wait for pageshow, then the next frame, so the topic wins that restoration.
+    // Already-loaded SPA routes use the next frame after the router's own scroll.
+    if (document.readyState !== 'complete') {
+      window.addEventListener('pageshow', revealAfterNavigation, { once: true });
+    } else {
+      revealAfterNavigation();
+    }
   }
   revealTopic(topic);
   container.querySelectorAll('nav[aria-label="Help topics"] a').forEach(link => {
