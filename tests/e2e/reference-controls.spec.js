@@ -121,7 +121,8 @@ test('Deliverables starts compact with keyboard disclosures and a labeled read-o
   expect(await saved(page)).toEqual(before);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('deliverables-collapsed-mobile.png'), fullPage: true });
+  await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath('deliverables-collapsed-mobile.png'), fullPage: true, animations: 'disabled' });
 });
 
 test('Deliverables offers bulk disclosure only when the selected filter has reference items', async ({ page }) => {

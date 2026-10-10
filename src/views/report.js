@@ -102,6 +102,7 @@ function enhanceReportSections(container, previousSections = new Map()) {
   `);
 
   const sectionConfigs = [
+    { section: container.querySelector('.report-method-details'), title: 'Method scope and completion details', description: 'Software checks, policy indicators and evidence limits.', open: false },
     { section: container.querySelector('.decision-ledger'), title: 'Saved tailoring decisions', description: 'Recommendation, local choice, rationale and change history.', open: false },
     {
       section: findDirectReportCard(container, 'Project context'),
@@ -344,17 +345,7 @@ export function renderReport(container) {
         <div class="report-summary-item"><span class="summary-value">${stdCount}</span><span class="summary-label">Standard</span></div>
         <div class="report-summary-item"><span class="summary-value">${compCount}</span><span class="summary-label">Comprehensive</span></div>
       </div>
-      <details class="report-summary-trace">
-        <summary>Method scope and completion details</summary>
-        <p class="text-xs text-secondary mt-sm">${overrideCount} floor elevations · ${fixCount} automatic dependency adjustments · ${warningCount} recorded warnings · ${adoptionRiskCount} adoption gaps. ${justificationCount} optional Comprehensive choice${justificationCount === 1 ? '' : 's'} need rationale only if selected.</p>
-        <p class="text-xs text-secondary mt-sm">Ratings at 4 or 5: ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None'}. Higher M16 means stronger enabling conditions. ${metricNotesCount}/${METRICS.length} metric notes recorded.</p>
-        <div class="report-scope-note">
-          <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
-        </div>
-        <div class="report-gate-grid" aria-label="Record gate statuses">
-          ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
-        </div>
-      </details>
+
     </section>
 
     <section class="card mb-xl report-process-plan" aria-labelledby="report-plan-title">
@@ -382,6 +373,18 @@ export function renderReport(container) {
       </div>
       <button class="btn btn-secondary btn-sm mt-md" type="button" id="btn-toggle-process-plan" aria-controls="report-process-plan-table" aria-expanded="false">Show all ${CORE_PROCESSES.length} processes</button>
     </section>
+
+    <div class="card mb-xl report-method-details">
+        <h4>Method scope and completion details</h4>
+        <p class="text-xs text-secondary mt-sm">${overrideCount} floor elevations · ${fixCount} automatic dependency adjustments · ${warningCount} recorded warnings · ${adoptionRiskCount} adoption gaps. ${justificationCount} optional Comprehensive choice${justificationCount === 1 ? '' : 's'} need rationale only if selected.</p>
+        <p class="text-xs text-secondary mt-sm">Ratings at 4 or 5: ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None'}. Higher M16 means stronger enabling conditions. ${metricNotesCount}/${METRICS.length} metric notes recorded.</p>
+        <div class="report-scope-note">
+          <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
+        </div>
+        <div class="report-gate-grid" aria-label="Record gate statuses">
+          ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
+        </div>
+      </div>
 
     ${renderDecisionLedger(state)}
     <div class="card mb-xl">
@@ -774,6 +777,7 @@ export function renderReport(container) {
 
   const style = document.createElement('style');
   style.textContent = `
+    .report-summary-panel { padding:16px 0; margin-bottom:12px; gap:16px; }
     .report-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .report-process-plan [hidden] { display:none; }
     @media print { .report-process-plan tr[data-plan-extra] { display:table-row !important; } }
@@ -794,8 +798,6 @@ export function renderReport(container) {
     .manual-adjustment-cell { display:grid; gap:2px; min-width:160px; }
     .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-    .report-summary-trace { grid-column:1 / -1; margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:12px; }
-    .report-summary-trace > summary { cursor:pointer; color:var(--text-secondary); font-size:12px; font-weight:700; }
     .pilot-record-banner { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
     .pilot-record-banner strong,.pilot-record-banner span { grid-column:1; }
     .pilot-record-banner span { color:var(--text-secondary); font-size:12px; }
