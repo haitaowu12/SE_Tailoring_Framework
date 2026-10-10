@@ -170,3 +170,15 @@ test('stakeholder-facing copy does not present evidence status as calibrated con
     assert.doesNotMatch(text, /confidence badges/i, `${relative(appRoot, file)} should label UI badges as evidence status`);
   }
 });
+
+
+test('CI verifies the immutable head with read-only repository access and cannot apply or publish patches', () => {
+  const workflow = readFileSync(join(appRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(workflow, /permissions:\s*contents: read/);
+  assert.match(workflow, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
+  assert.doesNotMatch(workflow, /contents: write|git (?:apply|commit|push)|e2e-fixes\.patch/);
+  const deploy = readFileSync(join(appRoot, '.github', 'workflows', 'deploy.yml'), 'utf8');
+  assert.match(deploy, /contents: read/);
+  assert.match(deploy, /pages: write/);
+  assert.match(deploy, /id-token: write/);
+});
