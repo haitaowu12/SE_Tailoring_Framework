@@ -69,12 +69,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Register risks or hazards in an authorized team or project record', '(*) Assign and confirm a named owner', '(*) Assess using simple High/Medium/Low criteria', '(*) Route material concerns through the applicable risk, hazard, safety, ethics, regulatory, issue, or nonconformance channel'],
             standard: ['(*) Plan risk management formally', '(*) Detail risk register with probability/impact', '(*) Plan responses with triggers and owners', 'Report regularly to stakeholders', 'Review risks at milestones', 'Identify and assess safety hazards [Safety]', 'Develop SA risk responses [Safety]'],
-            comprehensive: ['(*) Document risk management framework', '(*) Model/simulate risks with distributions', '(*) Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
+            comprehensive: ['(*) Document risk management framework', '(*) Analyze risk uncertainty; use distribution-based modeling or simulation only with a defensible model and inputs', '(*) Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
         },
         deliverables: {
             basic: ['Simple risk register', 'Risk assessment matrix (H/M/L)', 'Basic risk reports'],
             standard: ['Risk Management Plan (RMP)', 'Detailed risk register', 'Risk response plans', 'Regular risk reports', 'Risk review records', 'Safety Hazard Register [Safety]', 'SA Risk Response Plans [Safety]'],
-            comprehensive: ['Risk management framework', 'Advanced risk models and simulations', 'Detailed risk response strategies', 'Risk dashboards with leading indicators', 'Integrated risk database', 'Risk management effectiveness metrics']
+            comprehensive: ['Risk management framework', 'Risk uncertainty analysis with supporting models or simulations where suitable', 'Detailed risk response strategies', 'Risk dashboards with leading indicators', 'Integrated risk database', 'Risk management effectiveness metrics']
         },
         outputs: [
             { name: 'Risk register', feedsInto: 'Project Planning, Decision Management' },
@@ -156,7 +156,7 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Define problem statement', '(*) Explore solution alternatives (informal)', '(*) Identify affected stakeholders and decision authorities'],
             standard: ['(*) Develop analysis plan', '(*) Map relevant stakeholder groups, interests, and decision rights', '(*) Analyze problems with context', 'Define initial concepts', 'Preliminary hazard identification [Safety]', 'Initial SA criticality assessment [Safety]'],
-            comprehensive: ['(*) Perform comprehensive analysis', '(*) Analyze stakeholder values, conflicts, and representation gaps', '(*) Conduct opportunity analysis with PESTEL', 'Develop business cases with ROI', 'Identify safety-related stakeholders [Safety]']
+            comprehensive: ['(*) Perform comprehensive analysis', '(*) Analyze stakeholder values, conflicts, and representation gaps', '(*) Analyze opportunities and external context; use PESTEL where suitable', 'Develop business or mission cases using relevant benefits, costs, and risks; use ROI where suitable', 'Identify safety-related stakeholders [Safety]']
         },
         deliverables: {
             basic: ['Problem statement', 'Solution alternatives', 'Initial stakeholder list', 'ConOps (can be part of SRD)'],
@@ -192,12 +192,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Document requirements (simple list)', '(*) Trace simply with matrix', 'Review requirements (informal)'],
             standard: ['(*) Plan requirements development', '(*) Specify requirements with attributes', 'Maintain controlled requirements records with attributes and links', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety requirements and integrity targets where the applicable regime requires them [Safety]'],
-            comprehensive: ['(*) Model behaviors with formal notation', '(*) Specify formally with models', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Define reliability, availability, and maintainability requirements for the applicable context [RAM]']
+            comprehensive: ['(*) Model required behaviors using representations suited to assurance and verification needs', '(*) Specify requirements unambiguously; use formal models where suitable or required', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Define reliability, availability, and maintainability requirements for the applicable context [RAM]']
         },
         deliverables: {
             basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records'],
             standard: ['Requirements development plan', 'System Specification (SS)', 'Controlled requirements records with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Preliminary Hazard Analysis (PHA) [Safety]', 'RAMS Requirements Specification [RAM]', 'Hazard Log [Safety]', 'Safety requirement and applicable integrity allocation record [Safety]'],
-            comprehensive: ['Formal requirements specification', 'Controlled requirements records and relationships', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety argument and supporting evidence required by the applicable regime [Safety]']
+            comprehensive: ['Detailed requirements specification with formal models where suitable or required', 'Controlled requirements records and relationships', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety argument and supporting evidence required by the applicable regime [Safety]']
         },
         outputs: [
             { name: 'Requirements document', feedsInto: 'Architecture Definition, Verification' },
@@ -210,12 +210,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Define concepts (block diagrams)', '(*) List interfaces', 'Evaluate options (informal)', 'Document architecture'],
             standard: ['(*) Plan architecture development', '(*) Develop viewpoints addressing the relevant stakeholder concerns', 'Create interface control documents (ICDs)', 'Evaluate alternatives with trade studies', 'Plan architecture governance', 'Perform RAMS apportionment [RAM]', 'Allocate safety requirements and any required integrity targets to subsystems [Safety]', 'Define safety partitioning and isolation [Safety]'],
-            comprehensive: ['(*) Model architectures in formal notation', '(*) Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate with formal methodology', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
+            comprehensive: ['(*) Model architectures using notation suited to stakeholder concerns and assurance needs', '(*) Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate with formal methodology', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
         },
         deliverables: {
             basic: ['Simple architecture description', 'Basic interface list', 'Architecture diagrams', 'Evaluation notes'],
             standard: ['Architecture development plan', 'Architecture description with views', 'Interface control document (ICD)', 'Architecture alternatives analysis', 'Architecture evaluation results', 'Architecture governance plan', 'RAMS Apportionment Document [RAM]', 'Safety requirement and applicable integrity allocation to elements [Safety]'],
-            comprehensive: ['Architecture models in formal notation', 'Comprehensive architecture description', 'Detailed interface specifications', 'Extensive alternatives analysis with trade studies', 'Formal evaluation report', 'Architecture governance documentation', 'Architecture metrics', 'Patterns and reference architectures', 'Fault Tolerance Strategy Document [RAM]', 'Safety Partitioning Specification [Safety]']
+            comprehensive: ['Architecture models using suitable notation, including formal notation where required', 'Comprehensive architecture description', 'Detailed interface specifications', 'Extensive alternatives analysis with trade studies', 'Formal evaluation report', 'Architecture governance documentation', 'Architecture metrics', 'Patterns and reference architectures', 'Fault Tolerance Strategy Document [RAM]', 'Safety Partitioning Specification [Safety]']
         },
         outputs: [
             { name: 'Architecture description', feedsInto: 'Design Definition, System Requirements Definition' },
@@ -228,12 +228,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Create design documentation', '(*) Create design diagrams', 'Select technologies', 'Basic verification'],
             standard: ['(*) Plan design process', '(*) Develop comprehensive documentation', 'Analyze alternatives', 'Verify designs with analysis', 'Assess technologies', 'Conduct design reviews', 'Perform FMEA/FMECA [RAM]', 'Conduct maintainability analysis [RAM]', 'Execute safety design reviews [Safety]'],
-            comprehensive: ['(*) Model designs in formal notation', '(*) Develop detailed multi-view documentation', 'Optimize with extensive analysis', 'Comprehensive verification strategy', 'Advanced technology assessment with roadmap', 'Formal design reviews', 'Define diagnostic and test provisions [RAM]', 'Analyze failure modes and effects [RAM]']
+            comprehensive: ['(*) Model designs using notation suited to implementation and verification needs', '(*) Develop detailed multi-view documentation', 'Optimize with extensive analysis', 'Comprehensive verification strategy', 'Advanced technology assessment with roadmap', 'Formal design reviews', 'Define diagnostic and test provisions [RAM]', 'Analyze failure modes and effects [RAM]']
         },
         deliverables: {
             basic: ['Design documentation', 'Design diagrams', 'Technology selections', 'Basic verification records'],
             standard: ['Design plan', 'Comprehensive design documentation', 'Design alternatives analysis', 'Verification results', 'Technology assessment report', 'Design review records', 'FMEA/FMECA Report [RAM]', 'Maintainability Analysis Report [RAM]', 'Safety Design Review Records [Safety]'],
-            comprehensive: ['Design models in formal notation', 'Detailed multi-view documentation', 'Extensive alternatives analysis', 'Comprehensive verification results', 'Advanced technology roadmap', 'Formal design review documentation', 'Design patterns catalog', 'Design quality metrics', 'Diagnostic Strategy Document [RAM]']
+            comprehensive: ['Design models using suitable notation, including formal notation where required', 'Detailed multi-view documentation', 'Extensive alternatives analysis', 'Comprehensive verification results', 'Advanced technology roadmap', 'Formal design review documentation', 'Design patterns catalog', 'Design quality metrics', 'Diagnostic Strategy Document [RAM]']
         },
         outputs: [
             { name: 'Design documentation', feedsInto: 'Implementation, Integration' },
@@ -317,12 +317,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Plan transition', '(*) Install system', 'Provide basic training', 'Report transition'],
             standard: ['(*) Plan detailed transition', '(*) Execute comprehensive installation', 'Verify operational readiness', 'Conduct training program', 'Review transition', 'Prepare documentation package', 'Conduct safety acceptance [Safety]', 'Transfer safety documentation [Safety]'],
-            comprehensive: ['(*) Develop transition strategy', '(*) Plan with risk assessment', 'Install with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal reviews', 'Complete transition package', 'Measure effectiveness', 'Obtain Safety Case approval [Safety]', 'Conduct safety training for operators [Safety]']
+            comprehensive: ['(*) Develop transition strategy', '(*) Plan with risk assessment', 'Install with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal reviews', 'Complete transition package', 'Measure effectiveness', 'Obtain safety acceptance and any Safety Case approval required by the applicable regime [Safety]', 'Conduct safety training for operators [Safety]']
         },
         deliverables: {
             basic: ['Transition plan', 'Installation procedures', 'Training materials', 'Transition report'],
             standard: ['Detailed transition plan', 'Comprehensive installation procedures', 'Operational readiness verification plan', 'Training program', 'Transition review documentation', 'Transition documentation package', 'Safety Acceptance Records [Safety]', 'Safety Documentation Package [Safety]'],
-            comprehensive: ['Transition strategy', 'Detailed plan with risk assessment', 'Installation procedures with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal review documentation', 'Complete transition package', 'Transition effectiveness metrics', 'Approved Safety Case [Safety]', 'Safety Training Records [Safety]']
+            comprehensive: ['Transition strategy', 'Detailed plan with risk assessment', 'Installation procedures with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal review documentation', 'Complete transition package', 'Transition effectiveness metrics', 'Safety acceptance record and approved Safety Case where required by the applicable regime [Safety]', 'Safety Training Records [Safety]']
         },
         outputs: [
             { name: 'Deployed system', feedsInto: 'Operation, Maintenance' },
@@ -335,12 +335,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Plan validation', '(*) Execute validation procedures', '(*) Report results', 'Log defects'],
             standard: ['(*) Plan with multiple methods', '(*) Specify validation environment', '(*) Execute comprehensive procedures', 'Plan stakeholder involvement', 'Track defects in database', 'Conduct reviews', 'Validate reliability, availability, and maintainability performance against intended use and stakeholder needs [RAM]', 'Validate safety functions in operational context [Safety]'],
-            comprehensive: ['(*) Develop validation strategy', '(*) Plan with stakeholder focus', '(*) Execute comprehensive procedures', 'Manage validation environment', 'Comprehensive reporting with acceptance', 'Stakeholder involvement strategy', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Obtain safety sign-off [Safety]', 'Develop RAMS validation plan [RAM]']
+            comprehensive: ['(*) Develop validation strategy', '(*) Plan with stakeholder focus', '(*) Execute comprehensive procedures', 'Manage validation environment', 'Comprehensive reporting with acceptance', 'Stakeholder involvement strategy', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Obtain safety sign-off required by the applicable regime [Safety]', 'Develop RAMS validation plan [RAM]']
         },
         deliverables: {
             basic: ['Validation plan', 'Validation procedures', 'Validation reports', 'Defect log'],
             standard: ['Detailed validation plan', 'Validation procedures (multiple methods)', 'Validation environment specification', 'Comprehensive reports', 'Stakeholder involvement plan', 'Defect tracking database', 'Validation review records', 'RAMS Validation Reports [RAM]', 'Operational Safety Validation Report [Safety]'],
-            comprehensive: ['Validation strategy', 'Detailed plans with stakeholder focus', 'Comprehensive procedures', 'Validation environment management', 'Extensive reports with stakeholder acceptance', 'Stakeholder involvement strategy', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Validation effectiveness metrics', 'Safety Acceptance Certificate [Safety]', 'RAMS Validation Plan [RAM]']
+            comprehensive: ['Validation strategy', 'Detailed plans with stakeholder focus', 'Comprehensive procedures', 'Validation environment management', 'Extensive reports with stakeholder acceptance', 'Stakeholder involvement strategy', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Validation effectiveness metrics', 'Safety acceptance evidence (Safety Acceptance Certificate where required by the applicable regime) [Safety]', 'RAMS Validation Plan [RAM]']
         },
         outputs: [
             { name: 'Validation reports', feedsInto: 'Stakeholder Needs, System Requirements Definition' },
