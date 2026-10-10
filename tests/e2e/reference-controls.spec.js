@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { runFullAssessment } from '../../src/utils/assessment-engine.js';
 import { buildExportConfig } from '../../src/utils/export-import.js';
-import { openSessionMenu } from './helpers.js';
+import { openSessionMenu, preparePageScreenshot } from './helpers.js';
 
 function fixture() {
   const makeNode = (id, name, parentId = null) => {
@@ -51,6 +51,7 @@ test('Direct Preview has named controls and repeated keyboard previews leave sav
   await expect(process).toBeVisible();
   await expect(level).toBeVisible();
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('direct-preview-desktop.png'),fullPage:true,animations:'disabled'});
   await expect(page.getByText(/directly affected processes only/)).toBeVisible();
   await process.selectOption('19');
@@ -125,6 +126,7 @@ test('Deliverables starts compact with keyboard disclosures and a labeled read-o
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await preparePageScreenshot(page);
   await page.screenshot({ path: testInfo.outputPath('deliverables-collapsed-mobile.png'), fullPage: true, animations: 'disabled' });
 });
 
