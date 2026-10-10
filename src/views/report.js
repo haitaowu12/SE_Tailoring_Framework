@@ -837,11 +837,19 @@ export function renderReport(container) {
   });
 
   container.querySelectorAll('.right-sizing-approval-form').forEach(form => {
+    let lastDraftFields = JSON.stringify(Object.fromEntries(new FormData(form)));
     const saveDraft = () => {
+      const fields = Object.fromEntries(new FormData(form));
+      const serializedFields = JSON.stringify(fields);
+      // Input already saved these values. Repeating that write on blur can show
+      // a storage warning between pointerdown/up and move the submit button.
+      // Explicit submit below always makes its own independent save attempt.
+      if (serializedFields === lastDraftFields) return;
+      lastDraftFields = serializedFields;
       const current = getState();
       const proposal = (current.rightSizingProposals || []).find(item => Number(item.processId) === Number(form.dataset.processId));
       if (!proposal) return;
-      const tree = saveRightSizingDraft(current, proposal, Object.fromEntries(new FormData(form)));
+      const tree = saveRightSizingDraft(current, proposal, fields);
       const saved = setState({ assessmentTree: tree });
       const status = form.querySelector('.right-sizing-draft-status');
       if (status) status.textContent = !saved

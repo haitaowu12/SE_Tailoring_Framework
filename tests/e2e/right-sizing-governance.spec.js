@@ -276,25 +276,23 @@ test('a failed asserted-record save reports the storage failure and retains the 
   await form.locator('xpath=..').locator('summary').click();
   await form.locator('[name="rationale"]').fill('Preserve this asserted rationale through quota failure.');
   await page.evaluate(()=>{
-    window.__quotaSubmitEvents = [];
-    for (const type of ['pointerdown', 'pointerup', 'click', 'change', 'submit']) {
-      document.addEventListener(type, event => {
-        const button = document.querySelector('.right-sizing-approval-form[data-process-id="17"] button[type="submit"]');
-        window.__quotaSubmitEvents.push({type, target:event.target.tagName, name:event.target.getAttribute('name'), text:event.target.textContent?.slice(0,80), y:event.clientY, buttonY:button?.getBoundingClientRect().y});
-      }, true);
-    }
+    window.__quotaSubmitCount = 0;
+    window.__quotaWriteCount = 0;
+    document.querySelector('.right-sizing-approval-form[data-process-id="17"]').addEventListener('submit', () => { window.__quotaSubmitCount++; }, true);
     const original=Storage.prototype.setItem;
+    window.__quotaOriginalSetItem = original;
     Storage.prototype.setItem=function(key,value){
       if(key==='se-tailoring-workspace-v1') {
-        window.__quotaSubmitEvents.push({type:'storage-failure'});
+        window.__quotaWriteCount++;
         throw new DOMException('Quota exceeded','QuotaExceededError');
       }
       return original.call(this,key,value);
     };
   });
   await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
-  const submissionDiagnostics = await page.evaluate(() => ({events:window.__quotaSubmitEvents, toasts:document.querySelector('#toast-container')?.textContent, draftStatus:document.querySelector('.right-sizing-approval-form[data-process-id="17"] .right-sizing-draft-status')?.textContent}));
-  await expect(page.getByText('Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.',{exact:true}),JSON.stringify(submissionDiagnostics)).toBeVisible();
+  expect(await page.evaluate(() => window.__quotaSubmitCount)).toBe(1);
+  expect(await page.evaluate(() => window.__quotaWriteCount)).toBe(1);
+  await expect(page.getByText('Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.',{exact:true})).toBeVisible();
   await openSessionMenu(page);
   await page.getByRole('button',{name:'Private backup',exact:true}).click();
   const download=page.waitForEvent('download');
@@ -304,4 +302,19 @@ test('a failed asserted-record save reports the storage failure and retains the 
   expect(config.rightSizingApprovalRecords[0].rationale).toBe('Preserve this asserted rationale through quota failure.');
   expect(config.effectiveRightSizingApprovalCount).toBe(0);
   expect(config.processLevels[17]).toBe('comprehensive');
+  // An intentional retry with the same fields still persists once storage recovers.
+  await page.evaluate(() => { Storage.prototype.setItem = window.__quotaOriginalSetItem; });
+  form = page.locator('.right-sizing-approval-form[data-process-id="17"]');
+  await form.locator('xpath=..').locator('summary').click();
+  await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
+  await expect(page.getByText('Asserted decision record saved but remains structurally incomplete or invalid.',{exact:true})).toBeVisible();
+  await expect(page.locator('#runtime-status')).not.toBeVisible();
+  const savedRecord = await page.evaluate(() => {
+    const workspace = JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));
+    const data = workspace.assessments.find(item => item.id === workspace.activeId).data;
+    return { record:data.rightSizingApprovalRecords[0], approvedCount:data.effectiveRightSizingApprovalCount, level:data.processLevels?.[17] || data.levels?.[17] };
+  });
+  expect(savedRecord.record.rationale).toBe('Preserve this asserted rationale through quota failure.');
+  expect(savedRecord.approvedCount).toBe(0);
+  expect(savedRecord.level).toBe('comprehensive');
 });
