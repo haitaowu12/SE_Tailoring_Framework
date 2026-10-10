@@ -71,7 +71,7 @@ test('report leads with a compact process plan while preserving all details and 
   await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(5);
   expect(await page.locator('details.report-section').evaluateAll(nodes=>nodes.every(node=>!node.open))).toBe(true);
   await page.screenshot({path:testInfo.outputPath('report-desktop.png'),fullPage:true,animations:'disabled'});
-  const toggle=page.getByRole('button',{name:'Show all 22 processes',exact:true});
+  const toggle=page.locator('#btn-toggle-process-plan');
   await toggle.focus(); await page.keyboard.press('Enter');
   await expect(toggle).toHaveAttribute('aria-expanded','true');
   await expect(page.locator('.report-process-plan tbody tr:visible')).toHaveCount(22);
@@ -98,7 +98,7 @@ test('reported 2 and 4 anchors match the assessment descriptions on screen and i
   await importComplete(page,{M1:2,M2:4});
   await section(page,'Metric Scores Detail').locator(':scope > summary').click();
   for(const [metricId,score] of [['M1',2],['M2',4]]) {
-    await expect(section(page,'Metric Scores Detail').getByRole('row').filter({hasText:`${metricId} `})).toContainText(getMetricAnchorText(metricId,score));
+    await expect(section(page,'Metric Scores Detail').getByRole('row').filter({has:page.locator('strong',{hasText:new RegExp(`^${metricId}$`)})})).toContainText(getMetricAnchorText(metricId,score));
   }
   const downloaded=page.waitForEvent('download');
   await page.getByRole('button',{name:'Download pilot HTML record',exact:true}).click();
