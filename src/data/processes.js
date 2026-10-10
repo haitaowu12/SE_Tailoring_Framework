@@ -58,7 +58,7 @@ const BASE_PROCESSES = [
         id: 9, name: 'Project Planning', group: 'tech_mgmt', purpose: 'Establish and maintain project plans that define expectations, activities, and resources', extended: false,
         definition: { basic: 'Basic planning with simple schedule and resource list', standard: 'Structured planning with coordinated scope, schedule, resources, and risk records', comprehensive: 'Integrated planning with dependencies, uncertainty analysis, and controlled updates' },
         assumptions: 'Schedule is milestone-based; resources assigned as available; risks tracked informally; cost estimates are high-level.',
-        whenToElevate: 'Elevate to Standard if any technical process is at Standard or above. Elevate to Comprehensive for large distributed teams or high uncertainty.'
+        whenToElevate: 'Plan at least Standard when any technical process is Standard or Comprehensive (Rule 12). Review deeper planning where delivery distribution or uncertainty warrants it; the calculated level still follows the shared driver threshold and applicable rules.'
     },
     {
         id: 10, name: 'Project Assessment & Control', group: 'tech_mgmt', purpose: 'Monitor project progress and take corrective action when needed', extended: false,

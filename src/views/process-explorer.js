@@ -1,11 +1,13 @@
 /**
  * Process Explorer View — Searchable/filterable process detail browser
  */
-import { ACTIVE_CONSISTENCY_RULES, BINDING_ASSURANCE_QUALIFIERS, CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRIC_PROCESS_MAP, METRICS, OVERRIDE_CONDITIONS } from '../data/se-tailoring-data.js';
+import { ACTIVE_CONSISTENCY_RULES, CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRICS, OVERRIDE_CONDITIONS } from '../data/se-tailoring-data.js';
 import { PROCESS_DETAILS, PROCESS_CONTEXT_OVERLAYS } from '../data/process-details.js';
 import { getState } from '../state.js';
 import { getCurrentRouteContext, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
+import { checkConsistency, getEffectiveConsistencyType } from '../utils/assessment-engine.js';
+import { buildMatrixPresentation } from './matrix-view.js';
 
 let filterGroup = 'all';
 let searchQuery = '';
@@ -255,19 +257,20 @@ export function renderProcessExplorer(container, routeContext = getCurrentRouteC
       .empty-state { display: flex; align-items: center; justify-content: center; min-height: 400px; }
       .detail-section { margin-bottom: var(--space-xl); }
       .detail-section h4 { margin-bottom: var(--space-md); color: var(--accent-primary-light); }
-      .process-work-aid { padding: clamp(18px, 3vw, 32px); }
-      .process-detail-header { align-items: flex-start; gap: var(--space-lg); }
-      .process-meta-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      .process-work-aid { padding: clamp(16px, 2vw, 24px); }
+      .process-detail-header { align-items: flex-start; gap: var(--space-md); margin-bottom: var(--space-md); }
+      .process-meta-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
       .process-meta-pill { border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 9px; font-size: 11px; color: var(--text-secondary); }
-      .level-selector-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; padding: 12px 0 18px; margin-bottom: var(--space-xl); border-bottom: 1px solid var(--border-subtle); }
+      .level-selector-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; padding: 8px 0 12px; margin-bottom: var(--space-md); border-bottom: 1px solid var(--border-subtle); }
       .level-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0; }
       .level-tab { display: inline-block; padding: 6px 16px; border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: 600; cursor: pointer; border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary); transition: all var(--transition-fast); text-decoration: none; }
       .level-tab.active-basic { background: var(--level-basic-bg); color: var(--level-basic); border-color: var(--level-basic-border); }
       .level-tab.active-standard { background: var(--level-standard-bg); color: var(--level-standard); border-color: var(--level-standard-border); }
       .level-tab.active-comprehensive { background: var(--level-comprehensive-bg); color: var(--level-comprehensive); border-color: var(--level-comprehensive-border); }
       .level-tab:focus-visible { outline: 2px solid var(--accent-primary-light); outline-offset: 2px; }
-      .practitioner-work-aid { display: grid; grid-template-columns: minmax(180px, .65fr) minmax(320px, 1.35fr); gap: 22px; margin-bottom: var(--space-xl); padding: 18px 0; border-block: 1px solid var(--border-subtle); }
-      .practitioner-work-aid h4 { margin-top: 4px; color: var(--text-primary); }
+      .practitioner-work-aid { margin-bottom: var(--space-lg); }
+      .practitioner-work-aid > summary { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-xs); font-weight: 600; }
+      .practitioner-work-aid[open] > ol { margin-top: 12px; }
       .practitioner-work-aid ol { display: grid; gap: 10px; margin: 0; padding-left: 22px; }
       .practitioner-work-aid li { padding-left: 4px; color: var(--text-secondary); font-size: var(--font-size-xs); line-height: 1.5; }
       .practitioner-work-aid li strong, .practitioner-work-aid li span { display: block; }
@@ -283,7 +286,7 @@ export function renderProcessExplorer(container, routeContext = getCurrentRouteC
       .technical-context { border-top: 1px solid var(--border-subtle); padding-top: 14px; }
       .technical-context > summary { cursor: pointer; color: var(--text-secondary); font-size: var(--font-size-xs); font-weight: 700; }
       .technical-context-body { margin-top: 18px; }
-      @media (max-width: 900px) { .explorer-layout, .practitioner-work-aid { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
+      @media (max-width: 900px) { .explorer-layout { grid-template-columns: 1fr; } .process-list-panel { max-height: 300px; } }
       @media (max-width: 480px) {
         #group-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow-x: visible; }
         #group-tabs .tab { min-width: 0; padding: 8px 4px; font-size: 11px; line-height: 1.25; white-space: normal; }
@@ -339,7 +342,7 @@ function getConditionalContentState(text, viewContext) {
   const metricId = text.includes('[Safety]') ? 'M5' : text.includes('[RAM]') ? 'M6' : null;
   if (!metricId) return { disabled: false, note: '' };
   const score = getContextScore(viewContext, metricId);
-  if (score === null) return { disabled: false, note: `${metricId} context unconfirmed` };
+  if (score === null) return { disabled: false, note: `Conditional example: ${metricId} context unconfirmed; assess applicability and obligations before planning this work` };
   return score < 3
     ? { disabled: false, note: `Not highlighted by ${metricId}; check applicability and binding obligations` }
     : { disabled: false, note: '' };
@@ -350,12 +353,52 @@ function renderContextNote(note, disabled) {
   return `<span style="font-size:10px; color:var(--text-secondary); text-decoration:none; margin-left:6px; background:var(--bg-tertiary); padding:2px 6px; border-radius:4px;">${disabled ? '' : 'Review: '}${escapeHtml(note)}</span>`;
 }
 
+function processReferenceIncludes(reference, processId) {
+  if (Array.isArray(reference)) return reference.some(item => processReferenceIncludes(item, processId));
+  if (reference === 'any_technical' || reference === 'all_technical') {
+    return CORE_PROCESSES.some(process => process.id === Number(processId) && process.group === 'technical');
+  }
+  return Number(reference) === Number(processId);
+}
+
+/** Read-only Guidance projection of the same effective context shown by Matrix. */
+export function buildProcessGovernanceContext(processId, state = {}, viewContext = getProcessViewContext(state)) {
+  const matrix = buildMatrixPresentation(state);
+  const contextAvailable = matrix.conditionalDrivers.every(driver => driver.status !== 'unavailable');
+  const source = matrix.node || (!state.assessmentTree ? state : {});
+  const assuranceObligations = Array.isArray(source.assuranceObligations) ? source.assuranceObligations
+    : matrix.rootContext && Array.isArray(state.assuranceObligations) ? state.assuranceObligations : [];
+  const context = { assuranceObligations };
+  const levels = Object.fromEntries(CORE_PROCESSES.map(process => [process.id, getAssignedProcessLevel(viewContext, process.id)]));
+  const hasProfile = contextAvailable && CORE_PROCESSES.every(process => LEVEL_SET.has(levels[process.id]));
+  const violations = hasProfile ? checkConsistency(levels, matrix.scores, context) : [];
+  const rules = ACTIVE_CONSISTENCY_RULES.filter(rule =>
+    processReferenceIncludes(rule.trigger?.process, processId) || processReferenceIncludes(rule.required?.process, processId)
+  ).map(rule => ({
+    ...rule,
+    effectiveType: contextAvailable ? getEffectiveConsistencyType(rule, matrix.scores, context) : null,
+    status: !contextAvailable ? 'Context unavailable' : !hasProfile ? 'No full profile assessed'
+      : violations.some(violation => violation.ruleId === rule.id) ? 'Review required' : 'No current conflict'
+  }));
+  const floors = OVERRIDE_CONDITIONS.filter(floor =>
+    (floor.processes || []).map(Number).includes(Number(processId))
+  );
+  return {
+    map: matrix.map[processId] || {},
+    conditionalDrivers: matrix.conditionalDrivers.filter(driver => Number(driver.processId) === Number(processId)),
+    scores: matrix.scores,
+    contextAvailable,
+    rules,
+    floors
+  };
+}
+
 function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
   const p = CORE_PROCESSES.find(x => x.id === processId);
   if (!p) return '';
   const details = PROCESS_DETAILS[processId];
-  const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
-  const map = matrixMap[processId] || {};
+  const governance = buildProcessGovernanceContext(processId, state, viewContext);
+  const map = governance.map;
   const level = getAssignedProcessLevel(viewContext, processId);
   const activities = details?.activities?.[viewLevel] || [];
   const deliverables = details?.deliverables?.[viewLevel] || [];
@@ -363,13 +406,8 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
   const contextOverlays = PROCESS_CONTEXT_OVERLAYS[processId] || {};
   const securityScore = getContextScore(viewContext, 'M8');
   const securityOverlay = securityScore !== null && securityScore >= 3 ? contextOverlays.security : null;
-  const assuranceOverlay = (viewContext.assuranceObligations || []).some(obligation =>
-    obligation?.bindingStatus === 'confirmed'
-      && BINDING_ASSURANCE_QUALIFIERS.includes(obligation.type)
-      && String(obligation.authority || '').trim()
-      && String(obligation.sourceRef || '').trim()
-      && Array.isArray(obligation.processScope)
-      && obligation.processScope.map(Number).includes(Number(processId))
+  const assuranceOverlay = governance.conditionalDrivers.some(driver =>
+    driver.metric === 'M15' && driver.status === 'active'
   ) ? contextOverlays.assurance : null;
   const activeContextOverlays = [
     securityOverlay ? { label: 'Security evidence overlay', metric: 'M8', ...securityOverlay } : null,
@@ -384,7 +422,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
 
   return `
     <div class="card process-work-aid animate-fade-in">
-      <div class="flex justify-between process-detail-header mb-lg">
+      <div class="flex justify-between process-detail-header mb-md">
         <div>
           <h3 id="process-detail-heading" tabindex="-1">${escapeHtml(p.name)}</h3>
           <p class="text-sm text-secondary mt-sm">${escapeHtml(p.purpose)}</p>
@@ -403,7 +441,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         <div>
           <div class="text-xs text-secondary">Viewing process content at</div>
           <div class="text-sm">${level
-            ? `${recommendationLabel ? `Recorded recommendation: ${escapeHtml(recommendationLabel)}.` : 'The recommendation was not recorded separately.'} Current applied level: ${escapeHtml(levelLabel)}. Switching content levels is comparison only; it does not save a decision. <a href="#adjust">Record or revise the tailoring decision</a>.`
+            ? `${recommendationLabel ? `Recorded recommendation: ${escapeHtml(recommendationLabel)}.` : 'The recommendation was not recorded separately.'} Current applied level: ${escapeHtml(levelLabel)}. Content tabs compare only; they do not save a decision. <a href="#adjust">Record or revise the tailoring decision</a>.`
             : `No assessment assignment exists. ${escapeHtml(viewLevelLabel)} is shown for browsing only.`}</div>
         </div>
         <nav class="level-tabs" aria-label="Tailoring level detail selector">
@@ -416,17 +454,14 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         </nav>
       </div>
 
-      <section class="practitioner-work-aid" aria-labelledby="work-aid-title-${p.id}">
-        <div>
-          <div class="text-xs text-secondary">Process work aid</div>
-          <h4 id="work-aid-title-${p.id}">Turn this process choice into a team plan</h4>
-        </div>
+      <details class="practitioner-work-aid">
+        <summary>Plan this work with your team</summary>
         <ol>
           <li><strong>Confirm the level.</strong><span>Compare Basic, Standard, and Comprehensive against the project context.</span></li>
           <li><strong>Assign the work.</strong><span>Agree owners for the activities and deliverables listed below.</span></li>
           <li><strong>Set the evidence.</strong><span>Record what will demonstrate that the selected level has been applied.</span></li>
         </ol>
-      </section>
+      </details>
 
       ${p.definition ? `
       <div class="detail-section">
@@ -436,21 +471,21 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
 
       <p class="text-sm text-secondary mb-lg">Use the following activities and records as examples to adapt. Higher rigor retains the essential outcomes of lower levels. Named tools, document formats, and analysis methods are options unless your project has a specific obligation. Existing controlled records may meet several information needs. <a href="#help?topic=adapt">How to adapt the guidance</a>.</p>
       <div class="detail-section">
-        <h4>Do at this level (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(core activities are marked)</span></h4>
+        <h4>Activity examples to adapt (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(core outcome examples are marked)</span></h4>
         ${activities.length ? activities.map(a => {
     let isEssential = a.startsWith('(*)');
     let text = isEssential ? a.slice(4) : a;
     const contentState = getConditionalContentState(text, viewContext);
     const { disabled } = contentState;
     return `<div class="activity-item ${isEssential ? 'essential' : ''}" style="${disabled ? 'opacity: 0.5; text-decoration: line-through;' : ''}">
-            <span class="activity-marker" aria-hidden="true">${isEssential ? '◆' : '•'}</span>${isEssential ? '<span class="sr-only">Essential: </span>' : ''} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
+            <span class="activity-marker" aria-hidden="true">${isEssential ? '◆' : '•'}</span>${isEssential ? '<span class="sr-only">Core outcome: </span>' : ''} <span style="${disabled ? 'text-decoration: line-through;' : ''}">${escapeHtml(text)}</span>
             ${renderContextNote(contentState.note, disabled)}
           </div>`;
   }).join('') : '<div class="detail-empty-line">No activity detail is defined for this process level yet.</div>'}
       </div>
 
       <div class="detail-section">
-        <h4>Produce or update (${deliverables.length})</h4>
+        <h4>Record and evidence examples (${deliverables.length})</h4>
         ${deliverables.length ? deliverables.map(d => {
     let text = d;
     const contentState = getConditionalContentState(text, viewContext);
@@ -482,40 +517,39 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
 
       <details class="technical-context detail-section">
         <summary>Why this process is connected to the assessment</summary>
-        ${renderRegistryDependencyContext(processId)}
+        ${renderRegistryDependencyContext(governance)}
         <div class="technical-context-body">
           <h4>Metric applicability</h4>
+          <p class="text-xs text-secondary mb-md">P = primary driver; S = supporting driver. Roles are not numerical weights. A starred role is active only within the confirmed obligation scope. C marks an inactive conditional relationship; ? means its applicability is unavailable.</p>
           <div class="flex" style="flex-wrap:wrap">
             ${Object.entries(map).map(([mid, role]) => {
     const m = METRICS.find(x => x.id === mid);
-    return `<span class="metric-tag ${escapeHtml(role)}">${escapeHtml(role)} ${escapeHtml(mid)}: ${escapeHtml(m?.name || mid)}</span>`;
+    const conditional = governance.conditionalDrivers.find(driver => driver.metric === mid);
+    const roleClass = conditional?.status === 'active' ? conditional.role : conditional ? '' : role;
+    return `<span class="metric-tag ${escapeHtml(roleClass)}"${conditional ? ` title="${escapeHtml(conditional.reason)}"` : ''}>${escapeHtml(role)} ${escapeHtml(mid)}: ${escapeHtml(m?.name || mid)}</span>`;
   }).join('')}
           </div>
+          ${governance.conditionalDrivers.map(driver => `<p class="text-xs text-secondary mt-sm"><strong>${escapeHtml(driver.metric)} conditional ${driver.role === 'P' ? 'primary' : 'supporting'} driver: ${escapeHtml(driver.status)}.</strong> ${escapeHtml(driver.reason)}</p>`).join('')}
         </div>
       </details>
 
       ${p.whenToElevate ? `
       <div class="detail-section">
-        <h4>When to Elevate</h4>
+        <h4>Questions for professional review</h4>
         <p class="text-sm text-secondary">${escapeHtml(p.whenToElevate)}</p>
+        <p class="text-xs text-secondary mt-sm">These authored prompts do not override the assessment rules or save a level change.</p>
       </div>` : ''}
     </div>
   `;
 }
 
-function renderRegistryDependencyContext(processId) {
-  const rules = ACTIVE_CONSISTENCY_RULES.filter(rule =>
-    Number(rule.trigger?.process) === Number(processId) || Number(rule.required?.process) === Number(processId)
-  );
-  const floors = OVERRIDE_CONDITIONS.filter(floor =>
-    (floor.processes || []).map(Number).includes(Number(processId))
-  );
+function renderRegistryDependencyContext({ rules, floors }) {
   if (rules.length === 0 && floors.length === 0) return '';
 
   return `<div class="detail-section">
     <h4>Registry-Derived Governance Context</h4>
-    <p class="text-xs text-secondary mb-md">Generated directly from the current rule and floor registry. It does not add practitioner-authored semantics.</p>
-    ${rules.length ? `<div class="mb-md"><strong class="text-xs">Related active rules</strong>${rules.map(rule => `<div class="activity-item"><span class="activity-marker" aria-hidden="true">•</span> Rule ${escapeHtml(rule.id)} [${escapeHtml(rule.type)}]: ${escapeHtml(rule.label)}</div>`).join('')}</div>` : ''}
-    ${floors.length ? `<div><strong class="text-xs">Applicable floor definitions</strong>${floors.map(floor => `<div class="activity-item"><span class="activity-marker" aria-hidden="true">•</span> ${escapeHtml(floor.label || floor.description || floor.id || floor.overrideId)} · minimum ${escapeHtml(floor.minLevel || 'defined by registry')}</div>`).join('')}</div>` : ''}
+    <p class="text-xs text-secondary mb-md">Generated from the current rule and floor registry. Rule types use the element's effective ratings, including protected inheritance; unconfirmed inputs remain a preview. Related rules apply only when their trigger is met. Browsing a different content level does not change this context.</p>
+    ${rules.length ? `<div class="mb-md"><strong class="text-xs">Related framework rules</strong>${rules.map(rule => `<div class="activity-item"><span class="activity-marker" aria-hidden="true">•</span> Rule ${escapeHtml(rule.id)} [${escapeHtml(rule.effectiveType || `Base ${rule.type}; context unavailable`)}${rule.effectiveType && rule.effectiveType !== rule.type ? ' in this context' : ''}]: ${escapeHtml(rule.label)} <span class="text-secondary">· ${escapeHtml(rule.status)}</span></div>`).join('')}</div>` : ''}
+    ${floors.length ? `<div><strong class="text-xs">Possible minimum-level rules</strong><p class="text-xs text-secondary">Each minimum applies only when its stated condition is met.</p>${floors.map(floor => `<div class="activity-item"><span class="activity-marker" aria-hidden="true">•</span> ${escapeHtml(floor.label || floor.description || floor.id || floor.overrideId)} · minimum ${escapeHtml(FRAMEWORK_META.levelLabels[floor.minLevel] || floor.minLevel || 'defined by registry')}<div class="text-secondary">Condition: ${escapeHtml(floor.condition || floor.description)}</div></div>`).join('')}</div>` : ''}
   </div>`;
 }

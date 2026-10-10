@@ -56,6 +56,9 @@ jobs:
           tests/e2e/accessibility-navigation.spec.js
           tests/e2e/assessment-integrity.spec.js
           tests/e2e/right-sizing-governance.spec.js
+          tests/e2e/help-navigation.spec.js
+          tests/e2e/usability-report.spec.js
+          tests/e2e/reference-controls.spec.js
           --project=firefox
           --project=webkit
 

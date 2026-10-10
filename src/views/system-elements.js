@@ -22,6 +22,7 @@ import { escapeHtml } from '../utils/safe-text.js';
 
 const VALID_ASSESSMENT_TYPES = new Set(['full', 'quick', 'inherited']);
 const VALID_ELEMENT_STATUSES = new Set(['draft', 'under_review', 'approved', 'baselined']);
+const ELEMENT_STATUS_LABELS = { draft: 'Draft', under_review: 'Under review', approved: 'Approved', baselined: 'Baselined' };
 
 function renderHierarchyDisposition(metricId, disposition, assessment, legacyMigrationInput) {
   const key = metricId.toLowerCase();
@@ -123,7 +124,9 @@ export function renderSystemElements(container) {
           </div>
           <div class="se-add-panel">
             <h4>Add Element</h4>
-            <input class="input" id="new-element-name" placeholder="Element name..." type="text" />
+            <label class="text-xs text-secondary" for="new-element-name">Element name/code</label>
+            <input class="input" id="new-element-name" placeholder="e.g. Navigation subsystem" type="text" />
+            <label class="text-xs text-secondary" for="new-element-type">Assessment type</label>
             <select class="select" id="new-element-type">
               <option value="quick">Quick Assessment (M1-M6, M8, M15 review)</option>
               <option value="full">Full Assessment (all metrics)</option>
@@ -139,7 +142,7 @@ export function renderSystemElements(container) {
             <div>
               <h3>${activeName}</h3>
               <span class="se-type-badge ${activeType}">${activeType}</span>
-              <span class="se-status-badge ${activeStatus}">${activeStatus}</span>
+              <span class="se-status-badge ${activeStatus}">${ELEMENT_STATUS_LABELS[activeStatus]}</span>
               ${activeNode.parentId ? `<span class="text-xs text-secondary">Parent: ${escapeHtml(tree.nodes[activeNode.parentId]?.name || '—')}</span>` : '<span class="text-xs text-secondary">Root element</span>'}
             </div>
             <div class="se-detail-actions">
@@ -176,6 +179,7 @@ export function renderSystemElements(container) {
           <!-- Metric Summary -->
           <div class="se-metric-summary">
             <h4>Metric Scores</h4>
+            ${activeNode.manualMetrics?.length ? '<p class="text-xs text-secondary mb-sm" id="manual-metric-help">Manual scores are not automatically replaced by propagation. You can still edit them in the assessment.</p>' : ''}
             <div class="se-metric-grid">
               ${METRICS.map(m => {
     const val = activeNode.scores?.[m.id] ?? 3;
@@ -186,7 +190,7 @@ export function renderSystemElements(container) {
                   <span class="se-metric-id">${m.id}</span>
                   <span class="se-metric-val">${val}</span>
                   ${isInherited ? '<span class="se-inherit-icon" title="Inherited from parent">↑</span>' : ''}
-                  ${isManual ? '<span class="se-manual-icon" title="Manually set (protected)">🔒</span>' : ''}
+                  ${isManual ? '<span class="se-manual-icon" aria-describedby="manual-metric-help" title="Manually set; not automatically replaced by propagation">Manual</span>' : ''}
                 </div>`;
   }).join('')}
             </div>
@@ -270,7 +274,7 @@ export function renderSystemElements(container) {
                 <div class="se-child-info">
                   <span class="se-child-name">${escapeHtml(child.name)}</span>
                   <span class="se-type-badge ${safeAssessmentType(child.assessmentType)}">${safeAssessmentType(child.assessmentType)}</span>
-                  <span class="se-status-badge ${safeElementStatus(child.status)}">${safeElementStatus(child.status)}</span>
+                  <span class="se-status-badge ${safeElementStatus(child.status)}">${ELEMENT_STATUS_LABELS[safeElementStatus(child.status)]}</span>
                 </div>
                 <div class="se-child-actions">
                   <button class="btn btn-ghost btn-sm se-nav-child" data-id="${escapeHtml(child.id)}">Navigate →</button>
@@ -331,7 +335,7 @@ export function renderSystemElements(container) {
 
       .se-metric-summary { margin-bottom: 20px; }
       .se-metric-summary h4 { font-size: 14px; margin-bottom: 10px; }
-      .se-metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; }
+      .se-metric-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
       .se-metric-chip { display: flex; align-items: center; gap: 4px; padding: 6px 8px; background: var(--bg-tertiary); border-radius: 6px; font-size: 12px; position: relative; transition: all 0.15s; }
       .se-metric-chip.inherited { border-left: 2px solid rgba(52,211,153,0.5); }
       .se-metric-chip.manual { border-left: 2px solid rgba(245,158,11,0.5); }
@@ -566,7 +570,7 @@ function renderTreeNodes(nodes, nodeId, activeId, depth) {
   let html = `
     <div class="se-tree-node ${isActive ? 'active' : ''}" data-id="${escapeHtml(nodeId)}" style="padding-left: ${indent + 8}px">
       <span class="node-name">${escapeHtml(node.name)}</span>
-      <span class="node-status ${status}" title="${status}"></span>
+      <span class="node-status ${status}" role="img" aria-label="Status: ${ELEMENT_STATUS_LABELS[status]}" title="${ELEMENT_STATUS_LABELS[status]}"></span>
     </div>`;
 
   if (hasChildren) {

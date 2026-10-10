@@ -73,12 +73,24 @@ jobs:
           if-no-files-found: warn
           retention-days: 3
 
+      - name: Upload synthetic usability screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: usability-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: test-results/**/*.png
+          if-no-files-found: ignore
+          retention-days: 3
+
       - name: Run Firefox and WebKit critical-path smoke
         run: >-
           npx playwright test
           tests/e2e/accessibility-navigation.spec.js
           tests/e2e/assessment-integrity.spec.js
           tests/e2e/right-sizing-governance.spec.js
+          tests/e2e/help-navigation.spec.js
+          tests/e2e/usability-report.spec.js
+          tests/e2e/reference-controls.spec.js
           --project=firefox
           --project=webkit
 

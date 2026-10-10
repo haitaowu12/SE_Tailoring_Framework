@@ -6,11 +6,12 @@ import { renderDecisionLedger } from '../utils/decision-record-view.js';
 import { CORE_PROCESSES, METRICS, DIMENSIONS, FRAMEWORK_META, PROCESS_GROUPS, OVERRIDE_CONDITIONS, PROPAGATION_RULES } from '../data/se-tailoring-data.js';
 import { getDriverAttribution, runFullAssessment, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
 import { generateReport, exportConfig, applyManualAdjustmentsToLevels } from '../utils/export-import.js';
-import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import * as data from '../data/se-tailoring-data.js';
 import { getState, setState, showToast, getElementsFlat } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml, safeText } from '../utils/safe-text.js';
+import { getMetricAnchorText } from '../utils/metric-anchor-text.js';
+import { getRightSizingDraft, saveRightSizingDraft } from '../utils/right-sizing-drafts.js';
 import { getAssessmentDisposition } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
@@ -27,12 +28,14 @@ function renderRightSizingApprovalForm(proposal, state) {
   const evaluation = (state.rightSizingApprovalEvaluations || []).find(item => Number(item.proposal?.processId) === Number(proposal.processId));
   const assessedRecord = evaluation?.locallyComplete || evaluation?.records?.[0];
   const record = assessedRecord?.record || (state.rightSizingApprovalRecords || []).find(item => Number(item.processId) === Number(proposal.processId)) || {};
+  const draft = getRightSizingDraft(state, proposal);
+  const field = (name, saved = '') => escapeHtml(draft?.fields[name] ?? saved);
   const status = assessedRecord?.assessment?.status || 'not-recorded';
   const reasons = assessedRecord?.assessment?.reasons || [];
   const roleFields = requirements.requiredRoles.map(role => `
     <div class="grid-2 mb-sm">
-      <label class="text-xs">${escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])} — asserted role<input class="input" name="${role}-identity" placeholder="Asserted approver role (not verified)" value="${escapeHtml(record.approvals?.[role]?.identity || '')}"></label>
-      <label class="text-xs">Authority basis<input class="input" name="${role}-basis" placeholder="Role charter, delegation, or acceptance authority" value="${escapeHtml(record.approvals?.[role]?.authorityBasis || '')}"></label>
+      <label class="text-xs">${escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])} — asserted role<input class="input" name="${role}-identity" placeholder="Asserted approver role (not verified)" value="${field(`${role}-identity`, record.approvals?.[role]?.identity || '')}"></label>
+      <label class="text-xs">Authority basis<input class="input" name="${role}-basis" placeholder="Role charter, delegation, or acceptance authority" value="${field(`${role}-basis`, record.approvals?.[role]?.authorityBasis || '')}"></label>
     </div>`).join('');
   return `
     <details class="mt-sm" style="border-top:1px solid rgba(99,102,241,.2);padding-top:8px;">
@@ -40,15 +43,16 @@ function renderRightSizingApprovalForm(proposal, state) {
       <form class="right-sizing-approval-form mt-sm" data-process-id="${proposal.processId}">
         <div class="text-xs text-secondary mb-sm">Required asserted roles: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''} The static prototype cannot authenticate identities or verify external approval.</div>
         ${reasons.length ? `<div class="text-xs mb-sm" style="color:var(--accent-warning);">Current record: ${reasons.map(escapeHtml).join(', ')}</div>` : ''}
-        <label class="text-xs">Rationale<textarea class="input" name="rationale" rows="2">${escapeHtml(record.rationale || '')}</textarea></label>
-        <label class="text-xs">Protected outputs and evidence<textarea class="input" name="protectedOutputs" rows="2">${escapeHtml(record.protectedOutputs || '')}</textarea></label>
+        <p class="right-sizing-draft-status text-xs text-secondary mb-sm" role="status">${draft?.stale ? 'Draft from an earlier proposal. Review every field against the current proposal before recording.' : draft ? 'Draft kept in this browser session. It has not been submitted or applied.' : 'Typing saves a draft in this browser; only the button below records the asserted decision.'}</p>
+        <label class="text-xs">Rationale<textarea class="input" name="rationale" rows="2">${field('rationale', record.rationale || '')}</textarea></label>
+        <label class="text-xs">Protected outputs and evidence<textarea class="input" name="protectedOutputs" rows="2">${field('protectedOutputs', record.protectedOutputs || '')}</textarea></label>
         <div class="grid-2">
-          <label class="text-xs">Residual risks<textarea class="input" name="residualRisks" rows="2">${escapeHtml(record.residualRisks || '')}</textarea></label>
-          <label class="text-xs">Risk acceptance owner<input class="input" name="riskAcceptanceOwner" value="${escapeHtml(record.riskAcceptanceOwner || '')}"></label>
-          <label class="text-xs">Compensating controls<textarea class="input" name="compensatingControls" rows="2">${escapeHtml(record.compensatingControls || '')}</textarea></label>
-          <label class="text-xs">Rejected alternatives<textarea class="input" name="rejectedAlternatives" rows="2">${escapeHtml(record.rejectedAlternatives || '')}</textarea></label>
-          <label class="text-xs">Evidence reference<input class="input" name="evidenceRef" value="${escapeHtml(record.evidenceRef || '')}"></label>
-          <label class="text-xs">Valid through / review date<input class="input" type="date" name="reviewDate" value="${escapeHtml(record.reviewDate || '')}"></label>
+          <label class="text-xs">Residual risks<textarea class="input" name="residualRisks" rows="2">${field('residualRisks', record.residualRisks || '')}</textarea></label>
+          <label class="text-xs">Risk acceptance owner<input class="input" name="riskAcceptanceOwner" value="${field('riskAcceptanceOwner', record.riskAcceptanceOwner || '')}"></label>
+          <label class="text-xs">Compensating controls<textarea class="input" name="compensatingControls" rows="2">${field('compensatingControls', record.compensatingControls || '')}</textarea></label>
+          <label class="text-xs">Rejected alternatives<textarea class="input" name="rejectedAlternatives" rows="2">${field('rejectedAlternatives', record.rejectedAlternatives || '')}</textarea></label>
+          <label class="text-xs">Evidence reference<input class="input" name="evidenceRef" value="${field('evidenceRef', record.evidenceRef || '')}"></label>
+          <label class="text-xs">Valid through / review date<input class="input" type="date" name="reviewDate" value="${field('reviewDate', record.reviewDate || '')}"></label>
         </div>
         ${roleFields}
         <button class="btn btn-primary btn-sm" type="submit">Record asserted decision and update local scenario</button>
@@ -85,11 +89,11 @@ function makeReportSectionCollapsible(container, section, title, description, op
   body.appendChild(section);
 }
 
-function enhanceReportSections(container) {
+function enhanceReportSections(container, previousSections = new Map()) {
   const summaryPanel = container.querySelector('.report-summary-panel');
   if (!summaryPanel) return;
 
-  summaryPanel.insertAdjacentHTML('afterend', `
+  (container.querySelector('.report-process-plan') || summaryPanel).insertAdjacentHTML('afterend', `
     <div class="report-section-toolbar" aria-label="Report section controls">
       <span>Report sections</span>
       <button class="btn btn-secondary btn-sm" id="btn-expand-report-sections">Expand all</button>
@@ -100,10 +104,10 @@ function enhanceReportSections(container) {
   const sectionConfigs = [
     { section: container.querySelector('.decision-ledger'), title: 'Saved tailoring decisions', description: 'Recommendation, local choice, rationale and change history.', open: false },
     {
-      section: container.querySelector(':scope > .grid-2.mb-xl'),
-      title: 'Project and Level Distribution',
-      description: 'Project metadata and pilot profile count.',
-      open: true
+      section: findDirectReportCard(container, 'Project context'),
+      title: 'Project context',
+      description: 'Assessed boundary, decision purpose and project metadata.',
+      open: false
     },
     {
       section: findDirectReportCard(container, 'System Element Tailoring Overview'),
@@ -115,24 +119,12 @@ function enhanceReportSections(container) {
       section: findDirectReportCard(container, 'Right-Sizing Analysis'),
       title: 'Right-Sizing Analysis',
       description: 'PSI, CSI, CRI, and non-binding right-sizing proposals.',
-      open: container.querySelectorAll('.right-sizing-approval-form').length > 0
+      open: false
     },
     {
       section: findDirectReportCard(container, 'Safety Assurance Criticality'),
       title: 'Safety Assurance Criticality',
       description: 'Safety tier and rigor floor.',
-      open: false
-    },
-    {
-      section: container.querySelector(':scope > .report-overview-panel'),
-      title: 'Assessment Shape',
-      description: 'A visual overview of confirmed scores, with a compact accessible score list.',
-      open: true
-    },
-    {
-      section: findDirectReportCard(container, 'Floor Elevations'),
-      title: 'Floor Elevations',
-      description: 'Triggered floors that actually raised a process level.',
       open: false
     },
     {
@@ -198,7 +190,7 @@ function enhanceReportSections(container) {
   ];
 
   sectionConfigs.forEach(config => {
-    makeReportSectionCollapsible(container, config.section, config.title, config.description, config.open);
+    makeReportSectionCollapsible(container, config.section, config.title, config.description, previousSections.get(config.title) ?? config.open);
   });
 
   container.querySelector('#btn-expand-report-sections')?.addEventListener('click', () => {
@@ -215,12 +207,12 @@ function enhanceReportSections(container) {
   removeReportPrintHandlers();
   let prePrintOpenState = [];
   const beforePrint = () => {
-    const sections = [...container.querySelectorAll('.report-section')];
+    const sections = [...container.querySelectorAll('details')];
     prePrintOpenState = sections.map(section => section.open);
     sections.forEach(section => { section.open = true; });
   };
   const afterPrint = () => {
-    const sections = [...container.querySelectorAll('.report-section')];
+    const sections = [...container.querySelectorAll('details')];
     sections.forEach((section, index) => {
       section.open = prePrintOpenState[index] ?? section.open;
     });
@@ -235,12 +227,15 @@ function enhanceReportSections(container) {
 }
 
 export function renderReport(container) {
+  const previousSections = new Map([...container.querySelectorAll('.report-section')].map(section => [section.querySelector('.report-section-title')?.textContent, section.open]));
   removeReportPrintHandlers();
   const state = getState();
   const integrity = getAssessmentDisposition(state);
   if (!integrity.complete) {
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. ${integrity.completeCount === METRICS.length ? 'Review recommendations and select Check Software Completeness. Any remaining warning, hierarchy or delivery checks must also be resolved.' : 'Unconfirmed values remain a preview. Review the remaining judgments to prepare a completed pilot record.'} Your saved tailoring decisions remain available below.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button><button class="btn btn-secondary mt-lg" id="btn-open-decisions">Open saved decisions</button></div>`;
-    container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('review'));
+    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. ${integrity.completeCount === METRICS.length ? 'Review recommendations and select Check Software Completeness. Any remaining warning, hierarchy or delivery checks must also be resolved.' : 'Unconfirmed values remain a preview. Review the remaining judgments to prepare a completed pilot record.'} Your saved tailoring decisions remain available in Decisions.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button><button class="btn btn-secondary mt-lg" id="btn-open-decisions">Open saved decisions</button></div>`;
+    container.querySelector('#btn-go-assess')?.addEventListener('click', () => integrity.incompleteMetricIds.length
+      ? navigateTo('assessment', { resume: '1' })
+      : navigateTo('review'));
     container.querySelector('#btn-open-decisions')?.addEventListener('click', () => navigateTo('adjust'));
     return;
   }
@@ -267,7 +262,6 @@ export function renderReport(container) {
     localScenarioLevels[process.id] && localScenarioLevels[process.id] !== levels[process.id]
   );
 
-  const assessmentRatings = renderMetricRatingTable(scores, state.metricAssessments, METRICS);
   const overrideCount = state.overrides?.length || 0;
   const warningCount = state.violations?.length || 0;
   const fixCount = state.fixes?.length || 0;
@@ -284,13 +278,13 @@ export function renderReport(container) {
   const csiActionLabels = new Map(CSI_RESPONSE_ACTIONS.map(action => [action.id, action.label]));
   const justificationCount = Object.values(confidence).filter(value => value === 'available-with-justification').length;
   const metricNotesCount = METRICS.filter(metric => String(state.metricAssessments?.[metric.id]?.rationale || '').trim()).length;
-  const floorAppliedCount = Object.values(confidence).filter(value => value === 'floor-applied').length;
   const highPressureMetrics = METRICS
     .filter(metric => (scores[metric.id] ?? 3) >= 4)
     .map(metric => metric.id);
-  const processExceptions = CORE_PROCESSES.filter(process =>
-    (levels[process.id] || levels[String(process.id)] || 'basic') !== 'standard'
-  );
+  const processPlan = [...CORE_PROCESSES].sort((left, right) => {
+    const priority = process => (activeManualAdjustments[process.id] ? 4 : 0) + (levels[process.id] === 'comprehensive' ? 2 : 0) + (state.activeFloors?.some(floor => floor.processId === process.id) ? 1 : 0);
+    return priority(right) - priority(left) || left.id - right.id;
+  });
   const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
   const gateLabel = status => ({
     passed: 'Passed',
@@ -321,64 +315,39 @@ export function renderReport(container) {
   };
 
   container.innerHTML = `
-    <div class="report-page-header flex justify-between items-center mb-lg">
+    <div class="report-page-header flex justify-between items-center mb-sm">
       <div>
         <h2>Pilot Tailoring Record</h2>
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}${elements.length > 1 ? ` · ${escapeHtml(activeReportNode?.name || 'Current element')}` : ''}</p>
       </div>
       <div class="report-export-actions flex gap-sm">
-        <button class="btn btn-secondary btn-sm" id="btn-report-decisions">Review / adjust decisions</button>
+        <button class="btn btn-primary btn-sm" id="btn-report-decisions">Review / adjust decisions</button>
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
-        <button class="btn btn-primary btn-sm" id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
+        <button class="btn btn-secondary btn-sm" id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
       </div>
     </div>
 
-    <div class="pilot-record-banner mb-xl" role="note">
+    <p class="report-export-note text-xs text-secondary mb-md">HTML retains free text and evidence references; review it before sharing. Minimum-data JSON omits those details. Use Session → Private backup for a complete restorable copy.</p>
+
+    <div class="pilot-record-banner mb-lg" role="note">
       <strong>Pilot record — not an authoritative organizational baseline</strong>
       <span>Software completeness checks passed. External approval not verified.</span>
     </div>
 
-    ${renderDecisionLedger(state)}
-    <h3 class="report-layer-heading">1. Decision summary</h3>
-    <div class="card mb-xl report-summary-panel">
+    <section class="card mb-lg report-summary-panel" aria-labelledby="report-summary-title">
       <div>
-        <h4 class="mb-md">Executive Summary</h4>
-        <p class="text-secondary text-sm">Top-level report state before reviewing detailed process evidence.</p>
+        <h3 id="report-summary-title">Current process profile</h3>
+        <p class="text-secondary text-sm mt-sm">Use the plan below to agree activities, owners and evidence with your team. Record changes in Decisions; approval stays outside this prototype.</p>
       </div>
       <div class="report-summary-grid">
-        <div class="report-summary-item">
-          <span class="summary-value">Passed</span>
-          <span class="summary-label">Software completeness checks</span>
-        </div>
-        <div class="report-summary-item">
-          <span class="summary-value">${overrideCount}</span>
-          <span class="summary-label">Override floors</span>
-        </div>
-        <div class="report-summary-item">
-          <span class="summary-value">${warningCount}</span>
-          <span class="summary-label">Warnings</span>
-        </div>
-        <div class="report-summary-item">
-          <span class="summary-value">${justificationCount}</span>
-          <span class="summary-label">Justifications needed</span>
-        </div>
-        <div class="report-summary-item">
-          <span class="summary-value">${floorAppliedCount}</span>
-          <span class="summary-label">Rule floors</span>
-        </div>
-        <div class="report-summary-item">
-          <span class="summary-value">${adoptionRiskCount}</span>
-          <span class="summary-label">Adoption gaps</span>
-        </div>
-      </div>
-      <div class="report-summary-notes">
-        <span><strong>Pilot process profile:</strong> ${basicCount} Basic · ${stdCount} Standard · ${compCount} Comprehensive.</span>
-        <span><strong>High-pressure metrics:</strong> ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None at 4 or 5'}.</span>
-        <span><strong>Metric notes:</strong> ${metricNotesCount} of ${METRICS.length} recorded.</span>
-        <span><strong>Consistency fixes:</strong> ${fixCount} automatic propagation adjustment${fixCount === 1 ? '' : 's'}.</span>
+        <div class="report-summary-item"><span class="summary-value">${basicCount}</span><span class="summary-label">Basic</span></div>
+        <div class="report-summary-item"><span class="summary-value">${stdCount}</span><span class="summary-label">Standard</span></div>
+        <div class="report-summary-item"><span class="summary-value">${compCount}</span><span class="summary-label">Comprehensive</span></div>
       </div>
       <details class="report-summary-trace">
         <summary>Method scope and completion details</summary>
+        <p class="text-xs text-secondary mt-sm">${overrideCount} floor elevations · ${fixCount} automatic dependency adjustments · ${warningCount} recorded warnings · ${adoptionRiskCount} adoption gaps. ${justificationCount} optional Comprehensive choice${justificationCount === 1 ? '' : 's'} need rationale only if selected.</p>
+        <p class="text-xs text-secondary mt-sm">Ratings at 4 or 5: ${highPressureMetrics.length ? highPressureMetrics.join(', ') : 'None'}. Higher M16 means stronger enabling conditions. ${metricNotesCount}/${METRICS.length} metric notes recorded.</p>
         <div class="report-scope-note">
           <strong>Scope and evidence maturity:</strong> This executable assessment covers ${CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.
         </div>
@@ -386,41 +355,46 @@ export function renderReport(container) {
           ${integrity.gates.map(gate => `<div class="report-gate ${escapeHtml(gate.status)}"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}
         </div>
       </details>
-    </div>
+    </section>
 
-    <div class="card mb-xl report-overview-panel">
-      ${assessmentRatings}
-    </div>
+    <section class="card mb-xl report-process-plan" aria-labelledby="report-plan-title">
+      <div class="flex justify-between items-center gap-lg mb-md" style="flex-wrap:wrap;">
+        <div>
+          <h3 id="report-plan-title">Process plan</h3>
+          <p class="text-xs text-secondary mt-sm">All ${CORE_PROCESSES.length} process recommendations remain available. Local choices and higher-rigor work appear first. Check activities against your boundary and stage.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" type="button" id="btn-open-process-guidance">Open process work aids</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" id="report-process-plan-table">
+          <caption class="sr-only">Current process levels and their reasons. Separate recommendations and local decisions are preserved in the saved decision record.</caption>
+          <thead><tr><th scope="col">Process</th><th scope="col">Current profile</th><th scope="col">Why</th><th scope="col">Work aid</th></tr></thead>
+          <tbody>${processPlan.map((process, index) => {
+            const level = levels[process.id] || levels[String(process.id)] || 'basic';
+            return `<tr ${index >= 5 ? 'data-plan-extra hidden' : ''}>
+              <th scope="row">${escapeHtml(process.name)}</th>
+              <td><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>${activeManualAdjustments[process.id] ? '<br><span class="text-xs text-secondary">Local choice</span>' : ''}</td>
+              <td class="text-sm text-secondary">${escapeHtml(processPlanReason(process))}</td>
+              <td><a href="${escapeHtml(processDetailsHref(process.id, level, 'report'))}" class="process-detail-link" aria-label="Open work aid for ${escapeHtml(process.name)}">Open →</a></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+      <button class="btn btn-secondary btn-sm mt-md" type="button" id="btn-toggle-process-plan" aria-controls="report-process-plan-table" aria-expanded="false">Show all ${CORE_PROCESSES.length} processes</button>
+    </section>
 
-    <div class="grid-2 mb-xl">
-      <div class="card">
-        <h4 class="mb-md">Project Details</h4>
+    ${renderDecisionLedger(state)}
+    <div class="card mb-xl">
+        <h4 class="mb-md">Project context</h4>
         <table class="data-table">
           <tr><td class="text-secondary">Name</td><td>${projectName}</td></tr>
           <tr><td class="text-secondary">Date</td><td>${projectDate}</td></tr>
           <tr><td class="text-secondary">Team</td><td>${projectTeam}</td></tr>
           <tr><td class="text-secondary">Phase</td><td>${projectPhase}</td></tr>
+          <tr><td class="text-secondary">Assessed boundary</td><td>${escapeHtml(state.projectInfo.boundary || 'Not recorded')}</td></tr>
+          <tr><td class="text-secondary">Decision purpose</td><td>${escapeHtml(state.projectInfo.purpose || 'Not recorded')}</td></tr>
         </table>
       </div>
-      <div class="card">
-        <h4 class="mb-md">Level Distribution</h4>
-        <div class="level-bar-chart">
-          <div class="level-bar">
-            <div class="level-bar-fill basic-bar" style="width: ${basicCount / CORE_PROCESSES.length * 100}%"></div>
-            <span>${basicCount} Basic</span>
-          </div>
-          <div class="level-bar">
-            <div class="level-bar-fill standard-bar" style="width: ${stdCount / CORE_PROCESSES.length * 100}%"></div>
-            <span>${stdCount} Standard</span>
-          </div>
-          <div class="level-bar">
-            <div class="level-bar-fill comp-bar" style="width: ${compCount / CORE_PROCESSES.length * 100}%"></div>
-            <span>${compCount} Comprehensive</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
     ${elements.length > 1 ? `
     <div class="card mb-xl">
       <h4 class="mb-md">System Element Tailoring Overview</h4>
@@ -490,33 +464,6 @@ export function renderReport(container) {
       </div>
     </div>` : ''}
 
-    <h3 class="report-layer-heading">2. Action record</h3>
-    <div class="card mb-xl">
-      <div class="flex justify-between items-center gap-lg mb-md" style="flex-wrap:wrap;">
-        <div>
-          <h4>Process plan</h4>
-          <p class="text-xs text-secondary mt-sm">${processExceptions.length
-            ? `${processExceptions.length} process recommendation${processExceptions.length === 1 ? '' : 's'} differ from the Standard baseline.`
-            : `No exceptions — all ${CORE_PROCESSES.length} processes follow the Standard baseline.`}</p>
-        </div>
-        <button class="btn btn-secondary btn-sm" type="button" id="btn-open-process-guidance">Open process work aids</button>
-      </div>
-      ${processExceptions.length ? `<div style="overflow-x:auto;">
-        <table class="data-table">
-          <caption class="sr-only">Processes that differ from the Standard baseline</caption>
-          <thead><tr><th scope="col">Process</th><th scope="col">Level</th><th scope="col">Why</th><th scope="col">Work aid</th></tr></thead>
-          <tbody>${processExceptions.map(process => {
-            const level = levels[process.id] || levels[String(process.id)] || 'basic';
-            return `<tr>
-              <th scope="row">${escapeHtml(process.name)}</th>
-              <td><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span></td>
-              <td class="text-sm text-secondary">${escapeHtml(processPlanReason(process))}</td>
-              <td><a href="${escapeHtml(processDetailsHref(process.id, level, 'report'))}" class="process-detail-link">Open →</a></td>
-            </tr>`;
-          }).join('')}</tbody>
-        </table>
-      </div>` : ''}
-    </div>
     ${csiReadiness.required ? `
     <div class="card mb-xl" style="border-left:3px solid ${csiReadiness.complete ? 'var(--accent-success)' : 'var(--accent-warning)'};">
       <h4 class="mb-md">CSI ${csiReadiness.csi} Constraint Response — ${csiReadiness.complete ? 'Complete' : 'Incomplete'}</h4>
@@ -592,12 +539,6 @@ export function renderReport(container) {
       </div>
     </div>` : ''}
 
-    ${state.overrides.length > 0 ? `
-    <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
-      <h4 class="mb-md">Floor Elevations (${state.overrides.length})</h4>
-      ${state.overrides.map(o => `<div class="text-sm mb-sm"><strong>${escapeHtml(processName(o.processId))}</strong>: ${escapeHtml(o.from)} → ${escapeHtml(o.to)} — ${escapeHtml(o.reason)}${o.condition ? ` (${escapeHtml(o.condition)})` : ''}</div>`).join('')}
-    </div>` : ''}
-
     ${state.activeFloors?.length > 0 ? `
     <div class="card mb-xl" style="border-left:3px solid var(--accent-info)">
       <h4 class="mb-md">Active Mandatory Floors (${state.activeFloors.length})</h4>
@@ -656,7 +597,7 @@ export function renderReport(container) {
       }).join('')}
     </div>` : ''}
 
-    <h3 class="report-layer-heading">3. Trace appendix</h3>
+    <h3 class="report-layer-heading">Trace and reference</h3>
     <div class="card mb-xl">
       <h4 class="mb-md">Full Process Tailoring Profile</h4>
       <p class="text-xs text-secondary mb-md">One process-level view: derived level, pilot-profile assignment, separate unverified local scenario, evidence status, and top drivers.</p>
@@ -702,12 +643,12 @@ export function renderReport(container) {
       : conf === 'direct-consequence'
         ? '<span class="confidence-badge-inline high" title="A mapped M5 or M7 score of 5 independently triggers Comprehensive under the framework policy; this is not multi-input corroboration or a floor elevation">Direct consequence</span>'
       : conf === 'available-with-justification'
-        ? '<span class="confidence-badge-inline available-with-justification" title="Comprehensive available with documented justification">Needs note</span>'
+        ? '<span class="confidence-badge-inline available-with-justification" title="Standard is recommended; choosing Comprehensive requires recorded justification">Optional elevation</span>'
         : conf === 'floor-applied'
           ? '<span class="confidence-badge-inline floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">Floor</span>'
           : '<span class="confidence-badge-inline high" title="Supported by drivers/rules">Supported</span>';
     const justificationFlag = conf === 'available-with-justification'
-      ? ' <span class="justification-flag" title="Justification required for Comprehensive level">Justification required</span>'
+      ? ''
       : '';
     const manualHtml = manualAdjustment
       ? `<span class="manual-adjustment-cell"><strong>${escapeHtml(manualAdjustment.level || final_)}</strong><span class="text-xs text-secondary">${escapeHtml(manualAdjustment.justification || 'No justification recorded')}</span></span>`
@@ -734,7 +675,7 @@ export function renderReport(container) {
     ${state.overrides.length > 0 ? `
     <div class="card mb-xl" style="border-left: 3px solid var(--accent-warning)">
       <h4 class="mb-md">Override Chain Documentation</h4>
-      <p class="text-xs text-secondary mb-md">Traceability from metric thresholds to process level floors.</p>
+      <p class="text-xs text-secondary mb-md">Traceability from metric thresholds to process level floors. Thresholds are framework policy; references do not prescribe these score cutoffs.</p>
       <div style="overflow-x:auto">
         <table class="data-table">
           <thead>
@@ -743,7 +684,7 @@ export function renderReport(container) {
               <th>Trigger</th>
               <th>Affected Process</th>
               <th>Change</th>
-              <th>Source Standard</th>
+              <th>Policy basis / reference</th>
             </tr>
           </thead>
           <tbody>
@@ -821,7 +762,7 @@ export function renderReport(container) {
                 <td><strong>${m.id}</strong> ${m.name}</td>
                 <td style="color:${dim.color}">${dim.name}</td>
                 <td><strong>${s}</strong></td>
-                <td class="text-xs text-secondary">${m.anchors[s] || ''}</td>
+                <td class="text-xs text-secondary">${escapeHtml(getMetricAnchorText(m, s))}</td>
                 <td class="text-xs text-secondary metric-note-cell">${escapeHtml(rationale || '—')}</td>
               </tr>`;
   }).join('')}
@@ -833,13 +774,9 @@ export function renderReport(container) {
 
   const style = document.createElement('style');
   style.textContent = `
-    .level-bar-chart { display: flex; flex-direction: column; gap: 10px; }
-    .level-bar { position: relative; height: 28px; background: var(--bg-tertiary); border-radius: 6px; overflow: hidden; display: flex; align-items: center; }
-    .level-bar span { position: relative; z-index: 1; padding-left: 10px; font-size: 12px; font-weight: 600; }
-    .level-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; transition: width 0.5s ease; }
-    .basic-bar { background: rgba(59,130,246,0.3); }
-    .standard-bar { background: rgba(245,158,11,0.3); }
-    .comp-bar { background: rgba(239,68,68,0.3); }
+    .report-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .report-process-plan [hidden] { display:none; }
+    @media print { .report-process-plan tr[data-plan-extra] { display:table-row !important; } }
     .se-type-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
     .se-type-badge.full { background: rgba(99,102,241,0.15); color: var(--accent-primary-light); }
     .se-type-badge.quick { background: rgba(245,158,11,0.15); color: #f59e0b; }
@@ -857,7 +794,7 @@ export function renderReport(container) {
     .manual-adjustment-cell { display:grid; gap:2px; min-width:160px; }
     .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-    .report-summary-trace { margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:12px; }
+    .report-summary-trace { grid-column:1 / -1; margin-top:14px; border-top:1px solid var(--border-subtle); padding-top:12px; }
     .report-summary-trace > summary { cursor:pointer; color:var(--text-secondary); font-size:12px; font-weight:700; }
     .pilot-record-banner { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
     .pilot-record-banner strong,.pilot-record-banner span { grid-column:1; }
@@ -871,7 +808,13 @@ export function renderReport(container) {
     .report-gate.incomplete strong { color:var(--accent-warning); }
   `;
   container.appendChild(style);
-  enhanceReportSections(container);
+  enhanceReportSections(container, previousSections);
+  container.querySelector('#btn-toggle-process-plan')?.addEventListener('click', event => {
+    const expanded = event.currentTarget.getAttribute('aria-expanded') !== 'true';
+    container.querySelectorAll('[data-plan-extra]').forEach(row => { row.hidden = !expanded; });
+    event.currentTarget.setAttribute('aria-expanded', String(expanded));
+    event.currentTarget.textContent = expanded ? 'Show first 5 processes' : `Show all ${CORE_PROCESSES.length} processes`;
+  });
   container.querySelector('#btn-open-process-guidance')?.addEventListener('click', () => navigateTo('processes'));
   container.querySelectorAll('a[href^="#processes?"]').forEach(link => {
     link.addEventListener('click', event => {
@@ -883,6 +826,21 @@ export function renderReport(container) {
   });
 
   container.querySelectorAll('.right-sizing-approval-form').forEach(form => {
+    const saveDraft = () => {
+      const current = getState();
+      const proposal = (current.rightSizingProposals || []).find(item => Number(item.processId) === Number(form.dataset.processId));
+      if (!proposal) return;
+      const tree = saveRightSizingDraft(current, proposal, Object.fromEntries(new FormData(form)));
+      const saved = setState({ assessmentTree: tree });
+      const status = form.querySelector('.right-sizing-draft-status');
+      if (status) status.textContent = !saved
+        ? 'Draft remains in memory; local save failed. Keep this page open and use Private backup.'
+        : getRightSizingDraft(getState(), proposal)?.stale
+        ? 'Draft from an earlier proposal. Review every field against the current proposal before recording.'
+        : 'Draft kept in this browser session. It has not been submitted or applied. Check any save warning before leaving.';
+    };
+    form.addEventListener('input', saveDraft);
+    form.addEventListener('change', saveDraft);
     form.addEventListener('submit', event => {
       event.preventDefault();
       const current = getState();
@@ -948,6 +906,7 @@ export function renderReport(container) {
       const effectiveViolations = reconcileDecisionViolations(result, effectiveLevels, effectiveScores, assessmentContext);
       if (activeNode) {
         activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
+        if (activeNode.rightSizingDrafts) delete activeNode.rightSizingDrafts[processId];
         activeNode.assessmentResult = { ...result, levels: effectiveLevels, violations: effectiveViolations };
         activeNode.levels = { ...effectiveLevels };
         activeNode.locallyAdjustedLevels = { ...(result.locallyAdjustedLevels || {}) };
