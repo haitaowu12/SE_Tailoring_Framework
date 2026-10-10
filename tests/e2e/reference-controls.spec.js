@@ -42,7 +42,7 @@ async function saved(page) {
   });
 }
 
-test('Direct Preview has named controls and repeated keyboard previews leave saved assessment unchanged', async ({ page }) => {
+test('Direct Preview has named controls and repeated keyboard previews leave saved assessment unchanged', async ({ page }, testInfo) => {
   await importFixture(page, 'interdependency');
   await page.getByRole('button', { name: 'Direct Preview', exact: true }).click();
   const before = await saved(page);
@@ -50,6 +50,8 @@ test('Direct Preview has named controls and repeated keyboard previews leave sav
   const level = page.getByRole('combobox', { name: 'Proposed level', exact: true });
   await expect(process).toBeVisible();
   await expect(level).toBeVisible();
+  await expect(page.locator('#toast-container .toast')).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath('direct-preview-desktop.png'),fullPage:true,animations:'disabled'});
   await expect(page.getByText(/directly affected processes only/)).toBeVisible();
   await process.selectOption('19');
   await level.selectOption('comprehensive');
@@ -105,6 +107,7 @@ test('Deliverables starts compact with keyboard disclosures and a labeled read-o
   const before = await saved(page);
   const groups = page.locator('details.deliverable-group');
   await expect(groups).toHaveCount(22);
+  await expect(groups.first().locator('.deliverable-toggle')).toBeVisible();
   expect(await groups.evaluateAll(nodes => nodes.every(node => !node.open))).toBe(true);
   await expect(page.getByText(/These examples are not completion evidence/)).toBeVisible();
   const expand = page.getByRole('button', { name: 'Expand all', exact: true });

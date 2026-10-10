@@ -62,6 +62,7 @@ export function renderDeliverables(container) {
                   <span class="level-badge ${lvl}">${lvl[0].toUpperCase()}</span>
                 </div>
                 <span class="text-xs text-secondary">${items.length} reference item${items.length === 1 ? '' : 's'}</span>
+                <span class="deliverable-toggle" aria-hidden="true">▸</span>
               </div>
             </summary>
             <div class="deliverable-items mt-md">
@@ -82,6 +83,8 @@ export function renderDeliverables(container) {
     .deliverables-filter { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
     .deliverables-filter .select { max-width: 100%; }
     .deliverable-summary { padding: 16px 20px; cursor: pointer; list-style: none; }
+    .deliverable-toggle { flex:0 0 auto; color:var(--text-secondary); font-size:18px; transition:transform .15s; }
+    .deliverable-group[open] .deliverable-toggle { transform:rotate(90deg); }
     .deliverable-summary::-webkit-details-marker { display: none; }
     .deliverable-summary::marker { display: none; }
     .deliverable-summary .w-full { min-width: 0; gap: 8px; }

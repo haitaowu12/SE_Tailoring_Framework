@@ -269,3 +269,28 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   await form.locator('[name="rationale"]').fill('RECOVERED-DRAFT');
   await expect(page.locator('#runtime-status')).not.toHaveClass(/active/);
 });
+
+test('a failed asserted-record save reports the storage failure and retains the record for private backup', async ({page}) => {
+  await importFixture(page,currentConfig(makeScores(),'UNSAVED-RECORD'),'unsaved-record.json');
+  let form=page.locator('.right-sizing-approval-form[data-process-id="17"]');
+  await form.locator('xpath=..').locator('summary').click();
+  await form.locator('[name="rationale"]').fill('Preserve this asserted rationale through quota failure.');
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    Storage.prototype.setItem=function(key,value){
+      if(key==='se-tailoring-workspace-v1') throw new DOMException('Quota exceeded','QuotaExceededError');
+      return original.call(this,key,value);
+    };
+  });
+  await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
+  await expect(page.getByText('Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.',{exact:true})).toBeVisible();
+  await openSessionMenu(page);
+  await page.getByRole('button',{name:'Private backup',exact:true}).click();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download private backup',exact:true}).click();
+  let backup='';for await(const chunk of await (await download).createReadStream()) backup+=chunk.toString();
+  const config=JSON.parse(backup);
+  expect(config.rightSizingApprovalRecords[0].rationale).toBe('Preserve this asserted rationale through quota failure.');
+  expect(config.effectiveRightSizingApprovalCount).toBe(0);
+  expect(config.processLevels[17]).toBe('comprehensive');
+});
