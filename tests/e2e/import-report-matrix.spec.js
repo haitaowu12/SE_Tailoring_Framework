@@ -470,7 +470,7 @@ test('child hierarchy records a structured parent-retained safety allocation dec
   await page.goto('./');
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto('./#elements');
-  await page.getByPlaceholder('Element name...').fill('Safety-neutral display subsystem');
+  await page.getByRole('textbox', { name: 'Element name/code', exact: true }).fill('Safety-neutral display subsystem');
   await page.getByRole('button', { name: /Add to/ }).click();
   await page.getByRole('button', { name: 'Navigate →' }).click();
 

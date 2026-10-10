@@ -190,6 +190,8 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   const config=currentConfig(makeScores(),'RIGHT-SIZING-DRAFT');
   await importFixture(page,config,'right-sizing-draft.json');
   const openForm=async()=>{
+    await expect(page.getByRole('heading',{name:'Pilot Tailoring Record',exact:true})).toBeVisible();
+    await expect(page.locator('#main-content')).not.toHaveAttribute('inert','');
     const outer=page.locator('.report-section').filter({has:page.locator('.report-section-title',{hasText:'Right-Sizing Analysis'})});
     if(!(await outer.evaluate(el=>el.open))) await outer.locator(':scope > summary').click();
     const form=page.locator('.right-sizing-approval-form[data-process-id="17"]');
@@ -205,6 +207,7 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   await form.locator('[name="rationale"]').fill('PRIVATE-UNSUBMITTED-RATIONALE');
   await form.locator('[name="evidenceRef"]').fill('PRIVATE-DRAFT-REF');
   await page.goto('./#help');
+  await expect(page.getByRole('heading',{name:'Choose the systems engineering work your project needs',exact:true})).toBeVisible();
   await page.goto('./#report');
   form=await openForm();
   await expect(form.locator('[name="rationale"]')).toHaveValue('PRIVATE-UNSUBMITTED-RATIONALE');
@@ -258,7 +261,8 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   await form.locator('[name="rationale"]').fill('QUOTA-RETAINED-DRAFT');
   await expect(form.locator('.right-sizing-draft-status')).toContainText('local save failed');
   await expect(page.locator('#runtime-status')).toContainText('Local save failed');
-  await page.goto('./#help');await page.goto('./#report');
+  await page.goto('./#help');
+  await expect(page.getByRole('heading',{name:'Choose the systems engineering work your project needs',exact:true})).toBeVisible();await page.goto('./#report');
   form=await openForm();
   await expect(form.locator('[name="rationale"]')).toHaveValue('QUOTA-RETAINED-DRAFT');
   await page.evaluate(()=>window.restoreDraftStorage());

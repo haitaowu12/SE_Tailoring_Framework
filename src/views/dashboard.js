@@ -18,9 +18,9 @@ export function renderDashboard(container) {
     container.innerHTML = `
       <section class="card current-work" aria-labelledby="workspace-next-title">
         <div>
-          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : 'Your next step'}</span>
+          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : hasAssessment ? 'Work in progress' : 'Your next step'}</span>
           <h2 id="workspace-next-title">${activeAssessment ? escapeHtml(activeAssessment.name) : 'Plan your systems engineering work'}</h2>
-          <p class="text-sm text-secondary mt-sm">${hasAssessment ? `${completeness.completeCount}/${FRAMEWORK_META.metricCount} judgments reviewed. ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive. External approval not verified.` : 'Continue with the next unreviewed judgment.'}` : 'Define one project or system, then answer 16 context questions.'}</p>
+          <p class="text-sm text-secondary mt-sm">${hasAssessment ? `${completeness.completeCount}/${FRAMEWORK_META.metricCount} reviewed. ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive. External approval not verified.` : 'Continue with the next unreviewed judgment.'}` : 'Define one project or system, then answer 16 context questions.'}</p>
         </div>
         <div class="hero-actions"><button class="btn btn-primary" id="btn-current-work">${state.assessmentComplete ? 'View report' : hasAssessment ? 'Resume assessment' : 'Start assessment'} →</button>${hasAssessment ? '<button class="btn btn-secondary" id="btn-current-decisions">Review decisions</button>' : '<a class="btn btn-secondary" href="#help?topic=start">Quick start guide</a>'}</div>
       </section>
@@ -153,7 +153,8 @@ export function renderDashboard(container) {
       .framework-facts strong { color:var(--text-primary); font-size:17px; margin-right:4px; }
       .migration-notice { border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.08); margin-bottom:18px; }
       .current-work { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 0 24px; border-left:3px solid var(--accent-primary); }
-      .current-work h2 { margin-top:5px; }
+      .current-work > div { min-width:0; max-width:100%; }
+      .current-work h2 { margin-top:5px; overflow-wrap:anywhere; }
       .how-it-works,.explore-section { margin-bottom:64px; }
       .section-heading { max-width:680px; margin-bottom:20px; }
       .section-heading h2 { margin:5px 0 8px; }
