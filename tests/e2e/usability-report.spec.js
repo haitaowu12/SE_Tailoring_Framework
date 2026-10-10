@@ -183,7 +183,10 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
   await page.screenshot({ path: testInfo.outputPath('exported-record-desktop.png'), animations: 'disabled' });
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const layout = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      overflow: [...document.body.querySelectorAll('*')].map(element => ({ tag: element.tagName, class: element.className, text: element.textContent.slice(0, 100), right: element.getBoundingClientRect().right })).filter(element => element.right > innerWidth) }));
+    await testInfo.attach(`export-layout-${width}`, { body: JSON.stringify(layout, null, 2), contentType: 'application/json' });
+    expect(layout.scrollWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.width);
     for (const row of await page.locator('.process-profile tbody tr').all()) {
       const bounds = await row.boundingBox();
       expect(bounds.x).toBeGreaterThanOrEqual(0);
