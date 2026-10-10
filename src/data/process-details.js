@@ -4,8 +4,8 @@
  * _STATUS: Provisional authored implementation guidance; non-normative and not professional-validity evidence.
  * 
  * Structure: { processId: { activities: {basic:[], standard:[], comprehensive:[]}, deliverables: {...}, outputs: [...] } }
- * Activities prefixed with (*) are essential/core even at Basic level.
- * Tags: [Safety] = gated by M5 ≥ 3; [RAM] = gated by M6 ≥ 3.
+ * Activities prefixed with (*) identify core outcome examples; format and method choices remain adaptable.
+ * Tags: [Safety] and [RAM] are conditional examples; assess M5/M6 context and applicable obligations before planning them.
  * Conditional M8/M15 guidance is kept in PROCESS_CONTEXT_OVERLAYS so it does
  * not silently change the three base tailoring levels or add mapping edges.
  */
@@ -14,12 +14,12 @@ export const PROCESS_DETAILS = {
     9: {
         activities: {
             basic: ['(*) Develop basic project plan', '(*) Create simple schedule (milestone-based)', 'List resources', 'Estimate costs (high-level)'],
-            standard: ['(*) Create Project Management Plan (PMP)', '(*) Develop Work Breakdown Structure (WBS)', 'Develop Integrated Master Schedule (IMS)', 'Plan resources in detail', 'Register risks formally', 'Schedule SA milestones and reviews [Safety]', 'Budget for SA activities [Safety]'],
+            standard: ['(*) Maintain a coordinated plan covering scope, responsibilities, schedule, resources, risks, and review points', '(*) Break work into manageable elements with clear ownership', 'Coordinate schedule dependencies and milestones', 'Plan resources in detail', 'Register risks formally', 'Schedule SA milestones and reviews [Safety]', 'Budget for SA activities [Safety]'],
             comprehensive: ['(*) Integrate multi-view planning', '(*) Assess schedule uncertainty using a method suited to the available evidence', 'Optimize resources with capacity modeling', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
         },
         deliverables: {
             basic: ['Basic project plan', 'Simple schedule', 'Resource list', 'Cost estimate'],
-            standard: ['Project Management Plan (PMP)', 'Work Breakdown Structure (WBS)', 'Integrated Master Schedule (IMS)', 'Resource management plan', 'Risk register', 'SA Milestone Schedule [Safety]'],
+            standard: ['Coordinated planning record (a PMP or equivalent)', 'Work breakdown and ownership record (a WBS or equivalent)', 'Dependency-aware schedule', 'Resource management plan', 'Risk register', 'SA Milestone Schedule [Safety]'],
             comprehensive: ['Integrated planning documentation', 'Multi-view WBS', 'Schedule uncertainty analysis', 'Resource optimization analysis', 'Risk-based estimates', 'Stakeholder communication plan']
         },
         outputs: [

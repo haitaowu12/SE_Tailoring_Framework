@@ -2,7 +2,7 @@
 import { FRAMEWORK_META, CORE_PROCESSES, DIMENSIONS, ACTIVE_CONSISTENCY_RULES } from '../data/se-tailoring-data.js';
 import { getState, getElementCount, getAssessmentWorkspace, createWorkspaceAssessment, switchWorkspaceAssessment, duplicateWorkspaceAssessment, renameWorkspaceAssessment, revealSavedWorkspaceAssessments, showToast } from '../state.js';
 import { navigateTo } from '../router.js';
-import { escapeHtml, safeText } from '../utils/safe-text.js';
+import { escapeHtml } from '../utils/safe-text.js';
 import { assessMetricCompleteness } from '../utils/assessment-integrity.js';
 
 export function renderDashboard(container) {
@@ -10,20 +10,27 @@ export function renderDashboard(container) {
     const workspace = getAssessmentWorkspace();
     const activeAssessment = workspace.assessments.find(entry => entry.active);
     const hasAssessment = Object.keys(state.scores || {}).length > 0;
-    const projectName = escapeHtml(safeText(state.projectInfo.name, 'Current project'));
     const basicCount = Object.values(state.levels || {}).filter(level => level === 'basic').length;
     const standardCount = Object.values(state.levels || {}).filter(level => level === 'standard').length;
     const comprehensiveCount = Object.values(state.levels || {}).filter(level => level === 'comprehensive').length;
     const completeness = assessMetricCompleteness(state.scores, state.metricAssessments);
 
     container.innerHTML = `
+      <section class="card current-work" aria-labelledby="workspace-next-title">
+        <div>
+          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : 'Your next step'}</span>
+          <h2 id="workspace-next-title">${activeAssessment ? escapeHtml(activeAssessment.name) : 'Plan your systems engineering work'}</h2>
+          <p class="text-sm text-secondary mt-sm">${hasAssessment ? `${completeness.completeCount}/${FRAMEWORK_META.metricCount} judgments reviewed. ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive. External approval not verified.` : 'Continue with the next unreviewed judgment.'}` : 'Define one project or system, then answer 16 context questions.'}</p>
+        </div>
+        <div class="hero-actions"><button class="btn btn-primary" id="btn-current-work">${state.assessmentComplete ? 'View report' : hasAssessment ? 'Resume assessment' : 'Start assessment'} →</button>${hasAssessment ? '<button class="btn btn-secondary" id="btn-current-decisions">Review decisions</button>' : '<a class="btn btn-secondary" href="#help?topic=start">Quick start guide</a>'}</div>
+      </section>
       <section class="card assessment-library" aria-labelledby="assessment-library-title">
         <div class="library-heading">
           <div><span class="eyebrow">Browser-local workspace</span><h2 id="assessment-library-title">Your assessments</h2></div>
           ${activeAssessment ? '<div class="hero-actions"><button class="btn btn-primary btn-sm" id="btn-library-assess" type="button">Rate this assessment</button><button class="btn btn-secondary btn-sm" id="btn-duplicate-assessment" type="button">Duplicate current</button></div>' : ''}
         </div>
         <p class="text-sm text-secondary mt-sm">Keep independent projects or options here. Switching saves the current assessment first. System elements are parts within one assessment.</p>
-        <p class="text-sm text-secondary mt-sm"><strong>Back up important work.</strong> This library is only in this browser and has no cloud backup. Use Session → Private backup for a complete copy of each assessment. Minimum-data Export omits names, notes, evidence, and decision records. Use non-identifying codes; do not enter sensitive information.</p>
+        <details class="library-storage-note mt-sm"><summary>Saving, backup and privacy</summary><p class="text-sm text-secondary mt-sm"><strong>Back up important work.</strong> This library is only in this browser and has no cloud backup. Use Session → Private backup for a complete copy of each assessment. Minimum-data Export omits names, notes, evidence, and decision records. Use non-identifying codes; do not enter sensitive information.</p></details>
         ${workspace.error ? '<p class="text-sm mt-md" role="alert">The library could not be saved or loaded. Keep this page open and use Private backup before reloading. Your current work has not been replaced.</p>' : ''}
         ${workspace.locked ? '<p class="text-secondary mt-md">Restore your saved session to open the library, or choose Start Fresh to preserve it and begin separately.</p>' : `
           <ul class="assessment-library-list" aria-label="Saved assessments">
@@ -49,15 +56,6 @@ export function renderDashboard(container) {
         <p class="text-sm text-secondary mt-sm">${state.semanticMigration?.reason === 'completion-contract-coherence'
           ? `This saved record could not prove which neutral values were explicitly reviewed. Its scores remain available for preview, but all ${FRAMEWORK_META.metricCount} anchors must be reconfirmed before software completeness can pass.`
           : `This record used an older semantic contract. Reassess ${escapeHtml((state.semanticMigration?.reassessmentMetrics || []).join(', ') || 'the flagged metrics')} before software completeness can pass.`}</p>
-      </section>` : ''}
-
-      ${hasAssessment ? `<section class="card current-work animate-fade-in-up stagger-2">
-        <div>
-          <span class="eyebrow">${state.assessmentComplete ? 'Software completeness checks passed' : 'Work in progress'}</span>
-          <h2>${projectName}</h2>
-          <p class="text-sm text-secondary mt-sm">${completeness.completeCount}/${FRAMEWORK_META.metricCount} reviewed · ${state.assessmentComplete ? `${basicCount} Basic · ${standardCount} Standard · ${comprehensiveCount} Comprehensive recommendations. External approval not verified.` : (workspace.error ? 'Unsaved changes. Keep this page open and use Private backup.' : 'Saved in this browser. Continue with the next unreviewed judgment.')}</p>
-        </div>
-        <div class="hero-actions"><button class="btn btn-primary" id="btn-current-decisions">Review decisions →</button><button class="btn btn-secondary" id="btn-current-work">${state.assessmentComplete ? 'View report' : 'Resume assessment'} →</button></div>
       </section>` : ''}
 
       ${hasAssessment || workspace.assessments.length > 1 ? '<details class="card framework-introduction"><summary>Framework introduction and references</summary>' : ''}
@@ -127,6 +125,7 @@ export function renderDashboard(container) {
 
     const style = document.createElement('style');
     style.textContent = `
+      .library-storage-note > summary { cursor:pointer; color:var(--text-secondary); font-size:13px; }
       .assessment-library { margin:0 0 24px; }
       .framework-introduction > summary { cursor:pointer; font-weight:700; }
       .library-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
@@ -209,6 +208,6 @@ export function renderDashboard(container) {
     container.querySelector('#btn-current-decisions')?.addEventListener('click', () => navigateTo('adjust'));
     container.querySelector('#btn-start-assessment')?.addEventListener('click', () => navigateTo('assessment'));
     container.querySelector('#btn-explore')?.addEventListener('click', () => navigateTo('processes'));
-    container.querySelector('#btn-current-work')?.addEventListener('click', () => navigateTo(state.assessmentComplete ? 'report' : 'assessment'));
+    container.querySelector('#btn-current-work')?.addEventListener('click', () => navigateTo(state.assessmentComplete ? 'report' : 'assessment', !state.assessmentComplete && hasAssessment ? { resume: '1' } : {}));
     container.querySelectorAll('.nav-card').forEach(card => card.addEventListener('click', () => navigateTo(card.dataset.route)));
 }

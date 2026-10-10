@@ -50,7 +50,9 @@ export function renderInterdependency(container) {
     .prop-type { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
     .prop-type.mandatory { background: rgba(239,68,68,0.12); color: #f87171; }
     .prop-type.recommended { background: rgba(34,211,238,0.12); color: #22d3ee; }
-    .sim-select { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .sim-select { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 20px; }
+    .sim-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; max-width: 100%; }
+    .sim-field .select { max-width: 100%; }
     .sim-result { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px; margin-top: 12px; }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     .status-dot.ok { background: var(--accent-success); }
@@ -126,17 +128,23 @@ export function renderInterdependency(container) {
       `;
         } else if (tab === 'simulate') {
             content.innerHTML = `
-        <p class="text-secondary text-sm mb-lg">Select a process and new level to preview immediate one-hop consequences. Mandatory transitive closure is applied only by the full assessment engine.</p>
+        <p class="text-secondary text-sm mb-lg">Choose a process and proposed level to see directly affected processes only. The full assessment also follows further required dependencies and checks the whole profile. This preview does not change your assessment.</p>
         <div class="sim-select">
-          <select class="select" id="sim-process">
-            <option value="">Select process...</option>
-            ${CORE_PROCESSES.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-          </select>
-          <select class="select" id="sim-level">
-            <option value="basic">Basic</option>
-            <option value="standard">Standard</option>
-            <option value="comprehensive" selected>Comprehensive</option>
-          </select>
+          <div class="sim-field">
+            <label class="text-xs text-secondary" for="sim-process">Process</label>
+            <select class="select" id="sim-process">
+              <option value="">Select process...</option>
+              ${CORE_PROCESSES.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="sim-field">
+            <label class="text-xs text-secondary" for="sim-level">Proposed level</label>
+            <select class="select" id="sim-level">
+              <option value="basic">Basic</option>
+              <option value="standard">Standard</option>
+              <option value="comprehensive" selected>Comprehensive</option>
+            </select>
+          </div>
           <button class="btn btn-primary btn-sm" id="sim-run">Simulate</button>
         </div>
         <div id="sim-results"></div>
@@ -148,7 +156,7 @@ export function renderInterdependency(container) {
                 const changes = previewDirectConsequences(pid, lvl, levels, scores, context);
                 const results = content.querySelector('#sim-results');
                 if (changes.length === 0) {
-                    results.innerHTML = '<div class="sim-result text-sm text-secondary">No direct outgoing consequence for this change. Run the full assessment to evaluate whole-profile consistency and mandatory closure.</div>';
+                    results.innerHTML = '<div class="sim-result text-sm text-secondary">No directly affected processes for this change. Run the full assessment to check the whole profile and all required dependencies.</div>';
                 } else {
                     results.innerHTML = changes.map(c => `
             <div class="sim-result">
@@ -156,7 +164,7 @@ export function renderInterdependency(container) {
                 <strong>${processName(c.processId)}</strong>
                 <span class="prop-type ${c.type}">${c.type}</span>
               </div>
-              <div class="text-sm text-secondary mt-sm">${c.from} → <span class="level-badge ${c.to}">${FRAMEWORK_META.levelLabels[c.to]}</span> (depth: ${c.depth})</div>
+              <div class="text-sm text-secondary mt-sm">${FRAMEWORK_META.levelLabels[c.from] || c.from} → <span class="level-badge ${c.to}">${FRAMEWORK_META.levelLabels[c.to]}</span> · Direct dependency</div>
             </div>
           `).join('');
                 }

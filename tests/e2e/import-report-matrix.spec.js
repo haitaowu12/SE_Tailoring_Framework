@@ -128,6 +128,7 @@ test('schema 2.0 import remains reportable and canonical matrix is read-only', a
   await openReportFromNavigation(page);
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
+  await page.locator('.report-section').filter({ has: page.locator('.report-section-title', { hasText: 'Project context' }) }).locator(':scope > summary').click();
   await expect(page.getByRole('cell', { name: 'Current Semantic Import Smoke' })).toBeVisible();
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
 

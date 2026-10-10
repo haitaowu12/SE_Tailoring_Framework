@@ -14,6 +14,7 @@ import { validateHierarchyDisposition } from './hierarchy-dispositions.js';
 import { assessCorrelatedEvidence } from './correlated-evidence.js';
 import { validateRightSizingApprovalRecords } from './right-sizing-governance.js';
 import { APP_RUNTIME_META, EXCHANGE_SCHEMA_VERSION } from './runtime-operations.js';
+import { getMetricAnchorText } from './metric-anchor-text.js';
 
 const VALID_METRIC_IDS = new Set(Array.from({ length: 16 }, (_, index) => `M${index + 1}`));
 const VALID_PROCESS_IDS = new Set(Array.from({ length: 22 }, (_, index) => String(index + 9)));
@@ -1295,6 +1296,8 @@ export function generateReport(state, data) {
     const projectDate = safeText(projectInfo.date, now);
     const projectTeam = safeText(projectInfo.team, '—');
     const projectPhase = safeText(projectInfo.phase, '—');
+    const projectBoundary = safeText(projectInfo.boundary, 'Not recorded');
+    const projectPurpose = safeText(projectInfo.purpose, 'Not recorded');
 
     const gateLabel = status => ({
         passed: 'Passed',
@@ -1334,7 +1337,9 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 <div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.</div>
 <div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div>
 <table><tr><td><strong>Project</strong>: ${escapeHtml(projectName)}</td><td><strong>Date</strong>: ${escapeHtml(projectDate)}</td></tr>
-<tr><td><strong>Team</strong>: ${escapeHtml(projectTeam)}</td><td><strong>Phase</strong>: ${escapeHtml(projectPhase)}</td></tr></table>
+<tr><td><strong>Team</strong>: ${escapeHtml(projectTeam)}</td><td><strong>Phase</strong>: ${escapeHtml(projectPhase)}</td></tr>
+<tr><td colspan="2"><strong>Assessed boundary</strong>: ${escapeHtml(projectBoundary)}</td></tr>
+<tr><td colspan="2"><strong>Decision purpose</strong>: ${escapeHtml(projectPurpose)}</td></tr></table>
 
 <h2>Assessment Overview</h2>
 <div class="report-overview-panel">
@@ -1345,7 +1350,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 
     for (const m of data.METRICS) {
         const s = safeScores[m.id] || '—';
-        html += `<tr><td><strong>${m.id}</strong> ${m.name}</td><td>${s}</td><td>${m.anchors[s] || ''}</td></tr>`;
+        html += `<tr><td><strong>${escapeHtml(m.id)}</strong> ${escapeHtml(m.name)}</td><td>${s}</td><td>${escapeHtml(getMetricAnchorText(m, s))}</td></tr>`;
     }
     html += '</table>';
 
