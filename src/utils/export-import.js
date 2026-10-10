@@ -3,7 +3,6 @@ import { buildElementContext } from './element-context.js';
 /**
  * Export/Import — Configuration management (JSON)
  */
-import { renderOrdinalMetricProfile } from './report-visuals.js';
 import { escapeHtml, safeText } from './safe-text.js';
 import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION, METRIC_QUALIFIER_DEFINITIONS } from '../data/metrics.js';
 import { assessMetricCompleteness, getAssessmentDisposition, preserveUnconfirmedMetricAssessments } from './assessment-integrity.js';
@@ -1288,8 +1287,6 @@ export function generateReport(state, data) {
     const csiReadiness = assessCsiResponse(scores, csiResponse);
     const correlatedEvidence = assessCorrelatedEvidence(state.metricAssessments);
 
-    const levelClass = l => l === 'comprehensive' ? 'color:#ef4444' : l === 'standard' ? 'color:#f59e0b' : 'color:#3b82f6';
-
     const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
     const projectName = safeText(projectInfo.name, 'Project');
@@ -1307,7 +1304,7 @@ export function generateReport(state, data) {
         'not-available': 'Not available'
     }[status] || status);
 
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Pilot Tailoring Record - ${escapeHtml(projectName)}</title>
+    let html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pilot Tailoring Record - ${escapeHtml(projectName)}</title>
 <style>
 body{font-family:Inter,-apple-system,sans-serif;max-width:900px;margin:0 auto;padding:40px;color:#1e293b;line-height:1.6}
 h1{color:#4f46e5;border-bottom:3px solid #6366f1;padding-bottom:10px}
@@ -1316,57 +1313,26 @@ table{width:100%;border-collapse:collapse;margin:15px 0}
 th{background:#f1f5f9;padding:8px 12px;text-align:left;font-size:13px;border-bottom:2px solid #e2e8f0}
 td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
 .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase}
-.basic{background:#dbeafe;color:#2563eb}
-.standard{background:#fef3c7;color:#d97706}
-.comprehensive{background:#fee2e2;color:#dc2626}
+.basic{background:#dbeafe;color:#1d4ed8}
+.standard{background:#fef3c7;color:#92400e}
+.comprehensive{background:#fee2e2;color:#991b1b}
 .override{background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;margin:5px 0;font-size:13px}
 .violation{background:#fee2e2;border-left:3px solid #ef4444;padding:8px 12px;margin:5px 0;font-size:13px}
 .info{background:#f0f9ff;border-left:3px solid #3b82f6;padding:8px 12px;margin:10px 0;font-size:13px}
 .scope-note{background:#eff6ff;border-left:3px solid #3b82f6;padding:10px 12px;margin:16px 0;font-size:12px;color:#475569}
 .pilot-banner{background:#fff7ed;border:2px solid #f59e0b;padding:12px 14px;margin:16px 0;font-size:13px}
 .gate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0}.gate{border:1px solid #e2e8f0;border-radius:8px;padding:9px}.gate strong,.gate small{display:block}.gate small{color:#64748b}
-.report-overview-panel{border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin:24px 0;background:#f8fafc}
-.ordinal-profile{display:grid;gap:24px}.ordinal-profile-note{font-size:12px;color:#64748b}.ordinal-dimension-group{border-top:3px solid var(--dimension-color);padding-top:12px}.ordinal-metric-row{border-top:1px solid #e2e8f0;padding:12px 0}.ordinal-metric-heading{display:flex;justify-content:space-between;gap:12px;font-size:13px}.ordinal-state{border:1px solid #cbd5e1;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700}.ordinal-state.confirmed,.ordinal-state.inherited{color:#047857}.ordinal-state.unknown{color:#b45309}.ordinal-anchor-scale{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;list-style:none;margin:8px 0 0;padding:0}.ordinal-anchor{border:1px solid #e2e8f0;border-radius:6px;padding:6px;background:#fff}.ordinal-anchor.selected{border:2px solid var(--dimension-color)}.ordinal-anchor-number{font-weight:800}.ordinal-anchor-marker{display:none}.ordinal-anchor-label{display:block;font-size:9px;line-height:1.3;color:#475569;margin-top:4px}
-@media print{body{padding:20px}h1{font-size:24px}}
-@media (max-width:720px){.ordinal-anchor-scale{grid-template-columns:1fr}}
+td{vertical-align:top}caption{text-align:left;font-weight:600;margin-bottom:8px}.record-meta{font-size:13px;color:#475569}.process-profile th,.process-profile td{padding:8px;font-size:12px}.metric-scores th[scope=row]{background:transparent;font-weight:400}.record-section{margin-top:28px}
+@media print{body{padding:20px}h1{font-size:24px}thead{display:table-header-group}tr,.pilot-banner,.gate{break-inside:avoid}h2{break-after:avoid}}
+@media (max-width:720px){body{padding:16px}.gate-grid{grid-template-columns:1fr}.process-profile thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.process-profile tr{display:block;border:1px solid #cbd5e1;margin:12px 0;padding:8px}.process-profile td{display:grid;grid-template-columns:minmax(95px,35%) minmax(0,1fr);gap:8px;overflow-wrap:anywhere}.process-profile td::before{content:attr(data-label);font-weight:600}.metric-scores{table-layout:fixed}.metric-scores th,.metric-scores td{padding:6px;font-size:12px;overflow-wrap:anywhere}}
 </style></head><body>
 <h1>Pilot Tailoring Record</h1>
 <div class="pilot-banner"><strong>PILOT RECORD — NOT AN AUTHORITATIVE ORGANIZATIONAL BASELINE</strong><br>Software completeness checks passed. External approval not verified.</div>
-<div class="info"><strong>Framework</strong>: SE Tailoring Model v${data.FRAMEWORK_META.version} · Standards-informed process architecture</div>
-<div class="info"><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</div>
-<div class="scope-note"><strong>Scope and evidence maturity:</strong> This executable assessment covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.</div>
-<div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div>
-<table><tr><td><strong>Project</strong>: ${escapeHtml(projectName)}</td><td><strong>Date</strong>: ${escapeHtml(projectDate)}</td></tr>
-<tr><td><strong>Team</strong>: ${escapeHtml(projectTeam)}</td><td><strong>Phase</strong>: ${escapeHtml(projectPhase)}</td></tr>
-<tr><td colspan="2"><strong>Assessed boundary</strong>: ${escapeHtml(projectBoundary)}</td></tr>
-<tr><td colspan="2"><strong>Decision purpose</strong>: ${escapeHtml(projectPurpose)}</td></tr></table>
+<p class="record-meta"><strong>${escapeHtml(projectName)}</strong> · ${escapeHtml(projectDate)} · ${escapeHtml(projectPhase)}</p>
+<p><strong>Assessed boundary</strong>: ${escapeHtml(projectBoundary)}<br><strong>Decision purpose</strong>: ${escapeHtml(projectPurpose)}</p>
+<div class="scope-note">This record covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.</div>`;
 
-<h2>Assessment Overview</h2>
-<div class="report-overview-panel">
-    ${renderOrdinalMetricProfile(safeScores, state.metricAssessments, data.METRICS, data.DIMENSIONS)}
-</div>
-
-<h2>Metric Scores</h2><table><tr><th>Metric</th><th>Score</th><th>Description</th></tr>`;
-
-    for (const m of data.METRICS) {
-        const s = safeScores[m.id] || '—';
-        html += `<tr><td><strong>${escapeHtml(m.id)}</strong> ${escapeHtml(m.name)}</td><td>${s}</td><td>${escapeHtml(getMetricAnchorText(m, s))}</td></tr>`;
-    }
-    html += '</table>';
-
-    if (correlatedEvidence.warningCount > 0) {
-        html += '<h2>Correlated Evidence Review</h2><div class="info">Shared evidence is permitted, but does not count as independent corroboration without distinct documented consequence analyses. This warning does not change scores, recommended levels, or closure.</div>';
-        for (const warning of correlatedEvidence.warnings) {
-            html += `<div class="violation"><strong>${escapeHtml(warning.metricIds.join(', '))}</strong>: ${escapeHtml(warning.message)}</div>`;
-        }
-    }
-
-    if (csiReadiness.required) {
-        const record = csiReadiness.response;
-        html += `<h2>CSI ${csiReadiness.csi} Constraint Response</h2><div class="${csiReadiness.complete ? 'info' : 'violation'}"><strong>${csiReadiness.complete ? 'Response complete' : 'Response incomplete'}</strong><br>Governance: ${escapeHtml(csiReadiness.expectedResponseType)}<br>Actions: ${escapeHtml(record.selectedActions.join(', ') || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Rationale/decision: ${escapeHtml(record.rationaleDecision || '—')}<br>Owner/approver: ${escapeHtml(record.ownerApprover || '—')}<br>Evidence reference: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br><em>This response does not alter process levels or accept right-sizing proposals.</em></div>`;
-    }
-
-    html += '<h2>Process Tailoring Levels</h2><table><tr><th>Process</th><th>Derived</th><th>Pilot profile</th><th>Local reduction scenario</th><th>Trigger Metrics</th><th>Evidence Status</th><th>Level</th></tr>';
+    html += '<h2>Process Tailoring Levels</h2><p>Use this profile to agree activities, owners and evidence with your team. Derived levels reflect the driver calculation; the pilot profile includes applicable rules and local choices. A local reduction scenario remains separately labelled and unverified.</p><table class="process-profile"><caption>All 22 process results</caption><thead><tr><th scope="col">Process</th><th scope="col">Derived</th><th scope="col">Pilot profile</th><th scope="col">Local reduction scenario</th><th scope="col">Trigger metrics</th><th scope="col">Evidence status</th></tr></thead><tbody>';
     for (const p of data.CORE_PROCESSES) {
         const d = safeDerived[p.id] || 'basic';
         const f = safeLevels[p.id] || 'basic';
@@ -1380,14 +1346,26 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
             : safeConfidence[p.id] === 'direct-consequence'
                 ? 'Direct-consequence exception (mapped M5 or M7 = 5)'
             : safeConfidence[p.id] === 'available-with-justification'
-                ? 'Available with justification'
+                ? 'Optional Comprehensive elevation requires justification'
                 : safeConfidence[p.id] === 'floor-applied'
                     ? 'Floor applied'
                     : 'Supported by drivers/rules';
         const changed = d !== f ? ' ⬆️' : '';
-        html += `<tr><td>${p.id}. ${escapeHtml(p.name)}</td><td><span class="badge ${d}">${d}</span></td><td><span class="badge ${f}">${f}</span>${changed}</td><td>${localScenario !== f ? `<span class="badge ${localScenario}">${localScenario}</span><br><small>Unverified local scenario</small>` : '—'}</td><td>${escapeHtml(triggerMetrics)}</td><td>${confidenceLabel}</td><td style="${levelClass(f)}">${data.FRAMEWORK_META.levelLabels[f]}</td></tr>`;
+        html += `<tr data-process-id="${p.id}"><td data-label="Process">${p.id}. ${escapeHtml(p.name)}</td><td data-label="Derived"><span class="badge ${d}">${d}</span></td><td data-label="Pilot profile"><span class="badge ${f}">${f}</span>${changed}</td><td data-label="Local reduction scenario">${localScenario !== f ? `<span class="badge ${localScenario}">${localScenario}</span><br><small>Unverified local scenario</small>` : '—'}</td><td data-label="Trigger metrics">${escapeHtml(triggerMetrics)}</td><td data-label="Evidence status">${confidenceLabel}</td></tr>`;
     }
-    html += '</table>';
+    html += '</tbody></table>';
+
+    if (correlatedEvidence.warningCount > 0) {
+        html += '<h2>Correlated Evidence Review</h2><div class="info">Shared evidence is permitted, but does not count as independent corroboration without distinct documented consequence analyses. This warning does not change scores, recommended levels, or closure.</div>';
+        for (const warning of correlatedEvidence.warnings) {
+            html += `<div class="violation"><strong>${escapeHtml(warning.metricIds.join(', '))}</strong>: ${escapeHtml(warning.message)}</div>`;
+        }
+    }
+
+    if (csiReadiness.required) {
+        const record = csiReadiness.response;
+        html += `<h2>CSI ${csiReadiness.csi} Constraint Response</h2><div class="${csiReadiness.complete ? 'info' : 'violation'}"><strong>${csiReadiness.complete ? 'Response complete' : 'Response incomplete'}</strong><br>Governance: ${escapeHtml(csiReadiness.expectedResponseType)}<br>Actions: ${escapeHtml(record.selectedActions.join(', ') || '—')}<br>Protected outputs/evidence: ${escapeHtml(record.protectedOutputs || '—')}<br>Rationale/decision: ${escapeHtml(record.rationaleDecision || '—')}<br>Owner/approver: ${escapeHtml(record.ownerApprover || '—')}<br>Evidence reference: ${escapeHtml(record.evidenceRef || '—')}<br>Review date: ${escapeHtml(record.reviewDate || '—')}<br><em>This response does not alter process levels or accept right-sizing proposals.</em></div>`;
+    }
 
     if ((state.rightSizingApprovalRecords || []).length > 0) {
         html += '<h2>Right-Sizing Asserted Decision Records</h2><div class="info">These browser-local records capture asserted roles but cannot authenticate identities or verify external approval. A structurally complete record can produce a separately labelled local scenario after mandatory closure; it never changes the pilot process profile or overrides mandatory floors, safety/security allocation, binding assurance, or closure rules.</div>';
@@ -1445,8 +1423,24 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
         }
     }
 
+    html += `<section class="record-section"><h2>Metric Scores</h2>
+<p>Each rating is an independent ordinal judgment against its selected description. Do not add or average ratings, infer equal distances, or read a combined score. Higher M16 means stronger enabling conditions.</p>
+<p class="record-meta">Selected descriptions from metric definition set ${escapeHtml(METRIC_DEFINITION_SET_ID)}. The assessment question controls provide the full five-anchor reference; this record includes only the selected anchor for each metric.</p>
+<table class="metric-scores"><caption>All 16 selected ratings and review states</caption><thead><tr><th scope="col">Metric</th><th scope="col">Rating / review state</th><th scope="col">Selected description</th></tr></thead><tbody>`;
+    for (const metric of data.METRICS) {
+        const score = safeScores[metric.id] || '—';
+        const assessment = state.metricAssessments?.[metric.id];
+        const status = assessment?.status === 'inherited-confirmed' ? 'Inherited, confirmed' : assessment?.status === 'assessed' ? 'Confirmed' : 'Unconfirmed';
+        html += `<tr data-metric-id="${escapeHtml(metric.id)}"><th scope="row"><strong>${escapeHtml(metric.id)}</strong> ${escapeHtml(metric.name)}</th><td>${score}<br><small>${status}</small></td><td>${escapeHtml(getMetricAnchorText(metric, score))}</td></tr>`;
+    }
+    html += `</tbody></table></section><section class="record-section"><h2>Context and software checks</h2>
+<p><strong>Team</strong>: ${escapeHtml(projectTeam)}</p>
+<p class="record-meta"><strong>Framework</strong>: SE Tailoring Model v${escapeHtml(data.FRAMEWORK_META.version)} · Standards-informed process architecture<br><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</p>
+<p class="scope-note">Current evidence supports implementation-integrity claims for the defined research workflow. Software completeness is not external approval or confirmation that project evidence is complete. This HTML retains entered free text and evidence references; review them before sharing.</p>
+<div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div></section>`;
+
     html += renderDecisionLedger(state);
-    html += `<hr><p style="font-size:12px;color:#94a3b8">Generated as a pilot research record by SE Tailoring Model App on ${now}. External approval not verified. Built by <a href="https://haitaowu12.github.io/tony-wu-home/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
+    html += `<hr><p style="font-size:12px;color:#64748b">Generated as a pilot research record by SE Tailoring Model App on ${now}. External approval not verified. Built by <a href="https://haitaowu12.github.io/tony-wu-home/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);

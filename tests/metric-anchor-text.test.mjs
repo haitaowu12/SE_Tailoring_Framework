@@ -53,8 +53,25 @@ test('HTML export includes exact selected descriptions for all 16 metrics at all
       const html = generateReport(fixtureForScore(score), data);
       const metricTable = html.split('<h2>Metric Scores</h2>')[1].split('</table>')[0];
       for (const metric of data.METRICS) {
-        assert.ok(metricTable.includes(`<td>${score}</td><td>${escapeHtml(ASSESSOR_GUIDANCE[metric.id].anchors[score])}</td>`), `${metric.id} exported anchor ${score}`);
+        assert.ok(metricTable.includes(`<td>${score}<br><small>Confirmed</small></td><td>${escapeHtml(ASSESSOR_GUIDANCE[metric.id].anchors[score])}</td>`), `${metric.id} exported anchor ${score}`);
       }
+      assert.equal((html.match(/data-process-id=/g) || []).length, 22);
+      assert.equal((html.match(/data-metric-id=/g) || []).length, 16);
+      assert.ok(html.indexOf('<h2>Process Tailoring Levels</h2>') < html.indexOf('<h2>Metric Scores</h2>'));
+      assert.ok(!html.includes('ordinal-anchor'));
+      const expectedOccurrences = new Map();
+      for (const metric of data.METRICS) {
+        const description = escapeHtml(ASSESSOR_GUIDANCE[metric.id].anchors[score]);
+        expectedOccurrences.set(description, (expectedOccurrences.get(description) || 0) + 1);
+      }
+      for (const [description, count] of expectedOccurrences) {
+        assert.equal(html.split(`<td>${description}</td>`).length - 1, count, 'selected anchor appears once per metric');
+      }
+      assert.match(html, /Do not add or average ratings/);
+      assert.match(html, /Higher M16 means stronger enabling conditions/);
+      assert.match(html, /se-tailoring-m1-m16-v3/);
+      assert.match(html, /External approval not verified/);
+      assert.match(html, /Context and software checks/);
       assert.ok(html.includes('<strong>Assessed boundary</strong>: Booking service &lt;only&gt; &amp; interfaces'));
       assert.ok(html.includes('<strong>Decision purpose</strong>: Plan &quot;integration&quot; work'));
       assert.ok(!html.includes('<only>'));
