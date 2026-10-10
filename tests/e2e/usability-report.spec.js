@@ -159,6 +159,11 @@ test('capture candidate guidance and reference surfaces from synthetic context',
 
 test('downloaded HTML leads with all 22 processes and retains one complete printable rating record', async ({ page }, testInfo) => {
   await importComplete(page, { M1: 2, M2: 4 });
+  const fullProfile = section(page, 'Full Process Tailoring Profile');
+  await fullProfile.locator(':scope > summary').click();
+  // This supported import omits provenance: never invent Basic or Supported.
+  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(3)).toHaveText('Not recorded');
+  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(9)).toHaveText('Not recorded');
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download pilot HTML record', exact: true }).click();
   let html = '';
@@ -167,6 +172,8 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
   await page.setContent(html);
   await expect(page.locator('h2').first()).toHaveText('Process Tailoring Levels');
   await expect(page.locator('.process-profile tbody tr')).toHaveCount(22);
+  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Derived"]')).toHaveText('Not recorded');
+  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Evidence status"]')).toHaveText('Not recorded');
   await expect(page.locator('.metric-scores tbody tr')).toHaveCount(16);
   await expect(page.locator('.ordinal-anchor')).toHaveCount(0);
   await expect(page.locator('.process-profile tbody tr').first()).toBeInViewport();
@@ -182,7 +189,12 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
       expect(bounds.x).toBeGreaterThanOrEqual(0);
       expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     }
-    if (width === 390) await page.screenshot({ path: testInfo.outputPath('exported-record-mobile.png'), animations: 'disabled' });
+    if (width === 390) {
+      await page.screenshot({ path: testInfo.outputPath('exported-record-mobile.png'), animations: 'disabled' });
+      await page.locator('.process-profile tbody tr').first().scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath('exported-record-mobile-process.png'), animations: 'disabled' });
+      await page.evaluate(() => scrollTo(0, 0));
+    }
   }
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.emulateMedia({ media: 'print' });
