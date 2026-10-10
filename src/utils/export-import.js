@@ -1330,11 +1330,11 @@ td{vertical-align:top}caption{text-align:left;font-weight:600;margin-bottom:8px}
 <div class="pilot-banner"><strong>PILOT RECORD — NOT AN AUTHORITATIVE ORGANIZATIONAL BASELINE</strong><br>Software completeness checks passed. External approval not verified.</div>
 <p class="record-meta"><strong>${escapeHtml(projectName)}</strong> · ${escapeHtml(projectDate)} · ${escapeHtml(projectPhase)}</p>
 <p><strong>Assessed boundary</strong>: ${escapeHtml(projectBoundary)}<br><strong>Decision purpose</strong>: ${escapeHtml(projectPurpose)}</p>
-<div class="scope-note">This record covers ${data.CORE_PROCESSES.length} project-facing Technical and Technical Management processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished.</div>`;
+<div class="scope-note">This record covers ${data.CORE_PROCESSES.length} project-facing processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed.</div>`;
 
-    html += '<h2>Process Tailoring Levels</h2><p>Use this profile to agree activities, owners and evidence with your team. Derived levels reflect the driver calculation; the pilot profile includes applicable rules and local choices. A local reduction scenario remains separately labelled and unverified.</p><table class="process-profile"><caption>All 22 process results</caption><thead><tr><th scope="col">Process</th><th scope="col">Derived</th><th scope="col">Pilot profile</th><th scope="col">Local reduction scenario</th><th scope="col">Trigger metrics</th><th scope="col">Evidence status</th></tr></thead><tbody>';
+    html += '<h2>Process Tailoring Levels</h2><p>Use the profile to agree activities, owners and evidence. Derived = driver calculation; pilot profile = rules and local choices applied. Local reduction scenarios remain unverified.</p><table class="process-profile"><caption>All 22 process results</caption><thead><tr><th scope="col">Process</th><th scope="col">Derived</th><th scope="col">Pilot profile</th><th scope="col">Local reduction scenario</th><th scope="col">Trigger metrics</th><th scope="col">Evidence status</th></tr></thead><tbody>';
     for (const p of data.CORE_PROCESSES) {
-        const d = safeDerived[p.id] || 'basic';
+        const d = VALID_LEVELS.has(safeDerived[p.id]) ? safeDerived[p.id] : null;
         const f = safeLevels[p.id] || 'basic';
         const localScenario = safeLocalScenarioLevels[p.id] || f;
         const detail = safeDerivationDetails[p.id] || {};
@@ -1349,9 +1349,9 @@ td{vertical-align:top}caption{text-align:left;font-weight:600;margin-bottom:8px}
                 ? 'Optional Comprehensive elevation requires justification'
                 : safeConfidence[p.id] === 'floor-applied'
                     ? 'Floor applied'
-                    : 'Supported by drivers/rules';
-        const changed = d !== f ? ' ⬆️' : '';
-        html += `<tr data-process-id="${p.id}"><td data-label="Process">${p.id}. ${escapeHtml(p.name)}</td><td data-label="Derived"><span class="badge ${d}">${d}</span></td><td data-label="Pilot profile"><span class="badge ${f}">${f}</span>${changed}</td><td data-label="Local reduction scenario">${localScenario !== f ? `<span class="badge ${localScenario}">${localScenario}</span><br><small>Unverified local scenario</small>` : '—'}</td><td data-label="Trigger metrics">${escapeHtml(triggerMetrics)}</td><td data-label="Evidence status">${confidenceLabel}</td></tr>`;
+                    : safeConfidence[p.id] === 'high' ? 'Supported by drivers/rules' : 'Not recorded';
+        const changed = d && d !== f ? ' ⬆️' : '';
+        html += `<tr data-process-id="${p.id}"><td data-label="Process">${p.id}. ${escapeHtml(p.name)}</td><td data-label="Derived">${d ? `<span class="badge ${d}">${d}</span>` : 'Not recorded'}</td><td data-label="Pilot profile"><span class="badge ${f}">${f}</span>${changed}</td><td data-label="Local reduction scenario">${localScenario !== f ? `<span class="badge ${localScenario}">${localScenario}</span><br><small>Unverified local scenario</small>` : '—'}</td><td data-label="Trigger metrics">${escapeHtml(triggerMetrics)}</td><td data-label="Evidence status">${confidenceLabel}</td></tr>`;
     }
     html += '</tbody></table>';
 
@@ -1436,7 +1436,7 @@ td{vertical-align:top}caption{text-align:left;font-weight:600;margin-bottom:8px}
     html += `</tbody></table></section><section class="record-section"><h2>Context and software checks</h2>
 <p><strong>Team</strong>: ${escapeHtml(projectTeam)}</p>
 <p class="record-meta"><strong>Framework</strong>: SE Tailoring Model v${escapeHtml(data.FRAMEWORK_META.version)} · Standards-informed process architecture<br><strong>Release identity</strong>: app ${escapeHtml(APP_RUNTIME_META.appRelease)} · build ${escapeHtml(APP_RUNTIME_META.buildId)} · exchange schema ${escapeHtml(APP_RUNTIME_META.exchangeSchemaVersion)} · ${escapeHtml(APP_RUNTIME_META.operatingProfile)}</p>
-<p class="scope-note">Current evidence supports implementation-integrity claims for the defined research workflow. Software completeness is not external approval or confirmation that project evidence is complete. This HTML retains entered free text and evidence references; review them before sharing.</p>
+<p class="scope-note">Current evidence supports implementation-integrity claims for the defined research workflow. Content validity, assessor reliability, practical utility, and project-outcome effects remain unestablished. Software completeness is not external approval or confirmation that project evidence is complete. This HTML retains entered free text and evidence references; review them before sharing.</p>
 <div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div></section>`;
 
     html += renderDecisionLedger(state);

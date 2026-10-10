@@ -101,3 +101,27 @@ test('Help preserves rule thresholds and makes the operating and evidence bounda
   assert.match(chain.description, /does not impose a maximum level gap/);
   assert.doesNotMatch(chain.description, /Avoid rigor gaps greater than one level/);
 });
+
+
+test('HTML distinguishes missing derivation provenance from explicitly recorded Basic and supported evidence', () => {
+  const originalDocument = globalThis.document;
+  globalThis.document = { createElement: () => ({ click() {} }) };
+  try {
+    const state = fixtureForScore(3);
+    state.derived = { 9: 'basic' };
+    state.confidence = { 9: 'high' };
+    state.metricAssessments.M1.status = 'inherited-confirmed';
+    const html = generateReport(state, data);
+    const p9 = html.split('<tr data-process-id="9">')[1].split('</tr>')[0];
+    const p10 = html.split('<tr data-process-id="10">')[1].split('</tr>')[0];
+    assert.match(p9, /data-label="Derived"><span class="badge basic">basic/);
+    assert.match(p9, /Supported by drivers\/rules/);
+    assert.match(p10, /data-label="Derived">Not recorded<\/td>/);
+    assert.match(p10, /data-label="Evidence status">Not recorded<\/td>/);
+    assert.ok(!p10.includes('⬆️'));
+    assert.match(html, /Inherited, confirmed/);
+  } finally {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  }
+});
