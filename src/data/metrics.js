@@ -1121,7 +1121,7 @@ export const DEPENDENCY_CHAINS = [
         id: 'req_design',
         name: 'Requirements → Design → Implementation',
         processes: [17, 18, 19, 20, 21, 23],
-        description: 'Vee Model left side: Each process depends on outputs from the previous. Business analysis → stakeholder needs → system requirements → architecture → design → implementation. Avoid rigor gaps greater than one level between adjacent processes.'
+        description: 'Vee Model left side: review the outputs connecting business analysis, stakeholder needs, system requirements, architecture, design, and implementation. Apply the explicit process floors and dependency rules; this advisory chain does not impose a maximum level gap between adjacent processes.'
     },
     {
         id: 'vv_loop',

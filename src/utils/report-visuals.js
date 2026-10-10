@@ -1,4 +1,4 @@
-import { ASSESSOR_GUIDANCE } from '../data/generated-assessor-guidance.js';
+import { getMetricAnchorText } from './metric-anchor-text.js';
 
 function clampScore(value) {
     const numeric = Number(value);
@@ -189,10 +189,8 @@ export function renderMetricSpiderwebSvg(scores = {}, metrics = [], dimensions =
 }
 
 function anchorLabel(metric, score) {
-    const manualAnchor = ASSESSOR_GUIDANCE[metric.id]?.anchors?.[score];
-    if (manualAnchor) return manualAnchor;
-    const explicit = metric.anchors?.[score];
-    if (explicit) return explicit;
+    const selectedAnchor = getMetricAnchorText(metric, score);
+    if (selectedAnchor) return selectedAnchor;
     const question = metric.guidedQuestions?.find(item => Number(item.yesScore) === score);
     return question?.rationale || question?.text || `Anchor ${score}`;
 }

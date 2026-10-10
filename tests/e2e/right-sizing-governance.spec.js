@@ -109,6 +109,7 @@ async function importFixture(page, config, filename) {
   await expect(page).toHaveURL(/#report$/);
   if (pageErrors.length) throw new Error(`Report page errors: ${pageErrors.join(' | ')}`);
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
+  await page.locator('.report-section').filter({ has: page.locator('.report-section-title', { hasText: 'Right-Sizing Analysis' }) }).locator(':scope > summary').click();
 }
 
 test('incomplete decision fails closed, then a complete local record creates a separate report-visible scenario', async ({ page }) => {
@@ -183,4 +184,137 @@ test('right-sizing proposals use a neutral non-blocking action-queue status', as
 
   await page.getByRole('button', { name: /Open checks/ }).click();
   await expect(page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' })).toHaveCount(0);
+});
+
+test('right-sizing drafts survive interrupted editing, reload and private backup without becoming decisions', async ({page}) => {
+  const config=currentConfig(makeScores(),'RIGHT-SIZING-DRAFT');
+  await importFixture(page,config,'right-sizing-draft.json');
+  const openForm=async()=>{
+    await expect(page.getByRole('heading',{name:'Pilot Tailoring Record',exact:true})).toBeVisible();
+    await expect(page.locator('#main-content')).not.toHaveAttribute('inert','');
+    const outer=page.locator('.report-section').filter({has:page.locator('.report-section-title',{hasText:'Right-Sizing Analysis'})});
+    if(!(await outer.evaluate(el=>el.open))) await outer.locator(':scope > summary').click();
+    const form=page.locator('.right-sizing-approval-form[data-process-id="17"]');
+    const parent=form.locator('xpath=..');
+    if(!(await parent.evaluate(el=>el.open))) await parent.locator(':scope > summary').click();
+    return form;
+  };
+  let form=await openForm();
+  const originalLevels=await page.evaluate(()=>{
+    const w=JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));
+    return w.assessments.find(entry=>entry.id===w.activeId).data.levels;
+  });
+  await form.locator('[name="rationale"]').fill('PRIVATE-UNSUBMITTED-RATIONALE');
+  await form.locator('[name="evidenceRef"]').fill('PRIVATE-DRAFT-REF');
+  await page.goto('./#help');
+  await expect(page.getByRole('heading',{name:'Choose the systems engineering work your project needs',exact:true})).toBeVisible();
+  await page.goto('./#report');
+  form=await openForm();
+  await expect(form.locator('[name="rationale"]')).toHaveValue('PRIVATE-UNSUBMITTED-RATIONALE');
+  await expect(form.locator('.right-sizing-draft-status')).toContainText('not been submitted or applied');
+  const state=await page.evaluate(()=>{
+    const w=JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));
+    return w.assessments.find(entry=>entry.id===w.activeId).data;
+  });
+  expect(state.rightSizingApprovalRecords).toHaveLength(0);
+  expect(state.locallyCompleteRightSizingRecordCount).toBe(0);
+  expect(state.levels).toEqual(originalLevels);
+
+  await openSessionMenu(page);
+  await page.getByRole('button',{name:'Private backup',exact:true}).click();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download private backup',exact:true}).click();
+  let backup='';for await(const chunk of await (await download).createReadStream()) backup+=chunk.toString();
+  expect(JSON.parse(backup).assessmentTree.nodes.default.rightSizingDrafts[17].fields.rationale).toBe('PRIVATE-UNSUBMITTED-RATIONALE');
+  const reducedDownload=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Minimum-data JSON',exact:true}).click();
+  let reduced='';for await(const chunk of await (await reducedDownload).createReadStream()) reduced+=chunk.toString();
+  expect(reduced).not.toContain('PRIVATE-UNSUBMITTED-RATIONALE');
+  expect(reduced).not.toContain('PRIVATE-DRAFT-REF');
+  expect(reduced).not.toContain('rightSizingDrafts');
+
+  await page.reload();
+  await page.getByRole('button',{name:'Restore',exact:true}).click();
+  await page.goto('./#report');
+  form=await openForm();
+  await expect(form.locator('[name="rationale"]')).toHaveValue('PRIVATE-UNSUBMITTED-RATIONALE');
+  await page.goto('./#dashboard');
+  await page.getByLabel('New assessment name / code').fill('SEPARATE-DRAFT-CONTEXT');
+  await page.getByRole('button',{name:'Create assessment',exact:true}).click();
+  await page.goto('./#report');
+  await expect(page.locator('.right-sizing-approval-form')).toHaveCount(0);
+  await page.goto('./#dashboard');
+  await page.getByRole('button',{name:'Open assessment RIGHT-SIZING-DRAFT',exact:true}).click();
+  await page.goto('./#report');
+  form=await openForm();
+  await expect(form.locator('[name="rationale"]')).toHaveValue('PRIVATE-UNSUBMITTED-RATIONALE');
+
+  // A quota failure must retain in-memory text and visibly refuse to call it saved.
+  await page.evaluate(()=>{
+    const original=Storage.prototype.setItem;
+    window.restoreDraftStorage=()=>{Storage.prototype.setItem=original;};
+    Storage.prototype.setItem=function(key,value){
+      if(key==='se-tailoring-workspace-v1') throw new DOMException('Quota exceeded','QuotaExceededError');
+      return original.call(this,key,value);
+    };
+  });
+  await form.locator('[name="rationale"]').fill('QUOTA-RETAINED-DRAFT');
+  await expect(form.locator('.right-sizing-draft-status')).toContainText('local save failed');
+  await expect(page.locator('#runtime-status')).toContainText('Local save failed');
+  await page.goto('./#help');
+  await expect(page.getByRole('heading',{name:'Choose the systems engineering work your project needs',exact:true})).toBeVisible();await page.goto('./#report');
+  form=await openForm();
+  await expect(form.locator('[name="rationale"]')).toHaveValue('QUOTA-RETAINED-DRAFT');
+  await page.evaluate(()=>window.restoreDraftStorage());
+  await form.locator('[name="rationale"]').fill('RECOVERED-DRAFT');
+  await expect(page.locator('#runtime-status')).not.toHaveClass(/active/);
+});
+
+test('a failed asserted-record save reports the storage failure and retains the record for private backup', async ({page}) => {
+  await importFixture(page,currentConfig(makeScores(),'UNSAVED-RECORD'),'unsaved-record.json');
+  let form=page.locator('.right-sizing-approval-form[data-process-id="17"]');
+  await form.locator('xpath=..').locator('summary').click();
+  await form.locator('[name="rationale"]').fill('Preserve this asserted rationale through quota failure.');
+  await page.evaluate(()=>{
+    window.__quotaSubmitCount = 0;
+    window.__quotaWriteCount = 0;
+    document.querySelector('.right-sizing-approval-form[data-process-id="17"]').addEventListener('submit', () => { window.__quotaSubmitCount++; }, true);
+    const original=Storage.prototype.setItem;
+    window.__quotaOriginalSetItem = original;
+    Storage.prototype.setItem=function(key,value){
+      if(key==='se-tailoring-workspace-v1') {
+        window.__quotaWriteCount++;
+        throw new DOMException('Quota exceeded','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+    };
+  });
+  await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
+  expect(await page.evaluate(() => window.__quotaSubmitCount)).toBe(1);
+  expect(await page.evaluate(() => window.__quotaWriteCount)).toBe(1);
+  await expect(page.getByText('Asserted decision is kept in this session but could not be saved locally. Keep this page open and use Private backup.',{exact:true})).toBeVisible();
+  await openSessionMenu(page);
+  await page.getByRole('button',{name:'Private backup',exact:true}).click();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download private backup',exact:true}).click();
+  let backup='';for await(const chunk of await (await download).createReadStream()) backup+=chunk.toString();
+  const config=JSON.parse(backup);
+  expect(config.rightSizingApprovalRecords[0].rationale).toBe('Preserve this asserted rationale through quota failure.');
+  expect(config.effectiveRightSizingApprovalCount).toBe(0);
+  expect(config.processLevels[17]).toBe('comprehensive');
+  // An intentional retry with the same fields still persists once storage recovers.
+  await page.evaluate(() => { Storage.prototype.setItem = window.__quotaOriginalSetItem; });
+  form = page.locator('.right-sizing-approval-form[data-process-id="17"]');
+  await form.locator('xpath=..').locator('summary').click();
+  await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
+  await expect(page.getByText('Asserted decision record saved but remains structurally incomplete or invalid.',{exact:true})).toBeVisible();
+  await expect(page.locator('#runtime-status')).not.toBeVisible();
+  const savedRecord = await page.evaluate(() => {
+    const workspace = JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));
+    const data = workspace.assessments.find(item => item.id === workspace.activeId).data;
+    return { record:data.rightSizingApprovalRecords[0], approvedCount:data.effectiveRightSizingApprovalCount, level:data.processLevels?.[17] || data.levels?.[17] };
+  });
+  expect(savedRecord.record.rationale).toBe('Preserve this asserted rationale through quota failure.');
+  expect(savedRecord.approvedCount).toBe(0);
+  expect(savedRecord.level).toBe('comprehensive');
 });

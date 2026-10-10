@@ -17,6 +17,7 @@ import { renderMetricRatingTable } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
 import { ASSESSOR_GUIDANCE } from '../data/generated-assessor-guidance.js';
+import { getMetricAnchorText } from '../utils/metric-anchor-text.js';
 
 const STEPS = [
   { id: 'info', title: 'Project Info', shortTitle: 'Setup' },
@@ -143,6 +144,18 @@ export function renderAssessment(container, routeContext = null) {
     localAssuranceObligations = JSON.parse(JSON.stringify(activeNode?.assuranceObligations || state.assuranceObligations || []));
     localRuleDispositions = JSON.parse(JSON.stringify(activeNode?.ruleDispositions || state.ruleDispositions || {}));
     localCsiResponse = JSON.parse(JSON.stringify(activeNode?.csiResponse || state.csiResponse || {}));
+
+    if (assessmentViewMode === 'assess') {
+      const requestedStep = routeContext?.params?.get('step');
+      const stepIndex = STEPS.findIndex(step => step.id === requestedStep);
+      if (stepIndex >= 0) currentStep = stepIndex;
+      if (routeContext?.params?.get('resume') === '1') {
+        const nextMetric = assessMetricCompleteness(localScores, localMetricAssessments).incompleteMetricIds[0];
+        const dimension = DIMENSIONS.find(item => item.metrics.includes(nextMetric));
+        currentStep = dimension ? STEPS.findIndex(step => step.id === dimension.id) : STEPS.length - 1;
+      }
+      visitedSteps.add(currentStep);
+    }
 
     METRICS.forEach(m => {
       if (localScores[m.id] === undefined) {
@@ -398,6 +411,12 @@ export function renderAssessment(container, routeContext = null) {
 }
 
 function renderAssessmentAtTop(container) {
+  // A rating step is an assessment, even when opened from review/checks.
+  // Keep the route, heading, refresh destination and keyboard focus coherent.
+  if (assessmentViewMode !== 'assess' && currentStep < STEPS.length - 1) {
+    navigateTo('assessment', { step: STEPS[currentStep].id });
+    return;
+  }
   renderAssessment(container);
   window.scrollTo(0, 0);
 }
@@ -527,8 +546,8 @@ function renderStep(container) {
               const selected = ['assessed', 'inherited-confirmed'].includes(assessment.status) && assessment.score === score;
               const preview = isUnreviewed && val === score;
               return `<label class="metric-anchor-card${selected ? ' selected' : ''}${preview ? ' preview' : ''}">
-                <input type="radio" class="metric-anchor-radio" name="metric-${m.id}" value="${score}" aria-label="${escapeHtml(m.id)} score ${score}: ${escapeHtml(guidance.anchors[score])}" ${selected ? 'checked' : ''}>
-                <span><span class="metric-anchor-number">${score}</span><span class="metric-anchor-text">${escapeHtml(guidance.anchors[score])}</span></span>
+                <input type="radio" class="metric-anchor-radio" name="metric-${m.id}" value="${score}" aria-label="${escapeHtml(m.id)} score ${score}: ${escapeHtml(getMetricAnchorText(m, score))}" ${selected ? 'checked' : ''}>
+                <span><span class="metric-anchor-number">${score}</span><span class="metric-anchor-text">${escapeHtml(getMetricAnchorText(m, score))}</span></span>
                 ${preview ? '<span class="metric-anchor-tag">Preview</span>' : ''}
               </label>`;
             }).join('')}
@@ -538,8 +557,8 @@ function renderStep(container) {
             : isMigrationRequired
               ? 'Imported value needs a current 1–5 reassessment before software completeness can pass.'
               : isUnreviewed
-                ? `<strong>Preview ${val}:</strong> ${escapeHtml(guidance.anchors[val])}`
-                : `<strong>Anchor ${val}:</strong> ${escapeHtml(guidance.anchors[val])}`}</div>
+                ? `<strong>Preview ${val}:</strong> ${escapeHtml(getMetricAnchorText(m, val))}`
+                : `<strong>Anchor ${val}:</strong> ${escapeHtml(getMetricAnchorText(m, val))}`}</div>
           <div class="metric-assessment-meta mt-sm">
             <span class="text-xs text-secondary">Select the closest evidence-backed anchor.</span>
             <label class="metric-unknown-toggle"><input type="checkbox" class="metric-unknown" data-metric="${m.id}" aria-label="Mark ${m.id} ${escapeHtml(m.name)} as cannot assess yet" ${isUnknown ? 'checked' : ''}> Cannot assess yet</label>
@@ -619,10 +638,10 @@ function renderAssuranceObligationControls() {
   const floorTypes = METRIC_QUALIFIER_DEFINITIONS.M15.filter(item => item.floorEligible);
   const hasExistingRecord = localAssuranceObligations.length > 0;
   return `<details class="metric-advanced mt-md"${hasExistingRecord ? ' open' : ''}>
-    <summary><span>Binding assurance detail</span><span class="text-xs text-secondary">Only needed for scoped M15 floors</span></summary>
+    <summary><span>Binding assurance detail</span><span class="text-xs text-secondary">For scoped M15 drivers, floors, and rule severity</span></summary>
     <fieldset style="border:0;padding:12px 0 0;">
       <legend class="text-xs" style="font-weight:700;padding:0 4px;">Primary binding assurance obligation</legend>
-      <div class="text-xs text-secondary mb-sm">M15≥4 activates assurance floors only when this record is confirmed, source-backed, and scoped to the affected process.</div>
+      <div class="text-xs text-secondary mb-sm">A confirmed, source-backed, scoped record can activate conditional M15 drivers at any rating. M15≥4 can also activate the defined floors or mandatory support rules. The app does not verify the asserted obligation.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label class="text-xs">Assurance type<select class="select" id="assurance-type" aria-label="Primary assurance type">${floorTypes.map(item => `<option value="${item.id}" ${obligation.type === item.id ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>
         <label class="text-xs" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="assurance-confirmed" ${obligation.bindingStatus === 'confirmed' ? 'checked' : ''}> Binding status asserted</label>
@@ -692,7 +711,7 @@ function setMetricScore(metricId, value, contentContainer) {
   }
 
   const desc = contentContainer.querySelector(`#desc-${metricId}`);
-  if (desc) desc.textContent = `Confirmed anchor ${value}: ${guidance?.anchors?.[value] || m.anchors[value] || ''}`;
+  if (desc) desc.textContent = `Confirmed anchor ${value}: ${getMetricAnchorText(m, value)}`;
 
   const status = metricItem?.querySelector('.metric-status');
   if (status) {
@@ -729,9 +748,9 @@ function startWizard(metricId, contentContainer) {
   const metric = METRICS.find(m => m.id === metricId);
   const guidance = ASSESSOR_GUIDANCE[metricId];
   const questions = [5, 4, 3, 2, 1].map(score => ({
-    text: `Does the available evidence support this description? ${guidance.anchors[score]}`,
+    text: `Does the available evidence support this description? ${getMetricAnchorText(metric, score)}`,
     yesScore: score,
-    rationale: guidance.anchors[score]
+    rationale: getMetricAnchorText(metric, score)
   }));
   const wizardDiv = contentContainer.querySelector(`#wizard-${metricId}`);
   if (!wizardDiv) return;
@@ -764,7 +783,7 @@ function startWizard(metricId, contentContainer) {
       : 'No lower adjacent anchor exists.';
     wizardDiv.innerHTML = `
       <div class="text-sm font-semibold mb-sm">Recommended anchor ${recommendation}</div>
-      <div class="text-xs text-secondary mb-md">${escapeHtml(guidance.anchors[recommendation])}</div>
+      <div class="text-xs text-secondary mb-md">${escapeHtml(getMetricAnchorText(metric, recommendation))}</div>
       <div class="text-xs mb-sm"><strong>Evidence path</strong></div>
       <ol class="text-xs text-secondary" style="padding-left:18px;display:grid;gap:5px;">
         ${answers.map(({ question, answer }) => `<li><strong>${answer === 'yes' ? 'Yes' : 'No'}:</strong> ${escapeHtml(question.text)}${answer === 'yes' ? ` — ${escapeHtml(question.rationale)}` : ''}</li>`).join('')}

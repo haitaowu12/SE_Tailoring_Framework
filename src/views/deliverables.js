@@ -19,7 +19,7 @@ export function renderDeliverables(container) {
         <p class="text-secondary text-sm mt-sm">Read-only practitioner guidance. These examples are not completion evidence and are not stored as assessment state.</p>
       </div>
       <div class="flex gap-sm items-center deliverables-filter">
-        <span class="text-xs text-secondary">Filter:</span>
+        <label class="text-xs text-secondary" for="level-filter">Filter:</label>
         <select class="select" id="level-filter">
           <option value="all" ${filterLevel === 'all' ? 'selected' : ''}>Current Assessment Levels</option>
           <option value="basic" ${filterLevel === 'basic' ? 'selected' : ''}>All Basic</option>
@@ -28,6 +28,11 @@ export function renderDeliverables(container) {
         </select>
       </div>
     </div>
+    <div class="flex gap-sm mb-lg">
+      <button class="btn btn-secondary btn-sm" id="deliverables-expand-all" aria-controls="deliverables-list">Expand all</button>
+      <button class="btn btn-secondary btn-sm" id="deliverables-collapse-all" aria-controls="deliverables-list">Collapse all</button>
+    </div>
+    <div id="deliverables-list">
     ${Object.entries(groupByGroup).map(([group, procs]) => `
       <div class="mb-xl">
         <h3 class="mb-md" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h3>
@@ -48,7 +53,7 @@ export function renderDeliverables(container) {
         const items = details.deliverables[lvl] || [];
         if (items.length === 0) return '';
         return `
-          <details class="deliverable-group card mb-md" ${items.length <= 6 ? 'open' : ''}>
+          <details class="deliverable-group card mb-md">
             <summary class="deliverable-summary">
               <div class="flex justify-between items-center w-full">
                 <div class="flex items-center gap-sm">
@@ -57,6 +62,7 @@ export function renderDeliverables(container) {
                   <span class="level-badge ${lvl}">${lvl[0].toUpperCase()}</span>
                 </div>
                 <span class="text-xs text-secondary">${items.length} reference item${items.length === 1 ? '' : 's'}</span>
+                <span class="deliverable-toggle" aria-hidden="true">▸</span>
               </div>
             </summary>
             <div class="deliverable-items mt-md">
@@ -66,6 +72,7 @@ export function renderDeliverables(container) {
     }).join('')}
       </div>
     `).join('')}
+    </div>
   `;
 
     const style = document.createElement('style');
@@ -76,6 +83,8 @@ export function renderDeliverables(container) {
     .deliverables-filter { min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
     .deliverables-filter .select { max-width: 100%; }
     .deliverable-summary { padding: 16px 20px; cursor: pointer; list-style: none; }
+    .deliverable-toggle { flex:0 0 auto; color:var(--text-secondary); font-size:18px; transition:transform .15s; }
+    .deliverable-group[open] .deliverable-toggle { transform:rotate(90deg); }
     .deliverable-summary::-webkit-details-marker { display: none; }
     .deliverable-summary::marker { display: none; }
     .deliverable-summary .w-full { min-width: 0; gap: 8px; }
@@ -107,6 +116,13 @@ export function renderDeliverables(container) {
     }
   `;
     container.appendChild(style);
+
+    const groups = container.querySelectorAll('.deliverable-group');
+    for (const [id, open] of [['deliverables-expand-all', true], ['deliverables-collapse-all', false]]) {
+        const button = container.querySelector(`#${id}`);
+        button.disabled = groups.length === 0;
+        button.addEventListener('click', () => groups.forEach(group => { group.open = open; }));
+    }
 
     // Level filter
     container.querySelector('#level-filter').addEventListener('change', (e) => {
