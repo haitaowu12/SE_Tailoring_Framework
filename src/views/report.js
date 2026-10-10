@@ -623,7 +623,7 @@ export function renderReport(container) {
           </thead>
           <tbody>
             ${CORE_PROCESSES.map(p => {
-    const derived = derivedLevels[p.id] || 'basic';
+    const derived = ['basic', 'standard', 'comprehensive'].includes(derivedLevels[p.id]) ? derivedLevels[p.id] : null;
     const final_ = levels[p.id] || 'basic';
     const localScenario = localScenarioLevels[p.id] || final_;
     const manualAdjustment = activeManualAdjustments?.[p.id]
@@ -631,7 +631,7 @@ export function renderReport(container) {
     const override = state.overrides?.find(o => o.processId === p.id);
     const fix = state.fixes?.find(f => f.processId === p.id);
     const groupInfo = PROCESS_GROUPS[p.group.toUpperCase()];
-    const conf = confidence[p.id] || 'high';
+    const conf = confidence[p.id];
     const detail = derivationDetails[p.id] || {};
     const triggerMetrics = Array.isArray(detail.triggerMetrics) && detail.triggerMetrics.length
       ? detail.triggerMetrics.join(', ')
@@ -649,7 +649,9 @@ export function renderReport(container) {
         ? '<span class="confidence-badge-inline available-with-justification" title="Standard is recommended; choosing Comprehensive requires recorded justification">Optional elevation</span>'
         : conf === 'floor-applied'
           ? '<span class="confidence-badge-inline floor-applied" title="Comprehensive level set by safety, regulatory, or consistency floor">Floor</span>'
-          : '<span class="confidence-badge-inline high" title="Supported by drivers/rules">Supported</span>';
+          : conf === 'high'
+            ? '<span class="confidence-badge-inline high" title="Supported by drivers/rules">Supported</span>'
+            : '<span class="text-secondary">Not recorded</span>';
     const justificationFlag = conf === 'available-with-justification'
       ? ''
       : '';
@@ -660,7 +662,7 @@ export function renderReport(container) {
                 <td><span class="process-id">${p.id}</span></td>
                 <td><a href="${escapeHtml(processDetailsHref(p.id, final_, 'report'))}" aria-label="View ${escapeHtml(FRAMEWORK_META.levelLabels[final_] || final_)} details for ${escapeHtml(p.name)}" style="color:var(--accent-primary-light);text-decoration:underline;text-underline-offset:2px;">${escapeHtml(p.name)}</a>${justificationFlag}</td>
                 <td style="color:${groupInfo?.color || 'inherit'}">${groupInfo?.name || p.group}</td>
-                <td><span class="level-badge ${derived}">${derived[0].toUpperCase()}</span></td>
+                <td>${derived ? `<span class="level-badge ${derived}">${derived[0].toUpperCase()}</span>` : '<span class="text-secondary">Not recorded</span>'}</td>
                 <td>${manualHtml}</td>
                 <td>${override ? `<span style="color:var(--accent-warning); font-size:11px;">${override.from}→${override.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
                 <td>${fix ? `<span style="color:var(--accent-success); font-size:11px;">${fix.from}→${fix.to}</span>` : '<span class="text-tertiary">—</span>'}</td>
