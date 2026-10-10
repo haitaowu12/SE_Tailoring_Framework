@@ -1331,7 +1331,7 @@ h4 { font-size: var(--font-size-lg); }
 /* Keep full desktop navigation separate from Library/Session at laptop widths.
  * The compact route selector below 1100px remains unchanged.
  */
-@media (min-width: 1101px) and (max-width: 1279px) {
+@media (min-width: 1101px) and (max-width: 1439px) {
   #navbar { padding-inline: var(--space-md); }
   .nav-links { margin-left: var(--space-lg); }
   .nav-links > .nav-link { padding-inline: var(--space-sm); }
