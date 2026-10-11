@@ -53,6 +53,7 @@ function restoreDialogInvokerFocus(invoker) {
 
 // Register all routes
 registerRoute('dashboard', renderDashboard);
+registerRoute('library', renderDashboard);
 registerRoute('elements', renderSystemElements);
 registerRoute('assessment', renderAssessment);
 registerRoute('review', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'review' }));
@@ -75,7 +76,7 @@ function buildNavbar() {
       <span>Tailoring Model</span>
     </button>
     <div class="nav-links">
-      <button class="nav-link" data-route="dashboard">Workspace</button>
+      <button class="nav-link" data-route="dashboard">Home</button>
       <button class="nav-link" data-route="assessment">Assessment</button>
       <button class="nav-link" data-route="adjust">Decisions</button>
       <button class="nav-link" data-route="processes">Guidance</button>
@@ -94,7 +95,7 @@ function buildNavbar() {
     </div>
     <label class="mobile-route-select-label" for="mobile-route-select">Go to section</label>
     <select class="mobile-route-select" id="mobile-route-select" aria-label="Go to section">
-      <option value="dashboard">Workspace</option>
+      <option value="dashboard">Home</option><option value="library">Assessment library</option>
       <option value="assessment">Assessment</option>
       <option value="adjust">Decisions</option>
       <option value="processes">Guidance</option>
@@ -185,7 +186,7 @@ function buildNavbar() {
     const mobileRouteSelect = navbar.querySelector('#mobile-route-select');
     mobileRouteSelect.addEventListener('change', () => navigateTo(mobileRouteSelect.value));
 
-    navbar.querySelector('#btn-workspace-library').addEventListener('click', () => navigateTo('dashboard'));
+    navbar.querySelector('#btn-workspace-library').addEventListener('click', () => navigateTo('library'));
 
     // Import creates a new assessment; it never merges into the current tree.
     const handleImport = () => {

@@ -177,10 +177,12 @@ test('right-sizing proposals use a neutral non-blocking action-queue status', as
 
   await page.getByRole('button', { name: 'Assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  const queueItem = page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' });
-  await expect(queueItem).toContainText('Decision available — non-blocking');
-  await expect(queueItem.locator('.action-queue-status')).toHaveClass(/neutral/);
-  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+  await page.getByText('Technical checks and governance trace',{exact:true}).click();
+  await expect(page.getByText(/Right-Sizing Proposal.*not applied/)).toBeVisible();
+  const current = await page.evaluate(() => {const w=JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));return w.assessments.find(a=>a.id===w.activeId).data;});
+  expect(current.effectiveRightSizingApprovalCount).toBe(0);
+  expect(current.rightSizingActions).toEqual([]);
+  await expect(page.locator('#btn-next')).toBeVisible();
 
   await page.getByRole('button', { name: /Open checks/ }).click();
   await expect(page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' })).toHaveCount(0);
@@ -238,12 +240,12 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   await page.goto('./#report');
   form=await openForm();
   await expect(form.locator('[name="rationale"]')).toHaveValue('PRIVATE-UNSUBMITTED-RATIONALE');
-  await page.goto('./#dashboard');
+  await page.goto('./#library');
   await page.getByLabel('New assessment name / code').fill('SEPARATE-DRAFT-CONTEXT');
   await page.getByRole('button',{name:'Create assessment',exact:true}).click();
   await page.goto('./#report');
   await expect(page.locator('.right-sizing-approval-form')).toHaveCount(0);
-  await page.goto('./#dashboard');
+  await page.goto('./#library');
   await page.getByRole('button',{name:'Open assessment RIGHT-SIZING-DRAFT',exact:true}).click();
   await page.goto('./#report');
   form=await openForm();
