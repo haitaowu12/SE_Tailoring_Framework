@@ -254,7 +254,7 @@ test('satisfied imported migration needs explicit review before a completed repo
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
   await page.goto('./#issues');
   await page.getByRole('button', { name: 'Review imported framework changes', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Pilot Tailoring Report' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pilot Tailoring Record' })).toBeVisible();
   await expect.poll(async () => page.evaluate(key => {
     const workspace = JSON.parse(localStorage.getItem(key));
     return workspace.assessments.find(entry => entry.id === workspace.activeId).data.semanticMigration;
