@@ -1711,6 +1711,9 @@ function finalizeAssessment(destinationHash = null, { automatic = false } = {}) 
     currentStep = 0;
     visitedSteps = new Set([0]);
     navigateTo('report');
+  } else if (eligibility.explicitlyDemo) {
+    showToast('Demonstration saved. Demo records cannot produce a completed report.', 'info');
+    renderAssessment(document.querySelector('.assessment-container')?.parentElement || document.getElementById('main-content'));
   } else {
     const remaining = [];
     if (!completeness.complete) remaining.push(`${completeness.incompleteMetricIds.length} metric judgment(s)`);
