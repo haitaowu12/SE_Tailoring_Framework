@@ -333,9 +333,9 @@ export function renderReport(container) {
       </div>
     </div>
 
-    <p class="report-export-note text-xs text-secondary mb-md">HTML retains free text and evidence references; review it before sharing. Minimum-data JSON omits those details. Use Session → Private backup for a complete restorable copy.</p>
+    <p class="report-export-note text-xs text-secondary mb-md">HTML includes rationale and evidence; inspect before sharing. Minimum-data JSON omits those details. Session → Private backup keeps a restorable copy.</p>
 
-    <div class="pilot-record-banner mb-lg" role="note">
+    <div class="pilot-record-banner mb-lg" data-record-state="${isDraft ? 'draft' : 'pilot'}" role="note">
       <strong>${isDraft ? 'Draft report — incomplete' : 'Pilot record — not an authoritative organizational baseline'}</strong>
       <span>${isDraft ? `${integrity.completeCount}/${METRICS.length} metric judgments confirmed. Unresolved inputs and checks remain listed below. This is a draft, not a completed record.` : 'Software completeness checks passed. External approval not verified.'}</span>${isDraft ? '<button type="button" class="btn btn-secondary btn-sm" id="btn-go-assess">Continue Assessment</button><a class="btn btn-secondary btn-sm" href="#issues">Resolve open checks</a>' : ''}
     </div>
@@ -344,8 +344,9 @@ export function renderReport(container) {
       <div>
         <h3 id="report-summary-title">Current process profile</h3>
         <p class="text-secondary text-sm mt-sm">Use the plan below to agree activities, owners and evidence with your team. Record changes in Decisions; approval stays outside this prototype.</p>
-      </div>
       <p class="text-sm mt-md">${activeRecords.length}/${CORE_PROCESSES.length} process decisions recorded · ${pendingDraftCount} unrecorded draft(s)${staleDecisionCount ? ` · ${staleDecisionCount} previous decision(s) need reconfirmation after input changes` : ''}. <a href="#adjust">Review decisions and drafts</a>.</p>
+      </div>
+
       <div class="report-summary-grid">
         <div class="report-summary-item"><span class="summary-value">${basicCount}</span><span class="summary-label">Basic</span></div>
         <div class="report-summary-item"><span class="summary-value">${stdCount}</span><span class="summary-label">Standard</span></div>
@@ -820,7 +821,8 @@ export function renderReport(container) {
     .pilot-record-banner span { color:var(--text-secondary); font-size:12px; }
     .pilot-record-banner .btn { justify-self:start; }
     @media(max-width:600px) { .pilot-record-banner { grid-template-columns:minmax(0,1fr); gap:10px; } .pilot-record-banner::after { display:none; } }
-    .pilot-record-banner::after { content:'PILOT / WIP'; grid-column:2; grid-row:1 / span 2; color:var(--accent-warning); font-size:11px; font-weight:800; letter-spacing:.1em; transform:rotate(-3deg); }
+    .pilot-record-banner[data-record-state="draft"]::after { content:'PILOT / WIP'; }
+    .pilot-record-banner::after { content:'PILOT'; grid-column:2; grid-row:1 / span 2; color:var(--accent-warning); font-size:11px; font-weight:800; letter-spacing:.1em; transform:rotate(-3deg); }
     .report-layer-heading { margin:30px 0 12px; color:var(--text-primary); font-size:18px; }
     .report-gate-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:14px; }
     .report-gate { display:grid; gap:3px; padding:10px; border:1px solid var(--border-subtle); border-radius:8px; }

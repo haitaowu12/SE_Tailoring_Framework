@@ -50,6 +50,9 @@ test('partial review records exactly one adjustment, retains another draft, and 
  await expect.poll(()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.getByRole('button',{name:'Review / adjust decisions',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Tailoring decisions',exact:true})).toBeVisible();
+ const reasonBounds=await page.locator('#decision-reason-9').boundingBox();
+ expect(reasonBounds.x).toBeGreaterThanOrEqual(0);
+ expect(reasonBounds.x+reasonBounds.width).toBeLessThanOrEqual(390);
  await page.locator('#btn-view-report').click();
  await expect(page.getByRole('heading',{name:'Draft Tailoring Report',exact:true})).toBeVisible();
 });

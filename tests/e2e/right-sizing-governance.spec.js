@@ -245,7 +245,7 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   await page.getByRole('button',{name:'Create assessment',exact:true}).click();
   await page.goto('./#report');
   await expect(page.locator('.right-sizing-approval-form')).toHaveCount(0);
-  await page.goto('./#dashboard');
+  await page.goto('./#library');
   await page.getByRole('button',{name:'Open assessment RIGHT-SIZING-DRAFT',exact:true}).click();
   await page.goto('./#report');
   form=await openForm();
