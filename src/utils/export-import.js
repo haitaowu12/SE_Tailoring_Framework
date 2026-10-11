@@ -1332,7 +1332,7 @@ td{vertical-align:top}caption{text-align:left;font-weight:600;margin-bottom:8px}
 <p><strong>Assessed boundary</strong>: ${escapeHtml(projectBoundary)}<br><strong>Decision purpose</strong>: ${escapeHtml(projectPurpose)}</p>
 <div class="scope-note">This record covers ${data.CORE_PROCESSES.length} project-facing processes. Agreement and Organizational Project-Enabling processes are reference scope unless explicitly reviewed.</div>`;
 
-    html += '<h2>Process Tailoring Levels</h2><p>Use the profile to agree activities, owners and evidence. Derived = driver calculation; pilot profile = rules and local choices applied. Local reduction scenarios remain unverified.</p><table class="process-profile"><caption>All 22 process results</caption><thead><tr><th scope="col">Process</th><th scope="col">Derived</th><th scope="col">Pilot profile</th><th scope="col">Local reduction scenario</th><th scope="col">Trigger metrics</th><th scope="col">Evidence status</th></tr></thead><tbody>';
+    html += `<h2>Process Tailoring Levels</h2><p>Use the profile to agree activities, owners and evidence. Derived = driver calculation; pilot profile = rules and local choices applied. Local reduction scenarios remain unverified.</p><table class="process-profile"><caption>All ${data.CORE_PROCESSES.length} process results</caption><thead><tr><th scope="col">Process</th><th scope="col">Derived</th><th scope="col">Pilot profile</th><th scope="col">Local reduction scenario</th><th scope="col">Trigger metrics</th><th scope="col">Evidence status</th></tr></thead><tbody>`;
     for (const p of data.CORE_PROCESSES) {
         const d = VALID_LEVELS.has(safeDerived[p.id]) ? safeDerived[p.id] : null;
         const f = safeLevels[p.id] || 'basic';
