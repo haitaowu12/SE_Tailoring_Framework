@@ -180,7 +180,7 @@ test('right-sizing proposals use a neutral non-blocking action-queue status', as
   const queueItem = page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' });
   await expect(queueItem).toContainText('Decision available — non-blocking');
   await expect(queueItem.locator('.action-queue-status')).toHaveClass(/neutral/);
-  await expect(page.getByRole('button', { name: 'Check Software Completeness' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
 
   await page.getByRole('button', { name: /Open checks/ }).click();
   await expect(page.locator('.action-queue-item', { hasText: 'Right-sizing proposals' })).toHaveCount(0);

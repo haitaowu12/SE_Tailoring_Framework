@@ -1,3 +1,4 @@
+import { checkAssessmentAutomatically } from './assessment.js';
 import { reconcileManualChoices, getDecisionEffectiveScores, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 import { renderDecisionLedger } from '../utils/decision-record-view.js';
 /**
@@ -230,10 +231,11 @@ function enhanceReportSections(container, previousSections = new Map()) {
 export function renderReport(container) {
   const previousSections = new Map([...container.querySelectorAll('.report-section')].map(section => [section.querySelector('.report-section-title')?.textContent, section.open]));
   removeReportPrintHandlers();
+  checkAssessmentAutomatically();
   const state = getState();
   const integrity = getAssessmentDisposition(state);
   if (!integrity.complete) {
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. ${integrity.completeCount === METRICS.length ? 'Review recommendations and select Check Software Completeness. Any remaining warning, hierarchy or delivery checks must also be resolved.' : 'Unconfirmed values remain a preview. Review the remaining judgments to prepare a completed pilot record.'} Your saved tailoring decisions remain available in Decisions.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button><button class="btn btn-secondary mt-lg" id="btn-open-decisions">Open saved decisions</button></div>`;
+    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. ${integrity.completeCount === METRICS.length ? 'Software checks run automatically. Complete any open warning, hierarchy or delivery records to make the report available.' : 'Unconfirmed values remain a preview. Review the remaining judgments to prepare a completed pilot record.'} Your saved tailoring decisions remain available in Decisions.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button><button class="btn btn-secondary mt-lg" id="btn-open-decisions">Open saved decisions</button></div>`;
     container.querySelector('#btn-go-assess')?.addEventListener('click', () => integrity.incompleteMetricIds.length
       ? navigateTo('assessment', { resume: '1' })
       : navigateTo('review'));

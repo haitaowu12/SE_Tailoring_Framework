@@ -250,7 +250,7 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
   await page.locator('#rule11-rationale').fill('Basic operational evidence accepted with parent-level validation and interface acceptance controls.');
   await expect(page.locator('.rule11-decision .decision-state')).toHaveText('Recorded');
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: 'Check Software Completeness' }).click();
+  await page.getByRole('button', { name: 'View Report' }).click();
   await expect(page).toHaveURL(/#report$/);
   const rule11ReportSection = page.locator('.report-section', {
     has: page.getByText('Rule 11 Disposition', { exact: true })
@@ -303,7 +303,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   await expect(page.locator('#rule11-owner')).toHaveValue('Programme Chief Engineer');
   await expect(page.locator('.rule11-decision .decision-state')).toHaveText('Ready to apply');
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: /Apply P27 Adjustment & Check Completeness/ }).click();
+  await page.getByRole('button', { name: /Apply chosen P27 adjustment/ }).click();
 
   await expect(page).toHaveURL(/#report$/);
   const rule11ReportSection = page.locator('.report-section', {
@@ -346,7 +346,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   if (!(await planningWarning.evaluate(element => element.open))) await planningWarning.locator('summary').click();
   await planningWarning.locator('.warning-outcome').selectOption('satisfy');
   await expect(planningWarning.locator('.warning-disposition-summary')).toHaveText('complete');
-  await page.getByRole('button', { name: 'Check Software Completeness', exact: true }).click();
+  await page.getByRole('button', { name: 'View Report', exact: true }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
   expect((await readNode()).levels[27]).toBe('comprehensive');
@@ -390,7 +390,7 @@ for (const scenario of [
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await expect(csiDecision.locator('.decision-state.complete')).toHaveText('Recorded');
-    const completenessButton = page.getByRole('button', { name: 'Check Software Completeness' });
+    const completenessButton = page.getByRole('button', { name: 'View Report' });
     await expect(completenessButton).toBeVisible();
     await completenessButton.click();
 
@@ -424,9 +424,9 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /View Report/ })).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
-  await page.getByRole('button', { name: /Check Software Completeness/ }).click();
+  await page.getByRole('button', { name: /View Report/ }).click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 });
