@@ -1153,7 +1153,7 @@ function renderResults(content) {
           <span class="decision-state ${rule11Disposition.complete || rule11ElevationPending ? 'complete' : ''}">${rule11ElevationPending ? 'Ready to apply' : rule11Disposition.complete ? 'Recorded' : 'Decision needed'}</span>
         </summary>
         <div class="decision-body">
-          <p class="text-sm text-secondary">Verification is Comprehensive while Validation is below Standard. Choose whether the current evidence is sufficient or Validation should be raised. The warning remains visible either way.</p>
+          <p class="text-sm text-secondary">Comprehensive Verification prompts a review of Validation responsibility and evidence. Choose whether the evidence is sufficient or Validation should be raised. The warning remains visible either way.</p>
           <label class="decision-field mt-md">
             <span>Disposition</span>
             <select class="select" id="rule11-outcome" aria-label="Rule 11 disposition outcome">
