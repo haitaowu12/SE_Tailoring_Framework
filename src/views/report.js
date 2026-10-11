@@ -231,7 +231,7 @@ function enhanceReportSections(container, previousSections = new Map()) {
 export function renderReport(container) {
   const previousSections = new Map([...container.querySelectorAll('.report-section')].map(section => [section.querySelector('.report-section-title')?.textContent, section.open]));
   removeReportPrintHandlers();
-  checkAssessmentAutomatically();
+  if (!getState().assessmentComplete) checkAssessmentAutomatically();
   const state = getState();
   const integrity = getAssessmentDisposition(state);
   if (!integrity.complete) {

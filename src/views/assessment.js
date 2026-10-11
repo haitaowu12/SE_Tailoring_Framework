@@ -78,7 +78,8 @@ function commitAssessmentDraft({ manualMetricId = null } = {}) {
     activeNode.status = 'draft';
     activeNode.assessmentDisposition = draftDisposition;
   }
-  setState({
+  // Persist inputs and the fresh derived result together, with one autosave attempt.
+  Object.assign(getState(), {
     projectInfo: { ...localProject },
     scores,
     metricAssessments,
