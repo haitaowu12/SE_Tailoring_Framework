@@ -48,7 +48,7 @@ test('score changes use the unified active-node draft commit', () => {
   assert.match(commitBody, /activeNode\.metricAssessments/);
   assert.match(commitBody, /activeNode\.ruleDispositions/);
   assert.match(commitBody, /activeNode\.csiResponse/);
-  assert.match(commitBody, /activeNode\.assessmentDisposition = 'work-in-progress'/);
+  assert.match(commitBody, /activeNode\.assessmentDisposition = draftDisposition/);
   assert.match(commitBody, /assessmentComplete: false/);
   assert.match(functionBody, /commitAssessmentDraft\(\{ manualMetricId: metricId \}\)/);
 });
@@ -65,10 +65,10 @@ test('assessment recommendations link to their exact process and computed level'
 test('opening recommendation details persists work in progress without silently baselining', () => {
   assert.match(assessmentSource, /\.process-detail-link/);
   assert.match(assessmentSource, /finalizeAssessment\(link\.getAttribute\('href'\)\)/);
-  assert.match(assessmentSource, /function finalizeAssessment\(destinationHash = null\)/);
-  assert.match(assessmentSource, /const applyRule11Elevation = !navigationOnly &&/);
-  assert.match(assessmentSource, /assessmentComplete: !navigationOnly && canBaseline/);
-  assert.match(assessmentSource, /assessmentDisposition: !navigationOnly && canBaseline \? 'complete-baseline' : 'work-in-progress'/);
+  assert.match(assessmentSource, /function finalizeAssessment\(destinationHash = null, /);
+  assert.match(assessmentSource, /const applyRule11Elevation = !automatic && !navigationOnly &&/);
+  assert.match(assessmentSource, /assessmentComplete: recordComplete/);
+  assert.match(assessmentSource, /assessmentDisposition: recordDisposition/);
   assert.match(assessmentSource, /const destination = getCurrentRouteContext\(destinationHash\)/);
   assert.match(assessmentSource, /navigateTo\(destination\.path, destination\.params\)/);
 });
@@ -77,7 +77,7 @@ test('fresh results do not present a recommendation until preview is explicitly 
   assert.match(assessmentSource, /completeness\.completeCount === 0 && !showNeutralPreview/);
   assert.match(assessmentSource, />No recommendation yet</);
   assert.match(assessmentSource, />Explore neutral what-if preview</);
-  assert.match(assessmentSource, /Check Software Completeness/);
+  assert.match(assessmentSource, /View Report/);
   assert.doesNotMatch(assessmentSource, /Pass Software Completeness Checks/);
 });
 
