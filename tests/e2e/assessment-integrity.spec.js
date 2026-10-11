@@ -160,7 +160,7 @@ test('partial CSI response survives autosave restore without passing completenes
   await expect(page.getByRole('button', { name: 'Save Work in Progress (CSI 4 response required)' })).toBeVisible();
 });
 
-test('editing a completed baseline immediately demotes it to work in progress', async ({ page }) => {
+test('editing confirmed ratings recomputes a still-complete assessment automatically', async ({ page }) => {
   await startFreshAssessment(page);
   await confirmAllMetrics(page);
   await page.getByRole('button', { name: 'Go to Results step' }).click();
@@ -171,12 +171,12 @@ test('editing a completed baseline immediately demotes it to work in progress', 
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
   await page.getByRole('radio', { name: /M1 score 4:/ }).check();
   await page.getByRole('button', { name: 'Go to dashboard' }).click();
-  await expect(page.getByText('Work in progress', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View report →', exact: true })).toBeVisible();
   await expect(page.getByText('16/16 reviewed')).toBeVisible();
 
   await page.getByRole('button', { name: 'Report', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /HTML report/i })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Pilot Tailoring Record', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download pilot HTML record', exact: true })).toBeVisible();
 });
 
 test('confirmed ratings make a report available automatically without a final check action', async ({ page }) => {
