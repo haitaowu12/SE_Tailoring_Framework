@@ -86,7 +86,7 @@ test('laptop-width navigation never covers Library and its hit target opens Work
     if (desktopNavigation) expect(geometry.referenceRight, `reference overlaps Library at ${width}px`).toBeLessThanOrEqual(geometry.libraryLeft);
     expect(geometry.hitLibrary, `Library pointer intercepted at ${width}px`).toBe(true);
     await library.click();
-    await expect(page.getByRole('heading', { name: /Plan the systems engineering your project needs/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your assessments', exact: true })).toBeVisible();
     if (desktopNavigation) await expect(reference).toHaveAttribute('aria-expanded', 'false');
   }
 });

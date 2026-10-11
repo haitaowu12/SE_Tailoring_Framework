@@ -27,7 +27,7 @@ test('unresolved grandparent protection survives import, review, Decisions and r
   await (await chooser).setFiles({name:'ancestry.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(fixture()))});
   await expect(page.getByText('Configuration imported successfully!')).toBeVisible();
   await page.getByRole('button',{name:'Report',exact:true}).click();
-  await expect(page.getByText('Assessment Work in Progress')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Draft Tailoring Report',exact:true})).toBeVisible();
   await page.goto('./#review');
   await expect(page.getByText('Protected ancestry needs review',{exact:true})).toBeVisible();
   await page.locator('#btn-record-tailoring-decisions').click();

@@ -41,7 +41,7 @@ export * from './sa-methods.js';
 // Framework metadata
 export const FRAMEWORK_META = {
     version: FRAMEWORK_SEMANTIC_VERSION,
-    appRelease: '3.6.1',
+    appRelease: '3.7.0',
     metricDefinitionSet: METRIC_DEFINITION_SET_ID,
     name: 'SE Process Tailoring Framework',
     standard: 'ISO/IEC/IEEE 15288:2023',

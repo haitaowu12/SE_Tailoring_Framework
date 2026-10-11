@@ -5,6 +5,7 @@ const KEY = 'se-tailoring-workspace-v1';
 const semantics = { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' };
 
 async function createAssessment(page, name) {
+  if (!(await page.getByLabel('New assessment name / code').isVisible())) await openWorkspace(page);
   await page.getByLabel('New assessment name / code').fill(name);
   await page.getByRole('button', { name: 'Create assessment', exact: true }).click();
   await expect(page.locator('#assessment-context')).toContainText(`Current assessment: ${name}`);
@@ -28,6 +29,7 @@ async function readLibrary(page) {
 
 test('create, switch, duplicate, and immediate reload preserve independent assessments', async ({ page }) => {
   await page.goto('./');
+  await openWorkspace(page);
   const libraryHeading = page.getByRole('heading', { name: 'Your assessments' });
   await expect(libraryHeading).toBeInViewport();
   await createAssessment(page, 'PILOT-ALPHA');
@@ -46,6 +48,8 @@ test('create, switch, duplicate, and immediate reload preserve independent asses
   // No debounce sleep: immediate reload must retain the final change.
   await page.reload();
   await page.getByRole('button', { name: 'Restore', exact: true }).click();
+  await expect(page).toHaveURL(/#dashboard$/);
+  await openWorkspace(page);
   await expect(page.getByLabel('Current assessment name / code')).toHaveValue('PILOT-BETA');
   await page.getByRole('button', { name: 'Open assessment PILOT-ALPHA', exact: true }).click();
   await expect(page.getByLabel('Current assessment name / code')).toHaveValue('PILOT-ALPHA');
@@ -89,6 +93,7 @@ test('imports create a new assessment and preserve the current assessment and it
   expect(after.assessments).toHaveLength(before.assessments.length + 1);
   expect(after.assessments.find(entry => entry.id === original.id).data).toEqual(original.data);
   expect(after.assessments.find(entry => entry.id === after.activeId).data.projectInfo.team).toBeUndefined();
+  await openWorkspace(page);
   await page.getByRole('button', { name: 'Open assessment BEFORE-IMPORT', exact: true }).click();
   await expect(page.getByLabel('Current assessment name / code')).toHaveValue('BEFORE-IMPORT');
   await openAssessment(page);
