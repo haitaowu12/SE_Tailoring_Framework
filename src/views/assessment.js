@@ -65,6 +65,7 @@ function commitAssessmentDraft({ manualMetricId = null } = {}) {
   const csiResponse = JSON.parse(JSON.stringify(localCsiResponse));
   const scores = { ...localScores };
   const activeNode = getActiveNode();
+  const draftDisposition = getState().assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
   if (activeNode) {
     activeNode.scores = { ...scores };
     activeNode.metricAssessments = JSON.parse(JSON.stringify(metricAssessments));
@@ -75,9 +76,10 @@ function commitAssessmentDraft({ manualMetricId = null } = {}) {
       activeNode.manualMetrics = [...(activeNode.manualMetrics || []), manualMetricId];
     }
     activeNode.status = 'draft';
-    activeNode.assessmentDisposition = 'work-in-progress';
+    activeNode.assessmentDisposition = draftDisposition;
   }
-  setState({
+  // Persist inputs and the fresh derived result together, with one autosave attempt.
+  Object.assign(getState(), {
     projectInfo: { ...localProject },
     scores,
     metricAssessments,
@@ -85,8 +87,21 @@ function commitAssessmentDraft({ manualMetricId = null } = {}) {
     ruleDispositions,
     csiResponse,
     assessmentComplete: false,
-    assessmentDisposition: 'work-in-progress'
+    assessmentDisposition: draftDisposition
   });
+  finalizeAssessment(null, { automatic: true });
+}
+
+export function checkAssessmentAutomatically() {
+  const state = getState();
+  const activeNode = getActiveNode();
+  localScores = { ...(activeNode?.scores || state.scores || {}) };
+  localProject = { securityCritical: false, ...state.projectInfo };
+  localMetricAssessments = structuredClone(activeNode?.metricAssessments || state.metricAssessments || {});
+  localAssuranceObligations = structuredClone(activeNode?.assuranceObligations || state.assuranceObligations || []);
+  localRuleDispositions = structuredClone(activeNode?.ruleDispositions || state.ruleDispositions || {});
+  localCsiResponse = structuredClone(activeNode?.csiResponse || state.csiResponse || {});
+  return finalizeAssessment(null, { automatic: true });
 }
 
 function compareScore(lhs, op, rhs) {
@@ -226,7 +241,7 @@ export function renderAssessment(container, routeContext = null) {
         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
         <span class="step-indicator text-sm text-secondary">${activeStep.shortTitle} · ${currentStep + 1}/${STEPS.length}</span>
         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
-          ? completeness.complete ? 'Check Software Completeness' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
+          ? completeness.complete ? 'View Report' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
           : `Next: ${STEPS[currentStep + 1].shortTitle} →`}</button>
       </div>
     </div>
@@ -1107,6 +1122,7 @@ function renderResults(content) {
         </div>
         <span class="status-count">${compactActionQueue.filter(item => !item.passed).length} open</span>
       </div>
+      <p id="automatic-check-status" class="text-sm text-secondary mt-sm" role="status" aria-live="polite"></p>
       <ol class="action-queue-list">
         ${compactActionQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('')}
       </ol>
@@ -1137,7 +1153,7 @@ function renderResults(content) {
           <span class="decision-state ${rule11Disposition.complete || rule11ElevationPending ? 'complete' : ''}">${rule11ElevationPending ? 'Ready to apply' : rule11Disposition.complete ? 'Recorded' : 'Decision needed'}</span>
         </summary>
         <div class="decision-body">
-          <p class="text-sm text-secondary">Verification is Comprehensive while Validation is below Standard. Choose whether the current evidence is sufficient or Validation should be raised. The warning remains visible either way.</p>
+          <p class="text-sm text-secondary">Comprehensive Verification prompts a review of Validation responsibility and evidence. Choose whether the evidence is sufficient or Validation should be raised. The warning remains visible either way.</p>
           <label class="decision-field mt-md">
             <span>Disposition</span>
             <select class="select" id="rule11-outcome" aria-label="Rule 11 disposition outcome">
@@ -1152,7 +1168,7 @@ function renderResults(content) {
             <label class="decision-field decision-field-wide"><span>Rationale and controls</span><textarea class="input" id="rule11-rationale" aria-label="Rule 11 disposition rationale" rows="3">${escapeHtml(localRuleDispositions?.['11']?.rationale || '')}</textarea></label>
           </div>
           <div class="decision-feedback" id="rule11-disposition-status" role="status" aria-live="polite">${rule11ElevationPending
-            ? 'Ready to apply the explicit Process 27 adjustment when completeness is checked.'
+            ? 'Ready to apply your chosen Process 27 adjustment. Select Apply chosen P27 adjustment.'
             : rule11Disposition.complete
               ? 'Decision recorded.'
               : 'Choose an outcome and complete its decision record.'}</div>
@@ -1217,7 +1233,7 @@ function renderResults(content) {
       <section class="results-summary">
         <p class="eyebrow">At a glance</p>
         <div class="result-stat"><strong>${reviewFirst.length}</strong><span>process${reviewFirst.length === 1 ? '' : 'es'} to review first</span></div>
-        <div class="result-stat"><strong>${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1) + (hierarchyReadiness.complete ? 0 : 1)}</strong><span>decision${warningDispositions.incompleteRuleIds.length + (csiReadiness.complete ? 0 : 1) + (hierarchyReadiness.complete ? 0 : 1) === 1 ? '' : 's'} still needed</span></div>
+        <div class="result-stat" id="open-decision-stat"><strong>${openDecisionCount}</strong><span>decision${openDecisionCount === 1 ? '' : 's'} still needed</span></div>
         <div class="result-stat"><strong>${completeness.completeCount}/${METRICS.length}</strong><span>metric judgments confirmed</span></div>
         <p class="result-priority-note text-sm mt-lg">${reviewFirst.length
           ? 'Start with the process list below. Routine recommendations remain in the full profile.'
@@ -1339,17 +1355,60 @@ function renderResults(content) {
   let currentWarningReadiness = warningDispositions;
   let currentRule11ElevationReady = rule11ElevationPending;
   const updateCompleteButton = () => {
+    const openCount = currentWarningReadiness.incompleteRuleIds.length
+      + (currentRule11ElevationReady && !currentWarningReadiness.incompleteRuleIds.includes('11') ? 1 : 0)
+      + (currentCsiReadiness.required && !currentCsiReadiness.complete ? 1 : 0)
+      + (!hierarchyReadiness.complete || hierarchyInput.valid === false || hierarchyInput.blockedMetrics.length ? 1 : 0)
+      + (getState().semanticMigration?.status === 'review-required' ? 1 : 0);
+    const heading = content.querySelector('#decision-workspace-title');
+    if (heading) heading.textContent = openCount ? `${openCount} item${openCount === 1 ? ' needs' : 's need'} attention` : 'Decision record complete';
+    const badge = content.querySelector('.decision-workspace .status-count');
+    if (badge) badge.textContent = `${openCount} open`;
+    const decisionStat = content.querySelector('#open-decision-stat');
+    if (decisionStat) {
+      decisionStat.querySelector('strong').textContent = String(openCount);
+      decisionStat.querySelector('span').textContent = `decision${openCount === 1 ? '' : 's'} still needed`;
+    }
+    const checksTab = content.querySelector('[data-result-route="issues"]');
+    if (checksTab) checksTab.textContent = `Open checks${openCount ? ` · ${openCount}` : ''}`;
+    const warningQueueItem = actionQueue.find(item => item.label === 'Warning dispositions');
+    Object.assign(warningQueueItem, {
+      passed: currentWarningReadiness.complete,
+      status: currentWarningReadiness.complete ? 'passed' : `${currentWarningReadiness.incompleteRuleIds.length} unresolved`,
+      detail: currentWarningReadiness.complete ? 'All triggered warnings are dispositioned.' : `Rules: ${currentWarningReadiness.incompleteRuleIds.join(', ')}`
+    });
+    const csiQueueItem = actionQueue.find(item => item.label === 'CSI response');
+    Object.assign(csiQueueItem, { passed: currentCsiReadiness.complete, status: currentCsiReadiness.complete ? 'passed' : 'response required' });
+    const currentQueue = actionQueue.filter(item => (!item.passed && item.label !== 'Baseline authority status') || item.label === 'Pilot process profile' || (assessmentViewMode !== 'issues' && item.neutral));
+    const queueList = content.querySelector('.action-queue-list');
+    if (queueList) queueList.innerHTML = currentQueue.map(item => `<li class="action-queue-item"><strong>${escapeHtml(item.label)}</strong><span class="action-queue-status ${item.neutral ? 'neutral' : item.passed ? 'passed' : ''}">${escapeHtml(item.status)}</span><span class="text-xs text-secondary">${escapeHtml(item.detail)}</span></li>`).join('');
+    const queueBadge = content.querySelector('.action-queue .status-count');
+    if (queueBadge) queueBadge.textContent = `${currentQueue.filter(item => !item.passed).length} open`;
+    const liveStatus = content.querySelector('#automatic-check-status');
+    if (liveStatus) liveStatus.textContent = getState().assessmentDisposition === 'demo'
+      ? 'This demonstration is saved as a demo and cannot produce a completed report.'
+      : getState().semanticMigration?.status === 'review-required'
+        ? 'Imported framework changes need an explicit review before the report is available.'
+        : getState().assessmentComplete
+      ? 'Software checks passed. Your report is available. External approval is not verified.'
+      : 'Software checks update automatically. Complete the open records to make your report available.';
     if (!completeButton || !completeness.complete) return;
-    if (!currentCsiReadiness.complete) {
+    if (getState().assessmentDisposition === 'demo') {
+      completeButton.textContent = 'Save Demonstration';
+    } else if (!currentCsiReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
     } else if (currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')) {
-      completeButton.textContent = 'Apply P27 Adjustment & Check Completeness';
+      completeButton.textContent = 'Apply chosen P27 adjustment';
     } else if (!currentRule11Readiness.complete) {
       completeButton.textContent = 'Save Work in Progress (Rule 11 disposition required)';
     } else if (!currentWarningReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
+    } else if (getState().semanticMigration?.status === 'review-required') {
+      completeButton.textContent = 'Review imported framework changes';
+    } else if (getState().assessmentComplete) {
+      completeButton.textContent = 'View Report';
     } else {
-      completeButton.textContent = 'Check Software Completeness';
+      completeButton.textContent = 'Save Work in Progress (hierarchy review required)';
     }
   };
   content.querySelectorAll('[data-result-route]').forEach(button => {
@@ -1390,7 +1449,7 @@ function renderResults(content) {
     const statusNode = content.querySelector('#rule11-disposition-status');
     if (statusNode) {
       statusNode.textContent = readyToApplyElevation
-        ? 'Ready to apply the explicit Process 27 adjustment when completeness is checked.'
+        ? 'Ready to apply your chosen Process 27 adjustment. Select Apply chosen P27 adjustment.'
         : status.complete
           ? 'Decision recorded.'
           : 'Choose an outcome and complete its decision record.';
@@ -1488,13 +1547,18 @@ function renderResults(content) {
     input?.addEventListener('input', refreshCsiResponse);
     if (id === 'csi-date') input?.addEventListener('change', refreshCsiResponse);
   }
+  finalizeAssessment(null, { automatic: true });
   updateCompleteButton();
 }
 
-function finalizeAssessment(destinationHash = null) {
+function finalizeAssessment(destinationHash = null, { automatic = false } = {}) {
   const navigationOnly = typeof destinationHash === 'string' && destinationHash.startsWith('#');
   const state = getState();
   const activeNode = getActiveNode();
+  if (automatic && assessMetricCompleteness(localScores, localMetricAssessments).completeCount === 0) {
+    setState({ assessmentComplete: false });
+    return evaluateBaselineEligibility(getState());
+  }
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const assessmentContext = {
     ...localProject,
@@ -1514,7 +1578,7 @@ function finalizeAssessment(destinationHash = null) {
     : { ...(activeNode?.manualAdjustments || {}) };
   const currentDisplayLevels = applyManualAdjustmentsToLevels(result.levels, activeManualAdjustments);
   const elevatedPreview = assessRule11Disposition(result.violations, localRuleDispositions, { ...currentDisplayLevels, 27: 'standard' });
-  const applyRule11Elevation = !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.required && elevatedPreview.complete && result.levels?.[27] === 'basic' && currentDisplayLevels?.[27] === 'basic';
+  const applyRule11Elevation = !automatic && !navigationOnly && rule11Record?.outcome === 'elevated-validation' && elevatedPreview.required && elevatedPreview.complete && result.levels?.[27] === 'basic' && currentDisplayLevels?.[27] === 'basic';
   let manualAdjustments = applyRule11Elevation ? {
     ...activeManualAdjustments,
     27: {
@@ -1568,8 +1632,11 @@ function finalizeAssessment(destinationHash = null) {
     ruleDispositions: localRuleDispositions,
     levels: effectiveLevels,
     csiResponse: localCsiResponse
-  }, { hierarchy, derivationAuthoritative: effectiveResult.authoritative === true, derivationReviewed: !navigationOnly });
-  const canBaseline = eligibility.softwareChecksPassed;
+  }, { hierarchy, derivationAuthoritative: effectiveResult.authoritative === true, derivationReviewed: !automatic && !navigationOnly });
+  const canBaseline = eligibility.softwareChecksPassed
+    && !(automatic && state.semanticMigration?.status === 'review-required');
+  const recordComplete = canBaseline && (automatic || !navigationOnly);
+  const recordDisposition = eligibility.explicitlyDemo ? 'demo' : recordComplete ? 'complete-baseline' : 'work-in-progress';
   if (activeNode) {
     activeNode.metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments ?? {}));
     activeNode.assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations ?? []));
@@ -1581,8 +1648,8 @@ function finalizeAssessment(destinationHash = null) {
     activeNode.scores = { ...localScores };
     activeNode.assessmentResult = effectiveResult;
     activeNode.levels = { ...(effectiveResult.levels || {}) };
-    activeNode.status = canBaseline ? 'under_review' : 'draft';
-    activeNode.assessmentDisposition = canBaseline ? 'complete-baseline' : 'work-in-progress';
+    activeNode.status = recordComplete ? 'under_review' : 'draft';
+    activeNode.assessmentDisposition = recordDisposition;
   }
   // Store results globally (backward compat)
   setState({
@@ -1593,7 +1660,7 @@ function finalizeAssessment(destinationHash = null) {
     ruleDispositions: localRuleDispositions,
     csiResponse: localCsiResponse,
     correlatedEvidenceWarnings: correlatedEvidence.warnings,
-    semanticMigration: !navigationOnly && canBaseline ? null : state.semanticMigration,
+    semanticMigration: !automatic && !navigationOnly && canBaseline ? null : state.semanticMigration,
     saTier: effectiveResult.saTier,
     derived: effectiveResult.derived,
     derivationDetails: effectiveResult.derivationDetails || {},
@@ -1623,9 +1690,12 @@ function finalizeAssessment(destinationHash = null) {
     confidence: effectiveResult.confidence || {},
     derivationStatus: effectiveResult.derivationStatus || effectiveResult.confidence || {},
     manualAdjustments: globalManualAdjustments,
-    assessmentComplete: !navigationOnly && canBaseline,
-    assessmentDisposition: !navigationOnly && canBaseline ? 'complete-baseline' : 'work-in-progress'
+    assessmentComplete: recordComplete,
+    assessmentDisposition: recordDisposition
   });
+
+  // Automatic checks persist a fresh result without navigation, approval, or level changes.
+  if (automatic) return eligibility;
 
   if (activeNode && navigationOnly) {
     activeNode.status = 'draft';
@@ -1641,6 +1711,9 @@ function finalizeAssessment(destinationHash = null) {
     currentStep = 0;
     visitedSteps = new Set([0]);
     navigateTo('report');
+  } else if (eligibility.explicitlyDemo) {
+    showToast('Demonstration saved. Demo records cannot produce a completed report.', 'info');
+    renderAssessment(document.querySelector('.assessment-container')?.parentElement || document.getElementById('main-content'));
   } else {
     const remaining = [];
     if (!completeness.complete) remaining.push(`${completeness.incompleteMetricIds.length} metric judgment(s)`);
