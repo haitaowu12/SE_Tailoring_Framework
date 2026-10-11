@@ -153,6 +153,9 @@ test('library and Decisions remain accessible on mobile with no horizontal overf
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByLabel('Go to section').selectOption('adjust');
   await expect(page).toHaveURL(/#adjust$/);
+  // The hash changes before the outgoing Workspace is replaced. Verify the
+  // Decisions screen itself before navigating back to the library.
+  await expect(page.getByRole('heading', { name: 'Tailoring decisions', exact: true })).toBeVisible();
   await openWorkspace(page);
   await expect(page.getByLabel('Current assessment name / code')).toHaveValue('MOBILE-CODE-ABCDEFGHIJKLMNOPQRSTUVWXYZ');
   await openSessionMenu(page);

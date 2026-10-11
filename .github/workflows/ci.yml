@@ -36,6 +36,9 @@ jobs:
       - name: Run unit and static tests
         run: npm test
 
+      - name: Verify mobile Decisions and library navigation in Firefox
+        run: npm run test:e2e -- tests/e2e/assessment-workspace.spec.js -g "library and Decisions remain accessible" --project=firefox --repeat-each=5 --workers=1
+
       - name: Verify WebKit storage-failure submit stability
         run: npm run test:e2e -- tests/e2e/right-sizing-governance.spec.js -g "a failed asserted-record save" --project=webkit --repeat-each=5
 
