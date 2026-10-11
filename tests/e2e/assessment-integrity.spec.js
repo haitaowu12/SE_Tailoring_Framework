@@ -215,3 +215,48 @@ test('warning counts refresh in place and automatic completion is revoked when a
   await page.getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
 });
+
+async function restoreWithDisposition(page, changes) {
+  await expect.poll(async () => page.evaluate(key => {
+    const workspace = JSON.parse(localStorage.getItem(key) || '{}');
+    const saved = workspace.assessments?.find(entry => entry.id === workspace.activeId)?.data;
+    return saved?.assessmentComplete;
+  }, AUTOSAVE_KEY)).toBe(true);
+  await page.evaluate(({ key, changes }) => {
+    const workspace = JSON.parse(localStorage.getItem(key));
+    const saved = workspace.assessments.find(entry => entry.id === workspace.activeId).data;
+    Object.assign(saved, changes, { assessmentComplete: false });
+    if (changes.assessmentDisposition) {
+      saved.assessmentTree.nodes[saved.assessmentTree.activeId].assessmentDisposition = changes.assessmentDisposition;
+    }
+    localStorage.setItem(key, JSON.stringify(workspace));
+  }, { key: AUTOSAVE_KEY, changes });
+  await restoreAutosave(page);
+  await page.goto('./#issues');
+}
+
+test('demo records offer a save action rather than an unavailable report', async ({ page }) => {
+  await startFreshAssessment(page);
+  await confirmAllMetrics(page, Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1])));
+  await restoreWithDisposition(page, { assessmentDisposition: 'demo' });
+  await expect(page.getByRole('button', { name: 'Save Demonstration', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Report', exact: true })).toHaveCount(0);
+  await page.goto('./#report');
+  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+});
+
+test('satisfied imported migration needs explicit review before a completed report', async ({ page }) => {
+  await startFreshAssessment(page);
+  await confirmAllMetrics(page, Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1])));
+  await restoreWithDisposition(page, { semanticMigration: { status: 'review-required', reassessmentMetrics: ['M3'] } });
+  await expect(page.getByRole('button', { name: 'Review imported framework changes', exact: true })).toBeVisible();
+  await page.goto('./#report');
+  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+  await page.goto('./#issues');
+  await page.getByRole('button', { name: 'Review imported framework changes', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Pilot Tailoring Report' })).toBeVisible();
+  await expect.poll(async () => page.evaluate(key => {
+    const workspace = JSON.parse(localStorage.getItem(key));
+    return workspace.assessments.find(entry => entry.id === workspace.activeId).data.semanticMigration;
+  }, AUTOSAVE_KEY)).toBe(null);
+});
