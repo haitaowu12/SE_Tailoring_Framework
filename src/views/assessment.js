@@ -1166,13 +1166,14 @@ function renderResults(content) {
             <label class="decision-field"><span>Review date</span><input class="input" id="rule11-date" aria-label="Rule 11 review date" type="date" value="${escapeHtml(localRuleDispositions?.['11']?.reviewDate || '')}"></label>
             <label class="decision-field decision-field-wide"><span>Rationale and controls</span><textarea class="input" id="rule11-rationale" aria-label="Rule 11 disposition rationale" rows="3">${escapeHtml(localRuleDispositions?.['11']?.rationale || '')}</textarea></label>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm mt-sm" id="btn-apply-rule11-elevation" ${rule11ElevationPending ? '' : 'hidden'}>Apply chosen P27 adjustment</button><div class="decision-feedback" id="rule11-disposition-status" role="status" aria-live="polite">${rule11ElevationPending
+          <div class="decision-feedback" id="rule11-disposition-status" role="status" aria-live="polite">${rule11ElevationPending
             ? 'Ready to apply your chosen Process 27 adjustment. Select Apply chosen P27 adjustment.'
             : rule11Disposition.complete
               ? 'Decision recorded.'
               : 'Choose an outcome and complete its decision record.'}</div>
         </div>
       </details>` : ''}
+      <button type="button" class="btn btn-secondary btn-sm mt-sm" id="btn-apply-rule11-elevation" ${rule11ElevationPending ? '' : 'hidden'}>Apply chosen P27 adjustment</button>
       ${generalWarningDispositions.map((assessment, index) => {
         const id = escapeHtml(assessment.ruleId);
         const record = localRuleDispositions?.[assessment.ruleId] || {};
@@ -1252,6 +1253,7 @@ function renderResults(content) {
     </section>
     </div>
     ${assessmentViewMode === 'issues' ? statusMarkup : ''}
+    ${assessmentViewMode !== 'issues' && correlatedEvidence.warningCount ? `<div class="override-banner"><strong>Correlated evidence review (${correlatedEvidence.warningCount})</strong>${correlatedEvidence.warnings.map(warning => `<p class="text-sm mt-sm">${escapeHtml(warning.message)}</p>`).join('')}<p class="text-xs mt-sm">Warning only: scores, recommended process levels, and closure are unchanged. Add a distinct consequence analysis in the affected metrics' Justification note.</p></div>` : ''}
     ${assessmentViewMode === 'issues' && state.semanticMigration?.status === 'review-required' ? '<button type="button" class="btn btn-secondary mb-md" id="btn-confirm-framework-review">Review imported framework changes</button>' : ''}
     ${decisionWorkspaceMarkup}
 

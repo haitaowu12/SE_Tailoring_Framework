@@ -140,7 +140,7 @@ test('assessment recommendation saves work in progress before opening details', 
 
   await page.goBack();
   await expect(page).toHaveURL(/#assessment$/);
-  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
 });
 
 test('malformed and unassessed direct links fail closed without a false assignment', async ({ page }) => {

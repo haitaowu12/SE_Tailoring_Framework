@@ -1,7 +1,7 @@
 import { checkAssessmentAutomatically } from './assessment.js';
 import { reconcileManualChoices, getDecisionEffectiveScores, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 import { explainRecommendation } from '../utils/recommendation-explanation.js';
-import { getRecommendation } from '../utils/tailoring-decisions.js';
+import { getRecommendation, decisionNeedsReview } from '../utils/tailoring-decisions.js';
 import { renderDecisionLedger } from '../utils/decision-record-view.js';
 /**
  * Report View — Assessment summary & export
@@ -247,6 +247,9 @@ export function renderReport(container) {
   const tree = state.assessmentTree;
   const activeReportNode = tree?.nodes?.[tree.activeId || tree.rootId];
   const activeManualAdjustments = activeReportNode?.manualAdjustments || ((tree?.activeId || tree?.rootId) === tree?.rootId ? state.manualAdjustments : {}) || {};
+  const activeRecords = Object.values(activeReportNode?.decisionRecords || {});
+  const pendingDraftCount = Object.keys(activeReportNode?.decisionDrafts || {}).length;
+  const staleDecisionCount = activeRecords.filter(record => decisionNeedsReview(record, getRecommendation(activeReportNode, state))).length;
   const scores = state.scores || {};
   const levels = state.levels || {};
   const localScenarioLevels = state.locallyAdjustedLevels || {};
@@ -342,6 +345,7 @@ export function renderReport(container) {
         <h3 id="report-summary-title">Current process profile</h3>
         <p class="text-secondary text-sm mt-sm">Use the plan below to agree activities, owners and evidence with your team. Record changes in Decisions; approval stays outside this prototype.</p>
       </div>
+      <p class="text-sm mt-md">${activeRecords.length}/${CORE_PROCESSES.length} process decisions recorded · ${pendingDraftCount} unrecorded draft(s)${staleDecisionCount ? ` · ${staleDecisionCount} previous decision(s) need reconfirmation after input changes` : ''}. <a href="#adjust">Review decisions and drafts</a>.</p>
       <div class="report-summary-grid">
         <div class="report-summary-item"><span class="summary-value">${basicCount}</span><span class="summary-label">Basic</span></div>
         <div class="report-summary-item"><span class="summary-value">${stdCount}</span><span class="summary-label">Standard</span></div>

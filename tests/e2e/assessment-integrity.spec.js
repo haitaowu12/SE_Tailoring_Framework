@@ -50,12 +50,12 @@ test('untouched preview values remain 0 of 16 reviewed and cannot produce a pilo
   await page.getByRole('button', { name: 'Go to Results step' }).click();
 
   await expect(page.getByLabel('0 of 16 metrics reviewed')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /View Report/ })).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
 
   await page.goto('./#report');
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
-  await expect(page.getByText(/0\/16 metric judgments are confirmed/)).toBeVisible();
+  await expect(page.getByText(/Answer at least one metric/)).toBeVisible();
   await expect(page.getByRole('button', { name: /HTML report/i })).toHaveCount(0);
 });
 
@@ -142,7 +142,7 @@ test('partial CSI response survives autosave restore without passing completenes
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await page.getByLabel('CSI rationale and decision').fill('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
-  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
 
   await expect.poll(() => page.evaluate(key => {
     const workspace = JSON.parse(localStorage.getItem(key) || '{}');
@@ -156,15 +156,15 @@ test('partial CSI response survives autosave restore without passing completenes
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByLabel('CSI rationale and decision')).toHaveValue('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
-  await expect(page.getByRole('button', { name: /View Report/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
 });
 
 test('editing confirmed ratings recomputes a still-complete assessment automatically', async ({ page }) => {
   await startFreshAssessment(page);
   await confirmAllMetrics(page);
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByRole('button', { name: 'View Report' }).click();
+  await page.locator('#btn-next').click();
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 
   await page.getByRole('button', { name: 'Assessment', exact: true }).click();

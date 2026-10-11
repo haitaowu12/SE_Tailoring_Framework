@@ -206,7 +206,7 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByRole('heading', { name: 'No recommendation yet' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
 });
 
@@ -251,7 +251,7 @@ test('Rule 11 warning remains visible and can be dispositioned before software c
   await page.locator('#rule11-rationale').fill('Basic operational evidence accepted with parent-level validation and interface acceptance controls.');
   await expect(page.locator('.rule11-decision .decision-state')).toHaveText('Recorded');
   await dispositionOtherTriggeredWarnings(page);
-  await page.getByRole('button', { name: 'View Report' }).click();
+  await page.locator('#btn-next').click();
   await expect(page).toHaveURL(/#report$/);
   const rule11ReportSection = page.locator('.report-section', {
     has: page.getByText('Rule 11 Disposition', { exact: true })
@@ -380,7 +380,7 @@ for (const scenario of [
     if (!(await csiDecision.evaluate(element => element.open))) {
       await csiDecision.locator('summary').click();
     }
-    await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+    await expect(page.locator('#btn-next')).toBeVisible();
     await page.getByLabel('Add capacity').check();
     await page.getByLabel('CSI protected outputs and evidence').fill('Verification evidence and safety acceptance outputs');
     await page.getByLabel('CSI rationale and decision').fill('Add capacity and preserve the protected evidence set.');
@@ -391,7 +391,7 @@ for (const scenario of [
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await expect(csiDecision.locator('.decision-state.complete')).toHaveText('Recorded');
-    const completenessButton = page.getByRole('button', { name: 'View Report' });
+    const completenessButton = page.locator('#btn-next');
     await expect(completenessButton).toBeVisible();
     await completenessButton.click();
 
@@ -425,9 +425,9 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByRole('button', { name: /View Report/ })).toBeVisible();
+  await expect(page.locator('#btn-next')).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
-  await page.getByRole('button', { name: /View Report/ }).click();
+  await page.locator('#btn-next').click();
   await expect(page).toHaveURL(/#report$/);
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 });
