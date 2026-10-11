@@ -17,6 +17,8 @@ async function restoreAutosave(page) {
   await expect(restore).toBeVisible();
   await restore.getByRole('button', { name: 'Restore' }).click();
   await expect(page).toHaveURL(/#dashboard$/);
+  await expect(page.locator('.current-work')).toBeVisible();
+  await expect(page.locator('#main-content')).not.toHaveAttribute('inert','');
 }
 
 async function confirmAllMetrics(page, scoreOverrides = {}) {
@@ -248,7 +250,6 @@ test('satisfied imported migration needs explicit review before a completed repo
   await startFreshAssessment(page);
   await confirmAllMetrics(page, Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1])));
   await restoreWithDisposition(page, { semanticMigration: { status: 'review-required', reassessmentMetrics: ['M3'] } });
-  await page.goto('./#issues');
   await expect(page.getByRole('button', { name: 'Review imported framework changes', exact: true })).toBeVisible();
   await page.goto('./#report');
   await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();

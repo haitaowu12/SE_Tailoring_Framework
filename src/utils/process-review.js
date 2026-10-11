@@ -10,17 +10,18 @@ export function renderProcessReview(node, state, process) {
   const baseline = getRecommendation(node, state);
   const record = node.decisionRecords?.[pid];
   const draft = node.decisionDrafts?.[pid];
-  const choice = { level: baseline.levels[pid], justification: '', ...record, ...draft };
-  const outcome = draft?.reviewOutcome || (record || draft ? choice.level === baseline.levels[pid] ? 'keep' : 'adjust' : '');
+  const importedAdjustment = node.manualAdjustments?.[pid];
+  const choice = { level: baseline.levels[pid], justification: '', ...importedAdjustment, ...record, ...draft };
+  const outcome = draft?.reviewOutcome || (record || importedAdjustment || draft ? choice.level === baseline.levels[pid] ? 'keep' : 'adjust' : '');
   return `<details class="process-review" ${draft ? 'open' : ''}>
-    <summary>${draft ? 'Unrecorded draft' : record ? decisionNeedsReview(record, baseline) ? 'Reconfirm previous decision' : `Decision recorded: ${label(record.level)}` : 'Keep or change this recommendation'}</summary>
+    <summary>${draft ? 'Unrecorded draft' : record ? decisionNeedsReview(record, baseline) ? 'Reconfirm previous decision' : `Decision recorded: ${label(record.level)}` : importedAdjustment ? `Review imported choice: ${label(importedAdjustment.level)}` : 'Keep or change this recommendation'}</summary>
     <form data-process-review="${pid}">
       <label>Decision for ${escapeHtml(process.name)}<select class="select" name="outcome"><option value="">Choose a decision…</option><option value="keep" ${outcome === 'keep' ? 'selected' : ''}>Keep recommendation (${label(baseline.levels[pid])})</option><option value="adjust" ${outcome === 'adjust' ? 'selected' : ''}>Change the level</option></select></label>
       <label ${outcome === 'adjust' ? '' : 'hidden'} data-level-field>Chosen level for ${escapeHtml(process.name)}<select class="select" name="level">${['basic','standard','comprehensive'].map(level => `<option value="${level}" ${choice.level === level ? 'selected' : ''}>${label(level)}</option>`).join('')}</select></label>
       <label>Decision rationale for ${escapeHtml(process.name)}<textarea class="input" name="justification" rows="2" placeholder="Explain the project need, tradeoff or evidence.">${escapeHtml(choice.justification)}</textarea></label>
       <button class="btn btn-primary btn-sm" type="submit">Record decision for ${escapeHtml(process.name)}</button>
       <a class="btn btn-secondary btn-sm" href="#adjust?process=${pid}">Owner, evidence and history</a>
-      <p class="text-xs text-secondary" role="status">${draft ? 'Draft saved locally; current profile has not changed.' : record ? `Framework: ${label(baseline.levels[pid])}. Saved choice: ${label(record.level)}. ${escapeHtml(record.justification || '')}` : 'No team decision recorded yet.'}</p>
+      <p class="text-xs text-secondary" role="status">${draft ? 'Draft saved locally; current profile has not changed.' : record ? `Framework: ${label(baseline.levels[pid])}. Saved choice: ${label(record.level)}. ${escapeHtml(record.justification || '')}` : importedAdjustment ? `Imported choice: ${label(importedAdjustment.level)}. ${escapeHtml(importedAdjustment.justification || '')} Record your review to retain or change it.` : 'No team decision recorded yet.'}</p>
     </form>
   </details>`;
 }

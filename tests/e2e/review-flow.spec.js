@@ -56,3 +56,32 @@ test('partial review records exactly one adjustment, retains another draft, and 
  await page.locator('#btn-view-report').click();
  await expect(page.getByRole('heading',{name:'Draft Tailoring Report',exact:true})).toBeVisible();
 });
+
+
+test('inline review preserves an imported current choice and rationale before recording it',async({page})=>{
+ const {runFullAssessment}=await import('../../src/utils/assessment-engine.js');
+ const {buildExportConfig}=await import('../../src/utils/export-import.js');
+ const {captureRecommendation}=await import('../../src/utils/tailoring-decisions.js');
+ const scores=Object.fromEntries(Array.from({length:16},(_,i)=>[`M${i+1}`,3]));
+ const metricAssessments=Object.fromEntries(Object.entries(scores).map(([id,score])=>[id,{score,status:'assessed',definitionVersion:3,qualifiers:[],rationale:'Synthetic legacy check',evidenceRefs:[]}]));
+ const result=runFullAssessment(scores,undefined,{metricAssessments});
+ const node={id:'default',name:'Synthetic imported system',parentId:null,childIds:[],scores,metricAssessments,levels:result.levels,assessmentResult:result,manualAdjustments:{9:{level:'comprehensive',justification:'Preserve imported coordination rationale'}}};
+ captureRecommendation(node,result);
+ const config=buildExportConfig({...result,scores,metricAssessments,projectInfo:{name:'IMPORTED-CHOICE'},manualAdjustments:node.manualAdjustments,assessmentTree:{rootId:'default',activeId:'default',nodes:{default:node}}},{mode:'identified'});
+ await page.goto('./');
+ await page.getByRole('button',{name:'Session actions',exact:true}).click();
+ const chooser=page.waitForEvent('filechooser');
+ await page.locator('#btn-import').click();
+ await (await chooser).setFiles({name:'synthetic-imported-choice.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(config))});
+ await expect(page.getByText('Configuration imported successfully!')).toBeVisible();
+ await page.goto('./#review');
+ const form=page.locator('form[data-process-review="9"]');
+ await form.locator('..').locator('summary').click();
+ await expect(form.getByRole('combobox',{name:'Chosen level for Project Planning',exact:true})).toHaveValue('comprehensive');
+ await expect(form.getByRole('textbox')).toHaveValue('Preserve imported coordination rationale');
+ await form.getByRole('button',{name:'Record decision for Project Planning',exact:true}).click();
+ const saved=(await data(page)).assessmentTree.nodes.default;
+ expect(saved.manualAdjustments[9].level).toBe('comprehensive');
+ expect(saved.decisionRecords[9].justification).toBe('Preserve imported coordination rationale');
+ expect(saved.decisionHistory).toHaveLength(1);
+});
