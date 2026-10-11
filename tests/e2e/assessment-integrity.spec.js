@@ -51,7 +51,7 @@ test('untouched preview values remain 0 of 16 reviewed and cannot produce a pilo
 
   await expect(page.getByLabel('0 of 16 metrics reviewed')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /View Report/ })).toHaveCount(0);
 
   await page.goto('./#report');
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
@@ -156,7 +156,7 @@ test('partial CSI response survives autosave restore without passing completenes
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByLabel('CSI rationale and decision')).toHaveValue('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
-  await expect(page.getByRole('button', { name: /Check Software Completeness/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /View Report/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Save Work in Progress (CSI 4 response required)' })).toBeVisible();
 });
 
@@ -164,7 +164,7 @@ test('editing a completed baseline immediately demotes it to work in progress', 
   await startFreshAssessment(page);
   await confirmAllMetrics(page);
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByRole('button', { name: 'Check Software Completeness' }).click();
+  await page.getByRole('button', { name: 'View Report' }).click();
   await expect(page.getByText('Pilot Tailoring Record')).toBeVisible();
 
   await page.getByRole('button', { name: 'Assessment', exact: true }).click();
@@ -177,4 +177,41 @@ test('editing a completed baseline immediately demotes it to work in progress', 
   await page.getByRole('button', { name: 'Report', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
   await expect(page.getByRole('button', { name: /HTML report/i })).toHaveCount(0);
+});
+
+test('confirmed ratings make a report available automatically without a final check action', async ({ page }) => {
+  await startFreshAssessment(page);
+  await confirmAllMetrics(page, Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1])));
+  await page.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Pilot Tailoring Record', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Assessment', exact: true }).click();
+  await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
+  await page.getByRole('checkbox', { name: 'Mark M1 Architectural Complexity as cannot assess yet' }).check();
+  await page.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+});
+
+test('warning counts refresh in place and automatic completion is revoked when a record is reopened', async ({ page }) => {
+  await startFreshAssessment(page);
+  const scores = Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1]));
+  await confirmAllMetrics(page, { ...scores, M2: 5, M4: 3 });
+  await page.getByRole('button', { name: 'Go to Results step' }).click();
+  await page.getByRole('button', { name: 'Open checks · 4', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Open checks', exact: true })).toBeVisible();
+  for (const [index, ruleId] of ['11', '8b', '16', '17'].entries()) {
+    await page.getByLabel(`Rule ${ruleId} disposition outcome`, { exact: true }).selectOption(ruleId === '11' ? 'basic-evidence-justified' : 'accept-current');
+    await page.getByLabel(`Rule ${ruleId} asserted owner or approver role`, { exact: true }).fill('Tutorial reviewer');
+    await page.getByLabel(`Rule ${ruleId} evidence reference`, { exact: true }).fill('Synthetic SE-DEMO');
+    await page.getByLabel(`Rule ${ruleId} review date`, { exact: true }).fill('2026-10-10');
+    await page.getByLabel(ruleId === '11' ? 'Rule 11 disposition rationale' : `Rule ${ruleId} rationale and controls`, { exact: true }).fill('Tutorial decision only. Retain current levels with synthetic controls.');
+    await expect(page.locator('.decision-workspace .status-count')).toHaveText(`${3 - index} open`);
+    await expect(page.getByRole('button', { name: index === 3 ? 'Open checks' : `Open checks · ${3 - index}`, exact: true })).toBeVisible();
+  }
+  await expect(page.getByText('Software checks passed. Your report is available. External approval is not verified.', { exact: true })).toBeVisible();
+  await page.getByText('Rule 17', { exact: true }).click();
+  await page.getByLabel('Rule 17 evidence reference', { exact: true }).fill('');
+  await expect(page.locator('.decision-workspace .status-count')).toHaveText('1 open');
+  await expect(page.getByRole('button', { name: 'Open checks · 1', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Report', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
 });
