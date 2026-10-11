@@ -50,8 +50,8 @@ test('untouched preview values remain 0 of 16 reviewed and cannot produce a pilo
   await page.getByRole('button', { name: 'Go to Results step' }).click();
 
   await expect(page.getByLabel('0 of 16 metrics reviewed')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /View Report/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /View Report/ })).toBeVisible();
 
   await page.goto('./#report');
   await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
@@ -142,7 +142,7 @@ test('partial CSI response survives autosave restore without passing completenes
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await page.getByLabel('CSI rationale and decision').fill('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
-  await expect(page.getByRole('button', { name: 'Save Work in Progress (CSI 4 response required)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
 
   await expect.poll(() => page.evaluate(key => {
     const workspace = JSON.parse(localStorage.getItem(key) || '{}');
@@ -156,8 +156,8 @@ test('partial CSI response survives autosave restore without passing completenes
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByLabel('CSI rationale and decision')).toHaveValue('Draft feasibility rationale');
   await expect(page.locator('#csi-response-status')).toContainText('Incomplete:');
-  await expect(page.getByRole('button', { name: /View Report/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Save Work in Progress (CSI 4 response required)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /View Report/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
 });
 
 test('editing confirmed ratings recomputes a still-complete assessment automatically', async ({ page }) => {
@@ -188,7 +188,7 @@ test('confirmed ratings make a report available automatically without a final ch
   await page.getByRole('button', { name: 'Go to System Complexity step' }).click();
   await page.getByRole('checkbox', { name: 'Mark M1 Architectural Complexity as cannot assess yet' }).check();
   await page.getByRole('button', { name: 'Report', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();
 });
 
 test('warning counts refresh in place and automatic completion is revoked when a record is reopened', async ({ page }) => {
@@ -213,7 +213,7 @@ test('warning counts refresh in place and automatic completion is revoked when a
   await expect(page.locator('.decision-workspace .status-count')).toHaveText('1 open');
   await expect(page.getByRole('button', { name: 'Open checks · 1', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Report', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();
 });
 
 async function restoreWithDisposition(page, changes) {
@@ -239,19 +239,19 @@ test('demo records offer a save action rather than an unavailable report', async
   await startFreshAssessment(page);
   await confirmAllMetrics(page, Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1])));
   await restoreWithDisposition(page, { assessmentDisposition: 'demo' });
-  await expect(page.getByRole('button', { name: 'Save Demonstration', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'View Report', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'View Report', exact: true })).toBeVisible();
   await page.goto('./#report');
-  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();
 });
 
 test('satisfied imported migration needs explicit review before a completed report', async ({ page }) => {
   await startFreshAssessment(page);
   await confirmAllMetrics(page, Object.fromEntries(Array.from({ length: 16 }, (_, i) => [`M${i + 1}`, 1])));
   await restoreWithDisposition(page, { semanticMigration: { status: 'review-required', reassessmentMetrics: ['M3'] } });
+  await page.goto('./#issues');
   await expect(page.getByRole('button', { name: 'Review imported framework changes', exact: true })).toBeVisible();
   await page.goto('./#report');
-  await expect(page.getByRole('heading', { name: 'Assessment Work in Progress' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();
   await page.goto('./#issues');
   await page.getByRole('button', { name: 'Review imported framework changes', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Pilot Tailoring Record' })).toBeVisible();

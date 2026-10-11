@@ -21,7 +21,7 @@ Interactive decision aid for right-sizing systems engineering rigor against ISO/
 - Assessment integrity: each metric opens with a non-authoritative midpoint preview. It becomes an assessed 1–5 judgment only after the assessor selects an anchor; explicitly recording Unknown keeps the profile previewable but blocks a completed baseline until the judgment is resolved. Metric-level N/A is prohibited; downstream artifacts and activities may use N/A only with a documented applicability rationale.
 - Right-sizing governance: PSI budget analysis produces non-binding reduction proposals. It never silently lowers the derived, floor-protected, mandatory-closure recommendation.
 - Practitioner content: existing M8 and scoped M15 mappings activate conditional Security and Assurance evidence overlays in Process Explorer without creating additional metric-process relationships.
-- Workspace keeps independent named browser-local assessments with create, rename, switch, duplicate and isolated imports. Existing single-session autosaves are preserved during migration. Start Fresh creates separately; it does not erase previous work.
+- Library keeps independent named browser-local assessments with create, rename, switch, duplicate and isolated imports. Existing single-session autosaves are preserved during migration. Start Fresh creates separately; it does not erase previous work.
 - Decisions explicitly separate the recommendation snapshot from local level choices, rationale, owner/evidence/review date and change history. Draft text survives navigation and refresh. Recalculation retains prior reasons and requires review of stale or protected-floor-conflicting adjustments.
 - Session → Private backup downloads one complete assessment after an explicit privacy warning; minimum-data export remains a reduced sharing copy and intentionally omits decision evidence. Backups are preflight-checked against the same schema/size bounds as imports; oversized records are never silently truncated. Neither format creates external approval.
 - Help explains the assessment boundary, rating choices, recommendation logic, saving/sharing, project adjustments, and proposals to change the shared matrix or rules. The guided rating helper uses the same five anchors as the assessment and allows Unknown when none is supported.
@@ -66,3 +66,9 @@ Current verified gates:
 - Manual mobile viewport smoke (390px): Dashboard, Assessment, Vee Model, Deliverables, and Report guard render without framework overlays or page-level horizontal overflow; mobile route selector is visible; Vee table fallback opens Project Planning in Process Explorer.
 
 Built by [Tony Wu](https://haitaowu12.github.io/tony-wu-home/) - systems engineering tools, assurance workflows, and learning simulations.
+
+## Assessment and decision flow (app 3.7.0)
+
+Home explains the framework and starts or resumes work. Library holds independent assessments. The review screen restores the 16-metric spiderweb and shows each process once with the recorded mapping, support rule, floor and dependency explanation. Keep or adjust a process beside its recommendation; a rationale is required for changed levels. Recording one process retains other drafts and does not implicitly accept all 22 recommendations.
+
+Report is reachable while work is incomplete. Its draft banner and disabled completed-HTML export preserve the completion boundary. The process plan distinguishes the framework recommendation, current chosen level, human rationale and unrecorded drafts. Decisions retains owner, evidence, dated history and direct report navigation. Imported-framework review and Rule 11 elevation remain explicit actions in Open checks. The semantic contract remains 4.2.0.

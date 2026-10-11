@@ -1506,3 +1506,17 @@ h4 { font-size: var(--font-size-lg); }
 .metric-rating-table td { white-space:nowrap; }
 .metric-rating-summary { min-width:0; }
 @media(max-width:600px) { .metric-rating-table {font-size:12px}.metric-rating-table th,.metric-rating-table td{padding:8px 4px}.metric-rating-table td{white-space:normal} }
+
+/* Process decisions live beside the recommendation; detail stays on demand. */
+.process-review { margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+.process-review summary { cursor: pointer; font-size: 12px; color: var(--accent-primary-light); }
+.process-review form { display: grid; gap: 10px; padding-top: 12px; max-width: 620px; }
+.process-review label { display: grid; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+.process-review [hidden] { display: none; }
+.process-review textarea, .process-review .select { width: 100%; min-width: 0; }
+.process-review .btn { justify-self: start; white-space: normal; }
+.pilot-record-banner { flex-wrap: wrap; }
+.result-card { align-items: start; }
+.review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+.dashboard-hero { padding-block: 48px 56px; }
+.dashboard-hero h1 { font-size: clamp(2rem, 4vw, 3.5rem); }

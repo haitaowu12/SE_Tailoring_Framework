@@ -25,9 +25,9 @@ const section = (page, name) => page.locator('details.report-section').filter({h
 test('workspace puts a keyboard-operable start action before library management', async ({page}, testInfo) => {
   await page.setViewportSize({width:1280,height:720});
   await page.goto('./');
-  const start = page.locator('#btn-current-work');
+  const start = page.locator('#btn-start-assessment');
   await expect(start).toBeInViewport();
-  await expect(page.getByRole('heading',{name:'Your assessments',exact:true})).toBeInViewport();
+  await expect(page.getByRole('heading',{name:'Your assessments',exact:true})).toHaveCount(0);
   await expect(page.locator('#toast-container .toast')).toHaveCount(0);
   await preparePageScreenshot(page);
   await page.screenshot({path:testInfo.outputPath('workspace-desktop.png'),fullPage:false,animations:'disabled'});

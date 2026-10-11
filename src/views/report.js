@@ -1,5 +1,7 @@
 import { checkAssessmentAutomatically } from './assessment.js';
 import { reconcileManualChoices, getDecisionEffectiveScores, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
+import { explainRecommendation } from '../utils/recommendation-explanation.js';
+import { getRecommendation } from '../utils/tailoring-decisions.js';
 import { renderDecisionLedger } from '../utils/decision-record-view.js';
 /**
  * Report View — Assessment summary & export
@@ -234,12 +236,10 @@ export function renderReport(container) {
   if (!getState().assessmentComplete) checkAssessmentAutomatically();
   const state = getState();
   const integrity = getAssessmentDisposition(state);
-  if (!integrity.complete) {
-    container.innerHTML = `<div class="card text-center" style="padding:80px 40px"><h3>Assessment Work in Progress</h3><p class="text-secondary mt-md">${integrity.completeCount}/${METRICS.length} metric judgments are confirmed. ${integrity.completeCount === METRICS.length ? 'Software checks run automatically. Complete any open warning, hierarchy or delivery records to make the report available.' : 'Unconfirmed values remain a preview. Review the remaining judgments to prepare a completed pilot record.'} Your saved tailoring decisions remain available in Decisions.</p>${integrity.incompleteMetricIds.length ? `<p class="text-xs text-secondary mt-sm">Remaining: ${escapeHtml(integrity.incompleteMetricIds.join(', '))}</p>` : ''}<p class="text-xs text-secondary mt-sm">Pilot record — not an authoritative organizational baseline.</p><button class="btn btn-primary mt-lg" id="btn-go-assess">Continue Assessment</button><button class="btn btn-secondary mt-lg" id="btn-open-decisions">Open saved decisions</button></div>`;
-    container.querySelector('#btn-go-assess')?.addEventListener('click', () => integrity.incompleteMetricIds.length
-      ? navigateTo('assessment', { resume: '1' })
-      : navigateTo('review'));
-    container.querySelector('#btn-open-decisions')?.addEventListener('click', () => navigateTo('adjust'));
+  const isDraft = !integrity.complete;
+  if (isDraft && !Object.keys(state.derived || {}).length) {
+    container.innerHTML = `<section class="card"><h2>Assessment Work in Progress</h2><p>Answer at least one metric to view a draft report.</p><button class="btn btn-primary mt-md" id="btn-go-assess">Continue Assessment</button></section>`;
+    container.querySelector('#btn-go-assess').addEventListener('click', () => navigateTo('assessment', {resume:'1'}));
     return;
   }
 
@@ -320,21 +320,21 @@ export function renderReport(container) {
   container.innerHTML = `
     <div class="report-page-header flex justify-between items-center mb-sm">
       <div>
-        <h2>Pilot Tailoring Record</h2>
+        <h2>${isDraft ? 'Draft Tailoring Report' : 'Pilot Tailoring Record'}</h2>
         <p class="text-secondary text-sm mt-sm">${projectName} · ${projectDate}${elements.length > 1 ? ` · ${escapeHtml(activeReportNode?.name || 'Current element')}` : ''}</p>
       </div>
       <div class="report-export-actions flex gap-sm">
         <button class="btn btn-primary btn-sm" id="btn-report-decisions">Review / adjust decisions</button>
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
-        <button class="btn btn-secondary btn-sm" id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
+        <button class="btn btn-secondary btn-sm" ${isDraft ? 'disabled' : ''} id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
       </div>
     </div>
 
     <p class="report-export-note text-xs text-secondary mb-md">HTML retains free text and evidence references; review it before sharing. Minimum-data JSON omits those details. Use Session → Private backup for a complete restorable copy.</p>
 
     <div class="pilot-record-banner mb-lg" role="note">
-      <strong>Pilot record — not an authoritative organizational baseline</strong>
-      <span>Software completeness checks passed. External approval not verified.</span>
+      <strong>${isDraft ? 'Draft report — incomplete' : 'Pilot record — not an authoritative organizational baseline'}</strong>
+      <span>${isDraft ? `${integrity.completeCount}/${METRICS.length} metric judgments confirmed. Unresolved inputs and checks remain listed below. This is a draft, not a completed record.` : 'Software completeness checks passed. External approval not verified.'}</span>${isDraft ? '<button type="button" class="btn btn-secondary btn-sm" id="btn-go-assess">Continue Assessment</button><a class="btn btn-secondary btn-sm" href="#issues">Resolve open checks</a>' : ''}
     </div>
 
     <section class="card mb-lg report-summary-panel" aria-labelledby="report-summary-title">
@@ -361,13 +361,13 @@ export function renderReport(container) {
       <div style="overflow-x:auto;">
         <table class="data-table" id="report-process-plan-table" role="table">
           <caption class="sr-only">Current process levels and their reasons. Separate recommendations and local decisions are preserved in the saved decision record.</caption>
-          <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Process</th><th scope="col" role="columnheader">Current profile</th><th scope="col" role="columnheader">Why</th><th scope="col" role="columnheader">Work aid</th></tr></thead>
+          <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Process</th><th scope="col" role="columnheader">Recommendation / chosen level</th><th scope="col" role="columnheader">Why</th><th scope="col" role="columnheader">Work aid</th></tr></thead>
           <tbody role="rowgroup">${processPlan.map((process, index) => {
             const level = levels[process.id] || levels[String(process.id)] || 'basic';
             return `<tr role="row" ${index >= 5 ? 'data-plan-extra hidden' : ''}>
               <th scope="row" role="rowheader">${escapeHtml(process.name)}</th>
-              <td role="cell"><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>${activeManualAdjustments[process.id] ? '<br><span class="text-xs text-secondary">Local choice</span>' : ''}</td>
-              <td role="cell" class="text-sm text-secondary report-plan-reason">${escapeHtml(processPlanReason(process))}</td>
+              <td role="cell"><span class="text-xs text-secondary">Framework: ${escapeHtml(FRAMEWORK_META.levelLabels[getRecommendation(activeReportNode || {}, state).levels[process.id]] || level)}</span><br><span class="level-badge ${escapeHtml(level)}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>${activeManualAdjustments[process.id] ? '<br><span class="text-xs text-secondary">Recorded human adjustment</span>' : ''}</td>
+              <td role="cell" class="text-sm text-secondary report-plan-reason">${escapeHtml(explainRecommendation(process.id, {derivationDetails, preview: integrity.completeCount < METRICS.length, authoritative: activeReportNode?.assessmentResult?.authoritative, activeFloors: state.activeFloors, overrides: state.overrides, fixes: state.fixes}))}${activeManualAdjustments[process.id] ? `<p class="mt-sm"><strong>Your reason:</strong> ${escapeHtml(activeManualAdjustments[process.id].justification || 'Not supplied')}</p>` : ''}${activeReportNode?.decisionDrafts?.[process.id] ? '<p class="mt-sm">Unsaved decision draft — not applied. Open Decisions to record it.</p>' : ''}</td>
               <td role="cell" class="report-plan-action"><a href="${escapeHtml(processDetailsHref(process.id, level, 'report'))}" class="process-detail-link" aria-label="Open work aid for ${escapeHtml(process.name)}">Open work aid →</a></td>
             </tr>`;
           }).join('')}</tbody>
@@ -814,6 +814,8 @@ export function renderReport(container) {
     .pilot-record-banner { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
     .pilot-record-banner strong,.pilot-record-banner span { grid-column:1; }
     .pilot-record-banner span { color:var(--text-secondary); font-size:12px; }
+    .pilot-record-banner .btn { justify-self:start; }
+    @media(max-width:600px) { .pilot-record-banner { grid-template-columns:minmax(0,1fr); gap:10px; } .pilot-record-banner::after { display:none; } }
     .pilot-record-banner::after { content:'PILOT / WIP'; grid-column:2; grid-row:1 / span 2; color:var(--accent-warning); font-size:11px; font-weight:800; letter-spacing:.1em; transform:rotate(-3deg); }
     .report-layer-heading { margin:30px 0 12px; color:var(--text-primary); font-size:18px; }
     .report-gate-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:14px; }
@@ -965,6 +967,7 @@ export function renderReport(container) {
     });
   });
 
+  container.querySelector('#btn-go-assess')?.addEventListener('click', () => navigateTo('assessment', {resume:'1'}));
   container.querySelector('#btn-report-decisions')?.addEventListener('click', () => navigateTo('adjust'));
 
   // Export handlers

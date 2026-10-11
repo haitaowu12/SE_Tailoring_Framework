@@ -5,6 +5,7 @@ const KEY = 'se-tailoring-workspace-v1';
 const semantics = { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' };
 
 async function createAssessment(page, name) {
+  if (!(await page.getByLabel('New assessment name / code').isVisible())) await openWorkspace(page);
   await page.getByLabel('New assessment name / code').fill(name);
   await page.getByRole('button', { name: 'Create assessment', exact: true }).click();
   await expect(page.locator('#assessment-context')).toContainText(`Current assessment: ${name}`);
@@ -28,6 +29,7 @@ async function readLibrary(page) {
 
 test('create, switch, duplicate, and immediate reload preserve independent assessments', async ({ page }) => {
   await page.goto('./');
+  await openWorkspace(page);
   const libraryHeading = page.getByRole('heading', { name: 'Your assessments' });
   await expect(libraryHeading).toBeInViewport();
   await createAssessment(page, 'PILOT-ALPHA');

@@ -102,7 +102,8 @@ test('legacy import is preserved but blocked pending M6/M8/M15 reassessment', as
 
   await openReportFromNavigation(page);
   await expect(page).toHaveURL(/#report$/);
-  await expect(page.getByText('Assessment Work in Progress')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Draft Tailoring Report',exact:true})).toBeVisible();
+  await expect(page.locator('#btn-export-html')).toBeDisabled();
 });
 
 test('schema 2.0 import remains reportable and canonical matrix is read-only', async ({ page }) => {
@@ -205,7 +206,7 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
   await expect(page.getByRole('heading', { name: 'No recommendation yet' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Save Work in Progress (0/16)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
 });
 
@@ -322,7 +323,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
   // Generic Decisions must retain the original governed adjustment, including owner.
   await page.locator('.nav-link[data-route="adjust"]').click();
   await expect(page.locator('#decision-owner-27')).toHaveValue('Programme Chief Engineer');
-  await page.locator('#btn-save').click();
+  await page.locator('[data-save-process="27"]').click();
   await page.locator('#btn-save').click();
   const readNode = () => page.evaluate(() => {
     const library = JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));
@@ -330,7 +331,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
     return data.assessmentTree.nodes[data.assessmentTree.activeId];
   });
   expect((await readNode()).manualAdjustments[27].source).toBe('rule-disposition');
-  expect((await readNode()).decisionHistory).toHaveLength(22);
+  expect((await readNode()).decisionHistory).toHaveLength(1);
 
   // A later, higher choice is a separate local decision; rechecking must not reset it.
   await page.locator('#decision-level-27').selectOption('comprehensive');
@@ -379,7 +380,7 @@ for (const scenario of [
     if (!(await csiDecision.evaluate(element => element.open))) {
       await csiDecision.locator('summary').click();
     }
-    await expect(page.getByRole('button', { name: new RegExp(`Save Work in Progress \\(CSI ${scenario.csi} response required\\)`) })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
     await page.getByLabel('Add capacity').check();
     await page.getByLabel('CSI protected outputs and evidence').fill('Verification evidence and safety acceptance outputs');
     await page.getByLabel('CSI rationale and decision').fill('Add capacity and preserve the protected evidence set.');

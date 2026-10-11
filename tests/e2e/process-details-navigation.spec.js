@@ -132,7 +132,6 @@ test('assessment recommendation saves work in progress before opening details', 
   await expect(page.getByText('Unable to render this section')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await page.getByText('Open the full 22-process profile', { exact: true }).click();
   await page.getByRole('link', { name: 'View Architecture Definition Standard details' }).click();
 
   await expect(page).toHaveURL(/#processes\?process=20&level=standard&source=assessment$/);
@@ -141,7 +140,7 @@ test('assessment recommendation saves work in progress before opening details', 
 
   await page.goBack();
   await expect(page).toHaveURL(/#assessment$/);
-  await expect(page.getByRole('button', { name: 'Save Work in Progress (1/16)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'View Report' })).toBeVisible();
 });
 
 test('malformed and unassessed direct links fail closed without a false assignment', async ({ page }) => {

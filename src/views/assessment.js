@@ -13,9 +13,11 @@ import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUT
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
 import { resolveProtectedAncestry } from '../utils/inheritance-engine.js';
-import { renderMetricRatingTable } from '../utils/report-visuals.js';
+import { renderMetricRatingTable, renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
+import { renderProcessReview, bindProcessReviews } from '../utils/process-review.js';
+import { explainRecommendation } from '../utils/recommendation-explanation.js';
 import { ASSESSOR_GUIDANCE } from '../data/generated-assessor-guidance.js';
 import { getMetricAnchorText } from '../utils/metric-anchor-text.js';
 
@@ -241,7 +243,7 @@ export function renderAssessment(container, routeContext = null) {
         <button class="btn btn-secondary" id="btn-prev" ${currentStep === 0 ? 'disabled' : ''}>← Back</button>
         <span class="step-indicator text-sm text-secondary">${activeStep.shortTitle} · ${currentStep + 1}/${STEPS.length}</span>
         <button class="btn btn-primary" id="btn-next">${currentStep === STEPS.length - 1
-          ? completeness.complete ? 'View Report' : `Save Work in Progress (${completeness.completeCount}/${METRICS.length})`
+          ? 'View Report'
           : `Next: ${STEPS[currentStep + 1].shortTitle} →`}</button>
       </div>
     </div>
@@ -408,7 +410,7 @@ export function renderAssessment(container, routeContext = null) {
       visitedSteps.add(currentStep);
       renderAssessmentAtTop(container);
     } else {
-      finalizeAssessment();
+      finalizeAssessment('#report');
     }
   });
   container.querySelector('#btn-prev').addEventListener('click', () => {
@@ -1006,20 +1008,17 @@ function renderResults(content) {
           <div><span class="result-process">${escapeHtml(p.name)}</span><span class="result-process-id">P${escapeHtml(p.id)}</span></div>
           <span class="level-badge ${level}">${escapeHtml(FRAMEWORK_META.levelLabels[level] || level)}</span>
         </div>
-        <div class="result-why">
-          <span>Driven by <strong>${escapeHtml(triggerMetrics)}</strong>${detail.triggerScore ? ` at ${detail.triggerScore}` : ''}</span>
-          <span>${escapeHtml(confidenceLabel)}</span>
-        </div>
+        <p class="result-why">${escapeHtml(explainRecommendation(p.id, { ...result, preview: !completeness.complete }))}</p>
         ${attentionLabels.length ? `<div class="result-signals">${attentionLabels.map(label => `<span>${escapeHtml(label)}</span>`).join('')}</div>` : ''}
-        <div class="drivers-list">${drivers.slice(0, 2).map(d => `<span class="driver-item"><span class="driver-badge ${d.role === 'P' ? 'primary' : 'secondary'}">${d.role === 'P' ? 'Main' : 'Also'}</span>${escapeHtml(d.metric)} ${escapeHtml(d.value)}</span>`).join('')}</div>
+        ${activeNodeBeforeRun?.assessmentResult ? renderProcessReview(activeNodeBeforeRun, state, p, `review-${p.id}-${level}`) : ''}
         <details class="result-derivation">
-          <summary>How this level was derived</summary>
-          <dl class="causality-grid" aria-label="Recommendation causality">
+          <summary>Full framework trace</summary>
+          <p class="text-xs text-secondary">Mapped inputs: ${(detail.allMetricScores || []).map(d => `${escapeHtml(d.metric)} ${d.role === 'P' ? 'Primary' : 'Secondary'} ${escapeHtml(d.value)}`).join('; ')}</p><dl class="causality-grid" aria-label="Recommendation causality">
             <div><dt>Metric result</dt><dd>${escapeHtml(derivedLevel)}</dd></div>
             <div><dt>Rules and closure</dt><dd>${escapeHtml(floorClosureLevel)}</dd></div>
             <div><dt>Recorded adjustment</dt><dd>${governedAdjustment ? escapeHtml(governedAdjustment) : 'None'}</dd></div>
             <div><dt>Local scenario</dt><dd>${localScenarioAdjustment ? escapeHtml(localScenarioAdjustment) : 'No change'}</dd></div>
-            <div><dt>Recommended level</dt><dd>${escapeHtml(level)}</dd></div>
+            <div><dt>Current chosen level</dt><dd>${escapeHtml(level)}</dd></div>
           </dl>
         </details>
       </div>
@@ -1118,7 +1117,7 @@ function renderResults(content) {
       <div class="section-heading-row">
         <div>
           <p class="eyebrow">${assessmentViewMode === 'issues' ? 'Completion' : 'Status'}</p>
-          <h3 id="assessment-action-queue-title">${assessmentViewMode === 'issues' ? 'Items to resolve' : 'Review status'}</h3>
+          <h3 id="assessment-action-queue-title">${'Items to resolve'}</h3>
         </div>
         <span class="status-count">${compactActionQueue.filter(item => !item.passed).length} open</span>
       </div>
@@ -1142,7 +1141,7 @@ function renderResults(content) {
       <div class="section-heading-row">
         <div>
           <p class="eyebrow">Decisions</p>
-          <h3 id="decision-workspace-title">${openDecisionCount ? `${openDecisionCount} item${openDecisionCount === 1 ? ' needs' : 's need'} attention` : 'Decision record complete'}</h3>
+          <h3 id="decision-workspace-title">${openDecisionCount ? `${openDecisionCount} item${openDecisionCount === 1 ? ' needs' : 's need'} attention` : 'Warning decisions recorded'}</h3>
           <p class="text-sm text-secondary mt-sm">Work one item at a time. The additional record fields appear after you choose a disposition.</p>
         </div>
         <span class="status-count">${openDecisionCount} open</span>
@@ -1167,7 +1166,7 @@ function renderResults(content) {
             <label class="decision-field"><span>Review date</span><input class="input" id="rule11-date" aria-label="Rule 11 review date" type="date" value="${escapeHtml(localRuleDispositions?.['11']?.reviewDate || '')}"></label>
             <label class="decision-field decision-field-wide"><span>Rationale and controls</span><textarea class="input" id="rule11-rationale" aria-label="Rule 11 disposition rationale" rows="3">${escapeHtml(localRuleDispositions?.['11']?.rationale || '')}</textarea></label>
           </div>
-          <div class="decision-feedback" id="rule11-disposition-status" role="status" aria-live="polite">${rule11ElevationPending
+          <button type="button" class="btn btn-secondary btn-sm mt-sm" id="btn-apply-rule11-elevation" ${rule11ElevationPending ? '' : 'hidden'}>Apply chosen P27 adjustment</button><div class="decision-feedback" id="rule11-disposition-status" role="status" aria-live="polite">${rule11ElevationPending
             ? 'Ready to apply your chosen Process 27 adjustment. Select Apply chosen P27 adjustment.'
             : rule11Disposition.complete
               ? 'Decision recorded.'
@@ -1233,28 +1232,27 @@ function renderResults(content) {
       <section class="results-summary">
         <p class="eyebrow">At a glance</p>
         <div class="result-stat"><strong>${reviewFirst.length}</strong><span>process${reviewFirst.length === 1 ? '' : 'es'} to review first</span></div>
-        <div class="result-stat" id="open-decision-stat"><strong>${openDecisionCount}</strong><span>decision${openDecisionCount === 1 ? '' : 's'} still needed</span></div>
+        <div class="result-stat"><strong>${Object.keys(activeNodeBeforeRun?.decisionRecords || {}).length}/${CORE_PROCESSES.length}</strong><span>process decisions recorded</span></div>
         <div class="result-stat"><strong>${completeness.completeCount}/${METRICS.length}</strong><span>metric judgments confirmed</span></div>
         <p class="result-priority-note text-sm mt-lg">${reviewFirst.length
           ? 'Start with the process list below. Routine recommendations remain in the full profile.'
           : 'No process needs focused review. Continue with the baseline profile or open a work aid as needed.'}</p>
       </section>
-      <section class="results-visual">${renderMetricRatingTable(localScores, localMetricAssessments, METRICS)}</section>
+      <section class="results-visual">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, {metricAssessments: localMetricAssessments, title: 'Project ratings', idPrefix: 'assessment-ratings'})}</section>
     </div>
     <section class="priority-guidance mb-lg">
       <div class="section-heading-row">
         <div>
           <p class="eyebrow">Recommendations</p>
-          <h4>${reviewFirst.length ? 'Review these processes first' : 'No exceptions to review first'}</h4>
+          <h4>Review process recommendations</h4>
         </div>
         <span class="text-xs text-secondary">${reviewFirst.length ? `${reviewFirst.length} of ${CORE_PROCESSES.length}` : 'Baseline profile'}</span>
       </div>
-      ${reviewFirst.length
-        ? `<div class="process-guidance-list">${reviewFirst.map(processCard).join('')}</div>`
-        : `<div class="baseline-guidance-empty"><p>The assessment does not create a special priority list. Use the full process profile below when you need a specific work aid.</p><a class="btn btn-secondary btn-sm process-detail-link" href="${escapeHtml(processDetailsHref(CORE_PROCESSES[0].id, displayLevels[CORE_PROCESSES[0].id] || 'standard', 'assessment'))}">Open process work aids →</a></div>`}
+      <div class="process-guidance-list">${[...reviewFirst, ...CORE_PROCESSES.filter(p => !priorityIds.has(p.id))].map(processCard).join('')}</div>
     </section>
     </div>
-    ${statusMarkup}
+    ${assessmentViewMode === 'issues' ? statusMarkup : ''}
+    ${assessmentViewMode === 'issues' && state.semanticMigration?.status === 'review-required' ? '<button type="button" class="btn btn-secondary mb-md" id="btn-confirm-framework-review">Review imported framework changes</button>' : ''}
     ${decisionWorkspaceMarkup}
 
     <details class="results-breakdown governance-detail">
@@ -1329,25 +1327,19 @@ function renderResults(content) {
       </div>` : ''}
       </div>
     </details>
-    <details class="results-breakdown">
-      <summary>Open the full ${CORE_PROCESSES.length}-process profile</summary>
-      <div class="results-breakdown-body">
-        <p class="text-sm text-secondary mb-lg">Use the work-aid links for activities, deliverables, and level comparisons. Derivation detail stays collapsed until you need it.</p>
-    ${Object.entries(groupByGroup).map(([group, procs]) => `
-      <h4 class="mb-md mt-lg" style="color: ${PROCESS_GROUPS[group.toUpperCase()]?.color || '#fff'}">${PROCESS_GROUPS[group.toUpperCase()]?.name || group}</h4>
-      <div class="process-guidance-list">
-        ${procs.map(processCard).join('')}
-      </div>
-    `).join('')}
-      </div>
-    </details>
+    <details class="results-breakdown"><summary>Framework reference views</summary><div class="results-breakdown-body"><a href="#matrix">Metric-to-process mapping matrix</a> · <a href="#interdependency">Dependency rules</a></div></details>
   `;
 
   const decisionAction = document.createElement('div');
-  decisionAction.className = 'card mt-lg mb-lg';
-  decisionAction.innerHTML = '<strong>Record the project decision</strong><p class="text-sm text-secondary mt-sm">The recommendation is a starting point. Keep or adjust process levels, record rationale, and retain a decision history even while other checks remain open.</p><button type="button" class="btn btn-primary mt-md" id="btn-record-tailoring-decisions">Record tailoring decisions</button>';
+  decisionAction.className = 'review-actions mb-md';
+  decisionAction.innerHTML = '<button type="button" class="btn btn-secondary btn-sm" id="btn-record-tailoring-decisions">Record tailoring decisions</button><button type="button" class="btn btn-primary btn-sm" id="btn-review-report">View report</button>';
+  decisionAction.querySelector('#btn-review-report').addEventListener('click', () => finalizeAssessment('#report'));
   content.prepend(decisionAction);
-  decisionAction.querySelector('button').addEventListener('click', () => finalizeAssessment('#adjust'));
+  decisionAction.querySelector('#btn-record-tailoring-decisions').addEventListener('click', () => finalizeAssessment('#adjust'));
+
+  bindProcessReviews(content, () => renderResults(content));
+  content.querySelector('#btn-confirm-framework-review')?.addEventListener('click', () => finalizeAssessment());
+  content.querySelector('#btn-apply-rule11-elevation')?.addEventListener('click', () => finalizeAssessment());
 
   const completeButton = content.closest('.assessment-container')?.querySelector('#btn-next');
   let currentCsiReadiness = csiReadiness;
@@ -1361,7 +1353,7 @@ function renderResults(content) {
       + (!hierarchyReadiness.complete || hierarchyInput.valid === false || hierarchyInput.blockedMetrics.length ? 1 : 0)
       + (getState().semanticMigration?.status === 'review-required' ? 1 : 0);
     const heading = content.querySelector('#decision-workspace-title');
-    if (heading) heading.textContent = openCount ? `${openCount} item${openCount === 1 ? ' needs' : 's need'} attention` : 'Decision record complete';
+    if (heading) heading.textContent = openCount ? `${openCount} item${openCount === 1 ? ' needs' : 's need'} attention` : 'Warning decisions recorded';
     const badge = content.querySelector('.decision-workspace .status-count');
     if (badge) badge.textContent = `${openCount} open`;
     const decisionStat = content.querySelector('#open-decision-stat');
@@ -1391,25 +1383,11 @@ function renderResults(content) {
         ? 'Imported framework changes need an explicit review before the report is available.'
         : getState().assessmentComplete
       ? 'Software checks passed. Your report is available. External approval is not verified.'
-      : 'Software checks update automatically. Complete the open records to make your report available.';
-    if (!completeButton || !completeness.complete) return;
-    if (getState().assessmentDisposition === 'demo') {
-      completeButton.textContent = 'Save Demonstration';
-    } else if (!currentCsiReadiness.complete) {
-      completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
-    } else if (currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')) {
-      completeButton.textContent = 'Apply chosen P27 adjustment';
-    } else if (!currentRule11Readiness.complete) {
-      completeButton.textContent = 'Save Work in Progress (Rule 11 disposition required)';
-    } else if (!currentWarningReadiness.complete) {
-      completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
-    } else if (getState().semanticMigration?.status === 'review-required') {
-      completeButton.textContent = 'Review imported framework changes';
-    } else if (getState().assessmentComplete) {
-      completeButton.textContent = 'View Report';
-    } else {
-      completeButton.textContent = 'Save Work in Progress (hierarchy review required)';
-    }
+      : 'Software checks update automatically. A draft report is available. Resolve open records before exporting a completed record.';
+    if (completeButton) completeButton.textContent = 'View Report';
+    const elevationButton = content.querySelector('#btn-apply-rule11-elevation');
+    if (elevationButton) elevationButton.hidden = !currentRule11ElevationReady;
+
   };
   content.querySelectorAll('[data-result-route]').forEach(button => {
     button.addEventListener('click', () => navigateTo(button.dataset.resultRoute));
@@ -1555,7 +1533,7 @@ function finalizeAssessment(destinationHash = null, { automatic = false } = {}) 
   const navigationOnly = typeof destinationHash === 'string' && destinationHash.startsWith('#');
   const state = getState();
   const activeNode = getActiveNode();
-  if (automatic && assessMetricCompleteness(localScores, localMetricAssessments).completeCount === 0) {
+  if (automatic && assessMetricCompleteness(localScores, localMetricAssessments).completeCount === 0 && Object.keys(state.scores || {}).length === 0) {
     setState({ assessmentComplete: false });
     return evaluateBaselineEligibility(getState());
   }

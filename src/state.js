@@ -623,7 +623,7 @@ export function saveElementDecisions(elementId, drafts) {
     node.decisionRecords = result.records;
     node.decisionHistory = [...(node.decisionHistory || []), ...result.changes];
     node.manualAdjustments = result.adjustments;
-    node.decisionDrafts = {};
+    node.decisionDrafts = Object.fromEntries(Object.entries(node.decisionDrafts || {}).filter(([pid]) => !Object.hasOwn(drafts, pid)));
     node.levels = result.levels;
     if (node.assessmentResult) node.assessmentResult = { ...node.assessmentResult, levels: result.levels, violations: result.violations };
     if (elementId === state.assessmentTree.rootId) state.manualAdjustments = result.adjustments;

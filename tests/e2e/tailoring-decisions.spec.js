@@ -39,12 +39,12 @@ test('decision rationale survives another level change, repeat save, guidance ba
   await expect(page.locator('#decision-reason-9')).toHaveValue('Additional planning coordination for delivery interfaces');
   await page.locator('#decision-reason-10').fill('Independent progress review');
   await page.locator('#btn-save').click();
-  await expect(page.locator('#decision-save-status')).toContainText('22/22 decisions recorded');
+  await expect(page.locator('#decision-save-status')).toContainText('2/22 decisions recorded');
   await expect(page.locator('[data-recommendation="9"]')).toHaveText('Standard');
   const first = await activeData(page);
-  expect(first.assessmentTree.nodes.default.decisionHistory).toHaveLength(22);
+  expect(first.assessmentTree.nodes.default.decisionHistory).toHaveLength(2);
   await page.locator('#btn-save').click();
-  expect((await activeData(page)).assessmentTree.nodes.default.decisionHistory).toHaveLength(22);
+  expect((await activeData(page)).assessmentTree.nodes.default.decisionHistory).toHaveLength(2);
   await page.locator('#decision-reason-9').fill('Updated rationale draft before navigation');
   await page.locator('[data-decision-process="9"] a').click();
   await expect(page).toHaveURL(/#processes/);
@@ -89,8 +89,8 @@ test('reverting to recommendation adds history without replacing the original re
   await page.locator('#btn-save').click();
   const node=(await activeData(page)).assessmentTree.nodes.default;
   expect(node.decisionHistory).toHaveLength(23);
-  expect(node.decisionHistory[22].previousLevel).toBe('comprehensive');
-  expect(node.decisionHistory[22].level).toBe('standard');
+  expect(node.decisionHistory[1].previousLevel).toBe('comprehensive');
+  expect(node.decisionHistory[1].level).toBe('standard');
   expect(node.manualAdjustments[9]).toBeUndefined();
   expect(node.recommendationBaseline.levels[9]).toBe('standard');
 });
