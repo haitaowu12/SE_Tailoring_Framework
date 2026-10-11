@@ -84,3 +84,14 @@ test('automatic checking does not invent a recommendation for a blank assessment
   assert.deepEqual(getState().levels, {});
   assert.equal(getState().assessmentTree.nodes.default.recommendationBaseline, undefined);
 });
+
+
+test('a satisfied finite migration still requires explicit review before automatic completion', () => {
+  fixture();
+  const migration = { status: 'review-required', reassessmentMetrics: ['M3'] };
+  setState({ semanticMigration: migration });
+  checkAssessmentAutomatically();
+  assert.equal(getState().assessmentComplete, false);
+  assert.equal(getState().assessmentDisposition, 'work-in-progress');
+  assert.deepEqual(getState().semanticMigration, migration);
+});

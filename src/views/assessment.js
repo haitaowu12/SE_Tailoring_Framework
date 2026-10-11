@@ -1358,7 +1358,8 @@ function renderResults(content) {
     const openCount = currentWarningReadiness.incompleteRuleIds.length
       + (currentRule11ElevationReady && !currentWarningReadiness.incompleteRuleIds.includes('11') ? 1 : 0)
       + (currentCsiReadiness.required && !currentCsiReadiness.complete ? 1 : 0)
-      + (!hierarchyReadiness.complete || hierarchyInput.valid === false || hierarchyInput.blockedMetrics.length ? 1 : 0);
+      + (!hierarchyReadiness.complete || hierarchyInput.valid === false || hierarchyInput.blockedMetrics.length ? 1 : 0)
+      + (getState().semanticMigration?.status === 'review-required' ? 1 : 0);
     const heading = content.querySelector('#decision-workspace-title');
     if (heading) heading.textContent = openCount ? `${openCount} item${openCount === 1 ? ' needs' : 's need'} attention` : 'Decision record complete';
     const badge = content.querySelector('.decision-workspace .status-count');
@@ -1384,11 +1385,17 @@ function renderResults(content) {
     const queueBadge = content.querySelector('.action-queue .status-count');
     if (queueBadge) queueBadge.textContent = `${currentQueue.filter(item => !item.passed).length} open`;
     const liveStatus = content.querySelector('#automatic-check-status');
-    if (liveStatus) liveStatus.textContent = getState().assessmentComplete
+    if (liveStatus) liveStatus.textContent = getState().assessmentDisposition === 'demo'
+      ? 'This demonstration is saved as a demo and cannot produce a completed report.'
+      : getState().semanticMigration?.status === 'review-required'
+        ? 'Imported framework changes need an explicit review before the report is available.'
+        : getState().assessmentComplete
       ? 'Software checks passed. Your report is available. External approval is not verified.'
       : 'Software checks update automatically. Complete the open records to make your report available.';
     if (!completeButton || !completeness.complete) return;
-    if (!currentCsiReadiness.complete) {
+    if (getState().assessmentDisposition === 'demo') {
+      completeButton.textContent = 'Save Demonstration';
+    } else if (!currentCsiReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (CSI ${currentCsiReadiness.csi} response required)`;
     } else if (currentRule11ElevationReady && currentWarningReadiness.incompleteRuleIds.every(ruleId => ruleId === '11')) {
       completeButton.textContent = 'Apply chosen P27 adjustment';
@@ -1396,8 +1403,12 @@ function renderResults(content) {
       completeButton.textContent = 'Save Work in Progress (Rule 11 disposition required)';
     } else if (!currentWarningReadiness.complete) {
       completeButton.textContent = `Save Work in Progress (${currentWarningReadiness.incompleteRuleIds.length} warning disposition(s) required)`;
-    } else {
+    } else if (getState().semanticMigration?.status === 'review-required') {
+      completeButton.textContent = 'Review imported framework changes';
+    } else if (getState().assessmentComplete) {
       completeButton.textContent = 'View Report';
+    } else {
+      completeButton.textContent = 'Save Work in Progress (hierarchy review required)';
     }
   };
   content.querySelectorAll('[data-result-route]').forEach(button => {
@@ -1622,7 +1633,8 @@ function finalizeAssessment(destinationHash = null, { automatic = false } = {}) 
     levels: effectiveLevels,
     csiResponse: localCsiResponse
   }, { hierarchy, derivationAuthoritative: effectiveResult.authoritative === true, derivationReviewed: !automatic && !navigationOnly });
-  const canBaseline = eligibility.softwareChecksPassed;
+  const canBaseline = eligibility.softwareChecksPassed
+    && !(automatic && state.semanticMigration?.status === 'review-required');
   const recordComplete = canBaseline && (automatic || !navigationOnly);
   const recordDisposition = eligibility.explicitlyDemo ? 'demo' : recordComplete ? 'complete-baseline' : 'work-in-progress';
   if (activeNode) {
