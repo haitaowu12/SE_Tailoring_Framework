@@ -7,17 +7,7 @@ import { registerRoute, initRouter, navigateTo } from './router.js';
 import { getState, loadAutosave, clearAutosave, flushAutosave, getAssessmentWorkspace, restoreWorkspaceAssessment, createWorkspaceAssessment, importWorkspaceAssessment } from './state.js';
 import { importConfig, exportConfig } from './utils/export-import.js';
 import { showToast } from './state.js';
-import { renderDashboard } from './views/dashboard.js';
-import { renderAssessment } from './views/assessment.js';
-import { renderProcessExplorer } from './views/process-explorer.js';
-import { renderVeeModel } from './views/vee-model.js';
-import { renderInterdependency } from './views/interdependency.js';
-import { renderMatrixView } from './views/matrix-view.js';
-import { renderManualAdjust } from './views/manual-adjust.js';
-import { renderDeliverables } from './views/deliverables.js';
-import { renderReport } from './views/report.js';
-import { renderSystemElements } from './views/system-elements.js';
-import { renderHelp } from './views/help.js';
+
 import { escapeHtml } from './utils/safe-text.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
 import { autosaveRestoreNotice } from './utils/autosave-restore.js';
@@ -52,20 +42,20 @@ function restoreDialogInvokerFocus(invoker) {
 }
 
 // Register all routes
-registerRoute('dashboard', renderDashboard);
-registerRoute('library', renderDashboard);
-registerRoute('elements', renderSystemElements);
-registerRoute('assessment', renderAssessment);
-registerRoute('review', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'review' }));
-registerRoute('issues', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'issues' }));
-registerRoute('processes', renderProcessExplorer);
-registerRoute('vee-model', renderVeeModel);
-registerRoute('interdependency', renderInterdependency);
-registerRoute('matrix', renderMatrixView);
-registerRoute('adjust', renderManualAdjust);
-registerRoute('deliverables', renderDeliverables);
-registerRoute('report', renderReport);
-registerRoute('help', renderHelp);
+registerRoute('dashboard', async (c, r) => { const { renderDashboard } = await import('./views/dashboard.js'); return renderDashboard(c, r); });
+registerRoute('library', async (c, r) => { const { renderDashboard } = await import('./views/dashboard.js'); return renderDashboard(c, r); });
+registerRoute('elements', async (c, r) => { const { renderSystemElements } = await import('./views/system-elements.js'); return renderSystemElements(c, r); });
+registerRoute('assessment', async (c, r) => { const { renderAssessment } = await import('./views/assessment.js'); return renderAssessment(c, r); });
+registerRoute('review', async (c, r) => { const { renderAssessment } = await import('./views/assessment.js'); return renderAssessment(c, { ...r, assessmentMode: 'review' }); });
+registerRoute('issues', async (c, r) => { const { renderAssessment } = await import('./views/assessment.js'); return renderAssessment(c, { ...r, assessmentMode: 'issues' }); });
+registerRoute('processes', async (c, r) => { const { renderProcessExplorer } = await import('./views/process-explorer.js'); return renderProcessExplorer(c, r); });
+registerRoute('vee-model', async (c, r) => { const { renderVeeModel } = await import('./views/vee-model.js'); return renderVeeModel(c, r); });
+registerRoute('interdependency', async (c, r) => { const { renderInterdependency } = await import('./views/interdependency.js'); return renderInterdependency(c, r); });
+registerRoute('matrix', async (c, r) => { const { renderMatrixView } = await import('./views/matrix-view.js'); return renderMatrixView(c, r); });
+registerRoute('adjust', async (c, r) => { const { renderManualAdjust } = await import('./views/manual-adjust.js'); return renderManualAdjust(c, r); });
+registerRoute('deliverables', async (c, r) => { const { renderDeliverables } = await import('./views/deliverables.js'); return renderDeliverables(c, r); });
+registerRoute('report', async (c, r) => { const { renderReport } = await import('./views/report.js'); return renderReport(c, r); });
+registerRoute('help', async (c, r) => { const { renderHelp } = await import('./views/help.js'); return renderHelp(c, r); });
 
 // Build the navbar
 function buildNavbar() {
