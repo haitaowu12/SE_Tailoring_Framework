@@ -3,9 +3,9 @@ import { METRIC_PROCESS_MAP } from '../data/se-tailoring-data.js';
 import { FRAMEWORK_SEMANTIC_VERSION } from '../data/metrics.js';
 import { resolveProtectedAncestry } from './inheritance-engine.js';
 import { checkConsistency, applyOverrides } from './assessment-engine.js';
+import { deepClone as clone } from './clone.js';
 
 export const DECISION_LEVELS = ['basic', 'standard', 'comprehensive'];
-const clone = value => JSON.parse(JSON.stringify(value));
 const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object'
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
 
