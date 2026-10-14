@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAssessmentWorkspace, WORKSPACE_STORAGE_KEY, LEGACY_AUTOSAVE_KEY } from '../src/utils/assessment-workspace.js';
+import { normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
 
 function memoryStorage(initial = {}) {
     const data = new Map(Object.entries(initial));
@@ -69,6 +70,46 @@ test('mutating a returned snapshot cannot change another assessment or bypass pe
     const external = library.getActive();
     external.data.scores.M1 = 5;
     assert.equal(library.getActive().data.scores.M1, 4);
+});
+
+test('imported __proto__ data and assessment node IDs survive workspace save and reopen', () => {
+    const config = JSON.parse(`{
+        "_format": "se-tailoring-config", "_version": "1.1",
+        "metricScores": { "M1": 3 }, "processLevels": {},
+        "projectInfo": { "name": "Synthetic import", "__proto__": { "securityCritical": true } },
+        "assessmentTree": {
+            "rootId": "__proto__", "activeId": "__proto__",
+            "nodes": { "__proto__": {
+                "id": "__proto__", "name": "Root", "parentId": null, "childIds": [],
+                "assessmentType": "full", "status": "draft", "scores": { "M1": 3 }
+            } }
+        }
+    }`);
+    assert.deepEqual(validateConfig(config), { valid: true, errors: [] });
+    const imported = normalizeImportedConfig(config);
+    const expected = JSON.parse(JSON.stringify(imported));
+    const storage = memoryStorage();
+    const library = open(storage);
+    const created = library.create(imported, config.projectInfo.name);
+    const saved = library.save(created.data);
+    const reopened = open(storage).getActive();
+    const persisted = JSON.parse(storage.getItem(WORKSPACE_STORAGE_KEY))
+        .assessments.find(entry => entry.id === created.id);
+
+    for (const data of [imported, created.data, saved.data, reopened.data, persisted.data]) {
+        assert.equal(Object.getPrototypeOf(data.projectInfo), Object.prototype);
+        assert.equal(Object.hasOwn(data.projectInfo, '__proto__'), true);
+        assert.equal(data.projectInfo.securityCritical, undefined, 'JSON data must not become an inherited assessment input');
+        assert.deepEqual(data.projectInfo.__proto__, { securityCritical: true });
+        assert.equal(Object.getPrototypeOf(data.assessmentTree.nodes), Object.prototype);
+        assert.equal(Object.hasOwn(data.assessmentTree.nodes, '__proto__'), true);
+        assert.equal(data.assessmentTree.nodes.__proto__.id, '__proto__');
+        assert.equal(data.assessmentTree.nodes.__proto__.scores.M1, 3);
+    }
+    assert.deepEqual(reopened.data, expected);
+    assert.deepEqual(persisted.data, expected);
+    created.data.assessmentTree.nodes.__proto__.scores.M1 = 1;
+    assert.equal(library.getActive().data.assessmentTree.nodes.__proto__.scores.M1, 3);
 });
 
 test('quota errors keep selection, original saved data, and all assessments unchanged', () => {
@@ -165,3 +206,4 @@ test('app blocks switching on storage failure while retaining unsaved edits in m
     assert.equal(state.getState().notes, 'Important unsaved note');
     delete globalThis.localStorage;
 });
+

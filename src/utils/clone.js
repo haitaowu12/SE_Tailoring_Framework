@@ -20,9 +20,21 @@ export function deepClone(value) {
     for (const key in value) {
         if (Object.prototype.hasOwnProperty.call(value, key)) {
             if (value[key] !== undefined) {
-                clonedObj[key] = deepClone(value[key]);
+                const clonedValue = deepClone(value[key]);
+                if (key === '__proto__') {
+                    // Preserve this JSON key as data without invoking the prototype setter.
+                    Object.defineProperty(clonedObj, key, {
+                        value: clonedValue,
+                        enumerable: true,
+                        writable: true,
+                        configurable: true
+                    });
+                } else {
+                    clonedObj[key] = clonedValue;
+                }
             }
         }
     }
     return clonedObj;
 }
+
