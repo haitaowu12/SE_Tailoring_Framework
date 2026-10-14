@@ -24,6 +24,32 @@ test('route hashes preserve the path and strictly encode ordered parameters', ()
   );
 });
 
+test('buildRouteHash converts path and params into a hash string', () => {
+  assert.equal(
+    buildRouteHash('settings'),
+    '#settings',
+    'handles path without params'
+  );
+
+  assert.equal(
+    buildRouteHash('user', { id: 123 }),
+    '#user?id=123',
+    'handles path with one param'
+  );
+
+  assert.equal(
+    buildRouteHash('search', { q: 'test', page: 2 }),
+    '#search?q=test&page=2',
+    'handles path with multiple params'
+  );
+
+  assert.equal(
+    buildRouteHash('profile', { a: undefined, b: null, c: 'valid' }),
+    '#profile?c=valid',
+    'omits undefined and null values'
+  );
+});
+
 test('route context matches the path separately from decoded query parameters', () => {
   const context = getCurrentRouteContext('#processes?process=20&level=standard&source=assessment');
   assert.equal(context.path, 'processes');
