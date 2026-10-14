@@ -18,6 +18,7 @@ import { getRightSizingDraft, saveRightSizingDraft } from '../utils/right-sizing
 import { getAssessmentDisposition } from '../utils/assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, RULE_11_OUTCOMES } from '../utils/rule-dispositions.js';
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
+import { deepClone } from '../utils/clone.js';
 import { assessSafetyAllocationDecision } from '../utils/inheritance-engine.js';
 import { assessHierarchyDisposition } from '../utils/hierarchy-dispositions.js';
 import { createRightSizingApprovalSnapshot, getRightSizingApprovalRequirements, RIGHT_SIZING_APPROVAL_ROLES } from '../utils/right-sizing-governance.js';
@@ -936,7 +937,7 @@ export function renderReport(container) {
       const effectiveLevels = applyManualAdjustmentsToLevels(result.levels, decisionReview?.adjustments || {});
       const effectiveViolations = reconcileDecisionViolations(result, effectiveLevels, effectiveScores, assessmentContext);
       if (activeNode) {
-        activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
+        activeNode.rightSizingApprovalRecords = deepClone(records);
         if (activeNode.rightSizingDrafts) delete activeNode.rightSizingDrafts[processId];
         activeNode.assessmentResult = { ...result, levels: effectiveLevels, violations: effectiveViolations };
         activeNode.levels = { ...effectiveLevels };

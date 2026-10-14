@@ -14,6 +14,7 @@ import { assessCorrelatedEvidence } from './correlated-evidence.js';
 import { validateRightSizingApprovalRecords } from './right-sizing-governance.js';
 import { APP_RUNTIME_META, EXCHANGE_SCHEMA_VERSION } from './runtime-operations.js';
 import { getMetricAnchorText } from './metric-anchor-text.js';
+import { deepClone } from './clone.js';
 
 const VALID_METRIC_IDS = new Set(Array.from({ length: 16 }, (_, index) => `M${index + 1}`));
 const VALID_PROCESS_IDS = new Set(Array.from({ length: 22 }, (_, index) => String(index + 9)));
@@ -191,7 +192,7 @@ function validateManualAdjustments(manualAdjustments, fieldName, errors) {
 function clonePlain(value, fallback) {
     if (value === undefined || value === null) return fallback;
     try {
-        return JSON.parse(JSON.stringify(value));
+        return deepClone(value);
     } catch {
         return fallback;
     }

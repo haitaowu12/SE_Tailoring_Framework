@@ -20,6 +20,7 @@ import { renderProcessReview, bindProcessReviews } from '../utils/process-review
 import { explainRecommendation } from '../utils/recommendation-explanation.js';
 import { ASSESSOR_GUIDANCE } from '../data/generated-assessor-guidance.js';
 import { getMetricAnchorText } from '../utils/metric-anchor-text.js';
+import { deepClone } from '../utils/clone.js';
 
 const STEPS = [
   { id: 'info', title: 'Project Info', shortTitle: 'Setup' },
@@ -61,19 +62,19 @@ function makeMetricAssessment(metricId, updates = {}) {
 }
 
 function commitAssessmentDraft({ manualMetricId = null } = {}) {
-  const metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments));
-  const assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations));
-  const ruleDispositions = JSON.parse(JSON.stringify(localRuleDispositions));
-  const csiResponse = JSON.parse(JSON.stringify(localCsiResponse));
+  const metricAssessments = deepClone(localMetricAssessments);
+  const assuranceObligations = deepClone(localAssuranceObligations);
+  const ruleDispositions = deepClone(localRuleDispositions);
+  const csiResponse = deepClone(localCsiResponse);
   const scores = { ...localScores };
   const activeNode = getActiveNode();
   const draftDisposition = getState().assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
   if (activeNode) {
     activeNode.scores = { ...scores };
-    activeNode.metricAssessments = JSON.parse(JSON.stringify(metricAssessments));
-    activeNode.assuranceObligations = JSON.parse(JSON.stringify(assuranceObligations));
-    activeNode.ruleDispositions = JSON.parse(JSON.stringify(ruleDispositions));
-    activeNode.csiResponse = JSON.parse(JSON.stringify(csiResponse));
+    activeNode.metricAssessments = deepClone(metricAssessments);
+    activeNode.assuranceObligations = deepClone(assuranceObligations);
+    activeNode.ruleDispositions = deepClone(ruleDispositions);
+    activeNode.csiResponse = deepClone(csiResponse);
     if (manualMetricId && !(activeNode.manualMetrics || []).includes(manualMetricId)) {
       activeNode.manualMetrics = [...(activeNode.manualMetrics || []), manualMetricId];
     }
@@ -157,10 +158,10 @@ export function renderAssessment(container, routeContext = null) {
       ? { ...elementScores }
       : { ...state.scores };
     localProject = { securityCritical: false, ...state.projectInfo };
-    localMetricAssessments = JSON.parse(JSON.stringify(activeNode?.metricAssessments || state.metricAssessments || {}));
-    localAssuranceObligations = JSON.parse(JSON.stringify(activeNode?.assuranceObligations || state.assuranceObligations || []));
-    localRuleDispositions = JSON.parse(JSON.stringify(activeNode?.ruleDispositions || state.ruleDispositions || {}));
-    localCsiResponse = JSON.parse(JSON.stringify(activeNode?.csiResponse || state.csiResponse || {}));
+    localMetricAssessments = deepClone(activeNode?.metricAssessments || state.metricAssessments || {});
+    localAssuranceObligations = deepClone(activeNode?.assuranceObligations || state.assuranceObligations || []);
+    localRuleDispositions = deepClone(activeNode?.ruleDispositions || state.ruleDispositions || {});
+    localCsiResponse = deepClone(activeNode?.csiResponse || state.csiResponse || {});
 
     if (assessmentViewMode === 'assess') {
       const requestedStep = routeContext?.params?.get('step');
@@ -1618,13 +1619,13 @@ function finalizeAssessment(destinationHash = null, { automatic = false } = {}) 
   const recordComplete = canBaseline && (automatic || !navigationOnly);
   const recordDisposition = eligibility.explicitlyDemo ? 'demo' : recordComplete ? 'complete-baseline' : 'work-in-progress';
   if (activeNode) {
-    activeNode.metricAssessments = JSON.parse(JSON.stringify(localMetricAssessments ?? {}));
-    activeNode.assuranceObligations = JSON.parse(JSON.stringify(localAssuranceObligations ?? []));
-    activeNode.ruleDispositions = JSON.parse(JSON.stringify(localRuleDispositions ?? {}));
-    activeNode.csiResponse = JSON.parse(JSON.stringify(localCsiResponse ?? {}));
-    activeNode.correlatedEvidenceWarnings = JSON.parse(JSON.stringify(correlatedEvidence.warnings ?? []));
-    activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(assessmentContext.rightSizingApprovalRecords ?? []));
-    activeNode.manualAdjustments = JSON.parse(JSON.stringify(manualAdjustments ?? {}));
+    activeNode.metricAssessments = deepClone(localMetricAssessments ?? {});
+    activeNode.assuranceObligations = deepClone(localAssuranceObligations ?? []);
+    activeNode.ruleDispositions = deepClone(localRuleDispositions ?? {});
+    activeNode.csiResponse = deepClone(localCsiResponse ?? {});
+    activeNode.correlatedEvidenceWarnings = deepClone(correlatedEvidence.warnings ?? []);
+    activeNode.rightSizingApprovalRecords = deepClone(assessmentContext.rightSizingApprovalRecords ?? []);
+    activeNode.manualAdjustments = deepClone(manualAdjustments ?? {});
     activeNode.scores = { ...localScores };
     activeNode.assessmentResult = effectiveResult;
     activeNode.levels = { ...(effectiveResult.levels || {}) };

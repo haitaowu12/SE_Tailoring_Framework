@@ -16,6 +16,7 @@ import { createAssessmentWorkspace } from './utils/assessment-workspace.js';
 import { buildElementContext } from './utils/element-context.js';
 import { buildAutosaveImportConfig, isCurrentAutosaveSemantics } from './utils/autosave-restore.js';
 import { normalizeImportedConfig } from './utils/export-import.js';
+import { deepClone } from './utils/clone.js';
 
 const state = {
     // Hierarchical assessment tree (v3.3)
@@ -102,7 +103,7 @@ const state = {
 const listeners = [];
 
 // A new assessment must never inherit fields, a tree, or decisions from the last one.
-const initialState = JSON.parse(JSON.stringify(state));
+const initialState = deepClone(state);
 let workspace = null;
 let workspaceInitialized = false;
 let workspaceUnlocked = false;
@@ -112,7 +113,7 @@ let hiddenSavedAssessmentIds = new Set();
 
 export function createBlankAssessment() {
     return {
-        ...JSON.parse(JSON.stringify(initialState)),
+        ...deepClone(initialState),
         semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION }
     };
 }
@@ -145,7 +146,7 @@ function announceWorkspaceChange() {
 
 function assessmentSnapshot() {
     const integrity = getAssessmentDisposition(state);
-    return JSON.parse(JSON.stringify({
+    return deepClone({
         ...state,
         semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION },
         correlatedEvidenceWarnings: assessCorrelatedEvidence(state.metricAssessments).warnings,
@@ -153,7 +154,7 @@ function assessmentSnapshot() {
         assessmentDisposition: integrity.disposition,
         assessmentIntegrity: integrity,
         savedAt: new Date().toISOString()
-    }));
+    });
 }
 
 function replaceAssessment(data) {
@@ -163,7 +164,7 @@ function replaceAssessment(data) {
         : normalizeImportedConfig(buildAutosaveImportConfig(data));
     // Preserve the singleton reference for existing views, but remove all old keys.
     Object.keys(state).forEach(key => delete state[key]);
-    Object.assign(state, createBlankAssessment(), JSON.parse(JSON.stringify(restored)));
+    Object.assign(state, createBlankAssessment(), deepClone(restored));
     state.approvedRightSizedLevels = {};
     state.effectiveRightSizingApprovalCount = 0;
     if (state.assessmentComplete) {
@@ -454,7 +455,7 @@ export function hydrateActiveElementState() {
     Object.assign(state, buildElementContext(node));
     // Global manualAdjustments is a legacy root-only field. Child choices belong
     // solely to that child's node; process views must not inherit root choices.
-    state.manualAdjustments = JSON.parse(JSON.stringify(tree.nodes[tree.rootId]?.manualAdjustments || {}));
+    state.manualAdjustments = deepClone(tree.nodes[tree.rootId]?.manualAdjustments || {});
     const recordedComplete = node.assessmentDisposition === 'complete-baseline'
         || ['under_review', 'approved', 'baselined'].includes(node.status);
     state.assessmentDisposition = node.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
