@@ -7,17 +7,7 @@ import { registerRoute, initRouter, navigateTo } from './router.js';
 import { getState, loadAutosave, clearAutosave, flushAutosave, getAssessmentWorkspace, restoreWorkspaceAssessment, createWorkspaceAssessment, importWorkspaceAssessment } from './state.js';
 import { importConfig, exportConfig } from './utils/export-import.js';
 import { showToast } from './state.js';
-import { renderDashboard } from './views/dashboard.js';
-import { renderAssessment } from './views/assessment.js';
-import { renderProcessExplorer } from './views/process-explorer.js';
-import { renderVeeModel } from './views/vee-model.js';
-import { renderInterdependency } from './views/interdependency.js';
-import { renderMatrixView } from './views/matrix-view.js';
-import { renderManualAdjust } from './views/manual-adjust.js';
-import { renderDeliverables } from './views/deliverables.js';
-import { renderReport } from './views/report.js';
-import { renderSystemElements } from './views/system-elements.js';
-import { renderHelp } from './views/help.js';
+
 import { escapeHtml } from './utils/safe-text.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
 import { autosaveRestoreNotice } from './utils/autosave-restore.js';
@@ -51,21 +41,31 @@ function restoreDialogInvokerFocus(invoker) {
     });
 }
 
+let routeSequence = 0;
+const lazyRoute = (importFn, renderFnName) => {
+    return async (c, r) => {
+        const sequence = ++routeSequence;
+        const module = await importFn();
+        if (sequence !== routeSequence) return;
+        return module[renderFnName](c, r);
+    };
+};
+
 // Register all routes
-registerRoute('dashboard', renderDashboard);
-registerRoute('library', renderDashboard);
-registerRoute('elements', renderSystemElements);
-registerRoute('assessment', renderAssessment);
-registerRoute('review', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'review' }));
-registerRoute('issues', (container, routeContext) => renderAssessment(container, { ...routeContext, assessmentMode: 'issues' }));
-registerRoute('processes', renderProcessExplorer);
-registerRoute('vee-model', renderVeeModel);
-registerRoute('interdependency', renderInterdependency);
-registerRoute('matrix', renderMatrixView);
-registerRoute('adjust', renderManualAdjust);
-registerRoute('deliverables', renderDeliverables);
-registerRoute('report', renderReport);
-registerRoute('help', renderHelp);
+registerRoute('dashboard', lazyRoute(() => import('./views/dashboard.js'), 'renderDashboard'));
+registerRoute('library', lazyRoute(() => import('./views/dashboard.js'), 'renderDashboard'));
+registerRoute('elements', lazyRoute(() => import('./views/system-elements.js'), 'renderSystemElements'));
+registerRoute('assessment', lazyRoute(() => import('./views/assessment.js'), 'renderAssessment'));
+registerRoute('review', async (c, r) => { const sequence = ++routeSequence; const module = await import('./views/assessment.js'); if (sequence !== routeSequence) return; return module.renderAssessment(c, { ...r, assessmentMode: 'review' }); });
+registerRoute('issues', async (c, r) => { const sequence = ++routeSequence; const module = await import('./views/assessment.js'); if (sequence !== routeSequence) return; return module.renderAssessment(c, { ...r, assessmentMode: 'issues' }); });
+registerRoute('processes', lazyRoute(() => import('./views/process-explorer.js'), 'renderProcessExplorer'));
+registerRoute('vee-model', lazyRoute(() => import('./views/vee-model.js'), 'renderVeeModel'));
+registerRoute('interdependency', lazyRoute(() => import('./views/interdependency.js'), 'renderInterdependency'));
+registerRoute('matrix', lazyRoute(() => import('./views/matrix-view.js'), 'renderMatrixView'));
+registerRoute('adjust', lazyRoute(() => import('./views/manual-adjust.js'), 'renderManualAdjust'));
+registerRoute('deliverables', lazyRoute(() => import('./views/deliverables.js'), 'renderDeliverables'));
+registerRoute('report', lazyRoute(() => import('./views/report.js'), 'renderReport'));
+registerRoute('help', lazyRoute(() => import('./views/help.js'), 'renderHelp'));
 
 // Build the navbar
 function buildNavbar() {
