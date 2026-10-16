@@ -85,3 +85,93 @@ test('inline review preserves an imported current choice and rationale before re
  expect(saved.decisionRecords[9].justification).toBe('Preserve imported coordination rationale');
  expect(saved.decisionHistory).toHaveLength(1);
 });
+
+
+test('rapid inline submit never restores a recorded draft and preserves the other process draft', async ({page}) => {
+ await page.goto('./');
+ await page.locator('#btn-start-assessment').click();
+ await page.getByLabel('Project code',{exact:true}).fill('RAPID-SUBMIT');
+ await page.getByRole('button',{name:'Next: Complexity →',exact:true}).click();
+ await page.getByRole('radio',{name:/^M1 score 3:/}).check();
+ await page.getByRole('button',{name:'Go to Results step',exact:true}).click();
+ const form9=page.locator('form[data-process-review="9"]');
+ const form10=page.locator('form[data-process-review="10"]');
+ await form10.locator('..').locator('summary').click();
+ await form10.locator('[name="outcome"]').selectOption('keep');
+ await form10.locator('[name="justification"]').fill('Retain the other process draft');
+ await form9.locator('..').locator('summary').click();
+ await form9.locator('[name="outcome"]').selectOption('keep');
+ // Freeze the debounce window so submission definitely precedes the callback.
+ await page.clock.install();
+ await page.clock.pauseAt(new Date(Date.now()+1000));
+ await form9.locator('[name="justification"]').fill('Rapid recorded rationale');
+ // requestSubmit also covers keyboard/programmatic submission without a blur.
+ await form9.evaluate(form=>form.requestSubmit());
+ await page.clock.runFor(600);
+ let node=(await data(page)).assessmentTree.nodes.default;
+ expect(node.decisionRecords[9].justification).toBe('Rapid recorded rationale');
+ expect(node.decisionHistory).toHaveLength(1);
+ expect(node.decisionDrafts[9]).toBeUndefined();
+ expect(node.decisionDrafts[10].justification).toBe('Retain the other process draft');
+ await page.reload();
+ await page.getByRole('button',{name:'Restore',exact:true}).click();
+ node=(await data(page)).assessmentTree.nodes.default;
+ expect(node.decisionDrafts[9]).toBeUndefined();
+ expect(node.decisionHistory).toHaveLength(1);
+ expect(node.decisionDrafts[10].justification).toBe('Retain the other process draft');
+});
+
+
+test('invalid rapid review keeps its draft and a quota-failed record survives backup and retry without duplicate history', async ({page}) => {
+ await page.goto('./');
+ await page.locator('#btn-start-assessment').click();
+ await page.getByLabel('Project code',{exact:true}).fill('RAPID-QUOTA');
+ await page.getByRole('button',{name:'Next: Complexity →',exact:true}).click();
+ await page.getByRole('radio',{name:/^M1 score 3:/}).check();
+ await page.getByRole('button',{name:'Go to Results step',exact:true}).click();
+ const form=page.locator('form[data-process-review="9"]');
+ await form.locator('..').locator('summary').click();
+ await page.clock.install();
+ await page.clock.pauseAt(new Date(Date.now()+1000));
+ await form.locator('[name="justification"]').fill('Retain this incomplete draft');
+ await form.evaluate(form=>form.requestSubmit());
+ await page.clock.runFor(600);
+ await expect(form.locator('[role="status"]')).toContainText('Choose whether to keep or change');
+ expect((await data(page)).assessmentTree.nodes.default.decisionDrafts[9].justification).toBe('Retain this incomplete draft');
+ await form.locator('[name="outcome"]').selectOption('adjust');
+ await form.locator('[name="level"]').selectOption('comprehensive');
+ await form.locator('[name="justification"]').fill('');
+ await form.evaluate(form=>form.requestSubmit());
+ await expect(form.locator('[role="status"]')).toContainText('record why');
+ expect((await data(page)).assessmentTree.nodes.default.decisionRecords?.[9]).toBeUndefined();
+ await form.locator('[name="justification"]').fill('Record despite a quota failure');
+ await page.evaluate(()=>{
+   const original=Storage.prototype.setItem;
+   window.restoreReviewStorage=()=>{Storage.prototype.setItem=original;};
+   window.reviewWriteCount=0;
+   Storage.prototype.setItem=function(key,value){
+     if(key==='se-tailoring-workspace-v1') { window.reviewWriteCount++; throw new DOMException('Quota exceeded','QuotaExceededError'); }
+     return original.call(this,key,value);
+   };
+ });
+ await form.evaluate(form=>form.requestSubmit());
+ await page.clock.runFor(600);
+ await expect(form.locator('[role="status"]')).toContainText('Recorded in this tab, but local save failed');
+ expect(await page.evaluate(()=>window.reviewWriteCount)).toBe(1);
+ await page.clock.resume();
+ await page.getByRole('button',{name:'Session actions',exact:true}).click();
+ await page.getByRole('button',{name:'Private backup',exact:true}).click();
+ const download=page.waitForEvent('download');
+ await page.getByRole('button',{name:'Download private backup',exact:true}).click();
+ let backup=''; for await(const chunk of await (await download).createReadStream()) backup+=chunk.toString();
+ const node=JSON.parse(backup).assessmentTree.nodes.default;
+ expect(node.decisionRecords[9].justification).toBe('Record despite a quota failure');
+ expect(node.decisionHistory).toHaveLength(1);
+ expect(node.decisionDrafts[9]).toBeUndefined();
+ await page.evaluate(()=>window.restoreReviewStorage());
+ await form.evaluate(form=>form.requestSubmit());
+ const saved=(await data(page)).assessmentTree.nodes.default;
+ expect(saved.decisionRecords[9].justification).toBe('Record despite a quota failure');
+ expect(saved.decisionDrafts[9]).toBeUndefined();
+ expect(saved.decisionHistory).toHaveLength(1);
+});

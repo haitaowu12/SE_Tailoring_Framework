@@ -31,6 +31,8 @@ export function bindProcessReviews(container, onSaved) {
   container.querySelectorAll('form[data-process-review]').forEach(form => {
     const pid = form.dataset.processReview;
     const node = getState().assessmentTree.nodes[getState().assessmentTree.activeId];
+    const fields = () => JSON.stringify([form.elements.outcome.value, form.elements.level.value, form.elements.justification.value]);
+    let recordedFields;
     const read = () => {
       const baseline = getRecommendation(node, getState());
       const prior = node.decisionRecords?.[pid] || node.manualAdjustments?.[pid] || {};
@@ -38,18 +40,28 @@ export function bindProcessReviews(container, onSaved) {
         justification: form.elements.justification.value, reviewOutcome: form.elements.outcome.value };
     };
     const persist = () => {
+      // Removing the focused form can dispatch change after submit in Chromium.
+      if (fields() === recordedFields) return;
       form.querySelector('[data-level-field]').hidden = form.elements.outcome.value !== 'adjust';
       node.decisionDrafts = { ...(node.decisionDrafts || {}), [pid]: read() };
       const saved = setState({assessmentTree: getState().assessmentTree});
       form.querySelector('[role="status"]').textContent = saved ? 'Draft saved locally; record the decision to apply it.' : 'Local save failed. Keep this tab open and make a private backup.';
     };
-    form.addEventListener('input', debounce(persist, 500));
-    form.addEventListener('change', persist);
+    const debouncedPersist = debounce(persist, 500);
+    form.addEventListener('input', debouncedPersist);
+    form.addEventListener('change', () => {
+      debouncedPersist.cancel();
+      persist();
+    });
     form.addEventListener('submit', event => {
       event.preventDefault();
-      if (!form.elements.outcome.value) { form.querySelector('[role="status"]').textContent = 'Choose whether to keep or change the recommendation.'; return; }
+      // Submission reads the live fields; an older callback must never recreate
+      // the draft after saveElementDecisions removes it, including save failures.
+      debouncedPersist.cancel();
+      if (!form.elements.outcome.value) { persist(); form.querySelector('[role="status"]').textContent = 'Choose whether to keep or change the recommendation.'; return; }
       const result = saveElementDecisions(node.id, { [pid]: read() });
-      if (result.errors.length) { form.querySelector('[role="status"]').textContent = result.errors.join(' '); return; }
+      if (result.errors.length) { persist(); form.querySelector('[role="status"]').textContent = result.errors.join(' '); return; }
+      recordedFields = fields();
       if (!result.persisted) { form.querySelector('[role="status"]').textContent = 'Recorded in this tab, but local save failed. Back up before closing.'; return; }
       onSaved();
     });
