@@ -1,3 +1,4 @@
+import { debounce } from '../utils/debounce.js';
 import { reconcileManualChoices, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 /**
  * Assessment View — Step-by-step metric scoring wizard
@@ -621,11 +622,15 @@ function renderStep(container) {
     commitAssessmentDraft();
     renderAssessment(container);
   }));
-  content.querySelectorAll('.metric-justification-input').forEach(input => input.addEventListener('input', () => {
-    const metricId = input.dataset.metric;
-    localMetricAssessments[metricId] = makeMetricAssessment(metricId, { rationale: input.value });
-    commitAssessmentDraft();
-  }));
+  content.querySelectorAll('.metric-justification-input').forEach(input => {
+    const handler = () => {
+      const metricId = input.dataset.metric;
+      localMetricAssessments[metricId] = makeMetricAssessment(metricId, { rationale: input.value });
+      commitAssessmentDraft();
+    };
+    input.addEventListener('input', debounce(handler, 500));
+    input.addEventListener('change', handler);
+  });
 }
 
 function renderMetricJustificationControls(metricId) {
@@ -1454,8 +1459,10 @@ function renderResults(content) {
   };
   for (const id of ['rule11-outcome', 'rule11-rationale', 'rule11-owner', 'rule11-evidence', 'rule11-date']) {
     const input = content.querySelector(`#${id}`);
-    input?.addEventListener(id === 'rule11-rationale' ? 'input' : 'change', refreshRule11Record);
-    if (id === 'rule11-owner' || id === 'rule11-evidence') input?.addEventListener('input', refreshRule11Record);
+    if (id === 'rule11-rationale' || id === 'rule11-owner' || id === 'rule11-evidence') {
+      input?.addEventListener('input', debounce(refreshRule11Record, 500));
+    }
+    input?.addEventListener('change', refreshRule11Record);
   }
   const refreshGeneralWarningRecord = (section) => {
     const ruleId = section.dataset.ruleId;
@@ -1494,7 +1501,13 @@ function renderResults(content) {
   };
   content.querySelectorAll('.warning-disposition').forEach(section => {
     section.querySelectorAll('select, input, textarea').forEach(input => {
-      input.addEventListener(input.matches('select, input[type="date"]') ? 'change' : 'input', () => refreshGeneralWarningRecord(section));
+      const handler = () => refreshGeneralWarningRecord(section);
+      if (input.matches('input[type="text"], textarea')) {
+        input.addEventListener('input', debounce(handler, 500));
+        input.addEventListener('change', handler);
+      } else {
+        input.addEventListener(input.matches('select, input[type="date"]') ? 'change' : 'input', handler);
+      }
     });
   });
   const refreshCsiResponse = () => {
@@ -1524,8 +1537,10 @@ function renderResults(content) {
   content.querySelectorAll('.csi-action').forEach(input => input.addEventListener('change', refreshCsiResponse));
   for (const id of ['csi-protected-outputs', 'csi-rationale', 'csi-owner', 'csi-evidence', 'csi-date']) {
     const input = content.querySelector(`#${id}`);
-    input?.addEventListener('input', refreshCsiResponse);
-    if (id === 'csi-date') input?.addEventListener('change', refreshCsiResponse);
+    if (id === 'csi-protected-outputs' || id === 'csi-rationale' || id === 'csi-owner' || id === 'csi-evidence') {
+      input?.addEventListener('input', debounce(refreshCsiResponse, 500));
+    }
+    input?.addEventListener('change', refreshCsiResponse);
   }
   finalizeAssessment(null, { automatic: true });
   updateCompleteButton();
