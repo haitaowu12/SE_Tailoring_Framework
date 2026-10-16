@@ -1,3 +1,4 @@
+import { debounce } from '../utils/debounce.js';
 import { checkAssessmentAutomatically } from './assessment.js';
 import { reconcileManualChoices, getDecisionEffectiveScores, reconcileDecisionViolations } from '../utils/tailoring-decisions.js';
 import { explainRecommendation } from '../utils/recommendation-explanation.js';
@@ -870,7 +871,7 @@ export function renderReport(container) {
         ? 'Draft from an earlier proposal. Review every field against the current proposal before recording.'
         : 'Draft kept in this browser session. It has not been submitted or applied. Check any save warning before leaving.';
     };
-    form.addEventListener('input', saveDraft);
+    form.addEventListener('input', debounce(saveDraft, 500));
     form.addEventListener('change', saveDraft);
     form.addEventListener('submit', event => {
       event.preventDefault();

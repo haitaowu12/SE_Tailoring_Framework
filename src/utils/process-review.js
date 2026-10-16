@@ -1,3 +1,4 @@
+import { debounce } from './debounce.js';
 import { getState, setState, saveElementDecisions } from '../state.js';
 import { getRecommendation, decisionNeedsReview } from './tailoring-decisions.js';
 import { escapeHtml } from './safe-text.js';
@@ -42,7 +43,7 @@ export function bindProcessReviews(container, onSaved) {
       const saved = setState({assessmentTree: getState().assessmentTree});
       form.querySelector('[role="status"]').textContent = saved ? 'Draft saved locally; record the decision to apply it.' : 'Local save failed. Keep this tab open and make a private backup.';
     };
-    form.addEventListener('input', persist);
+    form.addEventListener('input', debounce(persist, 500));
     form.addEventListener('change', persist);
     form.addEventListener('submit', event => {
       event.preventDefault();
