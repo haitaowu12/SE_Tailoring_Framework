@@ -875,6 +875,8 @@ export function renderReport(container) {
     form.addEventListener('change', saveDraft);
     form.addEventListener('submit', event => {
       event.preventDefault();
+      // Call saveDraft explicitly here for submission side-effects and fallback.
+      saveDraft();
       const current = getState();
       const processId = Number(form.dataset.processId);
       const proposal = (current.rightSizingProposals || []).find(item => Number(item.processId) === processId);
