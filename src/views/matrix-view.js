@@ -3,7 +3,7 @@
  */
 import { CORE_PROCESSES, METRICS, DIMENSIONS, METRIC_PROCESS_MAP, CONDITIONAL_METRIC_PROCESS_DRIVERS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { getState } from '../state.js';
-import { exportMatrixCSV, exportMatrixPDF } from '../utils/export-import.js';
+import { exportMatrixCSV } from '../utils/export-import.js';
 import { processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
 import { getDriverAttribution } from '../utils/assessment-engine.js';
@@ -172,6 +172,7 @@ export function renderMatrixView(container) {
   });
 
   container.querySelector('#btn-export-matrix-pdf').addEventListener('click', async () => {
+    const { exportMatrixPDF } = await import('../utils/pdf-export.js');
     await exportMatrixPDF(getState(), METRICS, CORE_PROCESSES, DIMENSIONS, METRIC_PROCESS_MAP, buildMatrixPresentation(getState()));
   });
 }
