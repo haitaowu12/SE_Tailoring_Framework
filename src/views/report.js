@@ -875,8 +875,12 @@ export function renderReport(container) {
     form.addEventListener('change', saveDraft);
     form.addEventListener('submit', event => {
       event.preventDefault();
-      // Call saveDraft explicitly here for submission side-effects and fallback.
-      saveDraft();
+      const currentBefore = getState();
+      const proposalBefore = (currentBefore.rightSizingProposals || []).find(item => Number(item.processId) === Number(form.dataset.processId));
+      if (proposalBefore) {
+        const fields = Object.fromEntries(new FormData(form));
+        setState({ assessmentTree: saveRightSizingDraft(currentBefore, proposalBefore, fields) });
+      }
       const current = getState();
       const processId = Number(form.dataset.processId);
       const proposal = (current.rightSizingProposals || []).find(item => Number(item.processId) === processId);
