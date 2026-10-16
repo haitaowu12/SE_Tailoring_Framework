@@ -120,8 +120,11 @@ test('CSV and PDF shared export rows preserve every displayed role, conditional 
         for (const privateValue of ['Root code', 'Private child', 'Synthetic authority', 'Synthetic source', 'OBL-SYNTHETIC']) assert(!text.includes(privateValue));
     }
     const exporter = readFileSync(new URL('../src/utils/export-import.js', import.meta.url), 'utf8');
-    for (const functionName of ['exportMatrixCSV', 'exportMatrixPDF']) {
-        const body = exporter.slice(exporter.indexOf(`function ${functionName}(`));
-        assert.match(body.slice(0, body.indexOf('/**')), /buildMatrixExportData\(state, metrics, processes, defaultMap, presentation\)/);
-    }
+    const pdfExporter = readFileSync(new URL('../src/utils/pdf-export.js', import.meta.url), 'utf8');
+
+    const bodyCsv = exporter.slice(exporter.indexOf(`function exportMatrixCSV(`));
+    assert.match(bodyCsv.slice(0, bodyCsv.indexOf('/**')), /buildMatrixExportData\(state, metrics, processes, defaultMap, presentation\)/);
+
+    const bodyPdf = pdfExporter.slice(pdfExporter.indexOf(`async function exportMatrixPDF(`));
+    assert.match(bodyPdf, /buildMatrixExportData\(state, metrics, processes, defaultMap, presentation\)/);
 });
