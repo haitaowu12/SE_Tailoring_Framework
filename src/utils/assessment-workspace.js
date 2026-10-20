@@ -5,7 +5,7 @@ export const WORKSPACE_STORAGE_KEY = 'se-tailoring-workspace-v1';
 export const LEGACY_AUTOSAVE_KEY = 'se-tailoring-autosave';
 export const WORKSPACE_VERSION = 1;
 
-const clone = value => JSON.parse(JSON.stringify(value));
+const clone = value => structuredClone(value);
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const makeId = () => `assessment_${globalThis.crypto?.randomUUID?.() || `${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`}`;
 const timestamp = () => new Date().toISOString();

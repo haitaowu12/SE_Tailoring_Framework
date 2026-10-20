@@ -102,7 +102,7 @@ const state = {
 const listeners = [];
 
 // A new assessment must never inherit fields, a tree, or decisions from the last one.
-const initialState = JSON.parse(JSON.stringify(state));
+const initialState = structuredClone(state);
 let workspace = null;
 let workspaceInitialized = false;
 let workspaceUnlocked = false;
@@ -112,7 +112,7 @@ let hiddenSavedAssessmentIds = new Set();
 
 export function createBlankAssessment() {
     return {
-        ...JSON.parse(JSON.stringify(initialState)),
+        ...structuredClone(initialState),
         semantics: { frameworkVersion: FRAMEWORK_SEMANTIC_VERSION, metricDefinitionSet: METRIC_DEFINITION_SET_ID, qualifierSchemaVersion: QUALIFIER_SCHEMA_VERSION }
     };
 }
@@ -163,7 +163,7 @@ function replaceAssessment(data) {
         : normalizeImportedConfig(buildAutosaveImportConfig(data));
     // Preserve the singleton reference for existing views, but remove all old keys.
     Object.keys(state).forEach(key => delete state[key]);
-    Object.assign(state, createBlankAssessment(), JSON.parse(JSON.stringify(restored)));
+    Object.assign(state, createBlankAssessment(), structuredClone(restored));
     state.approvedRightSizedLevels = {};
     state.effectiveRightSizingApprovalCount = 0;
     if (state.assessmentComplete) {
@@ -454,7 +454,7 @@ export function hydrateActiveElementState() {
     Object.assign(state, buildElementContext(node));
     // Global manualAdjustments is a legacy root-only field. Child choices belong
     // solely to that child's node; process views must not inherit root choices.
-    state.manualAdjustments = JSON.parse(JSON.stringify(tree.nodes[tree.rootId]?.manualAdjustments || {}));
+    state.manualAdjustments = structuredClone(tree.nodes[tree.rootId]?.manualAdjustments || {});
     const recordedComplete = node.assessmentDisposition === 'complete-baseline'
         || ['under_review', 'approved', 'baselined'].includes(node.status);
     state.assessmentDisposition = node.assessmentDisposition === 'demo' ? 'demo' : 'work-in-progress';
