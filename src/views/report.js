@@ -936,7 +936,7 @@ export function renderReport(container) {
       const effectiveLevels = applyManualAdjustmentsToLevels(result.levels, decisionReview?.adjustments || {});
       const effectiveViolations = reconcileDecisionViolations(result, effectiveLevels, effectiveScores, assessmentContext);
       if (activeNode) {
-        activeNode.rightSizingApprovalRecords = structuredClone(records);
+        activeNode.rightSizingApprovalRecords = JSON.parse(JSON.stringify(records));
         if (activeNode.rightSizingDrafts) delete activeNode.rightSizingDrafts[processId];
         activeNode.assessmentResult = { ...result, levels: effectiveLevels, violations: effectiveViolations };
         activeNode.levels = { ...effectiveLevels };
