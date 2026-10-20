@@ -1,8 +1,7 @@
 /** Hydrate legacy top-level view fields from one element without cross-element fallbacks.
  * The tree remains canonical; this does not copy, clear, or modify node decisions.
  */
-// ⚡ Bolt: Using structuredClone instead of JSON.parse(JSON.stringify) for 2x faster deep cloning
-const clone = value => structuredClone(value);
+const clone = value => JSON.parse(JSON.stringify(value));
 const owns = (value, key) => Object.prototype.hasOwnProperty.call(value || {}, key);
 const INPUT_DEFAULTS = {
     scores: {}, metricAssessments: {}, assuranceObligations: [], ruleDispositions: {},
