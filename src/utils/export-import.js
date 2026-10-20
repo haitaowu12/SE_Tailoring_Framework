@@ -191,7 +191,7 @@ function validateManualAdjustments(manualAdjustments, fieldName, errors) {
 function clonePlain(value, fallback) {
     if (value === undefined || value === null) return fallback;
     try {
-        return JSON.parse(JSON.stringify(value));
+        return structuredClone(value);
     } catch {
         return fallback;
     }
