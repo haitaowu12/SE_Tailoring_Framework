@@ -45,9 +45,9 @@ export function assessCsiResponse(scores = {}, response = {}) {
     const normalized = normalizeCsiResponse(response);
     const missingFields = [];
     if (normalized.responseType !== expectedResponseType) missingFields.push('responseType');
-    if (normalized.selectedActions.length === 0) missingFields.push('selectedActions');
+    if (!normalized.selectedActions?.length) missingFields.push('selectedActions');
     for (const field of REQUIRED_TEXT_FIELDS) {
-        if (!normalized[field].trim()) missingFields.push(field);
+        if (!normalized[field]?.trim()) missingFields.push(field);
     }
     if (!isIsoDate(normalized.reviewDate)) missingFields.push('reviewDate');
 
