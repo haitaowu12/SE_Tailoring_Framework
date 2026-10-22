@@ -469,17 +469,17 @@ function renderStep(container) {
           </select>
         </div>
             <div class="form-group">
-              <label class="form-label" for="proj-boundary">Assessed boundary</label>
-              <input class="input" id="proj-boundary" autocomplete="off" placeholder="What is included and excluded from this assessment" value="${escapeHtml(localProject.boundary || '')}">
+              <label class="form-label" for="proj-boundary">Assessed system or work-package boundary</label>
+              <input class="input" id="proj-boundary" autocomplete="off" aria-describedby="boundary-help" placeholder="What is included, excluded and your team’s responsibility" value="${escapeHtml(localProject.boundary || '')}">
             </div>
-        <p class="text-sm text-secondary">Use one consistent boundary and life-cycle stage for all answers. <a href="#help?topic=start">Read the short walkthrough</a>.</p>
+        <p class="text-sm text-secondary" id="boundary-help">Describe the system being assessed and the work your team is responsible for. If a wider programme provides plans or assurance, name the applicable record and responsible role in your decision rationale. Use one consistent boundary and life-cycle stage for all answers. <a href="#help?topic=start">Read the short walkthrough</a>.</p>
         <details class="setup-context">
-          <summary>Decision context <span>Optional</span></summary>
+          <summary>Decision purpose and responsibility <span>Optional</span></summary>
           <div class="setup-context-fields">
 
             <div class="form-group">
               <label class="form-label" for="proj-purpose">Tailoring decision</label>
-              <input class="input" id="proj-purpose" autocomplete="off" placeholder="What this assessment will help decide" value="${escapeHtml(localProject.purpose || '')}">
+              <input class="input" id="proj-purpose" autocomplete="off" placeholder="What work you will perform, reuse or request from the wider programme" value="${escapeHtml(localProject.purpose || '')}">
             </div>
             <div class="form-group">
               <label class="form-label" for="proj-evidenceCutoff">Evidence cutoff</label>
@@ -1245,7 +1245,7 @@ function renderResults(content) {
       <div class="section-heading-row">
         <div>
           <p class="eyebrow">Recommendations</p>
-          <h4>Review process recommendations</h4>
+          <h4>Review process recommendations</h4><p class="text-sm text-secondary mt-sm"><a href="#help?topic=method">How mapped drivers, minimums and rules select these levels</a></p>
         </div>
         <span class="text-xs text-secondary">${reviewFirst.length ? `${reviewFirst.length} of ${CORE_PROCESSES.length}` : 'Baseline profile'}</span>
       </div>

@@ -75,3 +75,12 @@ test('an unloaded Help view cannot steal focus after late pageshow', t => {
   dom.flushFrame();
   assert.deepEqual(dom.calls, []);
 });
+
+test('the mapping-method deep link opens its disclosure and places focus after navigation', t => {
+  const dom = withHelpDom(t, { readyState: 'complete', hash: '#help?topic=method' });
+  renderHelp(dom.container);
+  assert.equal(dom.target.open, true);
+  assert.equal(dom.frames.length, 1);
+  dom.flushFrame();
+  assert.deepEqual(dom.calls.map(call => call[0]), ['focus', 'scroll']);
+});
