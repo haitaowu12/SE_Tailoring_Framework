@@ -74,7 +74,7 @@ const BASE_PROCESSES = [
     },
     {
         id: 12, name: 'Risk Management', group: 'tech_mgmt', purpose: 'Identify, assess, and treat risks throughout the project lifecycle', extended: false,
-        definition: { basic: 'Simple risk register with high/medium/low assessment. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured risk management with response planning', comprehensive: 'Comprehensive framework with quantitative analysis' },
+        definition: { basic: 'Simple risk register with high/medium/low assessment. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured risk management with response planning', comprehensive: 'Coordinated risk governance with explicit uncertainty and response analysis' },
         assumptions: 'Risks identified through experience and intuition; assessment is qualitative (H/M/L); monitoring is informal.',
         whenToElevate: 'Elevate to Standard for medium-complexity projects. Elevate to Comprehensive for safety-critical systems.',
     },
@@ -98,7 +98,7 @@ const BASE_PROCESSES = [
     },
     {
         id: 16, name: 'Quality Assurance', group: 'tech_mgmt', purpose: 'Ensure processes and products meet quality requirements', extended: false,
-        definition: { basic: 'Basic audits and reviews for compliance', standard: 'Planned assurance with explicit criteria, evaluations, and corrective-action follow-up', comprehensive: 'Comprehensive program with trend analyses for proactive quality' },
+        definition: { basic: 'Basic audits and reviews for compliance', standard: 'Planned assurance with explicit criteria, evaluations, and corrective-action follow-up', comprehensive: 'Risk-based assurance with planned coverage, review and improvement evidence' },
         assumptions: 'QA limited to basic defined-criteria reviews; nonconformances are recorded with owners, actions, and closure status.',
         whenToElevate: 'Elevate to Standard for regulated industries or quality-critical products.'
     },
