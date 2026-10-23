@@ -10,12 +10,36 @@
  * not silently change the three base tailoring levels or add mapping edges.
  */
 
+/** Work allocation examples only; no process level, floor or mapping changes. */
+export const PROCESS_RESPONSIBILITY_GUIDANCE = {
+    9: {
+        outcome: 'Keep scope, responsibilities, dependencies, resources and review points coordinated.',
+        local: 'Plan the work package and its handoffs; reference applicable programme milestones and resourcing decisions rather than duplicate the whole programme plan.'
+    },
+    10: {
+        outcome: 'Make progress, issues, changes and corrective actions visible against agreed expectations.',
+        local: 'Maintain local status and action records and feed the programme control process. Choose a dashboard or predictive model only when it answers a real control question with suitable evidence.'
+    },
+    11: {
+        outcome: 'Make consequential choices with explicit criteria, decision authority, rationale and follow-up.',
+        local: 'Record local interface and delivery decisions; escalate choices outside your authority. Reuse the programme decision process and perform sensitivity analysis or simulation where the decision and evidence warrant it.'
+    },
+    12: {
+        outcome: 'Identify risks and hazards, assign owners, analyze uncertainty, plan responses and track closure.',
+        local: 'Maintain local risks and hand them to the applicable programme risk and safety processes. Reference their scope and owner; check that they cover this work package. Simulation is conditional on defensible models and inputs, while the protected safety minimum still applies.'
+    },
+    16: {
+        outcome: 'Plan assurance coverage, evaluate work against criteria, and track nonconformances and improvement.',
+        local: 'Agree which checks and records your team supplies and which applicable programme assurance activities cover them. Reference that coverage and its owner; do not infer it from the existence of a programme. Use trend analysis when the available evidence supports it.'
+    }
+};
+
 export const PROCESS_DETAILS = {
     9: {
         activities: {
             basic: ['(*) Develop basic project plan', '(*) Create simple schedule (milestone-based)', 'List resources', 'Estimate costs (high-level)'],
             standard: ['(*) Maintain a coordinated plan covering scope, responsibilities, schedule, resources, risks, and review points', '(*) Break work into manageable elements with clear ownership', 'Coordinate schedule dependencies and milestones', 'Plan resources in detail', 'Register risks formally', 'Schedule SA milestones and reviews [Safety]', 'Budget for SA activities [Safety]'],
-            comprehensive: ['(*) Integrate multi-view planning', '(*) Assess schedule uncertainty using a method suited to the available evidence', 'Optimize resources with capacity modeling', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
+            comprehensive: ['(*) Integrate multi-view planning', '(*) Assess schedule uncertainty using a method suited to the available evidence', 'Assess resource capacity; use modeling where useful', 'Develop stakeholder communication plan', 'Create risk-based estimates', 'Integrate SA planning into project baseline [Safety]']
         },
         deliverables: {
             basic: ['Basic project plan', 'Simple schedule', 'Resource list', 'Cost estimate'],
@@ -34,7 +58,7 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Report project status', '(*) Log issues (simple tracking)', 'Minute meetings', 'Log changes (record only)'],
             standard: ['(*) Measure performance against agreed baselines; use earned value where suitable', '(*) Track issues with severity and ownership', 'Review actions with owners and deadlines', 'Control changes through formal process', 'Plan corrections with impact assessment', 'Track SA metrics and KPIs [Safety]', 'Monitor SA action items [Safety]'],
-            comprehensive: ['(*) Dashboard performance monitoring with KPIs', '(*) Track issues with metrics and trend analysis', 'Analyze trends for early warning', 'Model predictions for corrective actions', 'Implement continuous improvement', 'Report SA status with dashboards [Safety]']
+            comprehensive: ['(*) Monitor integrated performance against agreed indicators; use a dashboard where useful', '(*) Track issues with metrics and assess emerging patterns', 'Analyze trends where evidence supports early warning', 'Model corrective-action scenarios where inputs support a defensible prediction', 'Implement continuous improvement', 'Report SA status using suitable controlled records [Safety]']
         },
         deliverables: {
             basic: ['Status reports', 'Issue log', 'Meeting minutes', 'Basic change log'],
@@ -52,7 +76,7 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Analyze basic alternatives (informal)', '(*) Record decision outcomes'],
             standard: ['(*) Plan decision process with criteria', '(*) Compare alternatives against explicit criteria; justify any weighting', 'Report analyses with rationale', 'Document rationale and trade-offs', 'Analyze SA alternatives and trade-offs [Safety]'],
-            comprehensive: ['(*) Govern decision framework with policies', '(*) Model advanced scenarios with sensitivity analysis', 'Analyze uncertainties; use simulation only with a defensible model and inputs', 'Measure decision effectiveness', 'Record rationale for SA choices [Safety]']
+            comprehensive: ['(*) Apply an agreed decision framework with named authority', '(*) Analyze consequential alternatives and sensitivity where relevant to the decision', 'Analyze uncertainties; use simulation only with a defensible model and inputs', 'Measure decision effectiveness', 'Record rationale for SA choices [Safety]']
         },
         deliverables: {
             basic: ['Decision records', 'Basic alternatives analysis', 'Meeting minutes with decisions'],
@@ -69,7 +93,7 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Register risks or hazards in an authorized team or project record', '(*) Assign and confirm a named owner', '(*) Assess using simple High/Medium/Low criteria', '(*) Route material concerns through the applicable risk, hazard, safety, ethics, regulatory, issue, or nonconformance channel'],
             standard: ['(*) Plan risk management formally', '(*) Detail risk register with probability/impact', '(*) Plan responses with triggers and owners', 'Report regularly to stakeholders', 'Review risks at milestones', 'Identify and assess safety hazards [Safety]', 'Develop SA risk responses [Safety]'],
-            comprehensive: ['(*) Document risk management framework', '(*) Analyze risk uncertainty; use distribution-based modeling or simulation only with a defensible model and inputs', '(*) Strategize responses with contingencies', 'Dashboard with leading indicators', 'Analyze risk management effectiveness', 'Integrate SA risks into quantitative models [Safety]', 'Track SA risk indicators [Safety]']
+            comprehensive: ['(*) Apply and reference the applicable risk management framework', '(*) Analyze risk uncertainty; use distribution-based modeling or simulation only with a defensible model and inputs', '(*) Strategize responses with contingencies', 'Monitor leading indicators using suitable records', 'Analyze risk management effectiveness', 'Integrate SA risks into the assessment; use quantitative models where justified [Safety]', 'Track SA risk indicators [Safety]']
         },
         deliverables: {
             basic: ['Simple risk register', 'Risk assessment matrix (H/M/L)', 'Basic risk reports'],
@@ -139,7 +163,7 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Plan basic quality assurance against named criteria', '(*) Conduct a peer check or authorized review with recorded scope', '(*) Report nonconformances through the applicable controlled channel', 'Track owners, actions, and closure evidence'],
             standard: ['(*) Develop quality assurance plan', '(*) Perform evaluations with criteria', '(*) Report regularly to stakeholders', 'Initiate improvements with actions', 'Conduct SA audits [Safety]', 'Verify SA process compliance [Safety]'],
-            comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct comprehensive audits with methodology', '(*) Analyze trends for early warning', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
+            comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct assurance evaluations, including audits where required, with defined coverage and methodology', '(*) Assess quality issues and emerging patterns using available evidence', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
         },
         deliverables: {
             basic: ['Quality assurance plan', 'Audit reports', 'Non-conformance records', 'Resolution tracking'],

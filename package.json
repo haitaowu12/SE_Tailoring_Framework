@@ -12,7 +12,7 @@
     },
     "devDependencies": {
         "@playwright/test": "^1.61.1",
-        "vite": "^8.1.4"
+        "vite": "^8.1.6"
     },
     "dependencies": {
         "jspdf": "^4.2.0",

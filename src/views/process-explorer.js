@@ -2,7 +2,7 @@
  * Process Explorer View — Searchable/filterable process detail browser
  */
 import { ACTIVE_CONSISTENCY_RULES, CORE_PROCESSES, PROCESS_GROUPS, FRAMEWORK_META, METRICS, OVERRIDE_CONDITIONS } from '../data/se-tailoring-data.js';
-import { PROCESS_DETAILS, PROCESS_CONTEXT_OVERLAYS } from '../data/process-details.js';
+import { PROCESS_DETAILS, PROCESS_CONTEXT_OVERLAYS, PROCESS_RESPONSIBILITY_GUIDANCE } from '../data/process-details.js';
 import { getState } from '../state.js';
 import { getCurrentRouteContext, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
@@ -397,6 +397,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
   const p = CORE_PROCESSES.find(x => x.id === processId);
   if (!p) return '';
   const details = PROCESS_DETAILS[processId];
+  const responsibility = PROCESS_RESPONSIBILITY_GUIDANCE[processId];
   const governance = buildProcessGovernanceContext(processId, state, viewContext);
   const map = governance.map;
   const level = getAssignedProcessLevel(viewContext, processId);
@@ -470,6 +471,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
       </div>` : ''}
 
       <p class="text-sm text-secondary mb-lg">Use the following activities and records as examples to adapt. Higher rigor retains the essential outcomes of lower levels. Named tools, document formats, and analysis methods are options unless your project has a specific obligation. Existing controlled records may meet several information needs. <a href="#help?topic=adapt">How to adapt the guidance</a>.</p>
+      ${responsibility ? `<section class="detail-section" aria-label="Work-package responsibility"><h4>Outcome and work-package responsibility</h4><p class="text-sm text-secondary"><strong>Retain the outcome:</strong> ${escapeHtml(responsibility.outcome)}</p><p class="text-sm text-secondary mt-sm">${escapeHtml(responsibility.local)}</p><p class="text-xs text-secondary mt-sm">The level tabs show different depth, not a requirement to duplicate every lower-level activity or every example. Record the local contribution, applicable programme evidence and responsible role. <a href="#help?topic=adapt">Check the allocation</a>.</p></section>` : ''}
       <div class="detail-section">
         <h4>Activity examples to adapt (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(core outcome examples are marked)</span></h4>
         ${activities.length ? activities.map(a => {
