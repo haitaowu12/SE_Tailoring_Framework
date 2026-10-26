@@ -348,7 +348,7 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
     _format: 'se-tailoring-config',
     _version: '2.0',
     semantics: { frameworkVersion: '4.1.1', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
-    projectInfo: { name: 'Output Sufficiency Gate Smoke' },
+    projectInfo: { name: 'Retired Artifact Handoff Smoke' },
     metricScores,
     metricAssessments,
     processLevels,
@@ -362,7 +362,7 @@ test('retired artifact handoff data is ignored and does not block baseline', asy
       reviewDate: ''
     }],
     assessmentComplete: true
-  }, 'output-sufficiency-gate.json');
+  }, 'retired-artifact-handoff.json');
 
   await page.goto('./#assessment');
   await page.getByRole('button', { name: 'Go to Results step' }).click();

@@ -7,6 +7,9 @@
  *   - 00-MASTER/generated/semantic-projection.json is the generated human/machine projection.
  *   - 02-PRACTICAL/Interdependency-Quick-Reference.md is an authored, parity-checked practitioner view.
  *   - Prose and practitioner views must not alter registry semantics.
+ * _EVIDENCE_BOUNDARY:
+ *   - These semantics are authored hypotheses with internal conformance evidence.
+ *   - Application tests do not establish construct validity, professional correctness, usability, governance utility, or outcome benefit.
  * 
  * CURRENT LOGIC:
  *   - Removed weighted score calculations (no P=2/S=1 weighting)
