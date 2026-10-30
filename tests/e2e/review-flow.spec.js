@@ -10,7 +10,8 @@ test('partial review records exactly one adjustment, retains another draft, and 
  await page.getByRole('button',{name:'Next: Complexity →',exact:true}).click();
  await page.getByRole('radio',{name:/^M1 score 3:/}).check();
  await page.getByRole('button',{name:'Go to Results step',exact:true}).click();
- await expect(page.locator('.spiderweb-chart')).toBeVisible();
+ await expect(page.locator('.ordinal-metric-row')).toHaveCount(16);
+ await expect(page.locator('.ordinal-metric-row').first()).toContainText('Confirmed');
  await expect(page.getByRole('heading',{name:'Review status',exact:true})).toHaveCount(0);
  await expect(page.locator('.result-card')).toHaveCount(22);
  const form9=page.locator('form[data-process-review="9"]'),form10=page.locator('form[data-process-review="10"]');
