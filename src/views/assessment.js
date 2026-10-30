@@ -13,7 +13,7 @@ import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUT
 import { assessCsiResponse, CSI_RESPONSE_ACTIONS } from '../utils/csi-response.js';
 import { assessCorrelatedEvidence } from '../utils/correlated-evidence.js';
 import { resolveProtectedAncestry } from '../utils/inheritance-engine.js';
-import { renderMetricRatingTable, renderMetricSpiderwebSvg } from '../utils/report-visuals.js';
+import { renderMetricRatingTable, renderOrdinalMetricProfile } from '../utils/report-visuals.js';
 import { applyManualAdjustmentsToLevels } from '../utils/export-import.js';
 import { getLocalCalendarDate } from '../utils/date-validation.js';
 import { renderProcessReview, bindProcessReviews } from '../utils/process-review.js';
@@ -1239,7 +1239,7 @@ function renderResults(content) {
           ? 'Start with the process list below. Routine recommendations remain in the full profile.'
           : 'No process needs focused review. Continue with the baseline profile or open a work aid as needed.'}</p>
       </section>
-      <section class="results-visual">${renderMetricSpiderwebSvg(localScores, METRICS, DIMENSIONS, {metricAssessments: localMetricAssessments, title: 'Project ratings', idPrefix: 'assessment-ratings'})}</section>
+      <section class="results-visual">${renderOrdinalMetricProfile(localScores, localMetricAssessments, METRICS, DIMENSIONS)}</section>
     </div>
     <section class="priority-guidance mb-lg">
       <div class="section-heading-row">
