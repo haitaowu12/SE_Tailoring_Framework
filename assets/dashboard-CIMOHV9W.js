@@ -1,4 +1,4 @@
-import{A as e,Ct as t,Pt as n,_ as r,a as i,d as a,dt as o,f as s,g as c,ht as l,kt as u,l as d,n as f,pt as p,r as m,s as h}from"./index-CIMXf6J5.js";function g(g,_={}){let v=_.path===`library`,y=d(),b=i(),x=b.assessments.find(e=>e.active),S=Object.keys(y.scores||{}).length>0,C=Object.values(y.levels||{}).filter(e=>e===`basic`).length,w=Object.values(y.levels||{}).filter(e=>e===`standard`).length,T=Object.values(y.levels||{}).filter(e=>e===`comprehensive`).length,E=e(y.scores,y.metricAssessments);g.innerHTML=`
+import{A as e,Ct as t,Pt as n,_ as r,a as i,d as a,dt as o,f as s,g as c,ht as l,kt as u,l as d,n as f,pt as p,r as m,s as h}from"./index-tTzzMvnf.js";function g(g,_={}){let v=_.path===`library`,y=d(),b=i(),x=b.assessments.find(e=>e.active),S=Object.keys(y.scores||{}).length>0,C=Object.values(y.levels||{}).filter(e=>e===`basic`).length,w=Object.values(y.levels||{}).filter(e=>e===`standard`).length,T=Object.values(y.levels||{}).filter(e=>e===`comprehensive`).length,E=e(y.scores,y.metricAssessments);g.innerHTML=`
       ${!v&&S?`<section class="card current-work" aria-labelledby="workspace-next-title">
         <div>
           <span class="eyebrow">${y.assessmentComplete?`Software completeness checks passed`:S?`Work in progress`:`Your next step`}</span>
@@ -40,11 +40,11 @@ import{A as e,Ct as t,Pt as n,_ as r,a as i,d as a,dt as o,f as s,g as c,ht as l
       </section>`:``}
 
       ${S?`<details class="card framework-introduction"><summary>Framework introduction and references</summary>`:``}
-      <section class="dashboard-hero animate-fade-in-up">
-        <div class="hero-badge">A decision aid for project teams</div>
+      <div class="dashboard-opening">
+      <section class="dashboard-hero">
         <p class="hero-kicker">Systems engineering process tailoring</p>
-        <h1>Plan the systems engineering<br><span>your project needs.</span></h1>
-        <p class="hero-subtitle">Describe your project, review a suggested level of effort for each process, and decide what work and evidence are needed. Start with the boundary and information you know; record uncertainty where evidence is missing.</p>
+        <h1>Plan the systems engineering <span>your project needs.</span></h1>
+        <p class="hero-subtitle">Define your project boundary, review the suggested rigor for each process, and decide what work and evidence are needed. Record uncertainty where evidence is missing.</p>
         <div class="hero-actions">
           <button class="btn btn-primary btn-lg" id="btn-start-assessment">${S?`Continue assessment`:`Start assessment`}</button>
           <a class="btn btn-secondary btn-lg" href="#help">How to use the framework</a>
@@ -58,33 +58,32 @@ import{A as e,Ct as t,Pt as n,_ as r,a as i,d as a,dt as o,f as s,g as c,ht as l
 
 
 
-      <section class="how-it-works animate-fade-in-up stagger-3">
+      <section class="how-it-works" aria-labelledby="how-it-works-title">
         <div class="section-heading">
-          <span class="eyebrow">A straightforward path</span>
-          <h2>How it works</h2>
+          <h2 id="how-it-works-title">From context to a process plan</h2>
         </div>
-        <div class="grid-3">
-          <article class="card step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Define what is in scope. Choose the description that fits each question, or mark it Unknown.</p></article>
-          <article class="card step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">Check why each process was recommended. Resolve warnings and compare the result with your project needs.</p></article>
-          <article class="card step-card"><span>03</span><h3>Apply the guidance</h3><p class="text-sm text-secondary">Adapt the activities and evidence to your way of working, then agree responsibilities and approval.</p></article>
-        </div>
+        <ol class="workflow-steps" role="list">
+          <li class="step-card"><span>01</span><h3>Describe the project</h3><p class="text-sm text-secondary">Define what is in scope. Choose the description that fits each question, or mark it Unknown.</p></li>
+          <li class="step-card"><span>02</span><h3>Review priorities</h3><p class="text-sm text-secondary">Check why each process was recommended. Resolve warnings and compare the result with your project needs.</p></li>
+          <li class="step-card"><span>03</span><h3>Apply the guidance</h3><p class="text-sm text-secondary">Adapt the activities and evidence to your way of working, then agree responsibilities and approval.</p></li>
+        </ol>
       </section>
+      </div>
 
-      <section class="explore-section animate-fade-in-up stagger-4">
+      <section class="explore-section" aria-labelledby="explore-title">
         <div class="section-heading">
-          <span class="eyebrow">Supporting tools</span>
-          <h2>Explore the framework</h2>
+          <h2 id="explore-title">Explore the framework</h2>
           <p class="text-sm text-secondary">Use these views when you need more context. They are supporting references, not extra assessment steps.</p>
         </div>
-        <div class="grid-4">
-          <button class="card nav-card hover-lift" data-route="processes"><span>Guidance</span><h3>Process explorer</h3><p>Browse activities and outputs by tailoring level.</p></button>
-          <button class="card nav-card hover-lift" data-route="elements"><span>${h()} configured</span><h3>System elements</h3><p>Tailor parts of a larger system when needed.</p></button>
-          <button class="card nav-card hover-lift" data-route="vee-model"><span>Lifecycle</span><h3>Vee model</h3><p>See where process guidance fits in delivery.</p></button>
-          <button class="card nav-card hover-lift" data-route="interdependency"><span>${t.length} checks</span><h3>Dependencies</h3><p>Understand consistency rules between processes.</p></button>
+        <div class="framework-links">
+          <button class="nav-card" type="button" data-route="processes"><span>Guidance</span><h3>Process explorer</h3><p>Browse activities and outputs by tailoring level.</p></button>
+          <button class="nav-card" type="button" data-route="elements"><span>${h()} configured</span><h3>System elements</h3><p>Tailor parts of a larger system when needed.</p></button>
+          <button class="nav-card" type="button" data-route="vee-model"><span>Lifecycle</span><h3>Vee model</h3><p>See where process guidance fits in delivery.</p></button>
+          <button class="nav-card" type="button" data-route="interdependency"><span>${t.length} checks</span><h3>Dependencies</h3><p>Understand consistency rules between processes.</p></button>
         </div>
       </section>
 
-      <details class="card method-details animate-fade-in-up stagger-5">
+      <details class="card method-details">
         <summary>Learn how the framework is organized</summary>
         <div class="method-details-body">
           <div>
@@ -121,29 +120,39 @@ import{A as e,Ct as t,Pt as n,_ as r,a as i,d as a,dt as o,f as s,g as c,ht as l
       .library-form label { display:block; margin-bottom:6px; }
       @media(max-width:600px) { .library-form { flex-direction:column; align-items:stretch; } .library-form .btn { width:100%; } }
 
-      .dashboard-hero { max-width: 980px; margin: 0 auto; padding: 64px 20px 46px; text-align: center; }
-      .hero-badge { display:inline-block; padding:4px 14px; border:1px solid var(--border-subtle); border-radius:999px; color:var(--text-secondary); font-size:12px; margin-bottom:24px; }
-      .hero-kicker,.eyebrow { color:var(--accent-primary-light); font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
-      .dashboard-hero h1 { font-size:clamp(2.3rem,6vw,4.8rem); line-height:1.02; letter-spacing:-.045em; max-width:860px; margin:10px auto 20px; }
+      .dashboard-opening { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr); gap:clamp(32px,5vw,72px); align-items:start; padding:24px 0 48px; }
+      .dashboard-hero { min-width:0; }
+      .hero-kicker,.eyebrow { color:var(--accent-primary-light); font-size:12px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+      .dashboard-hero h1 { font-size:clamp(2rem,3.5vw,3.1rem); line-height:1.12; letter-spacing:-.035em; margin:16px 0 20px; max-width:22ch; }
       .dashboard-hero h1 span { color:var(--accent-primary-light); }
-      .hero-subtitle { max-width:700px; margin:0 auto 28px; color:var(--text-secondary); font-size:1.05rem; line-height:1.7; }
-      .hero-actions { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
-      .framework-facts { display:flex; justify-content:center; gap:28px; flex-wrap:wrap; margin-top:34px; color:var(--text-secondary); font-size:13px; }
-      .framework-facts strong { color:var(--text-primary); font-size:17px; margin-right:4px; }
+      .hero-subtitle { max-width:60ch; margin:0 0 24px; color:var(--text-secondary); font-size:1rem; line-height:1.7; }
+      .hero-actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+      .dashboard-hero .btn { min-height:48px; padding:12px 18px; font-size:14px; }
+      .framework-facts { display:flex; gap:24px; margin-top:28px; color:var(--text-secondary); font-size:13px; }
+      .framework-facts > span { flex:1; max-width:150px; }
+      .framework-facts strong { display:block; color:var(--text-primary); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.3; margin-bottom:4px; }
       .migration-notice { border-color:rgba(245,158,11,.45); background:rgba(245,158,11,.08); margin-bottom:18px; }
       .current-work { display:flex; align-items:center; justify-content:space-between; gap:24px; margin:0 0 24px; border-left:3px solid var(--accent-primary); }
       .current-work > div { min-width:0; max-width:100%; }
       .current-work h2 { margin-top:5px; overflow-wrap:anywhere; }
-      .how-it-works,.explore-section { margin-bottom:64px; }
-      .section-heading { max-width:680px; margin-bottom:20px; }
-      .section-heading h2 { margin:5px 0 8px; }
-      .step-card { min-height:190px; }
-      .step-card > span { color:var(--accent-primary-light); font-size:12px; font-weight:800; }
-      .step-card h3 { margin:28px 0 8px; font-size:18px; }
-      .nav-card { width:100%; min-height:190px; text-align:left; cursor:pointer; color:var(--text-primary); background:var(--bg-card); }
-      .nav-card > span { color:var(--accent-primary-light); font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
-      .nav-card h3 { margin:28px 0 8px; font-size:17px; }
-      .nav-card p { color:var(--text-secondary); font-size:12px; line-height:1.55; }
+      .section-heading { margin-bottom:16px; }
+      .section-heading h2 { font-size:24px; line-height:1.3; margin-bottom:8px; }
+      .how-it-works { border-left:1px solid var(--border-subtle); padding-left:32px; }
+      .how-it-works .section-heading h2 { font-size:20px; margin:0 0 20px; }
+      .workflow-steps { list-style:none; }
+      .step-card { display:grid; grid-template-columns:24px minmax(0,1fr); gap:4px 16px; padding:18px 0; border-top:1px solid var(--border-subtle); }
+      .step-card > span { grid-row:1 / 3; color:var(--accent-primary-light); font-size:13px; font-variant-numeric:tabular-nums; padding-top:2px; }
+      .step-card h3 { font-size:16px; line-height:1.5; }
+      .step-card p { grid-column:2; line-height:1.65; }
+      .explore-section { padding-top:28px; margin-bottom:28px; border-top:1px solid var(--border-subtle); }
+      .explore-section .section-heading { max-width:64ch; }
+      .framework-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:40px; }
+      .nav-card { display:grid; grid-template-columns:minmax(0,1fr) auto; align-content:start; gap:4px 16px; width:100%; padding:20px 0; text-align:left; cursor:pointer; font:inherit; color:var(--text-primary); background:none; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; }
+      .nav-card > span { grid-column:2; grid-row:1; color:var(--text-secondary); font-size:12px; align-self:center; }
+      .nav-card h3 { grid-column:1; grid-row:1; font-size:17px; color:var(--accent-primary-light); }
+      .nav-card p { grid-column:1 / -1; color:var(--text-secondary); font-size:14px; line-height:1.6; }
+      .nav-card:hover h3 { text-decoration:underline; text-underline-offset:4px; }
+      .nav-card:focus-visible { outline:2px solid var(--accent-primary-light); outline-offset:4px; }
       .method-details { margin-bottom:48px; }
       .method-details > summary { cursor:pointer; font-weight:700; color:var(--accent-primary-light); }
       .method-details-body { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; padding-top:24px; margin-top:18px; border-top:1px solid var(--border-subtle); }
@@ -152,7 +161,8 @@ import{A as e,Ct as t,Pt as n,_ as r,a as i,d as a,dt as o,f as s,g as c,ht as l
       @media (max-width: 520px) {
         .hero-actions { flex-direction: column; align-items: stretch; }
         .hero-actions .btn { width: 100%; }
-        #btn-explore { white-space: normal; }
       }
-      @media (max-width:760px) { .dashboard-hero { padding-top:38px; } .framework-facts { gap:14px; flex-direction:column; } .current-work { align-items:flex-start; flex-direction:column; } .method-details-body { grid-template-columns:1fr; } }
+      @media (max-width:900px) { .dashboard-opening { grid-template-columns:1fr; gap:36px; padding:8px 0 32px; } .how-it-works { border-left:0; padding-left:0; } .dashboard-hero h1 { max-width:24ch; } }
+      @media (max-width:760px) { .current-work { align-items:flex-start; flex-direction:column; } .method-details-body { grid-template-columns:1fr; } }
+      @media (max-width:600px) { .framework-links { grid-template-columns:1fr; } .framework-facts { gap:16px; } .framework-facts > span { line-height:1.5; } .dashboard-hero .hero-actions .btn { white-space:normal; } }
     `,g.appendChild(D);let O=(e,t)=>{if(!e){c(`Your current assessment is still open. Resolve the storage warning before changing assessments.`,`error`);return}c(t,`success`),o(v?`library`:`dashboard`,{},{replace:!0})};g.querySelector(`#assessment-create-form`)?.addEventListener(`submit`,e=>{e.preventDefault();let t=g.querySelector(`#new-assessment-name`).value.trim();t&&O(f(t),`New independent assessment created. Previous work is preserved.`)}),g.querySelector(`#assessment-rename-form`)?.addEventListener(`submit`,e=>{e.preventDefault();let t=g.querySelector(`#assessment-name`).value.trim();t&&O(a(t),`Assessment renamed.`)}),g.querySelector(`#btn-duplicate-assessment`)?.addEventListener(`click`,()=>O(m(),`Independent copy created. External approval is not verified.`)),g.querySelectorAll(`[data-open-assessment]`).forEach(e=>e.addEventListener(`click`,()=>O(r(e.dataset.openAssessment),`Assessment opened.`))),g.querySelector(`#btn-reveal-assessments`)?.addEventListener(`click`,()=>{s(),o(v?`library`:`dashboard`,{},{replace:!0})}),g.querySelector(`#btn-library-assess`)?.addEventListener(`click`,()=>o(`assessment`)),g.querySelector(`#btn-current-decisions`)?.addEventListener(`click`,()=>o(`adjust`)),g.querySelector(`#btn-start-assessment`)?.addEventListener(`click`,()=>o(`assessment`)),g.querySelector(`#btn-explore`)?.addEventListener(`click`,()=>o(`processes`)),g.querySelector(`#btn-current-work`)?.addEventListener(`click`,()=>o(y.assessmentComplete?`report`:`assessment`,!y.assessmentComplete&&S?{resume:`1`}:{})),g.querySelectorAll(`.nav-card`).forEach(e=>e.addEventListener(`click`,()=>o(e.dataset.route)))}export{g as renderDashboard};
