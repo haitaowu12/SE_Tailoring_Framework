@@ -151,6 +151,8 @@ function buildNavbar() {
             });
             dropdown.classList.toggle('open', opening);
             trigger.setAttribute('aria-expanded', String(opening));
+            // Safari pointer clicks do not focus buttons; keep Escape within the disclosure.
+            if (opening) trigger.focus();
         });
         trigger?.addEventListener('keydown', event => {
             if (event.key === 'Escape') {
