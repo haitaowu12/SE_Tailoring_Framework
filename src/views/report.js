@@ -786,11 +786,12 @@ export function renderReport(container) {
 
   const style = document.createElement('style');
   style.textContent = `
-    #main-content:has(.report-page-header) { max-width:1240px; }
+    #main-content:has(.report-page-header) { max-width:1240px; padding-block:32px; }
     .report-page-header { align-items:flex-start; gap:20px; flex-wrap:wrap; }
     .report-export-actions { flex-wrap:wrap; }
     .report-page-header .btn { min-height:40px; }
     .report-process-plan { padding-top:16px; }
+    .report-process-plan > .flex { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; }
     .report-summary-panel { padding:12px 0; margin-bottom:12px; gap:16px; }
     .report-summary-item { border:0; border-left:1px solid var(--border-subtle); border-radius:0; padding:8px 16px; background:none; }
     .report-summary-item:first-child { border-left:0; }
@@ -802,6 +803,7 @@ export function renderReport(container) {
     .report-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .report-process-plan [hidden] { display:none !important; }
     @media screen and (max-width:600px) {
+      .report-process-plan > .flex { grid-template-columns:minmax(0,1fr); }
       #report-process-plan-table, #report-process-plan-table tbody { display:block; width:100%; }
       #report-process-plan-table thead { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
       #report-process-plan-table tbody tr { display:grid; grid-template-columns:minmax(0,1fr) auto; border:1px solid var(--border-subtle); border-radius:8px; margin-bottom:12px; padding:12px; gap:8px; }
