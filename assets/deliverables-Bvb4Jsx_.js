@@ -1,4 +1,4 @@
-import{Ft as e,Pt as t,l as n,xt as r}from"./index-tTzzMvnf.js";var i=`all`;function a(o){let s=n(),c={};t.forEach(e=>{c[e.group]||(c[e.group]=[]),c[e.group].push(e)}),o.innerHTML=`
+import{Ft as e,Pt as t,l as n,xt as r}from"./index-UYXeF8Yt.js";var i=`all`;function a(o){let s=n(),c={};t.forEach(e=>{c[e.group]||(c[e.group]=[]),c[e.group].push(e)}),o.innerHTML=`
     <div class="flex justify-between items-center mb-lg deliverables-toolbar">
       <div>
         <h2>Reference Deliverables</h2>

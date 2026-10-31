@@ -1,4 +1,4 @@
-import{$ as e,At as t,J as n,Pt as r,Q as i,S as a,X as o,Z as s,c,dt as l,ft as u,g as d,h as f,i as p,l as m,m as h,o as g,pt as _,q as v,s as y,t as b,u as x}from"./index-tTzzMvnf.js";var S=new Set([`full`,`quick`,`inherited`]),C=new Set([`draft`,`under_review`,`approved`,`baselined`]),w={draft:`Draft`,under_review:`Under review`,approved:`Approved`,baselined:`Baselined`};function T(e,t,n,r){let a=e.toLowerCase(),o=e===`M8`?`security consequence`:`external assurance demand`,c=e===`M8`?`Child M8 security disposition`:`Child M15 assurance disposition`;return`
+import{$ as e,At as t,J as n,Pt as r,Q as i,S as a,X as o,Z as s,c,dt as l,ft as u,g as d,h as f,i as p,l as m,m as h,o as g,pt as _,q as v,s as y,t as b,u as x}from"./index-UYXeF8Yt.js";var S=new Set([`full`,`quick`,`inherited`]),C=new Set([`draft`,`under_review`,`approved`,`baselined`]),w={draft:`Draft`,under_review:`Under review`,approved:`Approved`,baselined:`Baselined`};function T(e,t,n,r){let a=e.toLowerCase(),o=e===`M8`?`security consequence`:`external assurance demand`,c=e===`M8`?`Child M8 security disposition`:`Child M15 assurance disposition`;return`
     <fieldset class="mb-lg" style="border:1px solid ${n.valid?`rgba(52,211,153,.45)`:`rgba(245,158,11,.45)`};border-radius:10px;padding:14px 16px;">
       <legend style="font-weight:700;padding:0 6px;">${c} ${n.valid?`✓`:`incomplete`}</legend>
       <div class="text-xs text-secondary mb-sm">Required only to confirm a child score below a critical parent score. This record governs the decision; the framework does not prescribe artifacts or verify technical evidence adequacy.</div>
@@ -205,7 +205,7 @@ import{$ as e,At as t,J as n,Pt as r,Q as i,S as a,X as o,Z as s,c,dt as l,ft as
     </div>
     `;let W=document.createElement(`style`);W.textContent=`
       .se-elements-container { max-width: 1200px; margin: 0 auto; }
-      .se-header { text-align: center; margin-bottom: 24px; }
+      .se-header { text-align:left; margin-bottom:24px; }
       .se-breadcrumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-subtle); }
       .se-crumb { font-size: 13px; cursor: pointer; padding: 3px 8px; border-radius: 4px; transition: all 0.2s; color: var(--text-secondary); }
       .se-crumb:hover { background: rgba(99,102,241,0.1); color: var(--text-primary); }

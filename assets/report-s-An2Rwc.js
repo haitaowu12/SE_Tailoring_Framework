@@ -1,4 +1,4 @@
-import{$ as e,At as t,C as n,D as r,Dt as i,F as a,Ft as o,G as s,H as c,I as l,K as u,L as d,M as f,Nt as p,O as m,P as h,Pt as g,R as _,T as v,U as y,V as b,c as x,ct as ee,dt as S,ft as C,g as w,gt as te,h as ne,ht as T,kt as re,l as E,lt as ie,mt as D,nt as ae,ot as oe,pt as O,q as se,st as k,tt as ce,ut as le,v as ue,y as de,z as fe}from"./index-tTzzMvnf.js";import{t as pe}from"./recommendation-explanation-ClaEMXKn.js";import{checkAssessmentAutomatically as me}from"./assessment-CIB6pPRF.js";var he=new Set([`rationale`,`protectedOutputs`,`residualRisks`,`riskAcceptanceOwner`,`compensatingControls`,`rejectedAlternatives`,`evidenceRef`,`reviewDate`,...Object.keys(k).flatMap(e=>[`${e}-identity`,`${e}-basis`])]),A=e=>e.assessmentTree?.nodes?.[e.assessmentTree.activeId||e.assessmentTree.rootId],j=e=>Object.fromEntries(Object.entries(e||{}).filter(([e,t])=>he.has(e)&&typeof t==`string`));function M(e,t){return ee(t,{assessmentTree:e.assessmentTree,scores:e.scores,assuranceObligations:e.assuranceObligations,activeFloors:e.activeFloors,normativeLevels:e.normativeLevels||e.levels,frameworkVersion:T.version,metricDefinitionSet:T.metricDefinitionSet})}function ge(e,t){let n=A(e)?.rightSizingDrafts?.[t.processId];return!n||typeof n!=`object`?null:{fields:j(n.fields),stale:n.proposalSnapshot!==M(e,t)}}function _e(e,t,n){let r=A(e);if(!r)return e.assessmentTree;let i=r.rightSizingDrafts?.[t.processId];return{...e.assessmentTree,nodes:{...e.assessmentTree.nodes,[r.id]:{...r,rightSizingDrafts:{...r.rightSizingDrafts||{},[t.processId]:{fields:j(n),proposalSnapshot:i?.proposalSnapshot||M(e,t)}}}}}}var N=()=>{};function ve(e,t){let n=g.find(t=>t.id===Number(e.processId))?.name||`Process ${e.processId}`,r=e.proposedTo||e.to,i=ie(e,t.assessmentTree),a=(t.rightSizingApprovalEvaluations||[]).find(t=>Number(t.proposal?.processId)===Number(e.processId)),o=a?.locallyComplete||a?.records?.[0],s=o?.record||(t.rightSizingApprovalRecords||[]).find(t=>Number(t.processId)===Number(e.processId))||{},c=ge(t,e),l=(e,t=``)=>O(c?.fields[e]??t),u=o?.assessment?.status||`not-recorded`,d=o?.assessment?.reasons||[],f=i.requiredRoles.map(e=>`
+import{$ as e,At as t,C as n,D as r,Dt as i,F as a,Ft as o,G as s,H as c,I as l,K as u,L as d,M as f,Nt as p,O as m,P as h,Pt as g,R as _,T as v,U as y,V as b,c as x,ct as ee,dt as S,ft as C,g as w,gt as te,h as ne,ht as T,kt as re,l as E,lt as ie,mt as D,nt as ae,ot as oe,pt as O,q as se,st as k,tt as ce,ut as le,v as ue,y as de,z as fe}from"./index-UYXeF8Yt.js";import{t as pe}from"./recommendation-explanation-DVvGgt0k.js";import{checkAssessmentAutomatically as me}from"./assessment-DVqhk-e4.js";var he=new Set([`rationale`,`protectedOutputs`,`residualRisks`,`riskAcceptanceOwner`,`compensatingControls`,`rejectedAlternatives`,`evidenceRef`,`reviewDate`,...Object.keys(k).flatMap(e=>[`${e}-identity`,`${e}-basis`])]),A=e=>e.assessmentTree?.nodes?.[e.assessmentTree.activeId||e.assessmentTree.rootId],j=e=>Object.fromEntries(Object.entries(e||{}).filter(([e,t])=>he.has(e)&&typeof t==`string`));function M(e,t){return ee(t,{assessmentTree:e.assessmentTree,scores:e.scores,assuranceObligations:e.assuranceObligations,activeFloors:e.activeFloors,normativeLevels:e.normativeLevels||e.levels,frameworkVersion:T.version,metricDefinitionSet:T.metricDefinitionSet})}function ge(e,t){let n=A(e)?.rightSizingDrafts?.[t.processId];return!n||typeof n!=`object`?null:{fields:j(n.fields),stale:n.proposalSnapshot!==M(e,t)}}function _e(e,t,n){let r=A(e);if(!r)return e.assessmentTree;let i=r.rightSizingDrafts?.[t.processId];return{...e.assessmentTree,nodes:{...e.assessmentTree.nodes,[r.id]:{...r,rightSizingDrafts:{...r.rightSizingDrafts||{},[t.processId]:{fields:j(n),proposalSnapshot:i?.proposalSnapshot||M(e,t)}}}}}}var N=()=>{};function ve(e,t){let n=g.find(t=>t.id===Number(e.processId))?.name||`Process ${e.processId}`,r=e.proposedTo||e.to,i=ie(e,t.assessmentTree),a=(t.rightSizingApprovalEvaluations||[]).find(t=>Number(t.proposal?.processId)===Number(e.processId)),o=a?.locallyComplete||a?.records?.[0],s=o?.record||(t.rightSizingApprovalRecords||[]).find(t=>Number(t.processId)===Number(e.processId))||{},c=ge(t,e),l=(e,t=``)=>O(c?.fields[e]??t),u=o?.assessment?.status||`not-recorded`,d=o?.assessment?.reasons||[],f=i.requiredRoles.map(e=>`
     <div class="grid-2 mb-sm">
       <label class="text-xs">${O(k[e])} — asserted role<input class="input" name="${e}-identity" placeholder="Asserted approver role (not verified)" value="${l(`${e}-identity`,s.approvals?.[e]?.identity||``)}"></label>
       <label class="text-xs">Authority basis<input class="input" name="${e}-basis" placeholder="Role charter, delegation, or acceptance authority" value="${l(`${e}-basis`,s.approvals?.[e]?.authorityBasis||``)}"></label>
@@ -40,23 +40,23 @@ import{$ as e,At as t,C as n,D as r,Dt as i,F as a,Ft as o,G as s,H as c,I as l,
         <p class="text-secondary text-sm mt-sm">${Te} · ${Ee}${P.length>1?` · ${O(L?.name||`Current element`)}`:``}</p>
       </div>
       <div class="report-export-actions flex gap-sm">
-        <button class="btn btn-primary btn-sm" id="btn-report-decisions">Review / adjust decisions</button>
+        <button class="btn btn-${M?`secondary`:`primary`} btn-sm" id="btn-report-decisions">Review / adjust decisions</button>
         <button class="btn btn-secondary btn-sm" id="btn-export-json">Minimum-data JSON</button>
         <button class="btn btn-secondary btn-sm" ${M?`disabled`:``} id="btn-export-html" title="Software completeness only; removes direct display labels but retains free text and evidence references">Download pilot HTML record</button>
       </div>
     </div>
 
-    <p class="report-export-note text-xs text-secondary mb-md">HTML includes rationale and evidence; inspect before sharing. Minimum-data JSON omits those details. Session → Private backup keeps a restorable copy.</p>
+    <p class="report-export-note text-sm text-secondary mb-md">HTML includes rationale and evidence; review before sharing. Minimum-data JSON omits them. Session → Private backup creates a restorable copy.</p>
 
     <div class="pilot-record-banner mb-lg" data-record-state="${M?`draft`:`pilot`}" role="note">
       <strong>${M?`Draft report — incomplete`:`Pilot record — not an authoritative organizational baseline`}</strong>
-      <span>${M?`${j.completeCount}/${t.length} metric judgments confirmed. Unresolved inputs and checks remain listed below. This is a draft, not a completed record.`:`Software completeness checks passed. External approval not verified.`}</span>${M?`<button type="button" class="btn btn-secondary btn-sm" id="btn-go-assess">Continue Assessment</button><a class="btn btn-secondary btn-sm" href="#issues">Resolve open checks</a>`:``}
+      <span>${M?`${j.completeCount}/${t.length} metric judgments confirmed. Unresolved inputs and checks remain listed below. This is a draft, not a completed record.`:`Software completeness checks passed. External approval not verified.`}</span>${M?`<button type="button" class="btn btn-primary btn-sm" id="btn-go-assess">Continue Assessment</button><a class="btn btn-secondary btn-sm" href="#issues">Resolve open checks</a>`:``}
     </div>
 
     <section class="card mb-lg report-summary-panel" aria-labelledby="report-summary-title">
       <div>
         <h3 id="report-summary-title">Current process profile</h3>
-        <p class="text-secondary text-sm mt-sm">Use the plan below to agree activities, owners and evidence with your team. Record changes in Decisions; approval stays outside this prototype.</p>
+        <p class="text-secondary text-sm mt-sm">Agree activities, owners and evidence with your team. Record changes in Decisions; approval stays outside this prototype.</p>
       <p class="text-sm mt-md">${be.length}/${g.length} process decisions recorded · ${xe} unrecorded draft(s)${Se?` · ${Se} previous decision(s) need reconfirmation after input changes`:``}. <a href="#adjust">Review decisions and drafts</a>.</p>
       </div>
 
@@ -399,14 +399,29 @@ import{$ as e,At as t,C as n,D as r,Dt as i,F as a,Ft as o,G as s,H as c,I as l,
       </div>
     </div>
   `;let $=document.createElement(`style`);$.textContent=`
-    .report-summary-panel { padding:16px 0; margin-bottom:12px; gap:16px; }
+    #main-content:has(.report-page-header) { max-width:1240px; padding-block:32px; }
+    .report-page-header { align-items:flex-start; gap:20px; flex-wrap:wrap; }
+    .report-export-actions { flex-wrap:wrap; }
+    .report-page-header .btn { min-height:40px; }
+    .report-process-plan { padding-top:16px; }
+    .report-process-plan > .flex { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; }
+    .report-summary-panel { padding:12px 0; margin-bottom:12px; gap:16px; }
+    @media (min-width:1201px) { .report-summary-panel { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); } }
+    .report-summary-item { border:0; border-left:1px solid var(--border-subtle); border-radius:0; padding:8px 16px; background:none; }
+    .report-summary-item:first-child { border-left:0; }
+    .report-summary-item .summary-value { font-size:24px; font-weight:600; font-variant-numeric:tabular-nums; }
+    #report-process-plan-table tbody th { width:22%; min-width:160px; font-weight:600; line-height:1.6; }
+    #report-process-plan-table .report-plan-reason { line-height:1.65; }
+    #report-process-plan-table .report-plan-action a { display:inline-flex; align-items:center; min-height:40px; }
+
     .report-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .report-process-plan [hidden] { display:none !important; }
     @media screen and (max-width:600px) {
+      .report-process-plan > .flex { grid-template-columns:minmax(0,1fr); }
       #report-process-plan-table, #report-process-plan-table tbody { display:block; width:100%; }
       #report-process-plan-table thead { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
       #report-process-plan-table tbody tr { display:grid; grid-template-columns:minmax(0,1fr) auto; border:1px solid var(--border-subtle); border-radius:8px; margin-bottom:12px; padding:12px; gap:8px; }
-      #report-process-plan-table tbody th, #report-process-plan-table tbody td { display:block; position:static; min-width:0; padding:0; border:0; background:none; white-space:normal; overflow-wrap:anywhere; }
+      #report-process-plan-table tbody th, #report-process-plan-table tbody td { display:block; position:static; width:auto; min-width:0; padding:0; border:0; background:none; white-space:normal; overflow-wrap:anywhere; }
       #report-process-plan-table tbody th { text-transform:none; letter-spacing:normal; font-size:var(--font-size-sm); color:var(--text-primary); }
       #report-process-plan-table .report-plan-reason, #report-process-plan-table .report-plan-action { grid-column:1 / -1; }
       #report-process-plan-table .report-plan-reason::before { content:'Why: '; font-weight:600; }
@@ -429,13 +444,15 @@ import{$ as e,At as t,C as n,D as r,Dt as i,F as a,Ft as o,G as s,H as c,I as l,
     .manual-adjustment-cell { display:grid; gap:2px; min-width:160px; }
     .metric-note-cell { min-width: 240px; max-width: 420px; white-space: pre-wrap; }
     .report-scope-note { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-    .pilot-record-banner { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
-    .pilot-record-banner strong,.pilot-record-banner span { grid-column:1; }
-    .pilot-record-banner span { color:var(--text-secondary); font-size:12px; }
+    .pilot-record-banner { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; padding:12px 16px; border:1px solid rgba(245,158,11,.4); border-radius:10px; background:rgba(245,158,11,.08); }
+    .pilot-record-banner strong,.pilot-record-banner span { flex-basis:100%; }
+    .pilot-record-banner span { color:var(--text-secondary); font-size:14px; }
     .pilot-record-banner .btn { justify-self:start; }
     @media(max-width:600px) { .pilot-record-banner { grid-template-columns:minmax(0,1fr); gap:10px; } .pilot-record-banner::after { display:none; } }
+
+    .pilot-record-banner::after { content:'PILOT'; display:none; }
     .pilot-record-banner[data-record-state="draft"]::after { content:'PILOT / WIP'; }
-    .pilot-record-banner::after { content:'PILOT'; grid-column:2; grid-row:1 / span 2; color:var(--accent-warning); font-size:11px; font-weight:800; letter-spacing:.1em; transform:rotate(-3deg); }
+    @media print { .pilot-record-banner::after { display:block; color:#92400e; font-weight:700; } }
     .report-layer-heading { margin:30px 0 12px; color:var(--text-primary); font-size:18px; }
     .report-gate-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-top:14px; }
     .report-gate { display:grid; gap:3px; padding:10px; border:1px solid var(--border-subtle); border-radius:8px; }
