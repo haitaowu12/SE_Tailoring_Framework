@@ -1312,7 +1312,7 @@ h2{color:#6366f1;margin-top:30px}
 table{width:100%;border-collapse:collapse;margin:15px 0}
 th{background:#f1f5f9;padding:8px 12px;text-align:left;font-size:13px;border-bottom:2px solid #e2e8f0}
 td{padding:8px 12px;border-bottom:1px solid #f1f5f9;font-size:14px}
-.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase}
+.badge{display:inline-block;justify-self:start;white-space:nowrap;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase}
 .basic{background:#dbeafe;color:#1d4ed8}
 .standard{background:#fef3c7;color:#92400e}
 .comprehensive{background:#fee2e2;color:#991b1b}
