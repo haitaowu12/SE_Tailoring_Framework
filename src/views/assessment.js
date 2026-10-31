@@ -198,7 +198,7 @@ export function renderAssessment(container, routeContext = null) {
           ? 'Review the tailoring profile'
           : activeStep.title;
   const pageDescription = assessmentViewMode === 'review'
-    ? 'Start with exceptions and priorities. Open a process only when you need its work aid or derivation detail.'
+    ? 'Review process recommendations, record decisions, and resolve outstanding checks.'
     : assessmentViewMode === 'issues'
       ? 'Resolve only the items that prevent this assessment from being completed.'
       : activeStep.id === 'info'
@@ -251,21 +251,23 @@ export function renderAssessment(container, routeContext = null) {
 
   const style = document.createElement('style');
   style.textContent = `
+    #main-content:has(.assessment-container) { padding-block:32px; }
+    .assessment-container:has(.results-toolbar) .step-actions { position:static; }
     .assessment-container { max-width: 1040px; margin: 0 auto; }
     .assessment-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
     .assessment-header h2 { margin-top: 3px; }
-    .assessment-header p:last-child { max-width: 720px; margin-top: 6px; }
-    .assessment-coverage { flex: 0 0 auto; display: grid; justify-items: end; padding-left: 20px; border-left: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .assessment-header p:last-child { max-width: 720px; margin-top: 6px; font-size:14px; }
+    .assessment-coverage { flex: 0 0 auto; display: grid; justify-items: end; padding-left: 20px; border-left: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
     .assessment-coverage strong { color: var(--text-primary); font-size: 22px; line-height: 1; letter-spacing: 0; }
-    .step-progress { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-bottom: 28px; padding: 4px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-secondary); }
-    .step-dot { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; padding: 8px 9px; cursor: pointer; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: inherit; transition: color .15s ease, background .15s ease; }
+    .step-progress { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-secondary); }
+    .step-dot { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height:44px; padding: 8px 9px; cursor: pointer; border: 0; border-radius: 7px; background: transparent; color: var(--text-secondary); font: inherit; transition: color .15s ease, background .15s ease; }
     .step-dot:hover { color: var(--text-primary); background: var(--bg-tertiary); }
     .step-dot.current { color: var(--text-primary); background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-tertiary)); }
     .step-index { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border: 1px solid var(--border-medium); border-radius: 50%; color: inherit; font-size: 10px; font-weight: 800; }
     .step-dot.current .step-index { border-color: var(--accent-primary); background: var(--accent-primary); color: #fff; }
-    .step-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .step-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; }
     .step-content { min-height: 360px; }
-    .step-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-subtle); }
+    .step-actions { position:sticky; bottom:0; z-index:8; display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:24px; padding:12px 0; border-top:1px solid var(--border-subtle); background:var(--bg-primary); }
     .metric-group { margin-bottom: 24px; }
     .dimension-context { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 2px solid var(--dimension-color); color: var(--text-secondary); font-size: 12px; }
     .metric-item { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0; margin-bottom: 10px; transition: border-color 0.2s; overflow: clip; }
@@ -277,7 +279,7 @@ export function renderAssessment(container, routeContext = null) {
     .metric-item[open] .metric-header::after { content: '−'; color: var(--accent-primary-light); }
     .metric-body { padding: 16px 18px 18px; }
     .metric-name { font-weight: 600; font-size: 15px; }
-    .metric-header .metric-status { display: block; margin-top: 3px; font-size: 11px; font-weight: 500; }
+    .metric-header .metric-status { display: block; margin-top: 3px; font-size: 12px; font-weight: 500; }
     .metric-id { font-size: 12px; font-weight: 700; color: var(--accent-primary-light); background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 4px; }
     .metric-score-display { margin-left: auto; align-self: center; font-size: 20px; font-weight: 800; min-width: 32px; text-align: right; transition: color 0.2s; }
     .metric-definition { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 12px 0; }
@@ -290,9 +292,9 @@ export function renderAssessment(container, routeContext = null) {
     .metric-anchor-card.preview { border-style: dashed; }
     .metric-anchor-card input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--accent-primary); cursor: pointer; }
     .metric-anchor-number { display: inline; margin-right: 8px; color: var(--text-primary); font-size: 13px; font-weight: 800; line-height: 1.1; }
-    .metric-anchor-text { display: inline; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-    .metric-anchor-tag { align-self: start; font-size: 8px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
-    .metric-description { min-height: 44px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; padding: 8px 10px; border-left: 2px solid var(--border-medium); background: transparent; }
+    .metric-anchor-text { display: inline; color: var(--text-secondary); font-size: 14px; line-height: 1.65; }
+    .metric-anchor-tag { align-self: start; font-size: 10px; font-weight: 700; color: var(--accent-warning); text-transform: uppercase; letter-spacing: .04em; }
+    .metric-description { min-height: 44px; font-size: 13px; color: var(--text-secondary); margin-top: 8px; padding: 8px 10px; border-left: 2px solid var(--border-medium); background: transparent; }
     .metric-assessment-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12px; }
     .metric-status { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-success); }
     .metric-status::before { content: '✓'; font-weight: 800; }
@@ -302,7 +304,7 @@ export function renderAssessment(container, routeContext = null) {
     .metric-unknown-toggle input { accent-color: var(--accent-warning); }
     .metric-secondary-actions { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-subtle); }
     .metric-justification, .metric-advanced, .assessor-guidance { flex: 1 1 240px; }
-    .metric-justification > summary, .metric-advanced > summary, .assessor-guidance > summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 600; list-style: none; }
+    .metric-justification > summary, .metric-advanced > summary, .assessor-guidance > summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 600; min-height:32px; list-style: none; }
     .metric-justification > summary::-webkit-details-marker, .metric-advanced > summary::-webkit-details-marker { display: none; }
     .metric-justification > summary::after, .metric-advanced > summary::after, .assessor-guidance > summary::after { content: '+'; color: var(--text-tertiary); font-size: 16px; line-height: 1; }
     .metric-justification[open] > summary::after, .metric-advanced[open] > summary::after, .assessor-guidance[open] > summary::after { content: '−'; color: var(--accent-primary-light); }
@@ -313,9 +315,11 @@ export function renderAssessment(container, routeContext = null) {
     .result-guidance { max-width: 760px; color: var(--text-secondary); font-size: 13px; }
     .empty-results-state { max-width: 680px; margin: 56px auto; padding: 36px 24px; text-align: center; border-block: 1px solid var(--border-subtle); }
     .empty-results-state h3 { margin-top: 8px; }
-    .info-form { display: grid; gap: 16px; max-width: 500px; margin: 0 auto; }
+    .info-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 24px; max-width:780px; }
+    .info-form > .form-group:has(#proj-boundary), .info-form > p, .info-form > details { grid-column:1 / -1; }
+    .info-form .input,.info-form .select { min-height:44px; }
     .form-group { display: flex; flex-direction: column; gap: 4px; }
-    .form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    .form-label { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
     .setup-context { margin-top: 4px; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
     .setup-context > summary { display: flex; justify-content: space-between; gap: 16px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
     .setup-context > summary span { color: var(--text-tertiary); font-weight: 500; }
@@ -323,30 +327,34 @@ export function renderAssessment(container, routeContext = null) {
     .section-heading-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
     .section-heading-row .eyebrow { margin-bottom: 3px; }
     .status-count { flex: 0 0 auto; border: 1px solid var(--border-subtle); border-radius: 999px; padding: 3px 9px; color: var(--text-secondary); font-size: 11px; font-weight: 700; }
-    .assessment-result-tabs { display: inline-flex; gap: 3px; margin-bottom: 24px; padding: 3px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary); }
-    .assessment-result-tabs button { border: 0; border-radius: 6px; padding: 7px 11px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .results-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+    .assessment-result-tabs { display: inline-flex; gap: 3px; margin-bottom: 0; padding: 3px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--bg-secondary); }
+    .assessment-result-tabs button { border: 0; border-radius: 6px; min-height:40px; padding: 7px 11px; background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
     .assessment-result-tabs button.active { background: var(--bg-tertiary); color: var(--text-primary); }
     .issues-hidden { display: none; }
-    .results-overview { display: grid; grid-template-columns: minmax(220px, .55fr) minmax(460px, 1.45fr); gap: 30px; align-items: stretch; border-block: 1px solid var(--border-subtle); padding: 22px 0; }
-    .results-summary { padding-right: 24px; border-right: 1px solid var(--border-subtle); }
-    .results-visual { min-width: 0; }
-    .result-stat { display: flex; align-items: baseline; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
-    .result-stat strong { min-width: 54px; color: var(--text-primary); font-size: 26px; line-height: 1; }
-    .result-stat span { color: var(--text-secondary); font-size: 12px; }
+    .results-overview { border-block:1px solid var(--border-subtle); padding:12px 0; margin-bottom:12px; }
+    .results-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px 24px; }
+    .result-stat { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 10px; }
+    .result-stat strong { color:var(--text-primary); font-size:24px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.2; }
+    .result-stat span { color:var(--text-secondary); font-size:13px; }
+    .result-priority-note { grid-column:1 / -1; color:var(--text-secondary); max-width:85ch; }
+    .metric-profile-review { margin-bottom:12px; border-bottom:1px solid var(--border-subtle); }
+    .metric-profile-review > summary { padding:12px 0; color:var(--accent-primary-light); font-size:14px; font-weight:600; cursor:pointer; }
+    .metric-profile-review .ordinal-profile { padding:16px 0 24px; }
     .priority-guidance { padding-top: 6px; }
     .process-guidance-list { margin-top: 14px; border-top: 1px solid var(--border-subtle); }
     .result-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 15px 12px 15px 16px; border-bottom: 1px solid var(--border-subtle); border-left: 3px solid var(--recommendation-level); background: transparent; }
     .result-card-main { min-width: 0; }
     .result-card-header { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 5px; }
-    .result-process { font-weight: 700; font-size: 14px; }
+    .result-process { font-weight:600; font-size:16px; }
     .result-process-id { margin-left: 7px; color: var(--text-tertiary); font-size: 10px; font-weight: 700; }
-    .result-why { display: flex; gap: 6px 14px; flex-wrap: wrap; color: var(--text-secondary); font-size: 11px; }
+    .result-why { display:flex; gap:6px 14px; flex-wrap:wrap; color:var(--text-secondary); font-size:14px; line-height:1.65; }
     .result-signals { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
-    .result-signals span { border: 1px solid color-mix(in srgb, var(--accent-warning) 45%, var(--border-subtle)); border-radius: 999px; padding: 2px 7px; color: var(--accent-warning); font-size: 9px; font-weight: 700; }
+    .result-signals span { border: 1px solid color-mix(in srgb, var(--accent-warning) 45%, var(--border-subtle)); border-radius: 999px; padding: 2px 7px; color: var(--accent-warning); font-size: 12px; font-weight: 600; }
     .drivers-list { display: flex; gap: 7px 12px; flex-wrap: wrap; margin-top: 7px; color: var(--text-secondary); font-size: 11px; }
     .driver-item { display: inline-flex; gap: 5px; align-items: center; }
     .result-derivation { margin-top: 7px; }
-    .result-derivation > summary { cursor: pointer; color: var(--text-tertiary); font-size: 10px; font-weight: 700; }
+    .result-derivation > summary { cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 700; }
     .baseline-guidance-empty { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 14px; padding: 16px 0; border-block: 1px solid var(--border-subtle); }
     .baseline-guidance-empty p { max-width: 650px; color: var(--text-secondary); font-size: 13px; }
     .results-breakdown { margin-top: 24px; border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--bg-card); }
@@ -382,7 +390,7 @@ export function renderAssessment(container, routeContext = null) {
     .decision-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; border: 0; margin: 0; padding: 0; color: var(--text-secondary); font-size: 11px; }
     .decision-actions legend { grid-column: 1 / -1; margin-bottom: 4px; color: var(--text-primary); font-weight: 700; }
     .decision-feedback { margin-top: 10px; color: var(--text-secondary); font-size: 11px; }
-    @media (max-width: 760px) { .assessment-header { align-items: flex-start; } .assessment-coverage { padding-left: 12px; } .step-progress { grid-template-columns: 1fr; } .step-dot { display: none; } .step-dot.current { display: flex; } .results-overview { grid-template-columns: 1fr; } .results-summary { padding-right: 0; border-right: 0; border-bottom: 1px solid var(--border-subtle); padding-bottom: 18px; } .result-card { grid-template-columns: 1fr; } .baseline-guidance-empty { align-items: flex-start; flex-direction: column; } .step-label { white-space: normal; text-align: center; } .action-queue-item { grid-template-columns: 1fr; gap: 3px; } .causality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .decision-record-fields, .decision-actions { grid-template-columns: 1fr; } .decision-field-wide { grid-column: auto; } }
+    @media (max-width: 760px) { .assessment-header { align-items: flex-start; } .assessment-coverage { padding-left: 12px; } .step-progress { grid-template-columns:repeat(3,minmax(0,1fr)); } .step-index { display:none; } .info-form { grid-template-columns:1fr; } .result-card { grid-template-columns: 1fr; } .baseline-guidance-empty { align-items: flex-start; flex-direction: column; } .step-label { white-space: normal; text-align: center; } .action-queue-item { grid-template-columns: 1fr; gap: 3px; } .causality-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .decision-record-fields, .decision-actions { grid-template-columns: 1fr; } .decision-field-wide { grid-column: auto; } }
     @media (max-width: 480px) { .assessment-header { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; } .assessment-coverage { grid-auto-flow: column; justify-content: start; justify-items: start; align-items: baseline; gap: 4px; padding-left: 0; border-left: 0; } .step-actions { gap: 8px; } .step-indicator { display: none; } .step-actions .btn { min-width: 0; padding-inline: 11px; } #btn-next { margin-left: auto; } }
     .override-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
     .violation-banner { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
@@ -869,6 +877,7 @@ function getHierarchyGuardedInput(state, scores) {
 }
 
 function renderResults(content) {
+  const metricProfileOpen = content.querySelector('.metric-profile-review')?.open || false;
   const state = getState();
   const matrixMap = state.matrixMap || METRIC_PROCESS_MAP;
   const activeNodeBeforeRun = getActiveNode();
@@ -1221,30 +1230,31 @@ function renderResults(content) {
       </details>` : ''}
     </section>` : '';
   content.innerHTML = `
-    <nav class="assessment-result-tabs" aria-label="Assessment review sections">
+    <div class="results-toolbar"><nav class="assessment-result-tabs" aria-label="Assessment review sections">
       <button type="button" class="${assessmentViewMode !== 'issues' ? 'active' : ''}" data-result-route="review" aria-pressed="${assessmentViewMode !== 'issues'}">Recommendations</button>
       <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Open checks${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
-    </nav>
+    </nav></div>
     ${hierarchyInput.valid === false || hierarchyInput.blockedMetrics.length ? `<section class="card mb-lg" role="alert"><strong>Protected ancestry needs review</strong><p>${hierarchyInput.valid === false ? 'The ancestry is invalid. Shown protected scores are conservative preview values, not confirmed judgments.' : `${escapeHtml(hierarchyInput.blockedMetrics.join(', '))} reductions are unresolved in this element or an ancestor. Protected effective scores are retained.`}</p><p>Software completeness is blocked. <a href="#elements">Review the system-element boundaries</a>.</p></section>` : ''}
     <div class="recommendation-overview ${assessmentViewMode === 'issues' ? 'issues-hidden' : ''}">
-    <h3 class="mb-sm">Tailoring profile</h3>
-    <p class="result-guidance mb-lg">Start with the processes highlighted for review, then check the full profile against your project needs.</p>
     <div class="results-overview mb-lg">
       <section class="results-summary">
-        <p class="eyebrow">At a glance</p>
         <div class="result-stat"><strong>${reviewFirst.length}</strong><span>process${reviewFirst.length === 1 ? '' : 'es'} to review first</span></div>
         <div class="result-stat"><strong>${Object.keys(activeNodeBeforeRun?.decisionRecords || {}).length}/${CORE_PROCESSES.length}</strong><span>process decisions recorded</span></div>
         <div class="result-stat"><strong>${completeness.completeCount}/${METRICS.length}</strong><span>metric judgments confirmed</span></div>
-        <p class="result-priority-note text-sm mt-lg">${reviewFirst.length
+        <p class="result-priority-note text-sm">${!completeness.complete
+          ? `Preview recommendations — ${completeness.completeCount}/${METRICS.length} metric judgments confirmed. Confirm the remaining ratings and resolve open checks before completing the record.`
+          : reviewFirst.length
           ? 'Start with the process list below. Routine recommendations remain in the full profile.'
           : 'No process needs focused review. Continue with the baseline profile or open a work aid as needed.'}</p>
       </section>
-      <section class="results-visual">${renderOrdinalMetricProfile(localScores, localMetricAssessments, METRICS, DIMENSIONS)}</section>
     </div>
+    <details class="metric-profile-review" ${metricProfileOpen ? 'open' : ''}>
+      <summary>Review all ${METRICS.length} metric judgments and anchors</summary>
+      ${renderOrdinalMetricProfile(localScores, localMetricAssessments, METRICS, DIMENSIONS)}
+    </details>
     <section class="priority-guidance mb-lg">
       <div class="section-heading-row">
         <div>
-          <p class="eyebrow">Recommendations</p>
           <h4>Review process recommendations</h4><p class="text-sm text-secondary mt-sm"><a href="#help?topic=method">How mapped drivers, minimums and rules select these levels</a></p>
         </div>
         <span class="text-xs text-secondary">${reviewFirst.length ? `${reviewFirst.length} of ${CORE_PROCESSES.length}` : 'Baseline profile'}</span>
@@ -1333,10 +1343,10 @@ function renderResults(content) {
   `;
 
   const decisionAction = document.createElement('div');
-  decisionAction.className = 'review-actions mb-md';
+  decisionAction.className = 'review-actions';
   decisionAction.innerHTML = '<button type="button" class="btn btn-secondary btn-sm" id="btn-record-tailoring-decisions">Record tailoring decisions</button><button type="button" class="btn btn-primary btn-sm" id="btn-review-report">View report</button>';
   decisionAction.querySelector('#btn-review-report').addEventListener('click', () => finalizeAssessment('#report'));
-  content.prepend(decisionAction);
+  content.querySelector('.results-toolbar').append(decisionAction);
   decisionAction.querySelector('#btn-record-tailoring-decisions').addEventListener('click', () => finalizeAssessment('#adjust'));
 
   bindProcessReviews(content, () => renderResults(content));

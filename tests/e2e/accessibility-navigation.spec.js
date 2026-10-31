@@ -42,6 +42,9 @@ test('dashboard and assessment reflow without page-level horizontal scrolling at
   await page.locator('#mobile-route-select').selectOption('assessment');
   await expect(page.getByRole('heading', { name: 'Set up the assessment', exact: true })).toBeVisible();
   await assertNoPageOverflow();
+  for (const step of ['Project Info', 'System Complexity', 'Safety & Criticality', 'Project Constraints', 'Stakeholder Context', 'Results']) {
+    await expect(page.getByRole('button', { name: `Go to ${step} step`, exact: true })).toBeVisible();
+  }
 });
 
 test('Framework reference menu is visible and keyboard-operable on desktop', async ({ page }) => {
