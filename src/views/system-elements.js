@@ -291,7 +291,7 @@ export function renderSystemElements(container) {
   const style = document.createElement('style');
   style.textContent = `
       .se-elements-container { max-width: 1200px; margin: 0 auto; }
-      .se-header { text-align: center; margin-bottom: 24px; }
+      .se-header { text-align:left; margin-bottom:24px; }
       .se-breadcrumbs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-subtle); }
       .se-crumb { font-size: 13px; cursor: pointer; padding: 3px 8px; border-radius: 4px; transition: all 0.2s; color: var(--text-secondary); }
       .se-crumb:hover { background: rgba(99,102,241,0.1); color: var(--text-primary); }

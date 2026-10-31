@@ -14,6 +14,17 @@ test('partial review records exactly one adjustment, retains another draft, and 
  await expect(page.locator('.ordinal-metric-row').first()).toContainText('Confirmed');
  await expect(page.getByRole('heading',{name:'Review status',exact:true})).toHaveCount(0);
  await expect(page.locator('.result-card')).toHaveCount(22);
+ // Keep process work visible before the full anchor reference.
+ const profile=page.locator('.metric-profile-review');
+ await expect(profile).not.toHaveAttribute('open','');
+ await expect(page.locator('.result-card').first()).toBeInViewport();
+ const beforeProfile=await data(page);
+ await profile.locator('summary').click();
+ await expect(page.locator('.ordinal-metric-row').first()).toBeVisible();
+ await profile.locator('summary').click();
+ const afterProfile=await data(page);
+ expect(afterProfile.scores).toEqual(beforeProfile.scores);
+ expect(afterProfile.levels).toEqual(beforeProfile.levels);
  const form9=page.locator('form[data-process-review="9"]'),form10=page.locator('form[data-process-review="10"]');
  await form9.locator('..').locator('summary').click();
  await form9.getByRole('combobox',{name:'Decision for Project Planning',exact:true}).selectOption('adjust');

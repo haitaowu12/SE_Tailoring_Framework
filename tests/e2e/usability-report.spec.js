@@ -180,6 +180,13 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
   await expect(page.getByText('Software completeness checks passed. External approval not verified.')).toBeVisible();
   await expect(page.getByText('Booking service and its interfaces', { exact: false })).toBeVisible();
   await expect(page.locator('.metric-scores tbody tr').first()).toContainText(getMetricAnchorText('M1', 2));
+  const badgeLines = await page.locator('.process-profile .badge').evaluateAll(badges => badges.map(badge => {
+    const range = document.createRange();
+    range.selectNodeContents(badge);
+    return new Set([...range.getClientRects()].map(rect => Math.round(rect.y))).size;
+  }));
+  expect(badgeLines.length).toBeGreaterThan(0);
+  for (const lines of badgeLines) expect(lines).toBe(1);
   await page.screenshot({ path: testInfo.outputPath('exported-record-desktop.png'), animations: 'disabled' });
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
