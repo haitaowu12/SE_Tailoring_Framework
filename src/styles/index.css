@@ -1360,8 +1360,8 @@ h4 { font-size: var(--font-size-lg); }
   #main-content { padding: var(--space-lg); }
   #pilot-notice { padding-inline: var(--space-lg); }
   .pilot-notice-inner { align-items: center; }
-  .pilot-notice-copy { display: flex; align-items: baseline; }
-  .pilot-notice-copy strong { display: inline; white-space: normal; margin-bottom: 0; }
+  .pilot-notice-copy { display: block; line-height: 1.6; }
+  .pilot-notice-copy strong { display: inline; white-space: normal; margin-right: .35em; }
   .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
   .report-summary-grid {
     grid-template-columns: 1fr 1fr;
@@ -1518,5 +1518,3 @@ h4 { font-size: var(--font-size-lg); }
 .pilot-record-banner { flex-wrap: wrap; }
 .result-card { align-items: start; }
 .review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
-.dashboard-hero { padding-block: 48px 56px; }
-.dashboard-hero h1 { font-size: clamp(2rem, 4vw, 3.5rem); }
