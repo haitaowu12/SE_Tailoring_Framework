@@ -793,6 +793,7 @@ export function renderReport(container) {
     .report-process-plan { padding-top:16px; }
     .report-process-plan > .flex { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:16px; }
     .report-summary-panel { padding:12px 0; margin-bottom:12px; gap:16px; }
+    @media (min-width:1201px) { .report-summary-panel { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); } }
     .report-summary-item { border:0; border-left:1px solid var(--border-subtle); border-radius:0; padding:8px 16px; background:none; }
     .report-summary-item:first-child { border-left:0; }
     .report-summary-item .summary-value { font-size:24px; font-weight:600; font-variant-numeric:tabular-nums; }
