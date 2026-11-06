@@ -72,3 +72,13 @@ Built by [Tony Wu](https://haitaowu12.github.io/tony-wu-home/) - systems enginee
 Home explains the framework and starts or resumes work. Library holds independent assessments. The review screen restores the 16-metric spiderweb and shows each process once with the recorded mapping, support rule, floor and dependency explanation. Keep or adjust a process beside its recommendation; a rationale is required for changed levels. Recording one process retains other drafts and does not implicitly accept all 22 recommendations.
 
 Report is reachable while work is incomplete. Its draft banner and disabled completed-HTML export preserve the completion boundary. The process plan distinguishes the framework recommendation, current chosen level, human rationale and unrecorded drafts. Decisions retains owner, evidence, dated history and direct report navigation. Imported-framework review and Rule 11 elevation remain explicit actions in Open checks. The semantic contract remains 4.2.0.
+
+## Firebase Hosting
+
+[Open the published project](https://se-tailoring-model.web.app/). Firebase Hosting is the primary destination for future releases. Run the existing unit and browser checks, then `npm run build -- --base=./`. Publish `dist/` so assets resolve at the Firebase root.
+
+```sh
+firebase deploy --only hosting --project tony-wu-projects
+```
+
+The repository configuration selects the site and public output directory. Hosting uses the no-cost Spark plan; source pushes do not deploy automatically. Existing hosts remain available.

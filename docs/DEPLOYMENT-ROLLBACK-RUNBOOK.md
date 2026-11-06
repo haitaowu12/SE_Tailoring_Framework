@@ -1,5 +1,7 @@
 # Deployment and Rollback Runbook
 
+Firebase Hosting is the primary destination for future releases. Use the checked-in `firebase.json` and the repository README’s Firebase instructions. The Pages procedure below is retained for the existing legacy host.
+
 This runbook governs the repository-controlled static deployment. It does not authorize pilot sessions or production decision use.
 
 ## Preconditions
