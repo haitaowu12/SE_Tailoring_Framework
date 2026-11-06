@@ -12,3 +12,5 @@ output/
 .codex/
 .openai/
 output/playwright/
+.firebase/
+gha-creds-*.json
