@@ -1440,7 +1440,7 @@ td{vertical-align:top}caption{text-align:left;font-weight:600;margin-bottom:8px}
 <div class="gate-grid">${integrity.gates.map(gate => `<div class="gate"><span>${escapeHtml(gate.label)}</span><strong>${escapeHtml(gateLabel(gate.status))}</strong><small>${escapeHtml(gate.detail)}</small></div>`).join('')}</div></section>`;
 
     html += renderDecisionLedger(state);
-    html += `<hr><p style="font-size:12px;color:#64748b">Generated as a pilot research record by SE Tailoring Model App on ${now}. External approval not verified. Built by <a href="https://haitaowu12.github.io/tony-wu-home/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
+    html += `<hr><p style="font-size:12px;color:#64748b">Generated as a pilot research record by SE Tailoring Model App on ${now}. External approval not verified. Built by <a href="https://tony-wu-home.web.app/" style="color:#6366f1">Tony Wu</a>.</p></body></html>`;
 
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);

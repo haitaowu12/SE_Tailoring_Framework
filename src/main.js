@@ -12,7 +12,7 @@ import { escapeHtml } from './utils/safe-text.js';
 import { APP_RUNTIME_META, getLocalDiagnostics, installRuntimeIssueCapture } from './utils/runtime-operations.js';
 import { autosaveRestoreNotice } from './utils/autosave-restore.js';
 
-const AUTHOR_URL = 'https://haitaowu12.github.io/tony-wu-home/';
+const AUTHOR_URL = 'https://tony-wu-home.web.app/';
 const PILOT_NOTICE_DISMISSED_KEY = 'se-tailoring-pilot-notice-dismissed';
 
 function keepFocusWithinDialog(event, dialog) {

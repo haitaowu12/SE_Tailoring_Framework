@@ -65,7 +65,7 @@ Current verified gates:
 - Manual browser smoke: Dashboard/app shell, Vee Model, Process Explorer, Matrix, Deliverables, and Report guard render without console errors; Vee process nodes and table fallback support navigation into Process Explorer; checked routes have no inline click handlers or `javascript:` pseudo-links.
 - Manual mobile viewport smoke (390px): Dashboard, Assessment, Vee Model, Deliverables, and Report guard render without framework overlays or page-level horizontal overflow; mobile route selector is visible; Vee table fallback opens Project Planning in Process Explorer.
 
-Built by [Tony Wu](https://haitaowu12.github.io/tony-wu-home/) - systems engineering tools, assurance workflows, and learning simulations.
+Built by [Tony Wu](https://tony-wu-home.web.app/) - systems engineering tools, assurance workflows, and learning simulations.
 
 ## Assessment and decision flow (app 3.7.0)
 
