@@ -4,6 +4,7 @@
 import { CORE_PROCESSES, ACTIVE_CONSISTENCY_RULES, ACTIVE_PROPAGATION_RULES, DEPENDENCY_CHAINS, FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { getState } from '../state.js';
 import { previewDirectConsequences, getEffectivePropagationType, getEffectiveConsistencyType, checkConsistency } from '../utils/assessment-engine.js';
+import { renderDependencyPreview } from '../utils/dependency-preview.js';
 
 export function renderInterdependency(container) {
     const state = getState();
@@ -57,6 +58,27 @@ export function renderInterdependency(container) {
     .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
     .status-dot.ok { background: var(--accent-success); }
     .status-dot.violated { background: var(--accent-error); }
+    .dependency-preview { display:grid; grid-template-columns:minmax(180px,.7fr) minmax(0,2fr); gap:32px; align-items:start; }
+    .dependency-origin { padding:20px 0; border-top:3px solid var(--accent-primary); }
+    .dependency-origin h3 { margin:8px 0 14px; font-size:20px; line-height:1.4; }
+    .dependency-count { font-size:14px; margin-bottom:14px; color:var(--text-secondary); }
+    .dependency-effects { list-style:none; padding:0 0 0 20px; margin:0; border-left:1px solid var(--border-medium); }
+    .dependency-effect { position:relative; padding:18px 20px; border-bottom:1px solid var(--border-subtle); }
+    .dependency-effect::before { content:''; position:absolute; top:28px; left:-21px; width:20px; border-top:1px solid var(--border-medium); }
+    .dependency-effect-heading { display:flex; justify-content:space-between; gap:12px; align-items:start; margin-bottom:8px; flex-wrap:wrap; }
+    .dependency-effect h4 { font-size:16px; line-height:1.5; }
+    .dependency-effect h4 a { text-underline-offset:4px; }
+    .dependency-effect p { line-height:1.65; }
+    .dependency-levels { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:16px 0 8px; gap:4px; }
+    .dependency-level { border-top:4px solid var(--border-medium); padding:8px 3px 0; font-size:13px; color:var(--text-secondary); }
+    .dependency-level small { display:block; min-height:1.6em; margin-top:3px; font-size:11px; }
+    .dependency-level.is-current { border-top-style:dashed; color:var(--text-primary); }
+    .dependency-level.is-target { border-top-color:var(--accent-primary); color:var(--accent-primary-light); font-weight:700; }
+    .dependency-reason { margin-top:12px; }
+    .dependency-next { display:inline-block; margin-top:16px; padding:8px 0; }
+    .sim-select .btn { min-height:44px; }
+    @media(prefers-reduced-motion:no-preference) { .dependency-outcomes { animation:dependency-reveal 200ms ease-out; } @keyframes dependency-reveal { from { opacity:.6; transform:translateY(5px); } to { opacity:1; transform:none; } } }
+    @media(max-width:700px) { .dependency-preview { grid-template-columns:1fr; gap:16px; } .dependency-origin { padding:16px 0 4px; } .dependency-effects { padding-left:12px; } .dependency-effect { padding:16px 0 16px 12px; } .dependency-effect::before { left:-13px; width:12px; } .sim-field { width:100%; } }
   `;
     container.appendChild(style);
 
@@ -145,29 +167,20 @@ export function renderInterdependency(container) {
               <option value="comprehensive" selected>Comprehensive</option>
             </select>
           </div>
-          <button class="btn btn-primary btn-sm" id="sim-run">Simulate</button>
+          <button class="btn btn-primary btn-sm" id="sim-run">Show direct effects</button>
         </div>
-        <div id="sim-results"></div>
+        <div id="sim-results" aria-live="polite" aria-atomic="true"><p class="text-sm text-secondary">Select a process to trace its direct effects. The three positions show tailoring levels, not numerical amounts.</p></div>
       `;
             content.querySelector('#sim-run').addEventListener('click', () => {
                 const pid = parseInt(content.querySelector('#sim-process').value);
                 const lvl = content.querySelector('#sim-level').value;
-                if (!pid) return;
+                if (!pid) {
+                    content.querySelector('#sim-results').innerHTML = '<p class="sim-result">Choose a process, then select Show direct effects.</p>';
+                    return;
+                }
                 const changes = previewDirectConsequences(pid, lvl, levels, scores, context);
                 const results = content.querySelector('#sim-results');
-                if (changes.length === 0) {
-                    results.innerHTML = '<div class="sim-result text-sm text-secondary">No directly affected processes for this change. Run the full assessment to check the whole profile and all required dependencies.</div>';
-                } else {
-                    results.innerHTML = changes.map(c => `
-            <div class="sim-result">
-              <div class="flex justify-between items-center">
-                <strong>${processName(c.processId)}</strong>
-                <span class="prop-type ${c.type}">${c.type}</span>
-              </div>
-              <div class="text-sm text-secondary mt-sm">${FRAMEWORK_META.levelLabels[c.from] || c.from} → <span class="level-badge ${c.to}">${FRAMEWORK_META.levelLabels[c.to]}</span> · Direct dependency</div>
-            </div>
-          `).join('');
-                }
+                results.innerHTML = renderDependencyPreview({ processId: pid, proposedLevel: lvl, changes, levels });
             });
         }
     }
