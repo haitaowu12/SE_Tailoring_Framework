@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 import {
   runFullAssessment,
+  needsAssuranceScope,
   calculateSATier,
   calculateProcessDerivation,
   getDriverAttribution,
@@ -443,7 +444,7 @@ test('export config preserves report-critical assessment state for round trip', 
     scores,
     metricAssessments: makeMetricAssessments(scores),
     saResponses: { safetyCaseRequired: true },
-    levels: { 9: 'basic' },
+    levels: { ...makeCoreLevels(), 15: 'basic' },
     derived: { 9: 'standard' },
     derivationDetails: { 9: { triggerMetrics: ['M1'] } },
     overrides: [{ processId: 9, from: 'basic', to: 'standard', reason: 'demo floor' }],
@@ -663,6 +664,7 @@ test('baseline eligibility reports separate software and external-authority gate
   const completeAssessment = {
     assessmentComplete: true,
     scores: completeScores,
+    levels: runFullAssessment(completeScores).levels,
     metricAssessments: makeMetricAssessments(completeScores)
   };
   const completeNode = {
@@ -1066,4 +1068,29 @@ test('runFullAssessment returns governed right-sizing proposals, compatibility a
   assert.ok('psi' in result.indices, 'indices should have psi');
   assert.ok('csi' in result.indices, 'indices should have csi');
   assert.ok('cri' in result.indices, 'indices should have cri');
+});
+
+
+test('adoption support includes processes raised by mandatory closure', () => {
+  const result = runFullAssessment({ ...makeScores(), M2: 3 });
+  assert.equal(result.derived[9], 'basic');
+  assert.equal(result.normativeLevels[9], 'standard');
+  assert.ok(result.adoptionRisks.some(risk => risk.processId === 9 && risk.level === 'standard'));
+});
+
+test('scoped M15 affects right-sizing priority and clears the missing-scope prompt', () => {
+  const scores = { M1: 1, M2: 2, M3: 4, M4: 2, M5: 4, M6: 5, M7: 4, M8: 4, M9: 4, M10: 3, M11: 2, M12: 2, M13: 4, M14: 2, M15: 5, M16: 2 };
+  const obligation = {
+    type: 'regulatory-mandate', bindingStatus: 'confirmed', authority: 'Acceptance authority',
+    sourceRef: 'Example obligation', processScope: [13]
+  };
+  const context = { assuranceObligations: [obligation] };
+  assert.equal(needsAssuranceScope(scores.M15, {}), true);
+  assert.equal(needsAssuranceScope(scores.M15, { assuranceObligations: [{ ...obligation, processScope: [] }] }), true);
+  assert.equal(needsAssuranceScope(scores.M15, context), false);
+  const result = runFullAssessment(scores, null, context);
+  assert.deepEqual(result.rightSizingProposals, runFullAssessment(scores, METRIC_PROCESS_MAP, context).rightSizingProposals);
+  assert.equal(result.normativeLevels[13], 'comprehensive');
+  assert.ok(result.rightSizingProposals.some(proposal => proposal.processId === 12 && proposal.proposedTo === 'standard'));
+  assert.ok(!result.rightSizingProposals.some(proposal => proposal.processId === 13));
 });

@@ -85,7 +85,6 @@ test('HTML export includes exact selected descriptions for all 16 metrics at all
 
 test('Help preserves rule thresholds and makes the operating and evidence boundaries explicit', () => {
   const help = readFileSync(new URL('../src/views/help.js', import.meta.url), 'utf8');
-  assert.match(help, /Basic does not mean skipping the process/);
   assert.match(help, /different Primary at 3 or above/);
   assert.match(help, /Primary at 5 plus a Secondary at 5/);
   assert.match(help, /Select Cannot assess yet/);

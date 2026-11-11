@@ -76,17 +76,17 @@ export const ASSESSOR_GUIDANCE = Object.freeze({
   "M5": {
     "id": "M5",
     "name": "Safety Impact",
-    "definition": "credible consequence to human health or life from system failure, misuse, interaction, or loss of control within the declared boundary.",
+    "definition": "credible consequence to human health or life from system failure, misuse, interaction, or loss of control within the declared boundary. Consider credible paths through people, software, interfaces, and other systems when the assessed element has an allocated safety role. Record the independent protections on which the judgment relies.",
     "exclusions": "likelihood or risk acceptability, regulatory investigation, mission loss without human harm (M6), environmental consequence (M7), security origin by itself (M8), and assurance obligations (M15).",
     "anchors": {
       "1": "No credible human injury consequence identified for the assessed boundary.",
-      "2": "Credible effects are indirect or minor and are not expected to require medical treatment.",
+      "2": "Credible human health effects are slight and are not expected to require medical treatment.",
       "3": "Credible failure can cause minor injury or temporary health effects requiring treatment.",
       "4": "Credible failure can cause severe injury, hospitalization, permanent impairment, or multiple serious injuries.",
       "5": "Credible failure can cause one or more fatalities or catastrophic human harm."
     },
     "evidenceExamples": "hazard analysis, accident/incident evidence, exposure model, operating envelope, safety allocation.",
-    "counterexample": "a mandated independent review is M15 evidence and does not by itself establish a safety consequence score.",
+    "counterexample": "A misleading display can contribute to serious harm when operators rely on it for a safety decision. A passenger information display with no safety role may have little human-harm consequence where independent protection remains effective.",
     "reassessWhen": "hazard, exposure, operating mode, user population, allocation, or safety evidence changes. Scores 4-5 require appropriate safety-authority review before consequential use."
   },
   "M6": {

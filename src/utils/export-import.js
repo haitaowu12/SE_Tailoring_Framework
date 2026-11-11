@@ -5,7 +5,7 @@ import { buildElementContext } from './element-context.js';
  */
 import { escapeHtml, safeText } from './safe-text.js';
 import { FRAMEWORK_SEMANTIC_VERSION, METRIC_DEFINITION_SET_ID, QUALIFIER_SCHEMA_VERSION, METRIC_QUALIFIER_DEFINITIONS } from '../data/metrics.js';
-import { assessMetricCompleteness, getAssessmentDisposition, preserveUnconfirmedMetricAssessments } from './assessment-integrity.js';
+import { assessMetricCompleteness, getAssessmentDisposition, hasCompleteProcessProfile, preserveUnconfirmedMetricAssessments } from './assessment-integrity.js';
 import { assessRule11Disposition, assessWarningDispositions, GENERAL_WARNING_OUTCOMES, normalizeRuleDispositions, validateRuleDispositions } from './rule-dispositions.js';
 import { assessCsiResponse, normalizeCsiResponse, validateCsiResponse } from './csi-response.js';
 import { assessSafetyAllocationDecision } from './inheritance-engine.js';
@@ -557,7 +557,7 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
         const warningDispositions = assessWarningDispositions(rootNode.assessmentResult?.violations || (rootIsActive ? config.violations : []), rootNode.ruleDispositions, rootNode.levels);
         const csiReadiness = assessCsiResponse(rootNode.scores, rootNode.csiResponse);
         const claimedRootComplete = rootIsActive ? config.assessmentComplete === true : (rootNode.assessmentDisposition === 'complete-baseline' || ['under_review', 'approved', 'baselined'].includes(rootNode.status));
-        const importedComplete = currentSemantics && claimedRootComplete && completeness.complete && warningDispositions.complete && csiReadiness.complete && semanticMigration?.status !== 'review-required';
+        const importedComplete = currentSemantics && claimedRootComplete && hasCompleteProcessProfile(rootNode.levels) && completeness.complete && warningDispositions.complete && csiReadiness.complete && semanticMigration?.status !== 'review-required';
         if (importedComplete && rootIsActive && !rootNode.assessmentResult) {
             rootNode.assessmentResult = buildLegacyAssessmentResult(config, rootNode.levels);
             rootNode.status = rootNode.status === 'draft' ? 'under_review' : (rootNode.status || 'under_review');

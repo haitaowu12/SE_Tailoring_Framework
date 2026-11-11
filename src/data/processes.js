@@ -68,7 +68,7 @@ const BASE_PROCESSES = [
     },
     {
         id: 11, name: 'Decision Management', group: 'tech_mgmt', purpose: 'Make informed decisions with traceability and stakeholder involvement', extended: false,
-        definition: { basic: 'Basic decision recording with informal analysis', standard: 'Structured decision process with criteria matrices', comprehensive: 'Decision governance framework with uncertainty analysis' },
+        definition: { basic: 'Basic decision recording with informal analysis', standard: 'Structured comparison against explicit criteria and recorded rationale', comprehensive: 'Decision governance framework with uncertainty analysis' },
         assumptions: 'Decisions made informally; alternatives discussed but not formally analyzed.',
         whenToElevate: 'Elevate to Standard for high-value decisions or when traceability is required.'
     },
@@ -86,7 +86,7 @@ const BASE_PROCESSES = [
     },
     {
         id: 14, name: 'Information Management', group: 'tech_mgmt', purpose: 'Manage information throughout its lifecycle with appropriate access and security', extended: false,
-        definition: { basic: 'Basic repository with access control', standard: 'Structured information management with classification, access, recovery, and retention controls', comprehensive: 'Comprehensive architecture for lifecycle information' },
+        definition: { basic: 'Basic repository with access control', standard: 'Structured information management with classification, access, recovery, and retention controls', comprehensive: 'Controlled information exchanges, access, and recovery across the life cycle' },
         assumptions: 'Information stored in shared folders; access controlled by folder permissions.',
         whenToElevate: 'Elevate to Standard for regulatory requirements or sensitive information.'
     },
@@ -98,20 +98,20 @@ const BASE_PROCESSES = [
     },
     {
         id: 16, name: 'Quality Assurance', group: 'tech_mgmt', purpose: 'Ensure processes and products meet quality requirements', extended: false,
-        definition: { basic: 'Basic audits and reviews for compliance', standard: 'Planned assurance with explicit criteria, evaluations, and corrective-action follow-up', comprehensive: 'Risk-based assurance with planned coverage, review and improvement evidence' },
+        definition: { basic: 'A focused quality check against agreed criteria, with findings and follow-up recorded', standard: 'Planned assurance with explicit criteria, evaluations, and corrective-action follow-up', comprehensive: 'Risk-based assurance with planned coverage, review and improvement evidence' },
         assumptions: 'QA limited to basic defined-criteria reviews; nonconformances are recorded with owners, actions, and closure status.',
         whenToElevate: 'Elevate to Standard for regulated industries or quality-critical products.'
     },
     // --- Technical Processes (Core) ---
     {
         id: 17, name: 'Business/Mission Analysis', group: 'technical', purpose: 'Define the problem or opportunity and explore solution alternatives', extended: false,
-        definition: { basic: 'Basic problem identification and alternatives exploration', standard: 'Structured problem analysis with stakeholder representation and decision criteria', comprehensive: 'Comprehensive analysis with value modeling for strategic alignment' },
+        definition: { basic: 'Basic problem identification and alternatives exploration', standard: 'Structured problem analysis with stakeholder representation and decision criteria', comprehensive: 'Analysis of material stakeholder trade-offs, constraints, and uncertainty' },
         assumptions: 'Problem is well-understood; stakeholders are few and aligned.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups or complex context.'
     },
     {
         id: 18, name: 'Stakeholder Needs & Requirements Definition', group: 'technical', purpose: 'Elicit, analyze, and validate stakeholder needs', extended: false,
-        definition: { basic: 'Basic needs elicitation and validation. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Comprehensive modeling with engagement planning' },
+        definition: { basic: 'Basic needs elicitation and validation. Existing controlled project records may be reused to provide the needed evidence.', standard: 'Structured elicitation with conflict resolution', comprehensive: 'Traceable needs and conflicts with targeted stakeholder engagement' },
         assumptions: 'Stakeholders identified through direct engagement; needs captured informally.',
         whenToElevate: 'Elevate to Standard for multiple stakeholder groups with conflicting needs.'
     },
@@ -123,7 +123,7 @@ const BASE_PROCESSES = [
     },
     {
         id: 20, name: 'Architecture Definition', group: 'technical', purpose: 'Define the system architecture that satisfies requirements', extended: false,
-        definition: { basic: 'Basic concepts with interface lists', standard: 'Architecture viewpoints addressing stakeholder concerns and evaluated alternatives', comprehensive: 'Model-based with governance for complex architectures' },
+        definition: { basic: 'Basic concepts with interface lists', standard: 'Architecture viewpoints addressing stakeholder concerns and evaluated alternatives', comprehensive: 'Controlled views and interfaces with traceable architecture decisions' },
         assumptions: 'Architecture defined in simple diagrams; interfaces listed informally.',
         whenToElevate: 'Elevate to Standard for multi-system integration or mission-critical systems.'
     },
@@ -135,13 +135,13 @@ const BASE_PROCESSES = [
     },
     {
         id: 22, name: 'System Analysis', group: 'technical', purpose: 'Perform trade studies, modeling, and analysis to support decisions', extended: false,
-        definition: { basic: 'Simple analysis with basic methodology', standard: 'Structured analysis with defined methodologies', comprehensive: 'Advanced modeling and simulation with uncertainty quantification' },
+        definition: { basic: 'Simple analysis with basic methodology', standard: 'Structured analysis with defined methodologies', comprehensive: 'Analysis of consequential choices with justified methods, checked assumptions, and treatment of uncertainty' },
         assumptions: 'Analysis is ad-hoc and experience-based.',
         whenToElevate: 'Elevate to Standard for novel technology or complex trade-offs.'
     },
     {
         id: 23, name: 'Implementation', group: 'technical', purpose: 'Transform designs into tangible system elements', extended: false,
-        definition: { basic: 'Basic build per specifications', standard: 'Structured implementation with progress tracking', comprehensive: 'Comprehensive implementation with continuous monitoring' },
+        definition: { basic: 'Basic build per specifications', standard: 'Structured implementation with progress tracking', comprehensive: 'Controlled implementation and acceptance across critical interfaces, suppliers, or increments' },
         assumptions: 'Implementation follows design; acceptance is basic.',
         whenToElevate: 'Elevate to Standard for complex integration or quality-critical products.'
     },
@@ -165,7 +165,7 @@ const BASE_PROCESSES = [
     },
     {
         id: 27, name: 'Validation', group: 'technical', purpose: 'Confirm system meets stakeholder needs (right system built)', extended: false,
-        definition: { basic: 'Basic validation with user feedback', standard: 'Structured validation with multiple methods', comprehensive: 'Comprehensive validation with stakeholder acceptance strategy' },
+        definition: { basic: 'Basic validation with user feedback', standard: 'Planned validation against intended use with agreed methods and recorded results', comprehensive: 'Comprehensive validation with stakeholder acceptance strategy' },
         assumptions: 'Validation through informal user review.',
         whenToElevate: 'Elevate to Standard for safety-critical or complex stakeholder environments.'
     },

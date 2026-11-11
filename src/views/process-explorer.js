@@ -459,8 +459,8 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         <summary>Plan this work with your team</summary>
         <ol>
           <li><strong>Confirm the level.</strong><span>Compare Basic, Standard, and Comprehensive against the project context.</span></li>
-          <li><strong>Assign the work.</strong><span>Agree owners for the activities and deliverables listed below.</span></li>
-          <li><strong>Set the evidence.</strong><span>Record what will demonstrate that the selected level has been applied.</span></li>
+          <li><strong>Assign the work.</strong><span>Agree who owns the outcomes and which activities your boundary needs.</span></li>
+          <li><strong>Set the evidence.</strong><span>Identify the existing records you can reuse and the evidence still needed.</span></li>
         </ol>
       </details>
 
@@ -470,10 +470,10 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
         <p class="text-sm text-secondary">${escapeHtml(p.definition[viewLevel] || '—')}</p>
       </div>` : ''}
 
-      <p class="text-sm text-secondary mb-lg">Use the following activities and records as examples to adapt. Higher rigor retains the essential outcomes of lower levels. Named tools, document formats, and analysis methods are options unless your project has a specific obligation. Existing controlled records may meet several information needs. <a href="#help?topic=adapt">How to adapt the guidance</a>.</p>
-      ${responsibility ? `<section class="detail-section" aria-label="Work-package responsibility"><h4>Outcome and work-package responsibility</h4><p class="text-sm text-secondary"><strong>Retain the outcome:</strong> ${escapeHtml(responsibility.outcome)}</p><p class="text-sm text-secondary mt-sm">${escapeHtml(responsibility.local)}</p><p class="text-xs text-secondary mt-sm">The level tabs show different depth, not a requirement to duplicate every lower-level activity or every example. Record the local contribution, applicable programme evidence and responsible role. <a href="#help?topic=adapt">Check the allocation</a>.</p></section>` : ''}
+      <p class="text-sm text-secondary mb-lg">Choose the simplest activities and records that meet the outcome at this level. Reuse applicable project or supplier evidence. Add depth where it changes a decision, controls a risk, or meets an obligation. <a href="#help?topic=adapt">How to adapt the guidance</a>.</p>
+      ${responsibility ? `<section class="detail-section" aria-label="Work-package responsibility"><h4>Outcome and work-package responsibility</h4><p class="text-sm text-secondary"><strong>Retain the outcome:</strong> ${escapeHtml(responsibility.outcome)}</p><p class="text-sm text-secondary mt-sm">${escapeHtml(responsibility.local)}</p><p class="text-xs text-secondary mt-sm">Record the local contribution, applicable programme evidence, and responsible role. <a href="#help?topic=adapt">Check the allocation</a>.</p></section>` : ''}
       <div class="detail-section">
-        <h4>Activity examples to adapt (${activities.length}) <span class="text-xs text-secondary font-normal ml-sm">(core outcome examples are marked)</span></h4>
+        <h4>Activity examples <span class="text-xs text-secondary font-normal ml-sm">(core outcome examples are marked)</span></h4>
         ${activities.length ? activities.map(a => {
     let isEssential = a.startsWith('(*)');
     let text = isEssential ? a.slice(4) : a;
@@ -487,7 +487,7 @@ function renderProcessDetail(processId, state, viewContext, viewLevel, source) {
       </div>
 
       <div class="detail-section">
-        <h4>Record and evidence examples (${deliverables.length})</h4>
+        <h4>Record and evidence examples</h4>
         ${deliverables.length ? deliverables.map(d => {
     let text = d;
     const contentState = getConditionalContentState(text, viewContext);

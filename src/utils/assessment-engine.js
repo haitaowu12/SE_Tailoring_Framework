@@ -60,6 +60,11 @@ function getConfirmedBindingObligation(context = {}, processId = null) {
     }) || null;
 }
 
+export function needsAssuranceScope(score, context) {
+    if (score < 4 || !Number.isInteger(score)) return false;
+    return !CORE_PROCESSES.some(process => getConfirmedBindingObligation(context, process.id));
+}
+
 function isCriticalEvidenceContext(rule, scores = {}, context = {}) {
     return scoreOrDefault(scores, 'M5') >= 4 ||
         scoreOrDefault(scores, 'M6') >= 4 ||
@@ -673,7 +678,8 @@ export function assessAdoptionReadiness(levels, scores) {
  * accepting one requires a separate owner decision with justification and
  * consequential evidence and authority records.
  */
-export function applyRightSizing(levels, scores, overridesApplied = [], context = {}) {
+export function applyRightSizing(levels, scores, overridesApplied = [], context = {}, matrixMap = METRIC_PROCESS_MAP) {
+    const activeMatrixMap = matrixMap || METRIC_PROCESS_MAP;
     const psi = computePSI(scores);
     const csi = computeCSI(scores);
     const cri = computeCRI(scores);
@@ -684,7 +690,7 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
     const proposedProfile = { ...levels };
     const proposals = [];
     const makeProposal = (processId, from, proposedTo, reason) => {
-        const affectedMetricIds = Object.keys(getEffectiveProcessMetricMap(processId, METRIC_PROCESS_MAP, context)).sort(metricSort);
+        const affectedMetricIds = Object.keys(getEffectiveProcessMetricMap(processId, activeMatrixMap, context)).sort(metricSort);
         const protectedMetricIds = affectedMetricIds
             .filter(metric => ['M5', 'M8', 'M15'].includes(metric));
         const proposal = {
@@ -724,7 +730,7 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
                 .map(pid => ({
                     pid,
                     priority: getProcessPriority(pid),
-                    maxMetric: getMaxDrivingMetric(pid, scores)
+                    maxMetric: getMaxDrivingMetric(pid, scores, activeMatrixMap, context)
                 }))
                 .sort((a, b) => {
                     // Downgrade secondary before context-sensitive before core
@@ -771,7 +777,7 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
                     .map(pid => ({
                         pid,
                         priority: getProcessPriority(pid),
-                        maxMetric: getMaxDrivingMetric(pid, scores)
+                        maxMetric: getMaxDrivingMetric(pid, scores, activeMatrixMap, context)
                     }))
                     .sort((a, b) => {
                         if (a.priority !== b.priority) return b.priority - a.priority;
@@ -852,10 +858,9 @@ export function computeRigorBudgetStatus(levels, scores) {
 }
 
 /** Helper: get the max driving metric score for a process */
-function getMaxDrivingMetric(processId, scores) {
-    const map = METRIC_PROCESS_MAP[processId];
-    if (!map) return 0;
-    return Math.max(...Object.keys(map).map(m => scoreOrDefault(scores, m)));
+function getMaxDrivingMetric(processId, scores, matrixMap, context) {
+    const map = getEffectiveProcessMetricMap(processId, matrixMap, context);
+    return Math.max(0, ...Object.keys(map).map(metric => scoreOrDefault(scores, metric)));
 }
 
 /**
@@ -887,8 +892,8 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
     const saTier = calculateSATier(scores);
     const allOverrides = overrides;
 
-    // Step 4: RIGHT-SIZE — propose governed reductions (PSI) and flag adoption gaps (CRI)
-    const { levels: afterRightSizing, rightSizingActions, rightSizingProposals, blockedRightSizingCandidates, proposedProfile, proposalClosureFixes, proposalBudgetStatus, constraintResponseRequirement, adoptionRisks, indices } = applyRightSizing(final, scores, allOverrides, context);
+    // Step 4: Propose reductions for review against the PSI guidance.
+    const { levels: afterRightSizing, rightSizingActions, rightSizingProposals, blockedRightSizingCandidates, proposedProfile, proposalClosureFixes, proposalBudgetStatus, constraintResponseRequirement, indices } = applyRightSizing(final, scores, allOverrides, context, matrixMap);
 
     // Step 5: Apply monotone mandatory closure to the least fixed point.
     const closure = applyMandatoryClosure(afterRightSizing, scores, context);
@@ -972,7 +977,7 @@ function executeAssessment(scores, matrixMap = METRIC_PROCESS_MAP, context = {})
         normativeLevels,
         effectiveRightSizingApprovalCount: 0,
         constraintResponseRequirement: constraintResponseRequirement || deriveCSIResponseRequirement(scores),
-        adoptionRisks: adoptionRisks || [],
+        adoptionRisks: assessAdoptionReadiness(normativeLevels, scores),
         indices: indices || {},
         fixes,
         levels: final,

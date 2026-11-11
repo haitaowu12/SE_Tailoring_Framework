@@ -1,3 +1,4 @@
+import { CORE_PROCESSES } from '../data/processes.js';
 import { resolveProtectedAncestry } from './inheritance-engine.js';
 import { checkConsistency, applyOverrides } from './assessment-engine.js';
 import {
@@ -11,6 +12,11 @@ import { assessCsiResponse } from './csi-response.js';
 
 const VALID_SCORE = score => Number.isInteger(score) && score >= 1 && score <= 5;
 const CONFIRMED_STATUSES = new Set(['assessed', 'inherited-confirmed']);
+const PROCESS_LEVELS = ['basic', 'standard', 'comprehensive'];
+
+export function hasCompleteProcessProfile(levels = {}) {
+    return CORE_PROCESSES.every(process => PROCESS_LEVELS.includes(levels[process.id]));
+}
 
 export const BASELINE_GATE_DEFINITIONS = Object.freeze([
     { id: 'input-completeness', label: 'Input completeness', softwareBlocking: true, implementation: 'implemented' },
@@ -158,13 +164,14 @@ export function assessHardConstraints(state = {}) {
     const levels = state.levels || {};
     const context = { ...(state.projectInfo || {}), metricAssessments: state.metricAssessments || {}, assuranceObligations: state.assuranceObligations || [] };
     const violations = [...(Array.isArray(state.violations) ? state.violations : []).filter(item => item?.type === 'HC')];
-    if (Object.keys(levels).length) {
+    if (!hasCompleteProcessProfile(levels)) {
+        violations.push({ type: 'HC', ruleId: 'incomplete-profile', label: 'Recalculate the recommendation to get a complete 22-process profile.' });
+    } else {
         violations.push(...checkConsistency(levels, state.scores || {}, context).filter(item => item.type === 'HC'));
-        const order = ['basic', 'standard', 'comprehensive'];
         const floors = [...applyOverrides(levels, state.scores || {}, context).activeFloors, ...(Array.isArray(state.activeFloors) ? state.activeFloors : [])];
         for (const floor of floors) {
             if (!floor || typeof floor !== 'object') { violations.push({ type: 'HC', ruleId: 'invalid-floor', label: 'Recorded mandatory-floor provenance is invalid; recalculate the recommendation' }); continue; }
-            if (order.indexOf(levels[floor.processId]) < order.indexOf(floor.minLevel)) violations.push({ type: 'HC', ruleId: `floor-${floor.processId}`, label: `Process ${floor.processId} is below its mandatory ${floor.minLevel} floor` });
+            if (PROCESS_LEVELS.indexOf(levels[floor.processId]) < PROCESS_LEVELS.indexOf(floor.minLevel)) violations.push({ type: 'HC', ruleId: `floor-${floor.processId}`, label: `Process ${floor.processId} is below its mandatory ${floor.minLevel} floor` });
         }
     }
     const unique = [...new Map(violations.map(item => [`${item.ruleId}:${item.affectedProcess || ''}`, item])).values()];
@@ -193,6 +200,7 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
     const derivationAuthoritative = options.derivationAuthoritative !== false;
     const inputComplete = completeness.complete && !migrationBlocked && !explicitlyDemo && derivationAuthoritative;
     const hardConstraints = assessHardConstraints(ancestry ? { ...state, scores: ancestry.effectiveScores } : state);
+    const profileIssue = hardConstraints.violations.find(item => item.ruleId === 'incomplete-profile');
     const ruleWarningComplete = hardConstraints.complete && warningDispositions.complete && csiResponse.complete;
     const softwareChecksPassed = inputComplete && ruleWarningComplete && hierarchy.complete;
 
@@ -218,7 +226,7 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
                 ...GATE_BY_ID['rule-warning-disposition'],
                 status: ruleWarningComplete ? 'passed' : 'incomplete',
                 blocking: true,
-                detail: ruleWarningComplete ? 'Hard constraints, triggered warnings and CSI response checks passed' : !hardConstraints.complete ? 'Hard constraints or mandatory floors remain unsatisfied' : 'One or more warning or CSI response records remain incomplete'
+                detail: ruleWarningComplete ? 'Hard constraints, triggered warnings and CSI response checks passed' : !hardConstraints.complete ? profileIssue?.label || 'Hard constraints or mandatory floors remain unsatisfied' : 'One or more warning or CSI response records remain incomplete'
             },
             {
                 ...GATE_BY_ID['evidence-completeness'],

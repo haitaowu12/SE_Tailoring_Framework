@@ -16,7 +16,7 @@ export function renderDeliverables(container) {
     <div class="flex justify-between items-center mb-lg deliverables-toolbar">
       <div>
         <h2>Reference Deliverables</h2>
-        <p class="text-secondary text-sm mt-sm">Read-only practitioner guidance. These examples are not completion evidence and are not stored as assessment state.</p>
+        <p class="text-secondary text-sm mt-sm">Choose or reuse records that cover the work and its handoffs. One controlled record can serve several purposes.</p>
       </div>
       <div class="flex gap-sm items-center deliverables-filter">
         <label class="text-xs text-secondary" for="level-filter">Filter:</label>

@@ -112,7 +112,6 @@ test('deliverables start collapsed and named filter and bulk disclosure controls
   assert.match(container.innerHTML, /<label[^>]+for="level-filter">Filter:<\/label>/);
   assert.equal((container.innerHTML.match(/<details\b/g) || []).length, CORE_PROCESSES.length);
   assert.doesNotMatch(container.innerHTML, /<details\b[^>]*\bopen\b/);
-  assert.match(container.innerHTML, /not completion evidence and are not stored as assessment state/);
   controls['#deliverables-expand-all'].handlers.click();
   assert.ok(groups.every(group => group.open));
   controls['#deliverables-expand-all'].handlers.click();

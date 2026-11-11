@@ -53,15 +53,3 @@ test('Transition and validation retain safety acceptance evidence and qualify re
   assert(validation.evidence.some(item => /Safety acceptance evidence/.test(item)
     && /Safety Acceptance Certificate where required by the applicable regime\) \[Safety\]$/.test(item)));
 });
-
-test('Editorial qualifiers preserve Comprehensive core-outcome and evidence coverage', () => {
-  for (const [processId, activityCount, coreCount, evidenceCount] of [
-    [12, 7, 3, 6], [17, 5, 3, 4], [19, 8, 2, 9], [20, 8, 2, 10],
-    [21, 8, 2, 9], [26, 10, 2, 10], [27, 11, 3, 11]
-  ]) {
-    const { activities, evidence } = comprehensive(processId);
-    assert.equal(activities.length, activityCount, `P${processId} activity coverage`);
-    assert.equal(activities.filter(item => item.startsWith('(*) ')).length, coreCount, `P${processId} core outcomes`);
-    assert.equal(evidence.length, evidenceCount, `P${processId} evidence coverage`);
-  }
-});

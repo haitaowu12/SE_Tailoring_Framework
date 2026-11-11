@@ -10,6 +10,7 @@ import {
 import { buildExportConfig, generateReport, normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
 import { assessRule11Disposition, assessWarningDispositions, normalizeRuleDispositions } from '../src/utils/rule-dispositions.js';
 import { assessCsiResponse } from '../src/utils/csi-response.js';
+import { runFullAssessment } from '../src/utils/assessment-engine.js';
 import { assessSafetyAllocationDecision } from '../src/utils/inheritance-engine.js';
 
 const METRIC_IDS = Array.from({ length: 16 }, (_, index) => `M${index + 1}`);
@@ -154,6 +155,8 @@ test('4.1.0 imports preserve scores but require explicit reconfirmation under th
   assert.equal(evaluateBaselineEligibility(normalized).migrationBlocked, true);
 
   normalized.metricAssessments = makeAssessments(scores);
+  assert.equal(evaluateBaselineEligibility(normalized).softwareChecksPassed, false, 'A partial historical profile needs recalculation');
+  normalized.levels = runFullAssessment(scores).levels;
   const reconfirmed = evaluateBaselineEligibility(normalized);
   assert.equal(reconfirmed.migrationBlocked, false);
   assert.equal(reconfirmed.softwareChecksPassed, true);
@@ -164,6 +167,7 @@ test('retired artifact handoff data is ignored and no longer blocks software com
   const config = buildExportConfig({
     scores,
     metricAssessments: makeAssessments(scores),
+    levels: runFullAssessment(scores).levels,
     artifactHandoffs: [{ relationshipId: 'legacy-requirements-architecture-record' }],
     assessmentComplete: true
   });
@@ -188,6 +192,7 @@ test('confirmed export preserves proposals, historical actions, and active floor
     scores,
     metricAssessments: makeAssessments(scores),
     assessmentComplete: true,
+    levels: runFullAssessment(scores).levels,
     rightSizingProposals: [{ processId: 15, from: 'standard', proposedTo: 'basic', reason: 'PSI guidance' }],
     rightSizingActions: [{ processId: 14, from: 'standard', to: 'basic', reason: 'Legacy record' }],
     activeFloors: [{ processId: 13, overrideId: 'security_critical_cm', minLevel: 'standard', status: 'satisfied' }]
@@ -369,7 +374,7 @@ test('Rule 11 warning blocks complete export until disposition is complete', () 
   const state = {
     scores,
     metricAssessments: makeAssessments(scores),
-    levels: { 27: 'basic' },
+    levels: { ...runFullAssessment(scores).levels, 27: 'basic' },
     violations: [{ ruleId: 11, type: 'WN', affectedProcess: 27, currentLevel: 'basic', requiredLevel: 'standard' }],
     assessmentComplete: true
   };
@@ -487,4 +492,23 @@ test('config validation rejects unsupported or malformed rule dispositions', () 
   assert.ok(invalid.errors.some(error => error.includes('Unsupported rule disposition: 13')));
   assert.ok(invalid.errors.some(error => error.includes('invalid propagationId')));
   assert.ok(invalid.errors.some(error => error.includes('invalid outcome')));
+});
+
+
+test('restoring an empty or partial profile preserves inputs and requires recalculation', () => {
+  const scores = makeScores(1);
+  const levels = runFullAssessment(scores).levels;
+  const complete = buildExportConfig({ scores, metricAssessments: makeAssessments(scores), levels, assessmentComplete: true });
+  assert.equal(complete.assessmentComplete, true);
+  assert.equal(normalizeImportedConfig(complete).assessmentComplete, true);
+  const { 30: omitted, ...partial } = levels;
+  for (const processLevels of [{}, partial]) {
+    const config = { ...complete, assessmentTree: undefined, processLevels };
+    assert.equal(validateConfig(config).valid, true);
+    const restored = normalizeImportedConfig(config);
+    assert.equal(restored.assessmentComplete, false);
+    assert.equal(restored.assessmentDisposition, 'work-in-progress');
+    assert.deepEqual(restored.scores, scores);
+    assert.equal(evaluateBaselineEligibility(restored).hardConstraints.violations[0].ruleId, 'incomplete-profile');
+  }
 });

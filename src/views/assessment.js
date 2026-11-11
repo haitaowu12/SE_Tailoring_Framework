@@ -4,7 +4,7 @@ import { reconcileManualChoices, reconcileDecisionViolations } from '../utils/ta
  * v3.3: Hierarchy-aware — loads/saves per-element, shows inherited metrics
  */
 import { METRICS, DIMENSIONS, CORE_PROCESSES, FRAMEWORK_META, PROCESS_GROUPS, METRIC_PROCESS_MAP, OVERRIDE_CONDITIONS, METRIC_QUALIFIER_DEFINITIONS, BINDING_ASSURANCE_QUALIFIERS, METRIC_DEFINITION_VERSION } from '../data/se-tailoring-data.js';
-import { runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
+import { needsAssuranceScope, runFullAssessment, getDriverAttribution, computeRigorBudgetStatus } from '../utils/assessment-engine.js';
 import { getState, setState, showToast, getActiveNode, getElementBreadcrumbs } from '../state.js';
 import { getCurrentRouteContext, navigateTo, processDetailsHref } from '../router.js';
 import { escapeHtml } from '../utils/safe-text.js';
@@ -654,7 +654,7 @@ function renderMetricJustificationControls(metricId) {
 function primaryAssuranceObligation() {
   return localAssuranceObligations[0] || {
     id: 'AO-1', type: 'regulatory-mandate', bindingStatus: 'unconfirmed', authority: '', sourceRef: '',
-    processScope: [13, 14, 16, 25], rationale: ''
+    processScope: [], rationale: ''
   };
 }
 
@@ -662,11 +662,13 @@ function renderAssuranceObligationControls() {
   const obligation = primaryAssuranceObligation();
   const floorTypes = METRIC_QUALIFIER_DEFINITIONS.M15.filter(item => item.floorEligible);
   const hasExistingRecord = localAssuranceObligations.length > 0;
-  return `<details class="metric-advanced mt-md"${hasExistingRecord ? ' open' : ''}>
+  const missingScope = needsAssuranceScope(localScores.M15, { assuranceObligations: localAssuranceObligations });
+  return `<p id="assurance-scope-prompt" class="text-sm mt-sm" role="status" ${missingScope ? '' : 'hidden'}>Record the binding source, authority and affected processes. If the obligation is managed outside this boundary, explain where and by whom in the M15 rationale.</p>
+  <details id="assurance-scope-details" class="metric-advanced mt-md"${hasExistingRecord || missingScope ? ' open' : ''}>
     <summary><span>Binding assurance detail</span><span class="text-xs text-secondary">For scoped M15 drivers, floors, and rule severity</span></summary>
     <fieldset style="border:0;padding:12px 0 0;">
       <legend class="text-xs" style="font-weight:700;padding:0 4px;">Primary binding assurance obligation</legend>
-      <div class="text-xs text-secondary mb-sm">A confirmed, source-backed, scoped record can activate conditional M15 drivers at any rating. M15≥4 can also activate the defined floors or mandatory support rules. The app does not verify the asserted obligation.</div>
+      <div class="text-xs text-secondary mb-sm">Record the scope from the governing source. Applicable obligations can affect process recommendations and, at M15 of 4 or 5, minimum rigor or support rules.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <label class="text-xs">Assurance type<select class="select" id="assurance-type" aria-label="Primary assurance type">${floorTypes.map(item => `<option value="${item.id}" ${obligation.type === item.id ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('')}</select></label>
         <label class="text-xs" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="assurance-confirmed" ${obligation.bindingStatus === 'confirmed' ? 'checked' : ''}> Binding status asserted</label>
@@ -679,6 +681,14 @@ function renderAssuranceObligationControls() {
       </div>
     </fieldset>
   </details>`;
+}
+
+function updateAssuranceScopePrompt(content, reveal = false) {
+  const prompt = content.querySelector('#assurance-scope-prompt');
+  if (!prompt) return;
+  const missingScope = needsAssuranceScope(localScores.M15, { assuranceObligations: localAssuranceObligations });
+  prompt.hidden = !missingScope;
+  if (reveal && missingScope) content.querySelector('#assurance-scope-details').open = true;
 }
 
 function bindAssuranceControls(content) {
@@ -703,6 +713,7 @@ function bindAssuranceControls(content) {
         status: ['assessed', 'inherited-confirmed', 'unknown'].includes(existingStatus) ? existingStatus : 'unreviewed',
         qualifiers: [...qualifiers]
       });
+      updateAssuranceScopePrompt(content);
       commitAssessmentDraft();
     };
     assuranceInputs.forEach(id => {
@@ -746,6 +757,7 @@ function setMetricScore(metricId, value, contentContainer) {
   const unknownToggle = metricItem?.querySelector('.metric-unknown');
   if (unknownToggle) unknownToggle.checked = false;
 
+  if (metricId === 'M15') updateAssuranceScopePrompt(contentContainer, true);
   refreshMetricReviewProgress(contentContainer);
 }
 

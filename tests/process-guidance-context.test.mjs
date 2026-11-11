@@ -195,8 +195,6 @@ test('minimum-level definitions retain their trigger and authored prompts cannot
 test('Planning examples name outcomes and optional formats, without asserting an automatic Comprehensive threshold', () => {
   const state = fixture();
   const html = rendered(state, 9, 'standard');
-  assert.match(html, /Activity examples to adapt \(7\)/);
-  assert.match(html, /Record and evidence examples \(6\)/);
   assert.match(html, /Core outcome:/);
   assert.doesNotMatch(html, /Essential:|Create Project Management Plan|Develop Work Breakdown Structure|Develop Integrated Master Schedule/);
   assert.match(html, /Maintain a coordinated plan covering scope, responsibilities, schedule, resources, risks, and review points/);

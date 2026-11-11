@@ -44,7 +44,7 @@ export const PROCESS_DETAILS = {
         deliverables: {
             basic: ['Basic project plan', 'Simple schedule', 'Resource list', 'Cost estimate'],
             standard: ['Coordinated planning record (a PMP or equivalent)', 'Work breakdown and ownership record (a WBS or equivalent)', 'Dependency-aware schedule', 'Resource management plan', 'Risk register', 'SA Milestone Schedule [Safety]'],
-            comprehensive: ['Integrated planning documentation', 'Multi-view WBS', 'Schedule uncertainty analysis', 'Resource optimization analysis', 'Risk-based estimates', 'Stakeholder communication plan']
+            comprehensive: ['Integrated planning documentation', 'Multi-view WBS', 'Schedule uncertainty analysis', 'Resource capacity assessment', 'Risk-based estimates', 'Stakeholder communication plan']
         },
         outputs: [
             { name: 'Project plans', feedsInto: 'Project Assessment, Infrastructure Management' },
@@ -62,8 +62,8 @@ export const PROCESS_DETAILS = {
         },
         deliverables: {
             basic: ['Status reports', 'Issue log', 'Meeting minutes', 'Basic change log'],
-            standard: ['Performance measurements against agreed baselines', 'Issue management database', 'Review records with action tracking', 'Change control documentation', 'Corrective action plans', 'SA Status Reports [Safety]'],
-            comprehensive: ['Integrated performance dashboard', 'Advanced issue tracking with root cause', 'Comprehensive review documentation', 'Change impact analyses', 'Trend analysis reports', 'Predictive performance models']
+            standard: ['Performance measurements against agreed baselines', 'Issue and action records', 'Review records with action tracking', 'Change control documentation', 'Corrective action plans', 'SA Status Reports [Safety]'],
+            comprehensive: ['Integrated performance record', 'Advanced issue tracking with root cause', 'Comprehensive review documentation', 'Change impact analyses', 'Trend analysis reports', 'Corrective-action forecasts where supported by evidence']
         },
         outputs: [
             { name: 'Status reports', feedsInto: 'Information Management, Portfolio Management' },
@@ -81,7 +81,7 @@ export const PROCESS_DETAILS = {
         deliverables: {
             basic: ['Decision records', 'Basic alternatives analysis', 'Meeting minutes with decisions'],
             standard: ['Decision management plan', 'Decision criteria matrices', 'Alternatives analysis reports', 'Decision records with rationale', 'Stakeholder input documentation', 'SA Trade-off Analysis [Safety]'],
-            comprehensive: ['Decision governance framework', 'Advanced decision models', 'Comprehensive alternatives analysis', 'Uncertainty and sensitivity analyses', 'Decision effectiveness metrics']
+            comprehensive: ['Decision governance framework', 'Decision models where useful', 'Comprehensive alternatives analysis', 'Uncertainty and sensitivity analyses', 'Decision effectiveness metrics']
         },
         outputs: [
             { name: 'Decision records', feedsInto: 'Configuration Management, System Analysis' },
@@ -98,7 +98,7 @@ export const PROCESS_DETAILS = {
         deliverables: {
             basic: ['Simple risk register', 'Risk assessment matrix (H/M/L)', 'Basic risk reports'],
             standard: ['Risk Management Plan (RMP)', 'Detailed risk register', 'Risk response plans', 'Regular risk reports', 'Risk review records', 'Safety Hazard Register [Safety]', 'SA Risk Response Plans [Safety]'],
-            comprehensive: ['Risk management framework', 'Risk uncertainty analysis with supporting models or simulations where suitable', 'Detailed risk response strategies', 'Risk dashboards with leading indicators', 'Integrated risk database', 'Risk management effectiveness metrics']
+            comprehensive: ['Risk management framework', 'Risk uncertainty analysis with supporting models or simulations where suitable', 'Detailed risk response strategies', 'Risk monitoring records with relevant leading indicators', 'Linked risk and response records', 'Risk management effectiveness metrics']
         },
         outputs: [
             { name: 'Risk register', feedsInto: 'Project Planning, Decision Management' },
@@ -111,12 +111,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) List configuration items (CIs)', '(*) Control versions (manual or simple tool)', 'Request changes simply (informal)', 'Report status (basic)'],
             standard: ['(*) Plan configuration management', '(*) Identify configuration scheme', 'Assign change authority and record change decisions; use a board where warranted', 'Account status formally', 'Audit configurations', 'Manage safety-related CIs [Safety]', 'Control safety baseline changes [Safety]'],
-            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Systematically identify with structure', 'Analyze change impacts with traceability', 'Automate reports with dashboards', 'Maintain links between configuration and life-cycle records using suitable tools', 'Maintain SA documentation under CM [Safety]']
+            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Systematically identify with structure', 'Analyze change impacts with traceability', 'Keep configuration status accessible to decision-makers', 'Maintain links between configuration and life-cycle records using suitable tools', 'Maintain SA documentation under CM [Safety]']
         },
         deliverables: {
             basic: ['Configuration item list', 'Simple change request forms', 'Basic configuration status reports', 'Version control records'],
             standard: ['Configuration Management Plan (CMP)', 'Configuration identification scheme', 'Change authority and decision procedures', 'Configuration status accounting reports', 'Configuration audit reports', 'Baseline documentation', 'Safety CI List [Safety]'],
-            comprehensive: ['Comprehensive CM plan', 'Detailed configuration identification system', 'Advanced change control with impact analysis', 'Automated configuration status reports', 'Comprehensive audit documentation', 'Configuration metrics dashboard', 'Linked configuration and life-cycle records']
+            comprehensive: ['Comprehensive CM plan', 'Detailed configuration identification system', 'Advanced change control with impact analysis', 'Configuration status records', 'Comprehensive audit documentation', 'Configuration indicators where useful', 'Linked configuration and life-cycle records']
         },
         outputs: [
             { name: 'CI list', feedsInto: 'Integration, Implementation' },
@@ -146,12 +146,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Define simple metrics (schedule, cost, quality)', '(*) Collect data (manual)', 'Report measurements (basic)'],
             standard: ['(*) Plan measurement with objectives', '(*) Define measurement constructs', 'Define repeatable collection procedures; automate where useful', 'Analyze trends', 'Review measures periodically', 'Define SA metrics (RAMS indicators) [Safety]'],
-            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Define measurement models and their assumptions', 'Automate tools with dashboards', 'Analyze methods with statistics', 'Evaluate effectiveness continuously', 'Collect and report SA performance data [Safety]']
+            comprehensive: ['(*) Plan comprehensively with strategy', '(*) Define measurement models and their assumptions', 'Automate collection or reporting when repeat use justifies it', 'Analyze methods with statistics', 'Evaluate effectiveness continuously', 'Collect and report SA performance data [Safety]']
         },
         deliverables: {
             basic: ['Simple metrics definitions', 'Basic data collection forms', 'Measurement reports'],
             standard: ['Measurement plan', 'Measurement construct definitions', 'Data collection procedures', 'Analysis reports with trends', 'Measurement review records', 'SA Metrics Definitions [Safety]'],
-            comprehensive: ['Comprehensive measurement plan', 'Advanced measurement framework', 'Automated data collection tools', 'Statistical analysis methodologies', 'Predictive models documentation', 'Measurement effectiveness evaluation', 'Integrated measurement dashboard']
+            comprehensive: ['Comprehensive measurement plan', 'Advanced measurement framework', 'Data collection and quality checks', 'Statistical analysis methodologies', 'Forecasts with assumptions where they support a decision', 'Measurement effectiveness evaluation', 'Integrated measurement results']
         },
         outputs: [
             { name: 'Metrics definitions', feedsInto: 'Project Assessment, Portfolio Management' },
@@ -166,7 +166,7 @@ export const PROCESS_DETAILS = {
             comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct assurance evaluations, including audits where required, with defined coverage and methodology', '(*) Assess quality issues and emerging patterns using available evidence', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
         },
         deliverables: {
-            basic: ['Quality assurance plan', 'Audit reports', 'Non-conformance records', 'Resolution tracking'],
+            basic: ['Quality assurance plan', 'Peer-check or review record', 'Non-conformance records', 'Resolution tracking'],
             standard: ['Detailed quality assurance plan', 'Evaluation procedures and results', 'Regular quality reports', 'Improvement action plans', 'SA Audit Reports [Safety]', 'SA Compliance Records [Safety]'],
             comprehensive: ['Quality assurance strategy', 'Comprehensive evaluation program', 'Quality trend analyses', 'Formal improvement initiative documentation', 'Assurance effectiveness metrics']
         },
@@ -216,12 +216,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Document requirements (simple list)', '(*) Trace simply with matrix', 'Review requirements (informal)'],
             standard: ['(*) Plan requirements development', '(*) Specify requirements with attributes', 'Maintain controlled requirements records with attributes and links', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety requirements and integrity targets where the applicable regime requires them [Safety]'],
-            comprehensive: ['(*) Model required behaviors using representations suited to assurance and verification needs', '(*) Specify requirements unambiguously; use formal models where suitable or required', 'Manage comprehensive database', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Define reliability, availability, and maintainability requirements for the applicable context [RAM]']
+            comprehensive: ['(*) Model required behaviors using representations suited to assurance and verification needs', '(*) Specify requirements unambiguously; use formal models where suitable or required', 'Keep requirements and their relationships under change control', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Define reliability, availability, and maintainability requirements for the applicable context [RAM]']
         },
         deliverables: {
             basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records'],
             standard: ['Requirements development plan', 'System Specification (SS)', 'Controlled requirements records with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Preliminary Hazard Analysis (PHA) [Safety]', 'RAMS Requirements Specification [RAM]', 'Hazard Log [Safety]', 'Safety requirement and applicable integrity allocation record [Safety]'],
-            comprehensive: ['Detailed requirements specification with formal models where suitable or required', 'Controlled requirements records and relationships', 'Complete traceability network', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety argument and supporting evidence required by the applicable regime [Safety]']
+            comprehensive: ['Detailed requirements specification with formal models where suitable or required', 'Controlled requirements records and relationships', 'Traceability across the assessed requirements, interfaces, and evidence', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety argument and supporting evidence required by the applicable regime [Safety]']
         },
         outputs: [
             { name: 'Requirements document', feedsInto: 'Architecture Definition, Verification' },
@@ -234,12 +234,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Define concepts (block diagrams)', '(*) List interfaces', 'Evaluate options (informal)', 'Document architecture'],
             standard: ['(*) Plan architecture development', '(*) Develop viewpoints addressing the relevant stakeholder concerns', 'Create interface control documents (ICDs)', 'Evaluate alternatives with trade studies', 'Plan architecture governance', 'Perform RAMS apportionment [RAM]', 'Allocate safety requirements and any required integrity targets to subsystems [Safety]', 'Define safety partitioning and isolation [Safety]'],
-            comprehensive: ['(*) Model architectures using notation suited to stakeholder concerns and assurance needs', '(*) Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate with formal methodology', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
+            comprehensive: ['(*) Model architectures using notation suited to stakeholder concerns and assurance needs', '(*) Develop comprehensive description', 'Specify interfaces in detail', 'Evaluate consequential alternatives against explicit criteria', 'Govern architecture decisions', 'Measure architecture quality', 'Define redundancy and fault tolerance strategies [RAM]', 'Conduct architecture safety reviews [Safety]']
         },
         deliverables: {
             basic: ['Simple architecture description', 'Basic interface list', 'Architecture diagrams', 'Evaluation notes'],
             standard: ['Architecture development plan', 'Architecture description with views', 'Interface control document (ICD)', 'Architecture alternatives analysis', 'Architecture evaluation results', 'Architecture governance plan', 'RAMS Apportionment Document [RAM]', 'Safety requirement and applicable integrity allocation to elements [Safety]'],
-            comprehensive: ['Architecture models using suitable notation, including formal notation where required', 'Comprehensive architecture description', 'Detailed interface specifications', 'Extensive alternatives analysis with trade studies', 'Formal evaluation report', 'Architecture governance documentation', 'Architecture metrics', 'Patterns and reference architectures', 'Fault Tolerance Strategy Document [RAM]', 'Safety Partitioning Specification [Safety]']
+            comprehensive: ['Architecture models using suitable notation, including formal notation where required', 'Comprehensive architecture description', 'Detailed interface specifications', 'Extensive alternatives analysis with trade studies', 'Architecture evaluation and decision record', 'Architecture governance documentation', 'Architecture metrics', 'Patterns and reference architectures', 'Fault Tolerance Strategy Document [RAM]', 'Safety Partitioning Specification [Safety]']
         },
         outputs: [
             { name: 'Architecture description', feedsInto: 'Design Definition, System Requirements Definition' },
@@ -251,13 +251,13 @@ export const PROCESS_DETAILS = {
     21: {
         activities: {
             basic: ['(*) Create design documentation', '(*) Create design diagrams', 'Select technologies', 'Basic verification'],
-            standard: ['(*) Plan design process', '(*) Develop comprehensive documentation', 'Analyze alternatives', 'Verify designs with analysis', 'Assess technologies', 'Conduct design reviews', 'Perform FMEA/FMECA [RAM]', 'Conduct maintainability analysis [RAM]', 'Execute safety design reviews [Safety]'],
-            comprehensive: ['(*) Model designs using notation suited to implementation and verification needs', '(*) Develop detailed multi-view documentation', 'Optimize with extensive analysis', 'Comprehensive verification strategy', 'Advanced technology assessment with roadmap', 'Formal design reviews', 'Define diagnostic and test provisions [RAM]', 'Analyze failure modes and effects [RAM]']
+            standard: ['(*) Plan design process', '(*) Record the design and its key assumptions', 'Analyze alternatives', 'Verify designs with analysis', 'Assess technologies', 'Conduct design reviews', 'Perform FMEA/FMECA [RAM]', 'Conduct maintainability analysis [RAM]', 'Execute safety design reviews [Safety]'],
+            comprehensive: ['(*) Model designs using notation suited to implementation and verification needs', '(*) Develop detailed multi-view documentation', 'Resolve consequential design trade-offs using suitable analysis', 'Comprehensive verification strategy', 'Technology assessment where choices or uncertainties affect the design', 'Formal design reviews', 'Define diagnostic and test provisions [RAM]', 'Analyze failure modes and effects [RAM]']
         },
         deliverables: {
             basic: ['Design documentation', 'Design diagrams', 'Technology selections', 'Basic verification records'],
-            standard: ['Design plan', 'Comprehensive design documentation', 'Design alternatives analysis', 'Verification results', 'Technology assessment report', 'Design review records', 'FMEA/FMECA Report [RAM]', 'Maintainability Analysis Report [RAM]', 'Safety Design Review Records [Safety]'],
-            comprehensive: ['Design models using suitable notation, including formal notation where required', 'Detailed multi-view documentation', 'Extensive alternatives analysis', 'Comprehensive verification results', 'Advanced technology roadmap', 'Formal design review documentation', 'Design patterns catalog', 'Design quality metrics', 'Diagnostic Strategy Document [RAM]']
+            standard: ['Design plan', 'Controlled design record', 'Design alternatives analysis', 'Verification results', 'Technology assessment report', 'Design review records', 'FMEA/FMECA Report [RAM]', 'Maintainability Analysis Report [RAM]', 'Safety Design Review Records [Safety]'],
+            comprehensive: ['Design models using suitable notation, including formal notation where required', 'Detailed multi-view documentation', 'Extensive alternatives analysis', 'Comprehensive verification results', 'Technology decisions and follow-up where relevant', 'Formal design review documentation', 'Design patterns catalog', 'Design quality metrics', 'Diagnostic Strategy Document [RAM]']
         },
         outputs: [
             { name: 'Design documentation', feedsInto: 'Implementation, Integration' },
@@ -270,12 +270,12 @@ export const PROCESS_DETAILS = {
         activities: {
             basic: ['(*) Perform basic analyses', '(*) Document analysis data', 'Document methodology'],
             standard: ['(*) Plan analysis activities', '(*) Define analysis methodologies', 'Conduct analyses with recommendations', 'Define tool usage', 'Support decisions', 'Perform RAM analysis (FMEA/FMECA) [RAM]', 'Conduct RAMS trade studies [RAM]', 'Analyze safety risks [Safety]'],
-            comprehensive: ['(*) Develop analysis strategy', '(*) Create comprehensive framework', 'Perform advanced modeling/simulation', 'Validate methodologies', 'Document tool environments', 'Quantify uncertainties', 'Measure analysis effectiveness', 'Perform availability modeling [RAM]', 'Execute reliability predictions [RAM]', 'Support safety case development [Safety]']
+            comprehensive: ['(*) Develop analysis strategy', '(*) Define the decisions, assumptions, and evidence the analysis must address', 'Use modeling or simulation where the decision and available evidence warrant it', 'Validate methodologies', 'Document tool environments', 'Quantify uncertainties', 'Measure analysis effectiveness', 'Perform availability modeling [RAM]', 'Execute reliability predictions [RAM]', 'Support safety case development [Safety]']
         },
         deliverables: {
             basic: ['Simple analysis reports', 'Analysis data', 'Basic methodology documentation'],
             standard: ['Analysis plan', 'Analysis methodologies documentation', 'Analysis reports with recommendations', 'Tool usage guidelines', 'Decision support documentation', 'RAM Analysis Report (FMEA/FMECA) [RAM]', 'RAMS Trade Study Reports [RAM]', 'Safety Risk Analysis [Safety]'],
-            comprehensive: ['Analysis strategy', 'Comprehensive analysis framework', 'Advanced modeling/simulation documentation', 'Detailed methodology with validation', 'Tool environment documentation', 'Uncertainty quantification', 'Analysis effectiveness metrics', 'Decision support with sensitivity analysis', 'Availability Model and Analysis [RAM]', 'Reliability Prediction Reports [RAM]', 'Full Hazard Log & Analysis (HAZOP/FTA) [Safety]', 'Safety Case Evidence [Safety]']
+            comprehensive: ['Analysis strategy', 'Analysis scope, assumptions, and acceptance criteria', 'Models and results where used', 'Detailed methodology with validation', 'Tool environment documentation', 'Uncertainty quantification', 'Analysis effectiveness metrics', 'Decision support with sensitivity analysis', 'Availability Model and Analysis [RAM]', 'Reliability Prediction Reports [RAM]', 'Hazard analysis and results using methods suited to the hazards [Safety]', 'Safety Case Evidence [Safety]']
         },
         outputs: [
             { name: 'Analysis reports', feedsInto: 'Decision Management, Architecture Definition' },
@@ -287,13 +287,13 @@ export const PROCESS_DETAILS = {
     23: {
         activities: {
             basic: ['(*) Build per specifications', '(*) Perform basic acceptance testing', 'Document product'],
-            standard: ['(*) Plan implementation with procedures', '(*) Track progress', 'Execute acceptance tests', 'Create comprehensive documentation', 'Conduct implementation reviews', 'Perform safety-related inspections [Safety]', 'Execute component safety testing [Safety]'],
-            comprehensive: ['(*) Develop implementation strategy', '(*) Optimize with advanced techniques', 'Continuous monitoring dashboard', 'Comprehensive acceptance testing', 'Extensive documentation suite', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Maintain safety traceability [Safety]']
+            standard: ['(*) Plan implementation with procedures', '(*) Track progress', 'Execute acceptance tests', 'Record the build configuration and deviations', 'Conduct implementation reviews', 'Perform safety-related inspections [Safety]', 'Execute component safety testing [Safety]'],
+            comprehensive: ['(*) Develop implementation strategy', '(*) Control build variation, deviations, and acceptance across suppliers or increments', 'Monitor build and acceptance indicators where they affect release decisions', 'Comprehensive acceptance testing', 'Link build configuration, deviations, and acceptance evidence', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Maintain safety traceability [Safety]']
         },
         deliverables: {
             basic: ['Implementation plan', 'Implementation records', 'Basic acceptance documentation', 'Product documentation'],
-            standard: ['Detailed implementation plan', 'Progress reports', 'Acceptance test procedures/results', 'Comprehensive product documentation', 'Implementation review records', 'Safety Inspection Records [Safety]', 'Component Safety Test Reports [Safety]'],
-            comprehensive: ['Implementation strategy', 'Detailed procedures with optimization', 'Continuous monitoring dashboard', 'Comprehensive acceptance package', 'Extensive documentation suite', 'Formal review documentation', 'Implementation effectiveness metrics', 'Lessons learned']
+            standard: ['Detailed implementation plan', 'Progress reports', 'Acceptance test procedures/results', 'Build configuration and deviation record', 'Implementation review records', 'Safety Inspection Records [Safety]', 'Component Safety Test Reports [Safety]'],
+            comprehensive: ['Implementation strategy', 'Controlled procedures for the risks and interfaces involved', 'Build and acceptance indicators used in release decisions', 'Traceable acceptance evidence', 'Linked build configuration, deviations, and acceptance evidence', 'Formal review documentation', 'Implementation effectiveness metrics', 'Lessons learned']
         },
         outputs: [
             { name: 'Implemented product', feedsInto: 'Integration, Verification' },
@@ -304,13 +304,13 @@ export const PROCESS_DETAILS = {
     24: {
         activities: {
             basic: ['(*) Integrate system elements', '(*) Verify interfaces', '(*) Perform integration testing', 'Track integration issues'],
-            standard: ['(*) Plan integration with sequence', '(*) Specify integration environment', '(*) Execute procedures', 'Verify with records', 'Track issues in database', 'Conduct reviews', 'Perform RAM testing [RAM]', 'Execute safety integration tests [Safety]', 'Verify safety functions [Safety]'],
-            comprehensive: ['(*) Develop integration strategy', '(*) Plan with risk assessment', '(*) Manage integration environment', 'Comprehensive verification', 'Advanced issue analytics', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Update Hazard Log with integration findings [Safety]']
+            standard: ['(*) Plan integration with sequence', '(*) Specify integration environment', '(*) Execute procedures', 'Verify with records', 'Track issues to resolution', 'Conduct reviews', 'Perform RAM testing [RAM]', 'Execute safety integration tests [Safety]', 'Verify safety functions [Safety]'],
+            comprehensive: ['(*) Develop integration strategy', '(*) Plan with risk assessment', '(*) Manage integration environment', 'Comprehensive verification', 'Analyze recurring or release-critical integration issues', 'Formal reviews', 'Measure effectiveness', 'Capture lessons learned', 'Update Hazard Log with integration findings [Safety]']
         },
         deliverables: {
             basic: ['Integration plan', 'Integration records', 'Issue log', 'Integration report'],
-            standard: ['Detailed integration plan with sequence', 'Integration environment specification', 'Integration procedures', 'Verification records', 'Issue tracking database', 'Integration review documentation', 'RAM Test Reports [RAM]', 'Safety Integration Test Reports [Safety]'],
-            comprehensive: ['Integration strategy', 'Advanced plan with risk assessment', 'Detailed environment management plan', 'Comprehensive verification results', 'Advanced issue tracking with analytics', 'Formal review documentation', 'Integration effectiveness metrics', 'Lessons learned', 'Updated Hazard Log [Safety]']
+            standard: ['Detailed integration plan with sequence', 'Integration environment specification', 'Integration procedures', 'Verification records', 'Issue and resolution record', 'Integration review documentation', 'RAM Test Reports [RAM]', 'Safety Integration Test Reports [Safety]'],
+            comprehensive: ['Integration strategy', 'Advanced plan with risk assessment', 'Detailed environment management plan', 'Comprehensive verification results', 'Integration issue and resolution history', 'Formal review documentation', 'Integration effectiveness metrics', 'Lessons learned', 'Updated Hazard Log [Safety]']
         },
         outputs: [
             { name: 'Integrated system', feedsInto: 'Verification, Transition' },
@@ -322,13 +322,13 @@ export const PROCESS_DETAILS = {
     25: {
         activities: {
             basic: ['(*) Plan verification', '(*) Execute verification procedures', '(*) Report results', 'Log defects'],
-            standard: ['(*) Select justified methods: test, demonstration, inspection, or analysis', '(*) Specify verification environment', '(*) Execute comprehensive procedures', 'Track defects in database', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify allocated safety requirements and applicable integrity obligations [Safety]'],
-            comprehensive: ['(*) Develop verification strategy', '(*) Plan risk-based approach', '(*) Execute comprehensive procedures', 'Manage verification environment', 'Comprehensive reporting with traceability', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Prepare safety verification evidence [Safety]']
+            standard: ['(*) Select justified methods: test, demonstration, inspection, or analysis', '(*) Specify verification environment', '(*) Execute verification and link the results to the covered requirements', 'Track anomalies and their disposition', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify allocated safety requirements and applicable integrity obligations [Safety]'],
+            comprehensive: ['(*) Set verification depth and coverage by risk and consequence', '(*) Link requirements, methods, results, and exceptions', '(*) Control the test configuration and conditions needed for repeatable results', 'Investigate recurring or decision-critical anomalies', 'Review coverage and unresolved exceptions with the acceptance owner', 'Prepare safety verification evidence [Safety]']
         },
         deliverables: {
             basic: ['Verification plan', 'Verification procedures', 'Verification reports', 'Defect log'],
-            standard: ['Detailed verification plan', 'Verification procedures (methods selected for the requirements)', 'Verification environment specification', 'Comprehensive verification reports', 'Defect tracking database', 'Verification review records', 'RAMS Verification Reports [RAM]', 'Safety Function Test Records [Safety]', 'Verification evidence for allocated safety and integrity obligations [Safety]'],
-            comprehensive: ['Verification strategy', 'Detailed risk-based plans', 'Comprehensive procedures', 'Verification environment management', 'Extensive reports with complete traceability', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Verification effectiveness metrics', 'Safety Verification Evidence Package [Safety]']
+            standard: ['Detailed verification plan', 'Verification procedures (methods selected for the requirements)', 'Verification environment specification', 'Controlled verification results and coverage', 'Anomaly and disposition record', 'Verification review records', 'RAMS Verification Reports [RAM]', 'Safety Function Test Records [Safety]', 'Verification evidence for allocated safety and integrity obligations [Safety]'],
+            comprehensive: ['Risk-based coverage and method record', 'Controlled procedures and test configuration', 'Traceable verification results and exceptions', 'Disposition of significant anomalies and coverage gaps', 'Safety Verification Evidence Package [Safety]']
         },
         outputs: [
             { name: 'Verification reports', feedsInto: 'Transition, Validation' },
@@ -340,12 +340,12 @@ export const PROCESS_DETAILS = {
     26: {
         activities: {
             basic: ['(*) Plan transition', '(*) Install system', 'Provide basic training', 'Report transition'],
-            standard: ['(*) Plan detailed transition', '(*) Execute comprehensive installation', 'Verify operational readiness', 'Conduct training program', 'Review transition', 'Prepare documentation package', 'Conduct safety acceptance [Safety]', 'Transfer safety documentation [Safety]'],
+            standard: ['(*) Plan detailed transition', '(*) Install against agreed steps and readiness criteria', 'Verify operational readiness', 'Conduct training program', 'Review transition', 'Prepare documentation package', 'Conduct safety acceptance [Safety]', 'Transfer safety documentation [Safety]'],
             comprehensive: ['(*) Develop transition strategy', '(*) Plan with risk assessment', 'Install with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal reviews', 'Complete transition package', 'Measure effectiveness', 'Obtain safety acceptance and any Safety Case approval required by the applicable regime [Safety]', 'Conduct safety training for operators [Safety]']
         },
         deliverables: {
             basic: ['Transition plan', 'Installation procedures', 'Training materials', 'Transition report'],
-            standard: ['Detailed transition plan', 'Comprehensive installation procedures', 'Operational readiness verification plan', 'Training program', 'Transition review documentation', 'Transition documentation package', 'Safety Acceptance Records [Safety]', 'Safety Documentation Package [Safety]'],
+            standard: ['Detailed transition plan', 'Controlled installation procedures', 'Operational readiness verification plan', 'Training program', 'Transition review documentation', 'Transition documentation package', 'Safety Acceptance Records [Safety]', 'Safety Documentation Package [Safety]'],
             comprehensive: ['Transition strategy', 'Detailed plan with risk assessment', 'Installation procedures with contingencies', 'Comprehensive readiness verification', 'Advanced training with evaluation', 'Formal review documentation', 'Complete transition package', 'Transition effectiveness metrics', 'Safety acceptance record and approved Safety Case where required by the applicable regime [Safety]', 'Safety Training Records [Safety]']
         },
         outputs: [
@@ -358,13 +358,13 @@ export const PROCESS_DETAILS = {
     27: {
         activities: {
             basic: ['(*) Plan validation', '(*) Execute validation procedures', '(*) Report results', 'Log defects'],
-            standard: ['(*) Plan with multiple methods', '(*) Specify validation environment', '(*) Execute comprehensive procedures', 'Plan stakeholder involvement', 'Track defects in database', 'Conduct reviews', 'Validate reliability, availability, and maintainability performance against intended use and stakeholder needs [RAM]', 'Validate safety functions in operational context [Safety]'],
-            comprehensive: ['(*) Develop validation strategy', '(*) Plan with stakeholder focus', '(*) Execute comprehensive procedures', 'Manage validation environment', 'Comprehensive reporting with acceptance', 'Stakeholder involvement strategy', 'Advanced defect analysis', 'Formal reviews', 'Measure effectiveness', 'Obtain safety sign-off required by the applicable regime [Safety]', 'Develop RAMS validation plan [RAM]']
+            standard: ['(*) Choose validation methods suited to intended use and stakeholder needs', '(*) Specify validation environment', '(*) Exercise the intended use and record results against agreed criteria', 'Plan stakeholder involvement', 'Track anomalies and their disposition', 'Conduct reviews', 'Validate reliability, availability, and maintainability performance against intended use and stakeholder needs [RAM]', 'Validate safety functions in operational context [Safety]'],
+            comprehensive: ['(*) Cover consequential operating scenarios with the stakeholders who rely on the system', '(*) Justify the representativeness of the conditions and methods', '(*) Link results and exceptions to intended use and acceptance criteria', 'Investigate gaps that could change the acceptance decision', 'Agree responsibility and follow-up for unresolved exceptions', 'Obtain safety sign-off required by the applicable regime [Safety]', 'Develop RAMS validation plan [RAM]']
         },
         deliverables: {
             basic: ['Validation plan', 'Validation procedures', 'Validation reports', 'Defect log'],
-            standard: ['Detailed validation plan', 'Validation procedures (multiple methods)', 'Validation environment specification', 'Comprehensive reports', 'Stakeholder involvement plan', 'Defect tracking database', 'Validation review records', 'RAMS Validation Reports [RAM]', 'Operational Safety Validation Report [Safety]'],
-            comprehensive: ['Validation strategy', 'Detailed plans with stakeholder focus', 'Comprehensive procedures', 'Validation environment management', 'Extensive reports with stakeholder acceptance', 'Stakeholder involvement strategy', 'Advanced defect tracking/analysis', 'Formal review documentation', 'Validation effectiveness metrics', 'Safety acceptance evidence (Safety Acceptance Certificate where required by the applicable regime) [Safety]', 'RAMS Validation Plan [RAM]']
+            standard: ['Detailed validation plan', 'Validation methods and criteria for intended use', 'Validation environment specification', 'Controlled validation results against intended use', 'Stakeholder involvement plan', 'Anomaly and disposition record', 'Validation review records', 'RAMS Validation Reports [RAM]', 'Operational Safety Validation Report [Safety]'],
+            comprehensive: ['Scenario coverage, conditions, and method rationale', 'Results linked to intended use and acceptance criteria', 'Disposition and ownership of material gaps', 'Safety acceptance evidence (Safety Acceptance Certificate where required by the applicable regime) [Safety]', 'RAMS Validation Plan [RAM]']
         },
         outputs: [
             { name: 'Validation reports', feedsInto: 'Stakeholder Needs, System Requirements Definition' },
@@ -376,13 +376,13 @@ export const PROCESS_DETAILS = {
     28: {
         activities: {
             basic: ['(*) Execute operational procedures', '(*) Monitor performance', '(*) Track problems', 'Provide user support'],
-            standard: ['(*) Plan operations', '(*) Execute comprehensive procedures', '(*) Monitor with KPIs', 'Analyze performance', 'Manage problems', 'Provide user support procedures', 'Conduct reviews', 'Train operators', 'Monitor RAM performance [RAM]', 'Implement FRACAS [RAM]', 'Maintain operational Hazard Log [Safety]'],
-            comprehensive: ['(*) Develop operational strategy', '(*) Detailed procedures with contingencies', '(*) Performance monitoring framework', 'Advanced analytics', 'Problem management with root cause', 'Comprehensive user support', 'Formal reviews', 'Advanced training', 'Measure operational effectiveness', 'Continuous RAMS monitoring [RAM]', 'Conduct periodic safety reviews [Safety]']
+            standard: ['(*) Plan operations', '(*) Follow operational procedures and record deviations', '(*) Track indicators that support operational decisions', 'Analyze performance', 'Manage problems', 'Provide user support procedures', 'Conduct reviews', 'Train operators', 'Monitor RAM performance [RAM]', 'Track operational failures, causes, and corrective actions using a suitable record [RAM]', 'Maintain operational Hazard Log [Safety]'],
+            comprehensive: ['(*) Develop operational strategy', '(*) Detailed procedures with contingencies', '(*) Performance monitoring framework', 'Analyze trends or recurring problems where they affect operational decisions', 'Problem management with root cause', 'Comprehensive user support', 'Formal reviews', 'Advanced training', 'Measure operational effectiveness', 'Continuous RAMS monitoring [RAM]', 'Conduct periodic safety reviews [Safety]']
         },
         deliverables: {
             basic: ['Operational procedures', 'Performance reports', 'Problem records', 'User support documentation'],
-            standard: ['Operational plan', 'Comprehensive procedures', 'Performance monitoring plan', 'Performance analysis reports', 'Problem management process', 'User support procedures', 'Operational review records', 'Training program', 'FRACAS Reports and Database [RAM]', 'Operational Hazard Log [Safety]'],
-            comprehensive: ['Operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Advanced performance analytics', 'Problem management with root cause', 'Comprehensive user support infrastructure', 'Formal review documentation', 'Advanced training with evaluation', 'Operational effectiveness metrics', 'RAMS Validation Report [RAM]', 'Periodic Safety Review Reports [Safety]']
+            standard: ['Operational plan', 'Controlled procedures', 'Performance monitoring plan', 'Performance analysis reports', 'Problem management process', 'User support procedures', 'Operational review records', 'Training program', 'Failure and corrective-action evidence, such as a FRACAS record [RAM]', 'Operational Hazard Log [Safety]'],
+            comprehensive: ['Operational strategy', 'Detailed procedures with contingencies', 'Performance monitoring framework', 'Performance trends and decisions', 'Problem management with root cause', 'Comprehensive user support infrastructure', 'Formal review documentation', 'Advanced training with evaluation', 'Operational effectiveness metrics', 'Operational RAM performance evidence [RAM]', 'Periodic Safety Review Reports [Safety]']
         },
         outputs: [
             { name: 'Operational data', feedsInto: 'Maintenance, Measurement' },
@@ -394,13 +394,13 @@ export const PROCESS_DETAILS = {
     29: {
         activities: {
             basic: ['(*) Plan maintenance', '(*) Execute maintenance procedures', '(*) Track problems', 'Report maintenance'],
-            standard: ['(*) Plan detailed maintenance', '(*) Execute comprehensive procedures', '(*) Manage maintenance environment', 'Track problems in database', 'Conduct reviews', 'Prepare documentation package', 'Update Hazard Log post-maintenance [Safety]', 'Track reliability growth [RAM]'],
-            comprehensive: ['(*) Develop maintenance strategy', '(*) Detailed procedures with optimization', '(*) Justify maintenance methods and intervals using risk and observed condition', 'Manage maintenance environment', 'Advanced problem tracking/analysis', 'Formal reviews', 'Complete maintenance package', 'Measure effectiveness', 'Conduct change impact analysis for safety [Safety]', 'RAMS performance review & optimization [RAM]']
+            standard: ['(*) Plan detailed maintenance', '(*) Carry out maintenance and confirm readiness to return to service', '(*) Manage maintenance environment', 'Track problems and corrective actions to closure', 'Conduct reviews', 'Prepare documentation package', 'Update Hazard Log post-maintenance [Safety]', 'Review reliability trends when they inform maintenance decisions [RAM]'],
+            comprehensive: ['(*) Develop maintenance strategy', '(*) Control maintenance procedures that affect safety, reliability, or return to service', '(*) Justify maintenance methods and intervals using risk and observed condition', 'Manage maintenance environment', 'Investigate significant or recurring failures', 'Formal reviews', 'Controlled maintenance evidence linked to changes and release decisions', 'Measure effectiveness', 'Conduct change impact analysis for safety [Safety]', 'RAMS performance review & optimization [RAM]']
         },
         deliverables: {
             basic: ['Maintenance plan', 'Maintenance procedures', 'Problem records', 'Maintenance reports'],
-            standard: ['Detailed maintenance plan', 'Comprehensive procedures', 'Maintenance environment specification', 'Problem tracking database', 'Maintenance review records', 'Maintenance documentation package', 'Updated Hazard Log [Safety]', 'Reliability Growth Analysis [RAM]'],
-            comprehensive: ['Maintenance strategy', 'Detailed procedures with optimization', 'Justified maintenance methods and intervals', 'Maintenance environment management', 'Advanced problem tracking/analysis', 'Formal review documentation', 'Complete maintenance package', 'Maintenance effectiveness metrics', 'Safety Change Impact Analysis [Safety]', 'RAMS Performance Report [RAM]']
+            standard: ['Detailed maintenance plan', 'Controlled procedures', 'Maintenance environment specification', 'Problem and corrective-action records', 'Maintenance review records', 'Maintenance documentation package', 'Updated Hazard Log [Safety]', 'Reliability trends and maintenance decisions where useful [RAM]'],
+            comprehensive: ['Maintenance strategy', 'Controlled procedures for the risks and interfaces involved', 'Justified maintenance methods and intervals', 'Maintenance environment controls', 'Failure investigation and corrective-action evidence', 'Review and release decisions', 'Controlled maintenance evidence linked to changes and release decisions', 'Maintenance effectiveness metrics', 'Safety Change Impact Analysis [Safety]', 'RAMS Performance Report [RAM]']
         },
         outputs: [
             { name: 'Maintenance records', feedsInto: 'Operation, Configuration Management' },
@@ -412,13 +412,13 @@ export const PROCESS_DETAILS = {
     30: {
         activities: {
             basic: ['(*) Plan disposal', '(*) Execute disposal procedures', 'Archive records', 'Report disposal'],
-            standard: ['(*) Plan detailed disposal', '(*) Execute comprehensive procedures', 'Assess environmental impact', 'Address health and safety', 'Conduct reviews', 'Plan archiving', 'Prepare documentation', 'Identify and manage hazardous materials [Safety]', 'Close out Hazard Log [Safety]'],
-            comprehensive: ['(*) Develop disposal strategy', '(*) Detailed procedures with risk assessment', 'Comprehensive environmental analysis', 'Detailed health and safety plan', 'Formal reviews', 'Complete disposal documentation', 'Advanced archiving strategy', 'Measure effectiveness', 'Develop disposal safety case [Safety]', 'Archive safety records [Safety]']
+            standard: ['(*) Plan detailed disposal', '(*) Carry out disposal and record how materials and records were handled', 'Assess environmental impact', 'Address health and safety', 'Conduct reviews', 'Plan archiving', 'Prepare documentation', 'Identify and manage hazardous materials [Safety]', 'Close or transfer remaining hazards to an accountable owner [Safety]'],
+            comprehensive: ['(*) Develop disposal strategy', '(*) Detailed procedures with risk assessment', 'Comprehensive environmental analysis', 'Detailed health and safety plan', 'Formal reviews', 'Complete disposal documentation', 'Agree record retention, ownership, and access after disposal', 'Measure effectiveness', 'Provide the disposal safety evidence required by the applicable regime [Safety]', 'Archive safety records [Safety]']
         },
         deliverables: {
             basic: ['Disposal plan', 'Disposal procedures', 'Disposal report', 'Archive list'],
-            standard: ['Detailed disposal plan', 'Comprehensive disposal procedures', 'Environmental assessment', 'Health and safety procedures', 'Disposal review records', 'Archiving plan', 'Disposal documentation package', 'Hazardous Materials Inventory [Safety]', 'Hazard Log Closure Report [Safety]'],
-            comprehensive: ['Disposal strategy', 'Detailed procedures with risk assessment', 'Comprehensive environmental impact analysis', 'Detailed health and safety plan', 'Formal review documentation', 'Complete disposal documentation', 'Advanced archiving strategy', 'Disposal effectiveness metrics', 'Disposal Safety Case [Safety]', 'Archived Safety Records [Safety]']
+            standard: ['Detailed disposal plan', 'Comprehensive disposal procedures', 'Environmental assessment', 'Health and safety procedures', 'Disposal review records', 'Archiving plan', 'Disposal documentation package', 'Hazardous Materials Inventory [Safety]', 'Hazard closure and transfer records [Safety]'],
+            comprehensive: ['Disposal strategy', 'Detailed procedures with risk assessment', 'Comprehensive environmental impact analysis', 'Detailed health and safety plan', 'Formal review documentation', 'Complete disposal documentation', 'Retention, ownership, and access record', 'Disposal effectiveness metrics', 'Disposal safety evidence required by the applicable regime [Safety]', 'Archived Safety Records [Safety]']
         },
         outputs: [
             { name: 'Disposal records', feedsInto: 'Information Management, Knowledge Management' },

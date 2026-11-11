@@ -56,7 +56,7 @@ test('Direct Preview has named controls and repeated keyboard previews leave sav
   await expect(page.getByText(/directly affected processes only/)).toBeVisible();
   await process.selectOption('19');
   await level.selectOption('comprehensive');
-  const simulate = page.getByRole('button', { name: 'Simulate', exact: true });
+  const simulate = page.getByRole('button', { name: 'Show direct effects', exact: true });
   await simulate.focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#sim-results')).toContainText('Direct dependency');
@@ -110,7 +110,6 @@ test('Deliverables starts compact with keyboard disclosures and a labeled read-o
   await expect(groups).toHaveCount(22);
   await expect(groups.first().locator('.deliverable-toggle')).toBeVisible();
   expect(await groups.evaluateAll(nodes => nodes.every(node => !node.open))).toBe(true);
-  await expect(page.getByText(/These examples are not completion evidence/)).toBeVisible();
   const expand = page.getByRole('button', { name: 'Expand all', exact: true });
   await expand.focus();
   await page.keyboard.press('Enter');

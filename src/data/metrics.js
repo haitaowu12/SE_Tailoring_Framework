@@ -208,12 +208,12 @@ export const METRICS = [
         note: 'Primary driver for Safety Assurance Criticality Tier. M5=5 triggers life-safety overrides.',
         guidedQuestions: [
             {
-                text: "Could a system failure DIRECTLY result in FATALITY, catastrophic injury, or loss of life (e.g., train collision, structural collapse, electrocution)?",
+                text: "Could failure of an assessed function contribute to a credible fatality or catastrophic injury, including through an operator, interface, or other system? Consider the function’s safety responsibility and the independent protections in place.",
                 yesScore: 5,
                 rationale: 'Life-Safety (Tier 3) – Triggers comprehensive SA program with independent safety assessment'
             },
             {
-                text: "Could a failure cause SEVERE INJURY requiring hospitalization, permanent disability, or major regulatory investigation (e.g., broken bones, chemical exposure, fire)?",
+                text: "Could failure cause severe injury, hospitalization, permanent impairment, or multiple serious injuries?",
                 yesScore: 4,
                 rationale: 'Safety-Critical (Tier 2+) – Requires formal hazard analysis and safety case'
             },
@@ -223,7 +223,7 @@ export const METRICS = [
                 rationale: 'Safety consideration (Tier I, no SA floor) – Drives applicable process rigor and risk review without triggering safety-critical floors'
             },
             {
-                text: "Are there only INDIRECT safety implications (e.g., situational awareness, minor ergonomic issues) with no direct injury potential?",
+                text: "Are the credible human health effects slight and unlikely to require medical treatment, given the assessed function’s role and the protections in place?",
                 yesScore: 2,
                 rationale: 'Baseline safety assurance (Tier I) – No specific SA independence requirements'
             }

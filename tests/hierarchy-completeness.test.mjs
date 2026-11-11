@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { runFullAssessment } from '../src/utils/assessment-engine.js';
 
 import {
   assessHierarchyCompleteness,
@@ -26,7 +27,7 @@ function completeNode(id, parentId = null) {
     metricAssessments: makeAssessments(scores),
     ruleDispositions: {},
     csiResponse: {},
-    levels: {},
+    levels: runFullAssessment(scores).levels,
     assessmentResult: { violations: [] }
   };
 }

@@ -204,8 +204,18 @@ test('assessment UI exposes all M15 scopes while keeping binding detail optional
   await expect(page.getByText(/Disposal.*driver-only/)).toBeVisible();
   await expect(page.getByText(/Unreviewed — preview 3/)).toHaveCount(4);
 
+  await m15.getByRole('radio', { name: /^M15 score 4:/ }).check();
+  const scopePrompt = m15.getByRole('status').filter({ hasText: 'Record the binding source' });
+  await expect(scopePrompt).toBeVisible();
+  await expect(m15.locator('.assurance-scope:checked')).toHaveCount(0);
+  await m15.getByRole('textbox', { name: 'Asserted assurance authority role' }).fill('Synthetic acceptance authority');
+  await m15.getByRole('textbox', { name: 'Assurance source reference' }).fill('SYNTH-OBLIGATION');
+  await m15.getByRole('checkbox', { name: 'Binding status asserted' }).check();
+  await m15.getByRole('checkbox', { name: /Configuration Management/ }).check();
+  await expect(scopePrompt).toBeHidden();
+
   await page.getByRole('button', { name: 'Go to Results step' }).click();
-  await expect(page.getByRole('heading', { name: 'No recommendation yet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Review the tailoring profile' })).toBeVisible();
   await expect(page.locator('#btn-next')).toBeVisible();
   await expect(page.getByText(/artifact handoff required/i)).toHaveCount(0);
 });
