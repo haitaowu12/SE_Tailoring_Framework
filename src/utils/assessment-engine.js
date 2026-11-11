@@ -685,138 +685,56 @@ export function applyRightSizing(levels, scores, overridesApplied = [], context 
     const cri = computeCRI(scores);
     const constraintResponseRequirement = deriveCSIResponseRequirement(csi);
     const normative = { ...levels };
-    // A private planning copy allows proposals to be sequenced deterministically
-    // without changing the normative profile returned to the caller.
-    const proposedProfile = { ...levels };
-    const proposals = [];
-    const makeProposal = (processId, from, proposedTo, reason) => {
-        const affectedMetricIds = Object.keys(getEffectiveProcessMetricMap(processId, activeMatrixMap, context)).sort(metricSort);
-        const protectedMetricIds = affectedMetricIds
-            .filter(metric => ['M5', 'M8', 'M15'].includes(metric));
-        const proposal = {
-            processId,
-            elementId: context.activeElementId || context.elementId || 'default',
-            scopeElementIds: context.scopeElementIds || [context.activeElementId || context.elementId || 'default'],
-            from,
-            proposedTo,
-            to: proposedTo,
-            protectedMetricIds,
-            affectedMetricIds,
-            protectedOutputImpact: false,
-            type: 'rigor_budget_proposal',
-            status: 'review-required',
-            applied: false,
-            reason
-        };
-        return { ...proposal, approvalRequirements: getRightSizingApprovalRequirements(proposal, context.assessmentTree) };
+    let proposedProfile = { ...levels };
+    let proposalClosure = applyMandatoryClosure(proposedProfile, scores, context);
+    const rightSizingProposals = [];
+    const blockedRightSizingCandidates = [];
+    const budget = RIGOR_BUDGET.find(item => psi >= item.psiMin && psi <= item.psiMax);
+
+    const offerReductions = (from, to, limit) => {
+        const count = () => CORE_PROCESSES.filter(process => proposalClosure.levels[process.id] === from).length;
+        if (count() <= limit) return;
+        const candidates = CORE_PROCESSES
+            .filter(({ id }) => normative[id] === from && proposalClosure.levels[id] === from)
+            .filter(({ id }) => {
+                const floor = getActiveOverrideFloor(id, overridesApplied, scores, context);
+                return !floor || levelIndex(floor) <= levelIndex(to);
+            })
+            .map(({ id }) => ({
+                id,
+                priority: getProcessPriority(id),
+                maxMetric: getMaxDrivingMetric(id, scores, activeMatrixMap, context)
+            }))
+            .sort((a, b) => b.priority - a.priority || a.maxMetric - b.maxMetric);
+
+        for (const { id } of candidates) {
+            if (count() <= limit) break;
+            const trial = { ...proposedProfile, [id]: to };
+            const closure = applyMandatoryClosure(trial, scores, context);
+            const proposal = {
+                ...describeReduction(id, from, to, scores, {
+                    ...context,
+                    protectedOutputImpact: !!getActiveOverrideFloor(id, overridesApplied, scores, context)
+                }, activeMatrixMap),
+                type: 'rigor_budget_proposal',
+                status: 'review-required',
+                applied: false,
+                reason: `PSI=${psi} (${budget.label}) proposes review of ${from} count above ${limit}`
+            };
+            if (closure.levels[id] !== to) {
+                blockedRightSizingCandidates.push({ ...proposal, status: 'blocked-by-mandatory-closure', closureLevel: closure.levels[id] });
+                continue;
+            }
+            proposedProfile = trial;
+            proposalClosure = closure;
+            rightSizingProposals.push(proposal);
+        }
     };
 
-    // Evaluate the rigor budget based on PSI. CRI is intentionally not a ceiling;
-    // low readiness creates adoption risks, not permission to under-tailor.
-    const budget = RIGOR_BUDGET.find(b => psi >= b.psiMin && psi <= b.psiMax);
     if (budget) {
-        // Count current Comprehensive processes (excluding override-protected)
-        const compProcesses = CORE_PROCESSES
-            .filter(p => proposedProfile[p.id] === 'comprehensive')
-            .map(p => p.id);
-
-        if (compProcesses.length > budget.maxComprehensive) {
-            // Sort by priority (secondary first = downgrade first), then by lowest driving metric
-            const downgradeCandidates = compProcesses
-                .filter(pid => {
-                    const overrideFloor = getActiveOverrideFloor(pid, overridesApplied, scores, context);
-                    return !overrideFloor || levelIndex(overrideFloor) < levelIndex('comprehensive');
-                })
-                .map(pid => ({
-                    pid,
-                    priority: getProcessPriority(pid),
-                    maxMetric: getMaxDrivingMetric(pid, scores, activeMatrixMap, context)
-                }))
-                .sort((a, b) => {
-                    // Downgrade secondary before context-sensitive before core
-                    if (a.priority !== b.priority) return b.priority - a.priority;
-                    // Within same priority, downgrade lowest-scoring first
-                    return a.maxMetric - b.maxMetric;
-                });
-
-            let excess = compProcesses.length - budget.maxComprehensive;
-            for (const candidate of downgradeCandidates) {
-                if (excess <= 0) break;
-                const overrideFloor = getActiveOverrideFloor(candidate.pid, overridesApplied, scores, context);
-                const targetLevel = overrideFloor && levelIndex(overrideFloor) > levelIndex('standard')
-                    ? overrideFloor
-                    : 'standard';
-                if (proposedProfile[candidate.pid] === targetLevel) continue;
-                proposedProfile[candidate.pid] = targetLevel;
-                proposals.push(makeProposal(candidate.pid, 'comprehensive', targetLevel,
-                    `PSI=${psi} (${budget.label}) proposes review of Comprehensive count above ${budget.maxComprehensive}`));
-                excess--;
-            }
-        }
-
-        // For small projects (PSI 1-2), also limit Standard count
-        if (psi <= 2 && budget.typicalStandardRange) {
-            const maxStd = budget.typicalStandardRange[1];
-            const proposedStandardCount = CORE_PROCESSES
-                .filter(p => proposedProfile[p.id] === 'standard')
-                .length;
-            // Do not stack a second contingent proposal onto a process already
-            // proposed for Comprehensive -> Standard. Choose only processes
-            // whose normative level is Standard, while sizing the proposal set
-            // against the full contingent profile.
-            const normativeStandardProcesses = CORE_PROCESSES
-                .filter(p => normative[p.id] === 'standard')
-                .map(p => p.id);
-
-            if (proposedStandardCount > maxStd) {
-                const stdCandidates = normativeStandardProcesses
-                    .filter(pid => {
-                        const overrideFloor = getActiveOverrideFloor(pid, overridesApplied, scores, context);
-                        return !overrideFloor || levelIndex(overrideFloor) < levelIndex('standard');
-                    })
-                    .map(pid => ({
-                        pid,
-                        priority: getProcessPriority(pid),
-                        maxMetric: getMaxDrivingMetric(pid, scores, activeMatrixMap, context)
-                    }))
-                    .sort((a, b) => {
-                        if (a.priority !== b.priority) return b.priority - a.priority;
-                        return a.maxMetric - b.maxMetric;
-                    });
-
-                let stdExcess = proposedStandardCount - maxStd;
-                for (const candidate of stdCandidates) {
-                    if (stdExcess <= 0) break;
-                    const overrideFloor = getActiveOverrideFloor(candidate.pid, overridesApplied, scores, context);
-                    const targetLevel = overrideFloor && levelIndex(overrideFloor) > levelIndex('basic')
-                        ? overrideFloor
-                        : 'basic';
-                    if (proposedProfile[candidate.pid] === targetLevel) continue;
-                    proposedProfile[candidate.pid] = targetLevel;
-                    proposals.push(makeProposal(candidate.pid, 'standard', targetLevel,
-                        `PSI=${psi} (${budget.label}) proposes review of Standard count above ${maxStd}`));
-                    stdExcess--;
-                }
-            }
-        }
+        offerReductions('comprehensive', 'standard', budget.maxComprehensive);
+        if (psi <= 2 && budget.typicalStandardRange) offerReductions('standard', 'basic', budget.typicalStandardRange[1]);
     }
-
-    // A proposal that mandatory closure would immediately undo is not a viable
-    // approval candidate. Preview closure on the contingent profile, preserve
-    // blocked candidates for audit, and expose only closure-feasible proposals
-    // for governance review.
-    const proposalClosure = applyMandatoryClosure(proposedProfile, scores, context);
-    const blockedRightSizingCandidates = proposals
-        .filter(proposal => proposalClosure.levels[proposal.processId] !== proposal.proposedTo)
-        .map(proposal => ({
-            ...proposal,
-            status: 'blocked-by-mandatory-closure',
-            applied: false,
-            closureLevel: proposalClosure.levels[proposal.processId]
-        }));
-    const rightSizingProposals = proposals.filter(proposal =>
-        proposalClosure.levels[proposal.processId] === proposal.proposedTo
-    );
     const proposalBudgetStatus = computeRigorBudgetStatus(proposalClosure.levels, scores);
     const adoptionRisks = assessAdoptionReadiness(normative, scores);
     return {
@@ -855,6 +773,30 @@ export function computeRigorBudgetStatus(levels, scores) {
         standardExcess,
         withinBudget: comprehensiveExcess === 0 && standardExcess === 0
     };
+}
+
+/** Describe the impact of a reduction for both suggested and manual choices. */
+export function describeReduction(processId, from, to, scores, context = {}, matrixMap = METRIC_PROCESS_MAP) {
+    const affectedMetricIds = Object.keys(getEffectiveProcessMetricMap(processId, matrixMap || METRIC_PROCESS_MAP, context)).sort(metricSort);
+    const bindingObligation = getConfirmedBindingObligation(context, processId);
+    const protectedMetricIds = affectedMetricIds.filter(metric =>
+        (['M5', 'M8'].includes(metric) && scores?.[metric] >= 4) ||
+        (metric === 'M15' && !!bindingObligation)
+    );
+    if (bindingObligation && !protectedMetricIds.includes('M15')) protectedMetricIds.push('M15');
+    const proposal = {
+        processId,
+        elementId: context.activeElementId || context.elementId || 'default',
+        scopeElementIds: context.scopeElementIds || [context.activeElementId || context.elementId || 'default'],
+        from,
+        proposedTo: to,
+        to,
+        protectedMetricIds,
+        affectedMetricIds,
+        protectedOutputImpact: context.protectedOutputImpact === true || !!getActiveOverrideFloor(processId, [], scores, context)
+            || (affectedMetricIds.includes('M7') && scores?.M7 === 5)
+    };
+    return { ...proposal, approvalRequirements: getRightSizingApprovalRequirements(proposal, context.assessmentTree) };
 }
 
 /** Helper: get the max driving metric score for a process */

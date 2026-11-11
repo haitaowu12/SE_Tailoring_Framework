@@ -35,6 +35,7 @@ function renderRightSizingApprovalForm(proposal, state) {
   const field = (name, saved = '') => escapeHtml(draft?.fields[name] ?? saved);
   const status = assessedRecord?.assessment?.status || 'not-recorded';
   const reasons = assessedRecord?.assessment?.reasons || [];
+  const showDecisionDetails = requirements.consequential || Boolean(Object.entries(draft?.fields || {}).some(([key, value]) => key !== 'rationale' && value) || record.evidenceRef || record.protectedOutputs || record.residualRisks || record.reviewDate);
   const roleFields = requirements.requiredRoles.map(role => `
     <div class="grid-2 mb-sm">
       <label class="text-xs">${escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])} — asserted role<input class="input" name="${role}-identity" placeholder="Asserted approver role (not verified)" value="${field(`${role}-identity`, record.approvals?.[role]?.identity || '')}"></label>
@@ -44,11 +45,11 @@ function renderRightSizingApprovalForm(proposal, state) {
     <details class="mt-sm" style="border-top:1px solid rgba(99,102,241,.2);padding-top:8px;">
       <summary class="text-sm"><strong>${escapeHtml(proposalProcessName)}</strong>: ${escapeHtml(proposal.from)} → ${escapeHtml(target)} · local record ${escapeHtml(status)}</summary>
       <form class="right-sizing-approval-form mt-sm" data-process-id="${proposal.processId}">
-        <div class="text-xs text-secondary mb-sm">Required asserted roles: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''} The static prototype cannot authenticate identities or verify external approval.</div>
+        ${requirements.consequential ? `<div class="text-xs text-secondary mb-sm">Required asserted roles: ${requirements.requiredRoles.map(role => escapeHtml(RIGHT_SIZING_APPROVAL_ROLES[role])).join(' · ')}. ${requirements.crossElement ? `Boundary: ${escapeHtml(requirements.governingBoundaryElementId || 'unresolved')}.` : ''} Record the applicable decision and authority.</div>` : ''}
         ${reasons.length ? `<div class="text-xs mb-sm" style="color:var(--accent-warning);">Current record: ${reasons.map(escapeHtml).join(', ')}</div>` : ''}
         <p class="right-sizing-draft-status text-xs text-secondary mb-sm" role="status">${draft?.stale ? 'Draft from an earlier proposal. Review every field against the current proposal before recording.' : draft ? 'Draft kept in this browser session. It has not been submitted or applied.' : 'Typing saves a draft in this browser; only the button below records the asserted decision.'}</p>
         <label class="text-xs">Rationale<textarea class="input" name="rationale" rows="2">${field('rationale', record.rationale || '')}</textarea></label>
-        <label class="text-xs">Protected outputs and evidence<textarea class="input" name="protectedOutputs" rows="2">${field('protectedOutputs', record.protectedOutputs || '')}</textarea></label>
+        ${showDecisionDetails ? `<label class="text-xs">Protected outputs and evidence<textarea class="input" name="protectedOutputs" rows="2">${field('protectedOutputs', record.protectedOutputs || '')}</textarea></label>
         <div class="grid-2">
           <label class="text-xs">Residual risks<textarea class="input" name="residualRisks" rows="2">${field('residualRisks', record.residualRisks || '')}</textarea></label>
           <label class="text-xs">Risk acceptance owner<input class="input" name="riskAcceptanceOwner" value="${field('riskAcceptanceOwner', record.riskAcceptanceOwner || '')}"></label>
@@ -57,7 +58,7 @@ function renderRightSizingApprovalForm(proposal, state) {
           <label class="text-xs">Evidence reference<input class="input" name="evidenceRef" value="${field('evidenceRef', record.evidenceRef || '')}"></label>
           <label class="text-xs">Valid through / review date<input class="input" type="date" name="reviewDate" value="${field('reviewDate', record.reviewDate || '')}"></label>
         </div>
-        ${roleFields}
+        ${roleFields}` : ''}
         <button class="btn btn-primary btn-sm" type="submit">Record asserted decision and update local scenario</button>
       </form>
     </details>`;
@@ -233,7 +234,9 @@ function enhanceReportSections(container, previousSections = new Map()) {
 export function renderReport(container) {
   const previousSections = new Map([...container.querySelectorAll('.report-section')].map(section => [section.querySelector('.report-section-title')?.textContent, section.open]));
   removeReportPrintHandlers();
-  if (!getState().assessmentComplete) checkAssessmentAutomatically();
+  const currentState = getState();
+  const activeId = currentState.assessmentTree?.activeId || currentState.assessmentTree?.rootId;
+  if (!currentState.assessmentComplete && !currentState.assessmentTree?.nodes?.[activeId]?.restoredProfileDifferences) checkAssessmentAutomatically();
   const state = getState();
   const integrity = getAssessmentDisposition(state);
   const isDraft = !integrity.complete;
@@ -340,6 +343,7 @@ export function renderReport(container) {
       <span>${isDraft ? `${integrity.completeCount}/${METRICS.length} metric judgments confirmed. Unresolved inputs and checks remain listed below. This is a draft, not a completed record.` : 'Software completeness checks passed. External approval not verified.'}</span>${isDraft ? '<button type="button" class="btn btn-primary btn-sm" id="btn-go-assess">Continue Assessment</button><a class="btn btn-secondary btn-sm" href="#issues">Resolve open checks</a>' : ''}
     </div>
 
+    ${activeReportNode?.restoredProfileDifferences ? '<p class="text-sm mb-md">The saved levels differed from the current calculation. <a href="#review">Review the recalculated profile</a>.</p>' : ''}
     <section class="card mb-lg report-summary-panel" aria-labelledby="report-summary-title">
       <div>
         <h3 id="report-summary-title">Current process profile</h3>
@@ -900,13 +904,18 @@ export function renderReport(container) {
       }
       const formData = new FormData(form);
       const requirements = getRightSizingApprovalRequirements(proposal, current.assessmentTree);
-      const approvals = Object.fromEntries(requirements.requiredRoles.map(role => [role, {
+      const recordId = `RS-${proposal.elementId || current.assessmentTree?.activeId || 'default'}-${processId}`;
+      const previousRecord = (current.rightSizingApprovalRecords || []).find(item => item.id === recordId);
+      const approvals = { ...previousRecord?.approvals, ...Object.fromEntries(requirements.requiredRoles.map(role => [role, {
         identity: String(formData.get(`${role}-identity`) || '').trim(),
         authorityBasis: String(formData.get(`${role}-basis`) || '').trim()
-      }]));
+      }])) };
+      const activeElementId = current.assessmentTree?.activeId || current.assessmentTree?.rootId || 'default';
+      const activeNode = current.assessmentTree?.nodes?.[activeElementId];
+      const effectiveScores = activeNode ? getDecisionEffectiveScores(activeNode, current) : current.scores;
       const approvalContext = {
         assessmentTree: current.assessmentTree,
-        scores: current.scores,
+        scores: effectiveScores,
         assuranceObligations: current.assuranceObligations,
         activeFloors: current.activeFloors,
         normativeLevels: current.normativeLevels || current.levels,
@@ -914,7 +923,7 @@ export function renderReport(container) {
         metricDefinitionSet: FRAMEWORK_META.metricDefinitionSet
       };
       const record = {
-        id: `RS-${proposal.elementId || current.assessmentTree?.activeId || 'default'}-${processId}`,
+        id: recordId,
         decision: 'approved',
         processId,
         scopeElementIds: requirements.scopeElementIds,
@@ -935,7 +944,6 @@ export function renderReport(container) {
         approvals
       };
       const records = [...(current.rightSizingApprovalRecords || []).filter(item => item.id !== record.id), record];
-      const activeElementId = current.assessmentTree?.activeId || 'default';
       const assessmentContext = {
         ...current.projectInfo,
         metricAssessments: current.metricAssessments,
@@ -946,8 +954,6 @@ export function renderReport(container) {
         frameworkVersion: FRAMEWORK_META.version,
         metricDefinitionSet: FRAMEWORK_META.metricDefinitionSet
       };
-      const activeNode = current.assessmentTree?.nodes?.[activeElementId];
-      const effectiveScores = activeNode ? getDecisionEffectiveScores(activeNode, current) : current.scores;
       const result = runFullAssessment(effectiveScores, current.matrixMap, assessmentContext);
       const decisionReview = activeNode ? reconcileManualChoices(activeNode, current, result, { ...assessmentContext, matrixMap: current.matrixMap, effectiveScores }, activeNode.manualAdjustments || {}, true) : null;
       const effectiveLevels = applyManualAdjustmentsToLevels(result.levels, decisionReview?.adjustments || {});

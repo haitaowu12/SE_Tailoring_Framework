@@ -142,7 +142,7 @@ export function assessHierarchyCompleteness(assessmentTree = null) {
     const activeId = assessmentTree.activeId || assessmentTree.rootId || entries[0][0];
     const incompleteElementIds = entries.filter(([nodeId, node]) => {
         const ancestry = resolveProtectedAncestry(assessmentTree, nodeId);
-        if (!ancestry.valid || ancestry.blockedMetrics.length) return true;
+        if (!ancestry.valid || ancestry.blockedMetrics.length || node?.restoredProfileDifferences) return true;
         // Active raw metric judgments and current result are evaluated separately below.
         if (nodeId === activeId) return false;
         if (!node?.assessmentResult) return true;
@@ -185,6 +185,7 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
     const recordedHierarchy = options.hierarchy || assessHierarchyCompleteness(state.assessmentTree);
     const activeId = state.assessmentTree?.activeId || state.assessmentTree?.rootId;
     const ancestry = state.assessmentTree ? resolveProtectedAncestry(state.assessmentTree, activeId, { scores: state.scores }) : null;
+    const profileReviewPending = !!state.assessmentTree?.nodes?.[activeId]?.restoredProfileDifferences;
     const ancestryComplete = !ancestry || (ancestry.valid && ancestry.blockedMetrics.length === 0);
     const hierarchy = { ...recordedHierarchy, complete: recordedHierarchy.complete && ancestryComplete,
         incompleteElementIds: ancestryComplete ? recordedHierarchy.incompleteElementIds : [...new Set([...(recordedHierarchy.incompleteElementIds || []), ...(ancestry.blockedElementIds || []), activeId].filter(Boolean))] };
@@ -201,7 +202,7 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
     const inputComplete = completeness.complete && !migrationBlocked && !explicitlyDemo && derivationAuthoritative;
     const hardConstraints = assessHardConstraints(ancestry ? { ...state, scores: ancestry.effectiveScores } : state);
     const profileIssue = hardConstraints.violations.find(item => item.ruleId === 'incomplete-profile');
-    const ruleWarningComplete = hardConstraints.complete && warningDispositions.complete && csiResponse.complete;
+    const ruleWarningComplete = hardConstraints.complete && warningDispositions.complete && csiResponse.complete && !profileReviewPending;
     const softwareChecksPassed = inputComplete && ruleWarningComplete && hierarchy.complete;
 
     return {
@@ -226,7 +227,7 @@ export function evaluateBaselineEligibility(state = {}, options = {}) {
                 ...GATE_BY_ID['rule-warning-disposition'],
                 status: ruleWarningComplete ? 'passed' : 'incomplete',
                 blocking: true,
-                detail: ruleWarningComplete ? 'Hard constraints, triggered warnings and CSI response checks passed' : !hardConstraints.complete ? profileIssue?.label || 'Hard constraints or mandatory floors remain unsatisfied' : 'One or more warning or CSI response records remain incomplete'
+                detail: profileReviewPending ? 'Review the recalculated profile and any suspended decisions in Assessment.' : ruleWarningComplete ? 'Hard constraints, triggered warnings and CSI response checks passed' : !hardConstraints.complete ? profileIssue?.label || 'Hard constraints or mandatory floors remain unsatisfied' : 'One or more warning or CSI response records remain incomplete'
             },
             {
                 ...GATE_BY_ID['evidence-completeness'],

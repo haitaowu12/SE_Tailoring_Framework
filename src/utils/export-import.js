@@ -1,3 +1,4 @@
+import { refreshRestoredProfiles } from './restored-profiles.js';
 import { renderDecisionLedger } from './decision-record-view.js';
 import { buildElementContext } from './element-context.js';
 /**
@@ -660,7 +661,7 @@ export function normalizeImportedConfig(config, fallbackTree = null) {
             node.assessmentDisposition = 'work-in-progress';
         }
     }
-    return normalized;
+    return currentSemantics ? refreshRestoredProfiles(normalized) : normalized;
 }
 
 function buildIdentifierReducedProjectInfo(projectInfo = {}) {
@@ -1160,6 +1161,11 @@ export function validateConfig(config) {
                 }
                 if (node.parentId !== undefined && node.parentId !== null && !nodes[node.parentId]) {
                     errors.push(`assessmentTree node ${id} references missing parent`);
+                }
+                if (node.restoredProfileDifferences !== undefined && (!Array.isArray(node.restoredProfileDifferences)
+                    || node.restoredProfileDifferences.some(item => !isPlainObject(item) || !VALID_PROCESS_IDS.has(String(item.processId))
+                        || !VALID_LEVELS.has(item.saved) || !VALID_LEVELS.has(item.recalculated)))) {
+                    errors.push(`assessmentTree node ${id} has invalid restored profile differences`);
                 }
                 validateLevelMap(node.levels, `assessmentTree node ${id} levels`, errors);
                 validateManualAdjustments(node.manualAdjustments, `assessmentTree node ${id} manualAdjustments`, errors);

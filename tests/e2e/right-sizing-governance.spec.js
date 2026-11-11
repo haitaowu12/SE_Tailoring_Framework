@@ -112,7 +112,7 @@ async function importFixture(page, config, filename) {
   await page.locator('.report-section').filter({ has: page.locator('.report-section-title', { hasText: 'Right-Sizing Analysis' }) }).locator(':scope > summary').click();
 }
 
-test('incomplete decision fails closed, then a complete local record creates a separate report-visible scenario', async ({ page }) => {
+test('a routine reduction needs a rationale and creates a separate report-visible scenario', async ({ page }) => {
   const config = currentConfig(makeScores(), 'Right-Sizing Approval E2E');
   const proposal = config.rightSizingProposals.find(item => item.processId === 17);
   expect(proposal).toBeTruthy();
@@ -120,7 +120,7 @@ test('incomplete decision fails closed, then a complete local record creates a s
 
   const form = page.locator('.right-sizing-approval-form[data-process-id="17"]');
   await form.locator('xpath=..').locator('summary').click();
-  await form.locator('[name="rationale"]').fill('Bounded mission analysis scope supports the reduced activity set.');
+  await expect(form.locator('[name="evidenceRef"]')).toHaveCount(0);
   await form.getByRole('button', { name: 'Record asserted decision and update local scenario' }).click();
   await expect(page.getByText('Asserted decision record saved but remains structurally incomplete or invalid.')).toBeVisible({ timeout: 15000 });
   await expect(page.getByText(/Business\/Mission Analysis.*local record invalid/)).toBeVisible({ timeout: 15000 });
@@ -128,17 +128,7 @@ test('incomplete decision fails closed, then a complete local record creates a s
 
   const updatedForm = page.locator('.right-sizing-approval-form[data-process-id="17"]');
   await updatedForm.locator('xpath=..').locator('summary').click();
-  await updatedForm.locator('[name="protectedOutputs"]').fill('Mission problem statement, alternatives evidence, traceability, and acceptance record remain protected.');
-  await updatedForm.locator('[name="residualRisks"]').fill('A low-severity alternative may receive less analysis depth.');
-  await updatedForm.locator('[name="riskAcceptanceOwner"]').fill('Mission analysis risk owner');
-  await updatedForm.locator('[name="compensatingControls"]').fill('Independent alternatives review before architecture acceptance.');
-  await updatedForm.locator('[name="rejectedAlternatives"]').fill('Retaining Comprehensive was considered but rejected for the bounded scope.');
-  await updatedForm.locator('[name="evidenceRef"]').fill('RS-APPROVAL-E2E-17');
-  await updatedForm.locator('[name="reviewDate"]').fill('2027-07-10');
-  await updatedForm.locator('[name="accountableProcessOwner-identity"]').fill('Accountable owner');
-  await updatedForm.locator('[name="accountableProcessOwner-basis"]').fill('Approved process responsibility assignment');
-  await updatedForm.locator('[name="assessmentLead-identity"]').fill('Assessment lead');
-  await updatedForm.locator('[name="assessmentLead-basis"]').fill('Delegated assessment governance authority');
+  await updatedForm.locator('[name="rationale"]').fill('Bounded mission analysis scope supports the reduced activity set.');
   await updatedForm.getByRole('button', { name: 'Record asserted decision and update local scenario' }).click();
 
   await expect(page.getByText('Asserted decision record saved; the local scenario was rechecked. External approval remains unverified and the pilot profile is unchanged.')).toBeVisible();
@@ -146,7 +136,7 @@ test('incomplete decision fails closed, then a complete local record creates a s
   await expect(page.getByText('1 structurally complete local reduction record(s)')).toBeVisible();
   const effectiveForm = page.locator('.right-sizing-approval-form[data-process-id="17"]');
   await effectiveForm.locator('xpath=..').locator('summary').click();
-  await expect(effectiveForm.locator('[name="evidenceRef"]')).toHaveValue('RS-APPROVAL-E2E-17');
+  await expect(effectiveForm.locator('[name="rationale"]')).toHaveValue('Bounded mission analysis scope supports the reduced activity set.');
   const fullProfile = page.locator('.report-section', {
     has: page.getByText('Full Process Tailoring Profile', { exact: true })
   });
@@ -207,7 +197,6 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
     return w.assessments.find(entry=>entry.id===w.activeId).data.levels;
   });
   await form.locator('[name="rationale"]').fill('PRIVATE-UNSUBMITTED-RATIONALE');
-  await form.locator('[name="evidenceRef"]').fill('PRIVATE-DRAFT-REF');
   await page.goto('./#help');
   await expect(page.getByRole('heading',{name:'Choose the systems engineering work your project needs',exact:true})).toBeVisible();
   await page.goto('./#report');
@@ -232,7 +221,6 @@ test('right-sizing drafts survive interrupted editing, reload and private backup
   await page.getByRole('button',{name:'Minimum-data JSON',exact:true}).click();
   let reduced='';for await(const chunk of await (await reducedDownload).createReadStream()) reduced+=chunk.toString();
   expect(reduced).not.toContain('PRIVATE-UNSUBMITTED-RATIONALE');
-  expect(reduced).not.toContain('PRIVATE-DRAFT-REF');
   expect(reduced).not.toContain('rightSizingDrafts');
 
   await page.reload();
@@ -309,7 +297,7 @@ test('a failed asserted-record save reports the storage failure and retains the 
   form = page.locator('.right-sizing-approval-form[data-process-id="17"]');
   await form.locator('xpath=..').locator('summary').click();
   await form.getByRole('button',{name:'Record asserted decision and update local scenario'}).click();
-  await expect(page.getByText('Asserted decision record saved but remains structurally incomplete or invalid.',{exact:true})).toBeVisible();
+  await expect(page.getByText('Asserted decision record saved; the local scenario was rechecked.',{exact:false})).toBeVisible();
   await expect(page.locator('#runtime-status')).not.toBeVisible();
   const savedRecord = await page.evaluate(() => {
     const workspace = JSON.parse(localStorage.getItem('se-tailoring-workspace-v1'));

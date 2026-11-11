@@ -161,9 +161,9 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
   await importComplete(page, { M1: 2, M2: 4 });
   const fullProfile = section(page, 'Full Process Tailoring Profile');
   await fullProfile.locator(':scope > summary').click();
-  // This supported import omits provenance: never invent Basic or Supported.
-  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(3)).toHaveText('Not recorded');
-  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(9)).toHaveText('Not recorded');
+  // The fresh derivation supplies provenance that the imported file omitted.
+  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(3)).toHaveText('S');
+  await expect(fullProfile.locator('tbody tr').first().locator('td').nth(9)).not.toHaveText('Not recorded');
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download pilot HTML record', exact: true }).click();
   let html = '';
@@ -172,8 +172,8 @@ test('downloaded HTML leads with all 22 processes and retains one complete print
   await page.setContent(html);
   await expect(page.locator('h2').first()).toHaveText('Process Tailoring Levels');
   await expect(page.locator('.process-profile tbody tr')).toHaveCount(22);
-  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Derived"]')).toHaveText('Not recorded');
-  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Evidence status"]')).toHaveText('Not recorded');
+  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Derived"]')).toHaveText('standard');
+  await expect(page.locator('.process-profile tbody tr').first().locator('[data-label="Evidence status"]')).not.toHaveText('Not recorded');
   await expect(page.locator('.metric-scores tbody tr')).toHaveCount(16);
   await expect(page.locator('.ordinal-anchor')).toHaveCount(0);
   await expect(page.locator('.process-profile tbody tr').first()).toBeInViewport();

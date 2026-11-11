@@ -77,7 +77,8 @@ function currentSemanticFixture() {
     projectInfo: { name: 'Navigation Fixture' },
     metricScores,
     metricAssessments,
-    processLevels,
+    processLevels: { ...processLevels, 20: 'comprehensive' },
+    ruleDispositions: { '8b': { outcome: 'accept-current', rationale: 'Planning controls cover the architecture work.', ownerApprover: 'Project lead', evidenceRef: 'PLAN-1', reviewDate: '2099-12-31' } },
     normativeLevels: { ...processLevels },
     manualAdjustments: {
       20: { level: 'comprehensive', justification: 'Approved architecture adjustment for navigation test' }

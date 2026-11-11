@@ -32,7 +32,7 @@ test('right-sizing drafts are immutable per-element form data, never asserted de
 
 test('changed proposal context keeps a draft for explicit review without changing its original snapshot',()=>{
   const state=fixture();state.assessmentTree=saveRightSizingDraft(state,proposal,{rationale:'Prior thought'});
-  state.scores={...state.scores,M1:5};
+  state.assessmentTree.nodes.default.scores={...state.scores,M1:5};
   assert.equal(getRightSizingDraft(state,proposal).stale,true);
   state.assessmentTree=saveRightSizingDraft(state,proposal,{rationale:'Updated thought'});
   assert.equal(getRightSizingDraft(state,proposal).stale,true);

@@ -4,8 +4,8 @@ import { captureRecommendation, getRecommendation, prepareDecisions, decisionNee
 import { runFullAssessment } from '../src/utils/assessment-engine.js';
 import { buildExportConfig, normalizeImportedConfig, validateConfig } from '../src/utils/export-import.js';
 
-function fixture() {
-  const scores = Object.fromEntries(Array.from({length:16}, (_,i) => [`M${i+1}`,3]));
+function fixture(defaultScore = 3, overrides = {}) {
+  const scores = Object.fromEntries(Array.from({length:16}, (_,i) => [`M${i+1}`, overrides[`M${i+1}`] ?? defaultScore]));
   const metricAssessments = Object.fromEntries(Object.entries(scores).map(([id,score]) => [id,{score,status:'assessed',definitionVersion:3,qualifiers:[],rationale:'Assessed fixture',evidenceRefs:[]}]));
   const result = runFullAssessment(scores, undefined, {metricAssessments});
   const node = {id:'default',name:'Decision project',parentId:null,childIds:[],assessmentType:'full',status:'draft',scores,metricAssessments,assessmentResult:result,levels:result.levels,manualAdjustments:{}};
@@ -254,4 +254,17 @@ test('satisfied general warnings validate canonical levels, never an imported re
   const invalid=assessWarningDispositions(spoofed,{'8b':record},{...levels,9:'standard'}).assessments[0];
   assert.equal(invalid.complete,false);
   assert.ok(invalid.missingFields.includes('relationshipLevel'));
+});
+
+
+test('a safety-driven manual reduction needs a reference to the authority decision', () => {
+  const { node, state } = fixture(1, { M5: 5 });
+  const routineText = { level: 'basic', justification: 'The operator owns the operational assurance work.' };
+  assert.equal(node.levels[28], 'comprehensive');
+  assert.match(prepareDecisions(node, state, { 28: routineText }).errors.join(' '), /Independent assurance/);
+  const documented = prepareDecisions(node, state, { 28: {
+    ...routineText, owner: 'Operator acceptance authority', evidenceRef: 'Operator acceptance decision OPS-01'
+  } });
+  assert.deepEqual(documented.errors, []);
+  assert.equal(documented.levels[28], 'basic');
 });

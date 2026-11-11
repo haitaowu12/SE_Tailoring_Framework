@@ -370,19 +370,19 @@ test('elevated-validation outcome cannot complete while Validation remains Basic
 });
 
 test('Rule 11 warning blocks complete export until disposition is complete', () => {
-  const scores = makeScores(3);
-  const state = {
-    scores,
-    metricAssessments: makeAssessments(scores),
-    levels: { ...runFullAssessment(scores).levels, 27: 'basic' },
-    violations: [{ ruleId: 11, type: 'WN', affectedProcess: 27, currentLevel: 'basic', requiredLevel: 'standard' }],
-    assessmentComplete: true
-  };
+  const scores = { ...makeScores(1), M2: 5, M4: 3 };
+  const result = runFullAssessment(scores);
+  const ruleDispositions = Object.fromEntries(result.violations.filter(item => item.type === 'WN' && item.ruleId !== 11).map(item => [item.ruleId, {
+    outcome: 'accept-current', rationale: 'Review found the current coverage sufficient.', ownerApprover: 'Programme Chief Engineer',
+    evidenceRef: 'REVIEW', reviewDate: '2099-12-31'
+  }]));
+  const state = { ...result, scores, metricAssessments: makeAssessments(scores), ruleDispositions, assessmentComplete: true };
   const blocked = buildExportConfig(state);
   assert.equal(blocked.assessmentComplete, false);
   assert.equal(blocked.assessmentDisposition, 'work-in-progress');
 
   state.ruleDispositions = {
+    ...ruleDispositions,
     11: { ruleId: 11, propagationId: 'P12', outcome: 'outside-assessed-boundary', rationale: 'Acceptance is owned by the parent programme.', ownerApprover: 'Programme Chief Engineer', evidenceRef: 'ICD-VAL-2', reviewDate: '2026-07-10' }
   };
   const complete = buildExportConfig(state);
@@ -511,4 +511,26 @@ test('restoring an empty or partial profile preserves inputs and requires recalc
     assert.deepEqual(restored.scores, scores);
     assert.equal(evaluateBaselineEligibility(restored).hardConstraints.violations[0].ruleId, 'incomplete-profile');
   }
+});
+
+
+test('a restored complete-size profile must agree with its ratings or documented choices', () => {
+  const scores = { ...makeScores(1), M2: 3 };
+  const result = runFullAssessment(scores);
+  const config = buildExportConfig({ ...result, scores, metricAssessments: makeAssessments(scores), assessmentComplete: true });
+  const allBasic = Object.fromEntries(Object.keys(result.levels).map(id => [id, 'basic']));
+  const restored = normalizeImportedConfig({ ...config, processLevels: allBasic, assessmentTree: undefined });
+  assert.equal(restored.assessmentComplete, false);
+  assert.equal(evaluateBaselineEligibility(restored).softwareChecksPassed, false);
+  assert.equal(restored.levels[25], 'standard');
+  assert.deepEqual(restored.assessmentTree.nodes.default.restoredProfileDifferences.find(item => item.processId === 25),
+    { processId: 25, saved: 'basic', recalculated: 'standard' });
+  assert.deepEqual(restored.metricAssessments, config.metricAssessments);
+
+  const validLevels = { ...result.levels, 17: 'standard' };
+  const documented = normalizeImportedConfig({ ...config, processLevels: validLevels, assessmentTree: undefined,
+    manualAdjustments: { 17: { level: 'standard', justification: 'Additional review for a delivery handoff.' } } });
+  assert.equal(documented.assessmentComplete, true);
+  assert.equal(documented.levels[17], 'standard');
+  assert.equal(documented.normativeLevels[17], 'basic');
 });

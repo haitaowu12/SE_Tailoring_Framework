@@ -69,6 +69,10 @@ Built by [Tony Wu](https://tony-wu-home.web.app/) - systems engineering tools, a
 
 ## Assessment and decision flow (app 3.7.0)
 
+Review a restored profile if its saved levels differ from the current calculation. The app keeps the ratings, evidence, and choices that still pass the current checks. Choices that need reconfirmation appear in Decisions.
+
+Use a short rationale for routine one-level reductions. Two-level changes and reductions affecting protected work or multiple elements need an evidence reference and the applicable authority decision. The scale guidance suggests feasible reductions for review.
+
 Home explains the framework and starts or resumes work. Library holds independent assessments. The review screen restores the 16-metric spiderweb and shows each process once with the recorded mapping, support rule, floor and dependency explanation. Keep or adjust a process beside its recommendation; a rationale is required for changed levels. Recording one process retains other drafts and does not implicitly accept all 22 recommendations.
 
 Report is reachable while work is incomplete. Its draft banner and disabled completed-HTML export preserve the completion boundary. The process plan distinguishes the framework recommendation, current chosen level, human rationale and unrecorded drafts. Decisions retains owner, evidence, dated history and direct report navigation. Imported-framework review and Rule 11 elevation remain explicit actions in Open checks. The semantic contract remains 4.2.0.

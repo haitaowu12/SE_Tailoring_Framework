@@ -1,6 +1,8 @@
 import { FRAMEWORK_META } from '../data/se-tailoring-data.js';
 import { createRightSizingApprovalSnapshot, RIGHT_SIZING_APPROVAL_ROLES } from './right-sizing-governance.js';
 
+import { getDecisionEffectiveScores } from './tailoring-decisions.js';
+
 const FIELDS = new Set([
   'rationale', 'protectedOutputs', 'residualRisks', 'riskAcceptanceOwner',
   'compensatingControls', 'rejectedAlternatives', 'evidenceRef', 'reviewDate',
@@ -10,8 +12,9 @@ const activeNode = state => state.assessmentTree?.nodes?.[state.assessmentTree.a
 const safeFields = fields => Object.fromEntries(Object.entries(fields || {}).filter(([key,value]) => FIELDS.has(key) && typeof value === 'string'));
 
 export function rightSizingDraftSnapshot(state, proposal) {
+  const node = activeNode(state);
   return createRightSizingApprovalSnapshot(proposal, {
-    assessmentTree: state.assessmentTree, scores: state.scores,
+    assessmentTree: state.assessmentTree, scores: node ? getDecisionEffectiveScores(node, state) : state.scores,
     assuranceObligations: state.assuranceObligations, activeFloors: state.activeFloors,
     normativeLevels: state.normativeLevels || state.levels,
     frameworkVersion: FRAMEWORK_META.version, metricDefinitionSet: FRAMEWORK_META.metricDefinitionSet
@@ -31,7 +34,7 @@ export function saveRightSizingDraft(state, proposal, fields) {
   const previous = node.rightSizingDrafts?.[proposal.processId];
   return { ...state.assessmentTree, nodes: { ...state.assessmentTree.nodes, [node.id]: {
     ...node, rightSizingDrafts: { ...(node.rightSizingDrafts || {}), [proposal.processId]: {
-      fields: safeFields(fields), proposalSnapshot: previous?.proposalSnapshot || rightSizingDraftSnapshot(state, proposal)
+      fields: safeFields({ ...previous?.fields, ...fields }), proposalSnapshot: previous?.proposalSnapshot || rightSizingDraftSnapshot(state, proposal)
     } }
   } } };
 }

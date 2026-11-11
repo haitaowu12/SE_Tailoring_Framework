@@ -114,7 +114,7 @@ test('approval expires and any relevant assessment change invalidates its snapsh
   assert.ok(changed.reasons.includes('assessment-or-scope-changed'));
   const impossibleDate = assessRightSizingApproval(approvedRecord(baseProposal, { reviewDate: '2026-99-99' }), baseProposal, context);
   assert.equal(impossibleDate.valid, false);
-  assert.ok(impossibleDate.reasons.includes('review-date-required'));
+  assert.ok(impossibleDate.reasons.includes('review-date-invalid'));
 });
 
 test('mandatory floors, closure, allocation, and binding assurance are non-overridable', () => {
@@ -138,7 +138,7 @@ test('incomplete evidence, authority basis, and incorrect cross-element boundary
   const record = approvedRecord(proposal, {
     snapshot: createRightSizingApprovalSnapshot(proposal, context),
     governingBoundaryElementId: 'a',
-    residualRisks: '',
+    evidenceRef: '',
     approvals: {
       accountableProcessOwner: { identity: 'Person A', authorityBasis: '' },
       assessmentLead: { identity: 'Person B', authorityBasis: 'Assessment authority' },
@@ -148,7 +148,7 @@ test('incomplete evidence, authority basis, and incorrect cross-element boundary
   });
   const result = assessRightSizingApproval(record, proposal, context);
   assert.equal(result.valid, false);
-  assert.ok(result.reasons.includes('residualRisks-required'));
+  assert.ok(result.reasons.includes('evidenceRef-required'));
   assert.ok(result.reasons.includes('accountableProcessOwner-approval-required'));
   assert.ok(result.reasons.includes('nearest-common-governing-boundary-required'));
 });

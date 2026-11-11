@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openSessionMenu } from './helpers.js';
+import { runFullAssessment } from '../../src/utils/assessment-engine.js';
 
 const metricScores = Object.fromEntries(
   Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, 3])
@@ -296,7 +297,7 @@ test('Rule 11 elevated-validation creates a traceable manual P27 Standard adjust
     projectInfo: { name: 'Rule 11 Elevation Smoke' },
     metricScores: scores,
     metricAssessments: assessments,
-    processLevels: Object.fromEntries(Array.from({ length: 22 }, (_, index) => [String(index + 9), 'basic'])),
+    processLevels: runFullAssessment(scores).levels,
     artifactHandoffs: [acceptedRequirementsArchitectureHandoff()],
     assessmentComplete: true
   }, 'rule11-elevation-config.json');
@@ -493,4 +494,31 @@ test('child hierarchy records a structured parent-retained safety allocation dec
   await page.getByLabel('Safety allocation review date').fill('2026-07-10');
   await page.getByRole('button', { name: 'Save safety-allocation decision' }).click();
   await expect(page.getByText('Confirmed and evidence-backed.')).toBeVisible();
+});
+
+
+test('restored profile differences need review before the pilot record is available', async ({ page }) => {
+  const metricScores = Object.fromEntries(Array.from({ length: 16 }, (_, index) => [`M${index + 1}`, index === 1 ? 3 : 1]));
+  const metricAssessments = Object.fromEntries(Object.entries(metricScores).map(([id, score]) => [id, { score, status: 'assessed' }]));
+  const processLevels = Object.fromEntries(Array.from({ length: 22 }, (_, index) => [String(index + 9), 'basic']));
+  await importFixture(page, {
+    _format: 'se-tailoring-config',
+    _version: '2.0',
+    semantics: { frameworkVersion: '4.2.0', metricDefinitionSet: 'se-tailoring-m1-m16-v3', qualifierSchemaVersion: '1.1' },
+    projectInfo: { name: 'Restored Profile Review' }, metricScores, metricAssessments, processLevels,
+    assessmentComplete: true
+  }, 'restored-profile-review.json');
+  await page.goto('./#report');
+  await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download pilot HTML record' })).toBeDisabled();
+  await page.reload();
+  await page.getByRole('button', { name: 'Restore', exact: true }).click();
+  await page.goto('./#report');
+  await expect(page.getByRole('heading', { name: 'Draft Tailoring Report' })).toBeVisible();
+  await page.getByRole('link', { name: 'Review the recalculated profile' }).click();
+  await expect(page.getByRole('heading', { name: 'Review the recalculated profile' })).toBeVisible();
+  await expect(page.getByText('Verification: Basic → Standard', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Keep recalculated profile' }).click();
+  await page.goto('./#report');
+  await expect(page.getByRole('heading', { name: 'Pilot Tailoring Record' })).toBeVisible();
 });

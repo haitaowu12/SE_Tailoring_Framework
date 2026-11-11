@@ -492,7 +492,9 @@ test('export config preserves report-critical assessment state for round trip', 
   assert.equal(validateConfig(config).valid, true);
 
   const normalized = normalizeImportedConfig(config);
-  assert.equal(normalized.budgetStatus.withinBudget, false);
+  assert.deepEqual(normalized.budgetStatus, runFullAssessment(scores).budgetStatus);
+  assert.deepEqual(normalized.rightSizingActions, config.rightSizingActions);
+  assert.equal(normalized.assessmentComplete, false, 'Unexplained cached levels require review');
   assert.equal(Object.hasOwn(normalized, 'deliverablesChecked'), false);
 });
 
@@ -1093,4 +1095,20 @@ test('scoped M15 affects right-sizing priority and clears the missing-scope prom
   assert.equal(result.normativeLevels[13], 'comprehensive');
   assert.ok(result.rightSizingProposals.some(proposal => proposal.processId === 12 && proposal.proposedTo === 'standard'));
   assert.ok(!result.rightSizingProposals.some(proposal => proposal.processId === 13));
+});
+
+
+test('blocked reductions leave room for feasible later suggestions', () => {
+  const result = runFullAssessment({ ...makeScores(), M3: 3, M6: 5 });
+  assert.ok(result.blockedRightSizingCandidates.some(proposal => proposal.processId === 15));
+  assert.ok(result.rightSizingProposals.some(proposal => proposal.processId === 18));
+  assert.equal(result.proposalBudgetStatus.standardCount, 8);
+  assert.equal(result.normativeLevels[18], 'standard');
+});
+
+test('a mapped low safety score does not make a reduction require independent review', () => {
+  const result = runFullAssessment({ ...makeScores(), M6: 3 });
+  const proposal = result.rightSizingProposals.find(item => item.processId === 22);
+  assert.ok(proposal.affectedMetricIds.includes('M5'));
+  assert.deepEqual(proposal.approvalRequirements.requiredRoles, []);
 });

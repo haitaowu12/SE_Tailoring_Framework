@@ -1242,6 +1242,13 @@ function renderResults(content) {
       </details>` : ''}
     </section>` : '';
   content.innerHTML = `
+    ${Array.isArray(activeNodeBeforeRun?.restoredProfileDifferences) ? `<section class="card mb-md" aria-labelledby="restored-profile-title">
+      <h3 id="restored-profile-title">Review the recalculated profile</h3>
+      <p class="text-sm">The saved results differed from the current calculation. Your ratings and evidence were kept. Any choices that need reconfirmation are in Decisions.</p>
+      ${activeNodeBeforeRun.restoredProfileDifferences.length ? `<ul class="text-sm">${activeNodeBeforeRun.restoredProfileDifferences.map(change => `<li>${escapeHtml(processName(change.processId))}: ${escapeHtml(FRAMEWORK_META.levelLabels[change.saved] || change.saved)} → ${escapeHtml(FRAMEWORK_META.levelLabels[change.recalculated] || change.recalculated)}</li>`).join('')}</ul>` : ''}
+      <button type="button" class="btn btn-primary btn-sm mt-sm" id="btn-review-restored-profile">Keep recalculated profile</button>
+    </section>` : ''}
+
     <div class="results-toolbar"><nav class="assessment-result-tabs" aria-label="Assessment review sections">
       <button type="button" class="${assessmentViewMode !== 'issues' ? 'active' : ''}" data-result-route="review" aria-pressed="${assessmentViewMode !== 'issues'}">Recommendations</button>
       <button type="button" class="${assessmentViewMode === 'issues' ? 'active' : ''}" data-result-route="issues" aria-pressed="${assessmentViewMode === 'issues'}">Open checks${openDecisionCount ? ` · ${openDecisionCount}` : ''}</button>
@@ -1549,6 +1556,10 @@ function renderResults(content) {
     input?.addEventListener('input', refreshCsiResponse);
     if (id === 'csi-date') input?.addEventListener('change', refreshCsiResponse);
   }
+  content.querySelector('#btn-review-restored-profile')?.addEventListener('click', () => {
+    delete activeNodeBeforeRun.restoredProfileDifferences;
+    renderResults(content);
+  });
   finalizeAssessment(null, { automatic: true });
   updateCompleteButton();
 }
@@ -1566,7 +1577,9 @@ function finalizeAssessment(destinationHash = null, { automatic = false } = {}) 
     ...localProject,
     metricAssessments: localMetricAssessments,
     assuranceObligations: localAssuranceObligations,
-    rightSizingApprovalRecords: activeNode?.rightSizingApprovalRecords || state.rightSizingApprovalRecords || []
+    rightSizingApprovalRecords: activeNode?.rightSizingApprovalRecords || state.rightSizingApprovalRecords || [],
+    activeElementId: activeNode?.id,
+    assessmentTree: state.assessmentTree
   };
   const hierarchyInput = getHierarchyGuardedInput(state, localScores);
   const result = runFullAssessment(hierarchyInput.effectiveScores, matrixMap, assessmentContext);

@@ -2,7 +2,9 @@ import { METRIC_PROCESS_MAP } from '../data/se-tailoring-data.js';
 /** Browser-local decisions. Recommendations remain immutable reference snapshots. */
 import { FRAMEWORK_SEMANTIC_VERSION } from '../data/metrics.js';
 import { resolveProtectedAncestry } from './inheritance-engine.js';
-import { checkConsistency, applyOverrides } from './assessment-engine.js';
+import { checkConsistency, applyOverrides, describeReduction } from './assessment-engine.js';
+
+import { RIGHT_SIZING_APPROVAL_ROLES } from './right-sizing-governance.js';
 
 export const DECISION_LEVELS = ['basic', 'standard', 'comprehensive'];
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -81,6 +83,13 @@ export function prepareDecisions(node, state, drafts, timestamp = new Date().toI
   const errors = [];
   if (state.semanticMigration?.status === 'review-required') errors.push('Review and recalculate the migrated assessment before saving new decisions. Existing history is retained.');
   if (node.recommendationBaseline && ['scores', 'metricAssessments', 'assuranceObligations'].some(field => JSON.stringify(stable(node.recommendationBaseline[field] || (field === 'assuranceObligations' ? [] : {}))) !== JSON.stringify(stable(node[field] || (field === 'assuranceObligations' ? [] : {}))))) errors.push('Inputs changed since this recommendation. Review and recalculate before saving decisions; existing history and drafts are retained.');
+  const effectiveScores = getDecisionEffectiveScores(node, state);
+  const context = { ...state.projectInfo, metricAssessments: node.metricAssessments || {}, assuranceObligations: node.assuranceObligations || [],
+    activeElementId: node.id, assessmentTree: state.assessmentTree };
+  const activeFloors = [
+    ...(Array.isArray(baseline.activeFloors) ? baseline.activeFloors : []),
+    ...(Array.isArray(node.assessmentResult?.activeFloors) ? node.assessmentResult.activeFloors : [])
+  ];
   const changes = [];
   for (const [pid, draft] of Object.entries(drafts || {})) {
     if (!Object.hasOwn(baseline.levels, pid) || !DECISION_LEVELS.includes(draft.level)) {
@@ -97,6 +106,15 @@ export function prepareDecisions(node, state, drafts, timestamp = new Date().toI
       evidenceRef: String(draft.evidenceRef || '').trim(), reviewDate: String(draft.reviewDate || '').trim(),
       disposition: changed ? 'adjusted-locally' : 'recommendation-retained'
     };
+    if (DECISION_LEVELS.indexOf(draft.level) < DECISION_LEVELS.indexOf(baseline.levels[pid])) {
+      const reduction = describeReduction(Number(pid), baseline.levels[pid], draft.level, effectiveScores, {
+        ...context, protectedOutputImpact: activeFloors.some(floor => Number(floor?.processId) === Number(pid))
+      }, baseline.matrixMap || state.matrixMap);
+      if (reduction.approvalRequirements.consequential && (!record.owner || !record.evidenceRef)) {
+        const roles = reduction.approvalRequirements.requiredRoles.map(role => RIGHT_SIZING_APPROVAL_ROLES[role]).join(', ');
+        errors.push(`Process ${pid}: record the approving authority and an evidence reference covering ${roles}.`);
+      }
+    }
     if (origin) {
       record.origin = clone(origin);
       const originUnchanged = record.level === origin.level
@@ -117,13 +135,11 @@ export function prepareDecisions(node, state, drafts, timestamp = new Date().toI
     if (changed) adjustments[pid] = { ...record, recordedAt: records[pid]?.recordedAt || timestamp };
     else delete adjustments[pid];
   }
-  const context = { ...state.projectInfo, metricAssessments: node.metricAssessments || {}, assuranceObligations: node.assuranceObligations || [] };
-  const effectiveScores = getDecisionEffectiveScores(node, state);
   const ancestry = state.assessmentTree ? resolveProtectedAncestry(state.assessmentTree, node.id, { scores: node.scores }) : null;
   if (ancestry && !ancestry.valid) errors.push('The system-element ancestry is invalid. Repair the hierarchy before saving decisions; drafts and history are retained.');
   if (node.recommendationBaseline?.effectiveScores && JSON.stringify(stable(node.recommendationBaseline.effectiveScores)) !== JSON.stringify(stable(effectiveScores))) errors.push('Inherited inputs changed since this recommendation. Review and recalculate before saving decisions; existing history is retained.');
   const floors = [...applyOverrides(levels, effectiveScores, context).activeFloors,
-    ...(Array.isArray(baseline.activeFloors) ? baseline.activeFloors : []), ...(Array.isArray(node.assessmentResult?.activeFloors) ? node.assessmentResult.activeFloors : [])].filter(floor => floor && typeof floor === 'object');
+    ...activeFloors].filter(floor => floor && typeof floor === 'object');
   for (const floor of floors) {
     if (DECISION_LEVELS.indexOf(levels[floor.processId]) < DECISION_LEVELS.indexOf(floor.minLevel)) {
       errors.push(`Process ${floor.processId}: ${floor.minLevel} minimum is protected (${floor.reason}).`);

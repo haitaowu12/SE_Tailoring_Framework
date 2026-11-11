@@ -1,3 +1,4 @@
+import { refreshRestoredProfiles } from './utils/restored-profiles.js';
 /**
  * Shared App State
  *
@@ -159,7 +160,7 @@ function assessmentSnapshot() {
 function replaceAssessment(data) {
     const currentSemantics = isCurrentAutosaveSemantics(data);
     const restored = currentSemantics && data.assessmentTree?.nodes
-        ? data
+        ? refreshRestoredProfiles(JSON.parse(JSON.stringify(data)))
         : normalizeImportedConfig(buildAutosaveImportConfig(data));
     // Preserve the singleton reference for existing views, but remove all old keys.
     Object.keys(state).forEach(key => delete state[key]);

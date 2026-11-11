@@ -72,12 +72,15 @@ export function getRightSizingApprovalRequirements(proposal = {}, tree = null) {
     const scopeElementIds = normalizeElementIds(proposal.scopeElementIds, proposal.elementId || tree?.activeId || tree?.rootId || 'default');
     const protectedMetricIds = [...new Set((proposal.protectedMetricIds || []).filter(metric => PROTECTED_METRICS.has(metric)))].sort();
     const crossElement = scopeElementIds.length > 1;
-    const roles = ['accountableProcessOwner', 'assessmentLead'];
+    const protectedWork = protectedMetricIds.length > 0 || proposal.protectedOutputImpact === true;
+    const consequential = reductionSteps >= 2 || protectedWork || crossElement;
+    const roles = consequential ? ['accountableProcessOwner', 'assessmentLead'] : [];
     if (reductionSteps >= 2) roles.push('technicalAuthority');
-    if (protectedMetricIds.length > 0 || proposal.protectedOutputImpact === true) roles.push('independentAssuranceAuthority');
+    if (protectedWork) roles.push('independentAssuranceAuthority');
     if (crossElement) roles.push('governingBoundaryAuthority');
     return {
         reductionSteps,
+        consequential,
         scopeElementIds,
         protectedMetricIds,
         crossElement,
@@ -97,6 +100,7 @@ export function createRightSizingApprovalSnapshot(proposal = {}, context = {}) {
         from: proposal.from,
         proposedTo: proposal.proposedTo || proposal.to,
         protectedMetricIds: requirements.protectedMetricIds,
+        ...(proposal.protectedOutputImpact === true ? { protectedOutputImpact: true } : {}),
         affectedMetricScores: Object.fromEntries((proposal.affectedMetricIds || requirements.protectedMetricIds).map(metric => [metric, context.scores?.[metric] ?? null])),
         protectedMetricScores: Object.fromEntries(requirements.protectedMetricIds.map(metric => [metric, context.scores?.[metric] ?? null])),
         assuranceObligations: (context.assuranceObligations || [])
@@ -135,10 +139,10 @@ export function assessRightSizingApproval(record = {}, proposal = {}, context = 
     if (Number(record.processId) !== Number(proposal.processId)) reasons.push('process-mismatch');
     if (record.from !== proposal.from || record.to !== target) reasons.push('level-mismatch');
     if (record.snapshot !== expectedSnapshot) reasons.push('assessment-or-scope-changed');
-    if (!isRealIsoDate(record.reviewDate)) reasons.push('review-date-required');
-    else if (record.reviewDate < today) reasons.push('approval-expired');
+    if (record.reviewDate && !isRealIsoDate(record.reviewDate)) reasons.push('review-date-invalid');
+    else if (record.reviewDate && record.reviewDate < today) reasons.push('approval-expired');
 
-    for (const field of ['rationale', 'protectedOutputs', 'residualRisks', 'riskAcceptanceOwner', 'compensatingControls', 'rejectedAlternatives', 'evidenceRef']) {
+    for (const field of requirements.consequential ? ['rationale', 'evidenceRef'] : ['rationale']) {
         if (!String(record[field] || '').trim()) reasons.push(`${field}-required`);
     }
     for (const role of requirements.requiredRoles) {
@@ -226,7 +230,7 @@ export function validateRightSizingApprovalRecords(records, { allowIncomplete = 
         }
         if (record.scopeElementIds !== undefined && !Array.isArray(record.scopeElementIds)) errors.push(`rightSizingApprovalRecords[${index}] scopeElementIds must be an array`);
         if (record.decision === 'approved') {
-            for (const field of ['snapshot', 'rationale', 'protectedOutputs', 'residualRisks', 'riskAcceptanceOwner', 'compensatingControls', 'rejectedAlternatives', 'evidenceRef', 'reviewDate']) {
+            for (const field of ['snapshot', 'rationale']) {
                 if (!allowIncomplete && !String(record[field] || '').trim()) errors.push(`rightSizingApprovalRecords[${index}] approved record requires ${field}`);
             }
             if (record.reviewDate && !isRealIsoDate(record.reviewDate)) errors.push(`rightSizingApprovalRecords[${index}] has invalid reviewDate`);
