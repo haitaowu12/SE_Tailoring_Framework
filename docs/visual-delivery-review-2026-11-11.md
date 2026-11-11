@@ -22,13 +22,6 @@ The layout stacks below 700 px. The result entrance uses a 200 ms transition onl
 - Independent source review found no high or medium defect in this slice.
 - Diff whitespace check: passed.
 
-The deployed baseline was inspected in the cloud browser. The changed interface could not be rendered: local Chromium failed to create its process-singleton socket (`Operation not permitted`), and the cloud browser could not reach the isolated local preview. Desktop/narrow layout, keyboard focus and announcement behavior therefore remain an explicit browser acceptance gate. Automated checks are not a substitute for that gate.
+Chrome rendered the Direct Preview at desktop and 390 px. A Comprehensive System Requirements Definition proposal showed seven rule effects across six processes, including Unassessed → Standard, rule IDs and level-specific guidance links. The Basic proposal displayed the zero-effect explanation. Keyboard submission and focus worked, and the updated result was in a polite live region. The assessment-state invariant is covered by the existing preview tests. Screen-reader speech and the operating-system reduced-motion override remain unverified.
 
 Prepared as a review branch. No merge, deployment or GitHub Actions run is part of this delivery. Commits use `[skip ci]` under the existing Actions pause.
-
-## Browser acceptance before integration
-
-1. Open Dependencies → Direct Preview; choose a process with multiple effects. Check source-to-consequence reading order and rule/guidance links.
-2. Repeat with an incomplete assessment and a proposal with no direct effects. Check Unassessed and full-assessment guidance.
-3. Verify 390 px and desktop layouts, keyboard operation, a screen-reader result announcement, and reduced-motion rendering.
-4. Return to assessment and confirm no answer or computed level was changed by previewing.
