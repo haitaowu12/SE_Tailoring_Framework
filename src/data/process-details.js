@@ -166,7 +166,7 @@ export const PROCESS_DETAILS = {
             comprehensive: ['(*) Strategize assurance with objectives', '(*) Conduct assurance evaluations, including audits where required, with defined coverage and methodology', '(*) Assess quality issues and emerging patterns using available evidence', 'Drive improvement initiatives with metrics', 'Review safety documentation quality [Safety]']
         },
         deliverables: {
-            basic: ['Quality assurance plan', 'Peer-check or review record', 'Non-conformance records', 'Resolution tracking'],
+            basic: ['Review record with scope, criteria, and findings', 'Nonconformance actions and closure evidence'],
             standard: ['Detailed quality assurance plan', 'Evaluation procedures and results', 'Regular quality reports', 'Improvement action plans', 'SA Audit Reports [Safety]', 'SA Compliance Records [Safety]'],
             comprehensive: ['Quality assurance strategy', 'Comprehensive evaluation program', 'Quality trend analyses', 'Formal improvement initiative documentation', 'Assurance effectiveness metrics']
         },
@@ -183,7 +183,7 @@ export const PROCESS_DETAILS = {
             comprehensive: ['(*) Perform comprehensive analysis', '(*) Analyze stakeholder values, conflicts, and representation gaps', '(*) Analyze opportunities and external context; use PESTEL where suitable', 'Develop business or mission cases using relevant benefits, costs, and risks; use ROI where suitable', 'Identify safety-related stakeholders [Safety]']
         },
         deliverables: {
-            basic: ['Problem statement', 'Solution alternatives', 'Initial stakeholder list', 'ConOps (can be part of SRD)'],
+            basic: ['Problem statement', 'Solution alternatives', 'Initial stakeholder list', 'Initial operating concept where it helps compare options'],
             standard: ['Business/mission analysis plan', 'Stakeholder maps', 'Problem definition document', 'Initial Concept of Operations', 'Preliminary Hazard List (PHL) [Safety]', 'SA Criticality Tier determination [Safety]'],
             comprehensive: ['Comprehensive problem analysis', 'Stakeholder value models', 'Opportunity/risk profiles', 'Detailed business case documentation']
         },
@@ -214,12 +214,12 @@ export const PROCESS_DETAILS = {
     },
     19: {
         activities: {
-            basic: ['(*) Document requirements (simple list)', '(*) Trace simply with matrix', 'Review requirements (informal)'],
+            basic: ['(*) Document requirements (simple list)', '(*) Link requirements to their source using the project’s existing records', 'Review requirements (informal)'],
             standard: ['(*) Plan requirements development', '(*) Specify requirements with attributes', 'Maintain controlled requirements records with attributes and links', 'Trace with matrix', 'Validate requirements records', 'Plan verification', 'Identify safety requirements [Safety]', 'Define RAM requirements [RAM]', 'Establish and maintain Hazard Log [Safety]', 'Allocate safety requirements and integrity targets where the applicable regime requires them [Safety]'],
             comprehensive: ['(*) Model required behaviors using representations suited to assurance and verification needs', '(*) Specify requirements unambiguously; use formal models where suitable or required', 'Keep requirements and their relationships under change control', 'Document traceability network', 'Strategize validation', 'Plan verification comprehensively', 'Define safety functional requirements [Safety]', 'Define reliability, availability, and maintainability requirements for the applicable context [RAM]']
         },
         deliverables: {
-            basic: ['System Requirements Document (SRD)', 'Simple traceability matrix', 'Requirements review records'],
+            basic: ['Requirements with sources and review decisions, in a list or an existing record'],
             standard: ['Requirements development plan', 'System Specification (SS)', 'Controlled requirements records with attributes', 'Traceability matrix', 'Validation records', 'Verification planning documentation', 'Preliminary Hazard Analysis (PHA) [Safety]', 'RAMS Requirements Specification [RAM]', 'Hazard Log [Safety]', 'Safety requirement and applicable integrity allocation record [Safety]'],
             comprehensive: ['Detailed requirements specification with formal models where suitable or required', 'Controlled requirements records and relationships', 'Traceability across the assessed requirements, interfaces, and evidence', 'Detailed validation strategy', 'Comprehensive verification planning', 'Change impact analysis methodology', 'Requirements quality metrics', 'Safety Requirements Specification [Safety]', 'Safety argument and supporting evidence required by the applicable regime [Safety]']
         },
@@ -321,12 +321,12 @@ export const PROCESS_DETAILS = {
     },
     25: {
         activities: {
-            basic: ['(*) Plan verification', '(*) Execute verification procedures', '(*) Report results', 'Log defects'],
+            basic: ['(*) Identify the requirements to check and how to check them', '(*) Perform the checks and record results and anomalies'],
             standard: ['(*) Select justified methods: test, demonstration, inspection, or analysis', '(*) Specify verification environment', '(*) Execute verification and link the results to the covered requirements', 'Track anomalies and their disposition', 'Conduct reviews', 'Verify RAMS requirements [RAM]', 'Conduct safety function testing [Safety]', 'Verify allocated safety requirements and applicable integrity obligations [Safety]'],
             comprehensive: ['(*) Set verification depth and coverage by risk and consequence', '(*) Link requirements, methods, results, and exceptions', '(*) Control the test configuration and conditions needed for repeatable results', 'Investigate recurring or decision-critical anomalies', 'Review coverage and unresolved exceptions with the acceptance owner', 'Prepare safety verification evidence [Safety]']
         },
         deliverables: {
-            basic: ['Verification plan', 'Verification procedures', 'Verification reports', 'Defect log'],
+            basic: ['Requirements checked, methods, results, and anomaly records'],
             standard: ['Detailed verification plan', 'Verification procedures (methods selected for the requirements)', 'Verification environment specification', 'Controlled verification results and coverage', 'Anomaly and disposition record', 'Verification review records', 'RAMS Verification Reports [RAM]', 'Safety Function Test Records [Safety]', 'Verification evidence for allocated safety and integrity obligations [Safety]'],
             comprehensive: ['Risk-based coverage and method record', 'Controlled procedures and test configuration', 'Traceable verification results and exceptions', 'Disposition of significant anomalies and coverage gaps', 'Safety Verification Evidence Package [Safety]']
         },
@@ -357,12 +357,12 @@ export const PROCESS_DETAILS = {
     },
     27: {
         activities: {
-            basic: ['(*) Plan validation', '(*) Execute validation procedures', '(*) Report results', 'Log defects'],
+            basic: ['(*) Agree the intended use and what would show it works', '(*) Check a representative use scenario and record the outcome with the user or their representative'],
             standard: ['(*) Choose validation methods suited to intended use and stakeholder needs', '(*) Specify validation environment', '(*) Exercise the intended use and record results against agreed criteria', 'Plan stakeholder involvement', 'Track anomalies and their disposition', 'Conduct reviews', 'Validate reliability, availability, and maintainability performance against intended use and stakeholder needs [RAM]', 'Validate safety functions in operational context [Safety]'],
             comprehensive: ['(*) Cover consequential operating scenarios with the stakeholders who rely on the system', '(*) Justify the representativeness of the conditions and methods', '(*) Link results and exceptions to intended use and acceptance criteria', 'Investigate gaps that could change the acceptance decision', 'Agree responsibility and follow-up for unresolved exceptions', 'Obtain safety sign-off required by the applicable regime [Safety]', 'Develop RAMS validation plan [RAM]']
         },
         deliverables: {
-            basic: ['Validation plan', 'Validation procedures', 'Validation reports', 'Defect log'],
+            basic: ['Use scenario, success criteria, user or representative feedback, and any gaps'],
             standard: ['Detailed validation plan', 'Validation methods and criteria for intended use', 'Validation environment specification', 'Controlled validation results against intended use', 'Stakeholder involvement plan', 'Anomaly and disposition record', 'Validation review records', 'RAMS Validation Reports [RAM]', 'Operational Safety Validation Report [Safety]'],
             comprehensive: ['Scenario coverage, conditions, and method rationale', 'Results linked to intended use and acceptance criteria', 'Disposition and ownership of material gaps', 'Safety acceptance evidence (Safety Acceptance Certificate where required by the applicable regime) [Safety]', 'RAMS Validation Plan [RAM]']
         },
